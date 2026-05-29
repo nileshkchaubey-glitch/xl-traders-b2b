@@ -1,4 +1,7 @@
 import { supabase, Product, Category, ProductImage, Enquiry } from './supabase';
+import { demoProducts, demoCategories } from './demoData';
+
+const isDemo = !import.meta.env.VITE_SUPABASE_URL;
 
 // ============================================================================
 // CATEGORIES
@@ -6,14 +9,21 @@ import { supabase, Product, Category, ProductImage, Enquiry } from './supabase';
 
 export const categoryService = {
   async getAll() {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true });
+    if (isDemo) return demoCategories;
+    
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
-    if (error) throw error;
-    return data as Category[];
+      if (error) throw error;
+      return data as Category[];
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      return demoCategories;
+    }
   },
 
   async getById(id: string) {
@@ -66,41 +76,69 @@ export const categoryService = {
 
 export const productService = {
   async getAll(filters?: { categoryId?: string; search?: string; featured?: boolean }) {
-    let query = supabase
-      .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true });
-
-    if (filters?.categoryId) {
-      query = query.eq('category_id', filters.categoryId);
+    if (isDemo) {
+      let results = [...demoProducts];
+      if (filters?.categoryId) results = results.filter(p => p.category_id === filters.categoryId);
+      if (filters?.featured) results = results.filter(p => p.is_featured);
+      if (filters?.search) {
+        const q = filters.search.toLowerCase();
+        results = results.filter(p => 
+          p.name.toLowerCase().includes(q) || 
+          p.description?.toLowerCase().includes(q)
+        );
+      }
+      return results;
     }
+    
+    try {
+      let query = supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
-    if (filters?.featured) {
-      query = query.eq('is_featured', true);
+      if (filters?.categoryId) {
+        query = query.eq('category_id', filters.categoryId);
+      }
+
+      if (filters?.featured) {
+        query = query.eq('is_featured', true);
+      }
+
+      if (filters?.search) {
+        query = query.or(
+          `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
+        );
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data as Product[];
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      return demoProducts;
     }
-
-    if (filters?.search) {
-      query = query.or(
-        `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
-      );
-    }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
-    return data as Product[];
   },
 
   async getById(id: string) {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', id)
-      .single();
+    if (isDemo) {
+      return demoProducts.find(p => p.id === id) || null;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    if (error) throw error;
-    return data as Product;
+      if (error) throw error;
+      return data as Product;
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      return null;
+    }
   },
 
   async getByIdWithImages(id: string) {
@@ -110,28 +148,50 @@ export const productService = {
   },
 
   async getFeatured(limit: number = 6) {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .eq('is_featured', true)
-      .order('display_order', { ascending: true })
-      .limit(limit);
+    if (isDemo) {
+      return demoProducts.filter(p => p.is_featured).slice(0, limit);
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .eq('is_featured', true)
+        .order('display_order', { ascending: true })
+        .limit(limit);
 
-    if (error) throw error;
-    return data as Product[];
+      if (error) throw error;
+      return data as Product[];
+    } catch (error) {
+      console.error('Error fetching featured products:', error);
+      return demoProducts.filter(p => p.is_featured).slice(0, limit);
+    }
   },
 
   async search(query: string, limit: number = 20) {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
-      .limit(limit);
+    if (isDemo) {
+      const q = query.toLowerCase();
+      return demoProducts.filter(p => 
+        p.name.toLowerCase().includes(q) || 
+        p.description?.toLowerCase().includes(q)
+      ).slice(0, limit);
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+        .limit(limit);
 
-    if (error) throw error;
-    return data as Product[];
+      if (error) throw error;
+      return data as Product[];
+    } catch (error) {
+      console.error('Error searching products:', error);
+      return [];
+    }
   },
 
   async create(product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) {
@@ -181,14 +241,21 @@ export const productService = {
 
 export const productImageService = {
   async getByProductId(productId: string) {
-    const { data, error } = await supabase
-      .from('product_images')
-      .select('*')
-      .eq('product_id', productId)
-      .order('display_order', { ascending: true });
+    if (isDemo) return [];
+    
+    try {
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', productId)
+        .order('display_order', { ascending: true });
 
-    if (error) throw error;
-    return data as ProductImage[];
+      if (error) throw error;
+      return data as ProductImage[];
+    } catch (error) {
+      console.error('Error fetching product images:', error);
+      return [];
+    }
   },
 
   async create(image: Omit<ProductImage, 'id' | 'created_at'>) {
@@ -280,22 +347,32 @@ export const enquiryService = {
 
 export const storageService = {
   async uploadProductImage(file: File, productId: string) {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${productId}-${Date.now()}.${fileExt}`;
-    const filePath = `products/${fileName}`;
+    if (isDemo) {
+      console.warn('Demo mode: Image not uploaded');
+      return '';
+    }
+    
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${productId}-${Date.now()}.${fileExt}`;
+      const filePath = `products/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('product-images')
-      .upload(filePath, file);
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
 
-    if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
 
-    // Get public URL
-    const { data } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(filePath);
+      // Get public URL
+      const { data } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
 
-    return data.publicUrl;
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
   },
 
   async deleteProductImage(filePath: string) {

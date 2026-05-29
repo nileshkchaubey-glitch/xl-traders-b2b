@@ -25,6 +25,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   initialize: async () => {
     try {
+      // Check if Supabase is available
+      if (!supabase.auth || !supabase.auth.getUser) {
+        console.warn('Supabase auth not available (demo mode)');
+        set({ isLoading: false });
+        return;
+      }
+      
       // Check if user is already logged in
       const { data: { user } } = await supabase.auth.getUser();
       

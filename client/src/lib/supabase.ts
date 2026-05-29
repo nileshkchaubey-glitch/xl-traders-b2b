@@ -3,11 +3,28 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+// Create a dummy client for demo mode if env vars are missing
+let supabaseClient: any;
+
+if (supabaseUrl && supabaseAnonKey) {
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+} else {
+  console.warn('⚠️ Supabase environment variables not configured. Running in demo mode.');
+  console.warn('To enable full functionality, set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+  
+  supabaseClient = {
+    auth: { onAuthStateChange: () => ({ data: { subscription: null } }) },
+    from: () => ({
+      select: () => ({ data: [], error: null }),
+      insert: () => ({ data: null, error: null }),
+      update: () => ({ data: null, error: null }),
+      delete: () => ({ data: null, error: null }),
+    }),
+    storage: { from: () => ({ upload: () => ({ data: null, error: null }) }) },
+  };
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = supabaseClient;
 
 // Types for database
 export interface Category {
@@ -28,9 +45,11 @@ export interface Product {
   category_id: string;
   description?: string;
   price: number;
+  mrp?: number;
   unit_of_measure: string;
   quantity_in_unit?: number;
   sku?: string;
+  discount_percent?: number;
   image_url?: string;
   image_alt_text?: string;
   image_description?: string;
