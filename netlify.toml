@@ -1,0 +1,73 @@
+# Netlify Configuration for XL Traders B2B Website
+
+[build]
+  command = "pnpm install && pnpm build"
+  functions = "netlify/functions"
+  publish = "dist"
+
+[build.environment]
+  # Node version
+  NODE_VERSION = "22.13.0"
+  # Pnpm version
+  PNPM_VERSION = "10.15.1"
+
+# Redirects for client-side routing (SPA)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers configuration
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Security headers
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # CORS headers (adjust as needed)
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+
+# Cache headers for static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache headers for HTML (no cache)
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Environment variables (set these in Netlify dashboard)
+# VITE_SUPABASE_URL
+# VITE_SUPABASE_ANON_KEY
+# VITE_BUSINESS_NAME
+# VITE_WHATSAPP_NUMBER
+# VITE_PHONE_1
+# VITE_PHONE_2
+# VITE_EMAIL
+
+# Context-specific settings
+[context.production]
+  command = "pnpm install && pnpm build"
+
+[context.deploy-preview]
+  command = "pnpm install && pnpm build"
+
+[context.branch-deploy]
+  command = "pnpm install && pnpm build"
+
+# Plugins
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Functions configuration
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
