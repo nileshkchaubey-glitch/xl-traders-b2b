@@ -9,10 +9,10 @@ import { Product, Category } from '@/lib/supabase';
 
 export default function Admin() {
   const [, setLocation] = useLocation();
-  const { isAuthenticated, isAdmin } = useAuthStore();
+  const { isAuthenticated, isAdmin, isLoading } = useAuthStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -30,6 +30,8 @@ export default function Admin() {
 
   // Check auth
   useEffect(() => {
+    if (isLoading) return;
+
     if (!isAuthenticated) {
       setLocation('/auth');
       return;
@@ -39,7 +41,7 @@ export default function Admin() {
       setLocation('/');
       return;
     }
-  }, [isAuthenticated, isAdmin, setLocation]);
+  }, [isLoading, isAuthenticated, isAdmin, setLocation]);
 
   // Load data
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function Admin() {
       } catch (error) {
         console.error('Error loading admin data:', error);
       } finally {
-        setIsLoading(false);
+        setIsDataLoading(false);
       }
     };
 
@@ -170,12 +172,15 @@ export default function Admin() {
     }
   };
 
-  if (!isAdmin) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Header />
         <main className="flex-1 flex items-center justify-center">
-          <p className="text-slate-500">Redirecting...</p>
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-slate-500 text-sm">Loading...</p>
+          </div>
         </main>
         <Footer />
       </div>
@@ -383,7 +388,7 @@ export default function Admin() {
           )}
 
           {/* Products Table */}
-          {isLoading ? (
+          {isDataLoading ? (
             <p className="text-slate-500">Loading products...</p>
           ) : (
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
