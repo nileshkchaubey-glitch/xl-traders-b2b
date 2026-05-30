@@ -3,13 +3,14 @@ import { useLocation } from 'wouter';
 import { useAuthStore } from '@/lib/authStore';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Package, Grid3x3, MessageSquare, Settings } from 'lucide-react';
+import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import AdminProducts from '@/components/admin/AdminProducts';
 import AdminCategories from '@/components/admin/AdminCategories';
 import AdminEnquiries from '@/components/admin/AdminEnquiries';
 import AdminSettings from '@/components/admin/AdminSettings';
+import AdminBulkImport from '@/components/admin/AdminBulkImport';
 
 /**
  * Admin Dashboard - Main entry point for admin panel
@@ -84,7 +85,7 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="products" className="gap-2">
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">Products</span>
@@ -100,6 +101,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">Settings</span>
+            </TabsTrigger>
+            <TabsTrigger value="bulk-import" className="gap-2">
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Bulk Import</span>
             </TabsTrigger>
           </TabsList>
 
@@ -117,6 +122,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="settings" className="space-y-4">
             <AdminSettings />
+          </TabsContent>
+
+          <TabsContent value="bulk-import" className="space-y-4">
+            <AdminBulkImport />
           </TabsContent>
         </Tabs>
       </div>
