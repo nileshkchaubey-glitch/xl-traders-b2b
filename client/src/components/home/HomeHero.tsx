@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import HeroTopBar from './HeroTopBar';
 import HeroProductShowcase from './HeroProductShowcase';
 import HeroTrustStrip from './HeroTrustStrip';
-import HeroCategoryPreview from './HeroCategoryPreview';
 import HeroBrandsSlider from './HeroBrandsSlider';
 import { TRUST_POINTS } from './heroConfig';
 
@@ -96,7 +95,6 @@ export default function HomeHero({ whatsappNumber, phone }: HomeHeroProps) {
       </section>
 
       <HeroTrustStrip />
-      <HeroCategoryPreview />
       <HeroBrandsSlider />
 
       {/* Sticky WhatsApp — mobile */}
