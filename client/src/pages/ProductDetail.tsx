@@ -245,10 +245,7 @@ export default function ProductDetail() {
                       <span className="text-red-600 font-bold">✓</span>
                       Fast delivery in Surat
                     </li>
-                    <li className="flex gap-2 text-slate-600">
-                      <span className="text-red-600 font-bold">✓</span>
-                      GST invoice provided
-                    </li>
+                    
                   </ul>
                 </div>
 
