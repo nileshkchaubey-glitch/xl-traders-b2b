@@ -4,11 +4,17 @@ import { Search, Menu, X, LogOut, LogIn } from 'lucide-react';
 import { useAuthStore } from '@/lib/authStore';
 import { Button } from '@/components/ui/button';
 
-export default function Header() {
+interface HeaderProps {
+  variant?: 'default' | 'home';
+}
+
+export default function Header({ variant = 'default' }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { isAuthenticated, user, signOut } = useAuthStore();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const isHome = variant === 'home' || location === '/';
+  const showSearch = !isHome;
 
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   const phone1 = import.meta.env.VITE_PHONE_1 || '9773239442';
@@ -28,7 +34,8 @@ export default function Header() {
 
   return (
     <>
-      {/* Top Info Bar */}
+      {/* Top Info Bar — hidden on homepage (hero has delivery + search) */}
+      {!isHome && (
       <div className="bg-slate-900 text-slate-300 text-xs py-1.5">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-6">
@@ -44,6 +51,7 @@ export default function Header() {
           <span className="text-slate-400">Same-day Delivery in Surat</span>
         </div>
       </div>
+      )}
 
       {/* Main Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
@@ -61,6 +69,7 @@ export default function Header() {
             </Link>
 
             {/* Search Box - Desktop */}
+            {showSearch && (
             <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-sm mx-6">
               <div className="flex w-full border border-slate-300 rounded-md overflow-hidden focus-within:border-red-600 focus-within:ring-2 focus-within:ring-red-100 transition">
                 <input
@@ -78,10 +87,12 @@ export default function Header() {
                 </button>
               </div>
             </form>
+            )}
 
             {/* Right Actions */}
             <div className="flex items-center gap-2 md:gap-3">
-              {/* Contact Buttons - Desktop */}
+              {/* Contact Buttons - Desktop (hidden on home — hero has CTAs) */}
+              {!isHome && (
               <div className="hidden md:flex gap-2">
                 <a
                   href={`tel:${phone1}`}
@@ -98,6 +109,7 @@ export default function Header() {
                   💬 WhatsApp
                 </a>
               </div>
+              )}
 
               {/* Auth Buttons */}
               {isAuthenticated ? (
@@ -131,6 +143,7 @@ export default function Header() {
           </div>
 
           {/* Mobile Search */}
+          {showSearch && (
           <form onSubmit={handleSearch} className="md:hidden mt-3">
             <div className="flex border border-slate-300 rounded overflow-hidden focus-within:border-red-600">
               <input
@@ -148,6 +161,7 @@ export default function Header() {
               </button>
             </div>
           </form>
+          )}
         </div>
 
         {/* Mobile Menu */}
