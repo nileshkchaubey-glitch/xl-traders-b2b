@@ -31,7 +31,6 @@ export default function AdminSettings() {
     city: 'Surat',
     state: 'Gujarat',
     pincode: '',
-    gst_number: '',
     business_description: '',
   });
 
@@ -113,16 +112,6 @@ export default function AdminSettings() {
                 value={settings.company_name}
                 onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
                 placeholder="XL Traders"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="gst_number">GST Number</Label>
-              <Input
-                id="gst_number"
-                value={settings.gst_number}
-                onChange={(e) => setSettings({ ...settings, gst_number: e.target.value })}
-                placeholder="27XXXXXXXXXXXXX"
               />
             </div>
 
@@ -269,7 +258,7 @@ export default function AdminSettings() {
             <div>
               <h4 className="font-semibold text-purple-900">Business Info</h4>
               <p className="text-sm text-purple-700 mt-1">
-                Used for invoices and company information
+                Used for company information on the site
               </p>
             </div>
           </div>
@@ -309,12 +298,6 @@ export default function AdminSettings() {
             <span className="text-slate-600">Email:</span>
             <p className="font-medium">{settings.email}</p>
           </div>
-          {settings.gst_number && (
-            <div>
-              <span className="text-slate-600">GST:</span>
-              <p className="font-medium">{settings.gst_number}</p>
-            </div>
-          )}
         </div>
       </Card>
     </div>

@@ -97,7 +97,7 @@ def generate_alt_text(product_name: str) -> str:
 
 def generate_description(product_name: str, category: str) -> str:
     """Generate SEO-friendly product description"""
-    return f"High-quality {category.lower()} - {product_name}. Wholesale packaging solutions from XL Traders, Surat. Fast delivery, GST invoicing available."
+    return f"High-quality {category.lower()} - {product_name}. Wholesale packaging solutions from XL Traders, Surat. Fast delivery."
 
 def ensure_temp_dir():
     """Create temporary directory for downloads"""

@@ -92,7 +92,7 @@ const generateAltText = (productName: string): string => {
 };
 
 const generateDescription = (productName: string, category: string): string => {
-  return `High-quality ${category.toLowerCase()} - ${productName}. Wholesale packaging solutions from XL Traders, Surat. Fast delivery, GST invoicing available.`;
+  return `High-quality ${category.toLowerCase()} - ${productName}. Wholesale packaging solutions from XL Traders, Surat. Fast delivery.`;
 };
 
 const ensureTempDir = () => {

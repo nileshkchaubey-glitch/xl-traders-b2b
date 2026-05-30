@@ -127,31 +127,6 @@ export default function Footer() {
 
         {/* Divider */}
         <div className="border-t border-slate-800 pt-8">
-          {/* Features */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="flex gap-3">
-              <div className="text-red-500 text-2xl">✓</div>
-              <div>
-                <h5 className="font-semibold text-white text-sm">GST Invoice</h5>
-                <p className="text-slate-400 text-xs">Compliant invoicing for all orders</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="text-red-500 text-2xl">⚡</div>
-              <div>
-                <h5 className="font-semibold text-white text-sm">Fast Delivery</h5>
-                <p className="text-slate-400 text-xs">Same-day delivery in Surat</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="text-red-500 text-2xl">💬</div>
-              <div>
-                <h5 className="font-semibold text-white text-sm">WhatsApp Support</h5>
-                <p className="text-slate-400 text-xs">Quick response on WhatsApp</p>
-              </div>
-            </div>
-          </div>
-
           {/* Bottom Bar */}
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-400">
             <p>&copy; {currentYear} {businessName}. All rights reserved.</p>

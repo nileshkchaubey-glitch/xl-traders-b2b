@@ -55,7 +55,7 @@ export default function Home() {
                 </h1>
 
                 <p className="text-lg text-slate-300 mb-8 leading-relaxed">
-                  Quality disposable containers, food packaging, and supplies for restaurants, catering, and retail businesses across India. Fast delivery. GST invoicing.
+                  Quality disposable containers, food packaging, and supplies for restaurants, catering, and retail businesses across India. Fast delivery.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4">
