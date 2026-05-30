@@ -22,7 +22,7 @@ export default function AdminEnquiries() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Load enquiries
   useEffect(() => {
@@ -48,9 +48,9 @@ export default function AdminEnquiries() {
   };
 
   // Filter enquiries
-  const filteredEnquiries = statusFilter
-    ? enquiries.filter(e => e.status === statusFilter)
-    : enquiries;
+  const filteredEnquiries = statusFilter === 'all'
+    ? enquiries
+    : enquiries.filter(e => e.status === statusFilter);
 
   // Update enquiry status
   const handleStatusChange = async (id: string, newStatus: string) => {
@@ -126,7 +126,7 @@ export default function AdminEnquiries() {
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="new">New</SelectItem>
             <SelectItem value="contacted">Contacted</SelectItem>
             <SelectItem value="quoted">Quoted</SelectItem>
