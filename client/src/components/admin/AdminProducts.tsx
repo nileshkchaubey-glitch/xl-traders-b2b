@@ -413,11 +413,11 @@ export default function AdminProducts() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 justify-end border-t pt-4">
-                <Button variant="outline" onClick={() => setIsOpen(false)}>
+              <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end border-t pt-4">
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" className="w-full sm:w-auto">
                   {editingId ? 'Update Product' : 'Create Product'}
                 </Button>
               </div>
@@ -455,7 +455,7 @@ export default function AdminProducts() {
       {/* Products Table */}
       <Card>
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Image</TableHead>

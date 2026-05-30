@@ -77,39 +77,42 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     <Link href={`/product/${product.id}`}>
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition cursor-pointer h-full flex flex-col">
         {/* Image */}
-        <div className="aspect-square overflow-hidden relative group">
+        <div className="h-36 overflow-hidden relative group flex-shrink-0">
           {product.image_url && !imageError ? (
             <img
               src={product.image_url}
               alt={product.image_alt_text || product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
               onError={() => setImageError(true)}
+              loading="lazy"
             />
           ) : (
-            <ImagePlaceholder className="w-full h-full" showText={true} />
+            <ImagePlaceholder className="w-full h-full" showText={false} />
           )}
           {product.is_featured && (
-            <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
+            <div className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
               Featured
             </div>
           )}
         </div>
 
         {/* Content */}
-        <div className="p-3 flex-1 flex flex-col">
-          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-1">
-            {product.quantity_in_unit} {product.unit_of_measure}
-          </p>
-          <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-2 flex-1">
+        <div className="p-2 flex-1 flex flex-col">
+          {product.quantity_in_unit ? (
+            <p className="text-[10px] text-slate-500 font-medium mb-0.5">
+              Pack of {product.quantity_in_unit} {product.unit_of_measure}
+            </p>
+          ) : null}
+          <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 leading-tight flex-1 mb-1.5">
             {product.name}
           </h3>
 
           {/* Price */}
-          <div className="mb-3">
+          <div className="mb-1.5">
             {isAuthenticated ? (
-              <p className="font-bold text-red-600 text-lg">₹{product.price.toLocaleString()}</p>
+              <p className="font-bold text-red-600 text-base leading-none">₹{product.price.toLocaleString()}</p>
             ) : (
-              <p className="text-xs text-slate-500 font-semibold">Login to see price</p>
+              <p className="text-[10px] text-slate-500 font-semibold">Sign in for price</p>
             )}
           </div>
 
@@ -119,10 +122,10 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
               e.preventDefault();
               handleEnquire();
             }}
-            className="w-full px-3 py-2 text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-red-600 hover:text-white hover:border-red-600 transition flex items-center justify-center gap-1"
+            className="w-full px-2 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-red-600 hover:text-white hover:border-red-600 transition flex items-center justify-center gap-1"
           >
-            <MessageCircle size={14} />
-            Enquire on WhatsApp
+            <MessageCircle size={12} />
+            Enquire
           </button>
         </div>
       </div>

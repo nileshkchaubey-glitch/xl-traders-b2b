@@ -368,17 +368,17 @@ export default function Admin() {
                 </div>
 
                 {/* Buttons */}
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <button
                     type="submit"
-                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition"
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition"
                   >
                     {editingId ? 'Update Product' : 'Add Product'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowForm(false)}
-                    className="bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold py-2 px-6 rounded-lg transition"
+                    className="w-full sm:w-auto bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold py-2 px-6 rounded-lg transition"
                   >
                     Cancel
                   </button>
@@ -393,7 +393,7 @@ export default function Admin() {
           ) : (
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
