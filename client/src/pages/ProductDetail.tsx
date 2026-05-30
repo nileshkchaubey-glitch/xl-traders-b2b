@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { productService, productImageService } from '@/lib/productService';
 import { Product, ProductImage } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/authStore';
+import { ImagePlaceholder } from '@/components/ImagePlaceholder';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +15,7 @@ export default function ProductDetail() {
   const [images, setImages] = useState<ProductImage[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const { isAuthenticated } = useAuthStore();
 
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
@@ -53,6 +55,14 @@ export default function ProductDetail() {
         url: window.location.href,
       });
     }
+  };
+
+  const handleImageError = (imageId: string) => {
+    setImageErrors((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(imageId);
+      return newSet;
+    });
   };
 
   if (isLoading) {
@@ -113,14 +123,15 @@ export default function ProductDetail() {
             <div>
               {/* Main Image */}
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden mb-4 aspect-square flex items-center justify-center">
-                {mainImage ? (
+                {mainImage && !imageErrors.has(`main-${selectedImageIndex}`) ? (
                   <img
                     src={mainImage}
                     alt={product.image_alt_text || product.name}
                     className="w-full h-full object-cover"
+                    onError={() => handleImageError(`main-${selectedImageIndex}`)}
                   />
                 ) : (
-                  <div className="text-6xl opacity-30">📦</div>
+                  <ImagePlaceholder className="w-full h-full" showText={true} />
                 )}
               </div>
 
@@ -137,11 +148,16 @@ export default function ProductDetail() {
                           : 'border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <img
-                        src={img.image_url}
-                        alt={img.alt_text || `Product image ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      {!imageErrors.has(img.id) ? (
+                        <img
+                          src={img.image_url}
+                          alt={img.alt_text || `Product image ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={() => handleImageError(img.id)}
+                        />
+                      ) : (
+                        <ImagePlaceholder className="w-20 h-20" showText={false} />
+                      )}
                     </button>
                   ))}
                 </div>

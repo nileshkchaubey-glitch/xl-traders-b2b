@@ -2,6 +2,8 @@ import { Product } from '@/lib/supabase';
 import { Link } from 'wouter';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/authStore';
+import { ImagePlaceholder } from './ImagePlaceholder';
+import { useState } from 'react';
 
 interface ProductCardProps {
   product: Product;
@@ -12,6 +14,7 @@ interface ProductCardProps {
 export default function ProductCard({ product, view = 'grid', onEnquire }: ProductCardProps) {
   const { isAuthenticated } = useAuthStore();
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
+  const [imageError, setImageError] = useState(false);
 
   const handleEnquire = () => {
     const message = `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`;
@@ -23,17 +26,16 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     return (
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition flex">
         {/* Image */}
-        <div className="w-24 h-24 bg-slate-100 flex-shrink-0 overflow-hidden">
-          {product.image_url ? (
+        <div className="w-24 h-24 flex-shrink-0 overflow-hidden">
+          {product.image_url && !imageError ? (
             <img
               src={product.image_url}
               alt={product.image_alt_text || product.name}
               className="w-full h-full object-cover"
+              onError={() => setImageError(true)}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-3xl opacity-30">
-              📦
-            </div>
+            <ImagePlaceholder className="w-24 h-24" showText={false} />
           )}
         </div>
 
@@ -75,17 +77,16 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     <Link href={`/product/${product.id}`}>
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition cursor-pointer h-full flex flex-col">
         {/* Image */}
-        <div className="aspect-square bg-slate-100 overflow-hidden relative group">
-          {product.image_url ? (
+        <div className="aspect-square overflow-hidden relative group">
+          {product.image_url && !imageError ? (
             <img
               src={product.image_url}
               alt={product.image_alt_text || product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+              onError={() => setImageError(true)}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">
-              📦
-            </div>
+            <ImagePlaceholder className="w-full h-full" showText={true} />
           )}
           {product.is_featured && (
             <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
