@@ -41,7 +41,7 @@ export default function Header() {
               💬 WhatsApp
             </a>
           </div>
-          <span className="text-slate-400">GST Invoice Available | Same-day Delivery in Surat</span>
+          <span className="text-slate-400">Same-day Delivery in Surat</span>
         </div>
       </div>
 
