@@ -106,3 +106,108 @@ export const BRAND_NAMES = [
   'SweetLine',
   'PackRight',
 ] as const;
+
+// --- Category Cards config (used by HomeCategoryGrid) ---
+
+export interface CategoryCard {
+  name: string;
+  slug: string;
+  coverImage: string;
+  count: number;
+  gradientFrom: string;
+  gradientTo: string;
+  iconColor: string;
+}
+
+export const CATEGORY_CARDS: CategoryCard[] = [
+  {
+    name: 'Food Containers',
+    slug: 'round-container',
+    coverImage: '/images/cat/food-containers.jpg',
+    count: 48,
+    gradientFrom: 'from-red-100',
+    gradientTo: 'to-rose-200',
+    iconColor: 'text-red-600',
+  },
+  {
+    name: 'Paper Cups',
+    slug: 'paper-cup',
+    coverImage: '/images/cat/paper-cups.jpg',
+    count: 24,
+    gradientFrom: 'from-amber-100',
+    gradientTo: 'to-orange-200',
+    iconColor: 'text-amber-600',
+  },
+  {
+    name: 'Carry Bags',
+    slug: 'paper-box',
+    coverImage: '/images/cat/carry-bags.jpg',
+    count: 18,
+    gradientFrom: 'from-emerald-100',
+    gradientTo: 'to-green-200',
+    iconColor: 'text-emerald-600',
+  },
+  {
+    name: 'Corrugated Boxes',
+    slug: 'corrugated-box',
+    coverImage: '/images/cat/corrugated-boxes.jpg',
+    count: 22,
+    gradientFrom: 'from-amber-50',
+    gradientTo: 'to-yellow-200',
+    iconColor: 'text-amber-700',
+  },
+  {
+    name: 'Meal Trays',
+    slug: 'meal-tray',
+    coverImage: '/images/cat/meal-trays.jpg',
+    count: 16,
+    gradientFrom: 'from-orange-100',
+    gradientTo: 'to-red-200',
+    iconColor: 'text-orange-600',
+  },
+  {
+    name: 'Aluminium Containers',
+    slug: 'aluminum-containers',
+    coverImage: '/images/cat/aluminum-containers.jpg',
+    count: 14,
+    gradientFrom: 'from-slate-100',
+    gradientTo: 'to-zinc-300',
+    iconColor: 'text-slate-600',
+  },
+  {
+    name: 'Wrapping Films',
+    slug: 'cling-wrap',
+    coverImage: '/images/cat/wrapping-films.jpg',
+    count: 12,
+    gradientFrom: 'from-blue-100',
+    gradientTo: 'to-indigo-200',
+    iconColor: 'text-blue-600',
+  },
+  {
+    name: 'Disposable Tableware',
+    slug: 'disposable-tableware',
+    coverImage: '/images/cat/disposable-tableware.jpg',
+    count: 30,
+    gradientFrom: 'from-teal-100',
+    gradientTo: 'to-cyan-200',
+    iconColor: 'text-teal-600',
+  },
+  {
+    name: 'Pizza Boxes',
+    slug: 'pizza-box',
+    coverImage: '/images/cat/pizza-boxes.jpg',
+    count: 10,
+    gradientFrom: 'from-red-50',
+    gradientTo: 'to-orange-200',
+    iconColor: 'text-red-500',
+  },
+  {
+    name: 'Custom Printed',
+    slug: 'custom-packaging',
+    coverImage: '/images/cat/custom-packaging.jpg',
+    count: 20,
+    gradientFrom: 'from-purple-100',
+    gradientTo: 'to-violet-200',
+    iconColor: 'text-purple-600',
+  },
+];

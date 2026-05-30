@@ -14,7 +14,6 @@ export default function Header({ variant = 'default' }: HeaderProps) {
   const { isAuthenticated, user, signOut } = useAuthStore();
   const [location, setLocation] = useLocation();
   const isHome = variant === 'home' || location === '/';
-  const showSearch = !isHome;
 
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   const phone1 = import.meta.env.VITE_PHONE_1 || '9773239442';
@@ -69,7 +68,6 @@ export default function Header({ variant = 'default' }: HeaderProps) {
             </Link>
 
             {/* Search Box - Desktop */}
-            {showSearch && (
             <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-sm mx-6">
               <div className="flex w-full border border-slate-300 rounded-md overflow-hidden focus-within:border-red-600 focus-within:ring-2 focus-within:ring-red-100 transition">
                 <input
@@ -87,7 +85,6 @@ export default function Header({ variant = 'default' }: HeaderProps) {
                 </button>
               </div>
             </form>
-            )}
 
             {/* Right Actions */}
             <div className="flex items-center gap-2 md:gap-3">
@@ -143,7 +140,6 @@ export default function Header({ variant = 'default' }: HeaderProps) {
           </div>
 
           {/* Mobile Search */}
-          {showSearch && (
           <form onSubmit={handleSearch} className="md:hidden mt-3">
             <div className="flex border border-slate-300 rounded overflow-hidden focus-within:border-red-600">
               <input
@@ -161,7 +157,6 @@ export default function Header({ variant = 'default' }: HeaderProps) {
               </button>
             </div>
           </form>
-          )}
         </div>
 
         {/* Mobile Menu */}

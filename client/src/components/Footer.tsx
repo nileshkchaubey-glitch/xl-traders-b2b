@@ -70,26 +70,14 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Categories</h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/catalog?category=round-container" className="text-slate-400 hover:text-red-500 transition">
-                  Round Containers
-                </Link>
-              </li>
-              <li>
-                <Link href="/catalog?category=rectangle-container" className="text-slate-400 hover:text-red-500 transition">
-                  Rectangle Containers
-                </Link>
-              </li>
-              <li>
-                <Link href="/catalog?category=hinged-container" className="text-slate-400 hover:text-red-500 transition">
-                  Hinged Containers
-                </Link>
-              </li>
-              <li>
-                <Link href="/catalog?category=aluminum-containers" className="text-slate-400 hover:text-red-500 transition">
-                  Aluminum Containers
-                </Link>
-              </li>
+              <li><Link href="/catalog?category=round-container" className="text-slate-400 hover:text-red-500 transition">Food Containers</Link></li>
+              <li><Link href="/catalog?category=paper-cup" className="text-slate-400 hover:text-red-500 transition">Paper Cups</Link></li>
+              <li><Link href="/catalog?category=paper-box" className="text-slate-400 hover:text-red-500 transition">Carry Bags</Link></li>
+              <li><Link href="/catalog?category=aluminum-containers" className="text-slate-400 hover:text-red-500 transition">Aluminium Containers</Link></li>
+              <li><Link href="/catalog?category=meal-tray" className="text-slate-400 hover:text-red-500 transition">Meal Trays</Link></li>
+              <li><Link href="/catalog?category=pizza-box" className="text-slate-400 hover:text-red-500 transition">Pizza Boxes</Link></li>
+              <li><Link href="/catalog?category=cling-wrap" className="text-slate-400 hover:text-red-500 transition">Wrapping Films</Link></li>
+              <li><Link href="/catalog" className="text-slate-400 hover:text-red-500 transition">View All →</Link></li>
             </ul>
           </div>
 
