@@ -75,21 +75,22 @@ export const categoryService = {
 // ============================================================================
 
 export const productService = {
-  async getAll(filters?: { categoryId?: string; search?: string; featured?: boolean }) {
+  async getAll(filters?: { categoryId?: string; search?: string; featured?: boolean; brand?: string }) {
     if (isDemo) {
       let results = [...demoProducts];
       if (filters?.categoryId) results = results.filter(p => p.category_id === filters.categoryId);
       if (filters?.featured) results = results.filter(p => p.is_featured);
+      if (filters?.brand) results = results.filter(p => p.brand === filters.brand);
       if (filters?.search) {
         const q = filters.search.toLowerCase();
-        results = results.filter(p => 
-          p.name.toLowerCase().includes(q) || 
+        results = results.filter(p =>
+          p.name.toLowerCase().includes(q) ||
           p.description?.toLowerCase().includes(q)
         );
       }
       return results;
     }
-    
+
     try {
       let query = supabase
         .from('products')
@@ -105,6 +106,10 @@ export const productService = {
         query = query.eq('is_featured', true);
       }
 
+      if (filters?.brand) {
+        query = query.eq('brand', filters.brand);
+      }
+
       if (filters?.search) {
         query = query.or(
           `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
@@ -118,6 +123,24 @@ export const productService = {
     } catch (error) {
       console.error('Error fetching products:', error);
       return demoProducts;
+    }
+  },
+
+  async getBrands(): Promise<string[]> {
+    if (isDemo) return [];
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('brand')
+        .eq('is_active', true)
+        .not('brand', 'is', null);
+      if (error) throw error;
+      const brands = [...new Set(
+        (data as { brand: string | null }[]).map(p => p.brand).filter((b): b is string => !!b)
+      )].sort();
+      return brands;
+    } catch {
+      return [];
     }
   },
 

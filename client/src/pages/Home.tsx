@@ -4,6 +4,7 @@ import HomeHero from '@/components/home/HomeHero';
 import HomeCategoryGrid from '@/components/home/HomeCategoryGrid';
 import HomeFeaturedProducts from '@/components/home/HomeFeaturedProducts';
 import HomeUseCases from '@/components/home/HomeUseCases';
+import HomeBrandSection from '@/components/home/HomeBrandSection';
 import HomeDailySuggestion from '@/components/home/HomeDailySuggestion';
 import { MessageCircle, Phone } from 'lucide-react';
 
@@ -28,6 +29,9 @@ export default function Home() {
 
         {/* Business use cases */}
         <HomeUseCases />
+
+        {/* Shop by Brand (renders only when brands exist in DB) */}
+        <HomeBrandSection />
 
         {/* CTA Section */}
         <section className="bg-gradient-to-r from-red-600 to-red-700 text-white py-14 md:py-20">

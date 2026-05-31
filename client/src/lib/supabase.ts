@@ -49,6 +49,7 @@ export interface Product {
   unit_of_measure: string;
   quantity_in_unit?: number;
   sku?: string;
+  brand?: string;
   discount_percent?: number;
   image_url?: string;
   image_alt_text?: string;

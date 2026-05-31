@@ -43,6 +43,7 @@ export default function AdminProducts() {
     mrp: '',
     unit_of_measure: 'pcs',
     discount_percent: '0',
+    brand: '',
     is_active: true,
   });
 
@@ -96,6 +97,7 @@ export default function AdminProducts() {
         mrp: formData.mrp ? parseFloat(formData.mrp) : undefined,
         unit_of_measure: formData.unit_of_measure,
         discount_percent: parseInt(formData.discount_percent),
+        brand: formData.brand || undefined,
         is_active: formData.is_active,
         image_alt_text: imageMetadata[0]?.altText || '',
         image_description: imageMetadata[0]?.description || '',
@@ -181,6 +183,7 @@ export default function AdminProducts() {
       mrp: product.mrp?.toString() || '',
       unit_of_measure: product.unit_of_measure || 'pcs',
       discount_percent: (product.discount_percent || 0).toString(),
+      brand: product.brand || '',
       is_active: product.is_active,
     });
     setEditingId(product.id);
@@ -198,6 +201,7 @@ export default function AdminProducts() {
       mrp: '',
       unit_of_measure: 'pcs',
       discount_percent: '0',
+      brand: '',
       is_active: true,
     });
     setImages([]);
@@ -347,6 +351,17 @@ export default function AdminProducts() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Product description..."
                   rows={3}
+                />
+              </div>
+
+              {/* Brand */}
+              <div className="space-y-2">
+                <Label htmlFor="brand">Brand <span className="text-slate-400 font-normal">(optional)</span></Label>
+                <Input
+                  id="brand"
+                  value={formData.brand}
+                  onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                  placeholder="e.g., Oshine, Biopack, Fortune Plus"
                 />
               </div>
 
