@@ -56,7 +56,8 @@ export default function Auth() {
         if (error) {
           setError(error.message || 'Sign in failed');
         } else {
-          setLocation('/');
+          const admin = useAuthStore.getState().isAdmin;
+          setLocation(admin ? '/admin' : '/');
         }
       }
     } catch (err) {

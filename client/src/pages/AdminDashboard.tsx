@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useAuthStore } from '@/lib/authStore';
 import { Button } from '@/components/ui/button';
@@ -14,39 +14,61 @@ import AdminBulkImport from '@/components/admin/AdminBulkImport';
 
 /**
  * Admin Dashboard - Main entry point for admin panel
- * 
- * Design Philosophy:
- * - Clean, functional interface for desktop use
- * - Tab-based navigation for different sections
- * - Consistent spacing and typography
- * - Dark navy header with red accents
- * - Responsive but optimized for desktop
  */
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
-  const { user, isAuthenticated, isAdmin, isLoading, signOut } = useAuthStore();
+  const { user, isAuthenticated, isAdmin, isLoading, refreshProfile, signOut } = useAuthStore();
   const [activeTab, setActiveTab] = useState('products');
+  const [accessChecked, setAccessChecked] = useState(false);
+  const redirectingRef = useRef(false);
 
-  // Redirect non-admins
   useEffect(() => {
-    if (isLoading) return;
+    let cancelled = false;
 
-    if (!isAuthenticated) {
-      setLocation('/auth');
-      return;
-    }
-    if (!isAdmin) {
-      toast.error('Admin access required');
-      setLocation('/');
-    }
-  }, [isLoading, isAuthenticated, isAdmin, setLocation]);
+    async function verifyAccess() {
+      if (isLoading) return;
 
-  if (isLoading) {
+      if (!isAuthenticated) {
+        if (!redirectingRef.current) {
+          redirectingRef.current = true;
+          setLocation('/auth');
+        }
+        return;
+      }
+
+      if (isAdmin) {
+        setAccessChecked(true);
+        return;
+      }
+
+      const admin = await refreshProfile();
+      if (cancelled) return;
+
+      if (admin) {
+        setAccessChecked(true);
+        return;
+      }
+
+      if (!redirectingRef.current) {
+        redirectingRef.current = true;
+        toast.error('Admin access required');
+        setLocation('/');
+      }
+    }
+
+    verifyAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, isAuthenticated, isAdmin, setLocation, refreshProfile]);
+
+  if (isLoading || (isAuthenticated && !accessChecked && !isAdmin)) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-500 text-sm">Loading...</p>
+          <p className="text-slate-500 text-sm">Loading admin panel...</p>
         </div>
       </div>
     );
