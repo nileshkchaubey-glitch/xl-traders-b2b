@@ -14,26 +14,33 @@ export default function Catalog() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [brands, setBrands] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     params.get('category') || null
   );
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(
+    params.get('brand') || null
+  );
   const [searchQuery, setSearchQuery] = useState(params.get('search') || '');
 
-  // Load categories
+  // Load categories + brands
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadMeta = async () => {
       try {
-        const cats = await categoryService.getAll();
+        const [cats, brnds] = await Promise.all([
+          categoryService.getAll(),
+          productService.getBrands(),
+        ]);
         setCategories(cats);
+        setBrands(brnds);
       } catch (error) {
-        console.error('Error loading categories:', error);
+        console.error('Error loading categories/brands:', error);
       }
     };
-
-    loadCategories();
+    loadMeta();
   }, []);
 
   // Load products based on filters
@@ -45,6 +52,8 @@ export default function Catalog() {
 
         if (searchQuery) {
           products = await productService.search(searchQuery);
+        } else if (selectedBrand) {
+          products = await productService.getAll({ brand: selectedBrand });
         } else if (selectedCategory) {
           const category = categories.find((c) => c.slug === selectedCategory);
           if (category) {
@@ -82,24 +91,23 @@ export default function Catalog() {
     };
 
     loadProducts();
-  }, [selectedCategory, searchQuery, sortBy, categories]);
+  }, [selectedCategory, selectedBrand, searchQuery, sortBy, categories]);
 
   const handleCategoryChange = (slug: string | null) => {
     setSelectedCategory(slug);
-    if (slug) {
-      setLocation(`/catalog?category=${slug}`);
-    } else {
-      setLocation('/catalog');
-    }
+    setSelectedBrand(null);
+    setLocation(slug ? `/catalog?category=${slug}` : '/catalog');
+  };
+
+  const handleBrandChange = (brand: string | null) => {
+    setSelectedBrand(brand);
+    setSelectedCategory(null);
+    setLocation(brand ? `/catalog?brand=${encodeURIComponent(brand)}` : '/catalog');
   };
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    if (query) {
-      setLocation(`/catalog?search=${encodeURIComponent(query)}`);
-    } else {
-      setLocation('/catalog');
-    }
+    setLocation(query ? `/catalog?search=${encodeURIComponent(query)}` : '/catalog');
   };
 
   return (
@@ -142,7 +150,7 @@ export default function Catalog() {
                     <button
                       onClick={() => handleCategoryChange(null)}
                       className={`w-full text-left px-3 py-2 rounded text-sm transition ${
-                        !selectedCategory
+                        !selectedCategory && !selectedBrand
                           ? 'bg-red-100 text-red-600 font-semibold'
                           : 'text-slate-600 hover:bg-slate-100'
                       }`}
@@ -153,20 +161,39 @@ export default function Catalog() {
                       <button
                         key={cat.id}
                         onClick={() => handleCategoryChange(cat.slug)}
-                        className={`w-full text-left px-3 py-2 rounded text-sm transition flex items-center justify-between ${
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                           selectedCategory === cat.slug
                             ? 'bg-red-100 text-red-600 font-semibold'
                             : 'text-slate-600 hover:bg-slate-100'
                         }`}
                       >
-                        <span>{cat.name}</span>
-                        <span className="text-xs bg-slate-200 px-2 py-1 rounded">
-                          {cat.icon_emoji}
-                        </span>
+                        {cat.name}
                       </button>
                     ))}
                   </div>
                 </div>
+
+                {/* Brands */}
+                {brands.length > 0 && (
+                  <div className="p-4 border-t border-slate-200">
+                    <h3 className="font-bold text-sm text-slate-900 mb-3">Brands</h3>
+                    <div className="space-y-2">
+                      {brands.map((brand) => (
+                        <button
+                          key={brand}
+                          onClick={() => handleBrandChange(selectedBrand === brand ? null : brand)}
+                          className={`w-full text-left px-3 py-2 rounded text-sm transition ${
+                            selectedBrand === brand
+                              ? 'bg-red-100 text-red-600 font-semibold'
+                              : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {brand}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </aside>
 
@@ -215,8 +242,9 @@ export default function Catalog() {
                 </div>
               </div>
 
-              {/* Mobile Category Filter */}
-              <div className="lg:hidden mb-6">
+              {/* Mobile Filters */}
+              <div className="lg:hidden mb-4 space-y-3">
+                {/* Category select */}
                 <div className="relative">
                   <select
                     value={selectedCategory || ''}
@@ -225,13 +253,40 @@ export default function Catalog() {
                   >
                     <option value="">All Categories</option>
                     {categories.map((cat) => (
-                      <option key={cat.id} value={cat.slug}>
-                        {cat.name}
-                      </option>
+                      <option key={cat.id} value={cat.slug}>{cat.name}</option>
                     ))}
                   </select>
                   <ChevronDown size={16} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600" />
                 </div>
+
+                {/* Brand filter chips (mobile) */}
+                {brands.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                    <button
+                      onClick={() => handleBrandChange(null)}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                        !selectedBrand
+                          ? 'bg-red-600 text-white border-red-600'
+                          : 'bg-white text-slate-600 border-slate-300 hover:border-red-400'
+                      }`}
+                    >
+                      All Brands
+                    </button>
+                    {brands.map((brand) => (
+                      <button
+                        key={brand}
+                        onClick={() => handleBrandChange(brand)}
+                        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                          selectedBrand === brand
+                            ? 'bg-red-600 text-white border-red-600'
+                            : 'bg-white text-slate-600 border-slate-300 hover:border-red-400'
+                        }`}
+                      >
+                        {brand}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Products Grid/List */}
