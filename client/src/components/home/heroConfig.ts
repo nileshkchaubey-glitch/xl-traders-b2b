@@ -210,4 +210,13 @@ export const CATEGORY_CARDS: CategoryCard[] = [
     gradientTo: 'to-indigo-200',
     iconColor: 'text-blue-600',
   },
+  {
+    name: 'Tissue & Napkins',
+    slug: 'tissue-napkin',
+    coverImage: '/images/cat/tissue-napkin.jpg',
+    count: 8,
+    gradientFrom: 'from-teal-100',
+    gradientTo: 'to-cyan-200',
+    iconColor: 'text-teal-600',
+  },
 ];

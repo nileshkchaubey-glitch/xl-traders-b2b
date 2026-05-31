@@ -103,14 +103,14 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
               Pack of {product.quantity_in_unit} {product.unit_of_measure}
             </p>
           ) : null}
-          <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 leading-tight flex-1 mb-1.5">
+          <h3 className="font-semibold text-xs text-slate-900 line-clamp-2 leading-tight flex-1 mb-1.5">
             {product.name}
           </h3>
 
           {/* Price */}
           <div className="mb-1.5">
             {isAuthenticated ? (
-              <p className="font-bold text-red-600 text-base leading-none">₹{product.price.toLocaleString()}</p>
+              <p className="font-bold text-red-600 text-sm leading-none">₹{product.price.toLocaleString()}</p>
             ) : (
               <p className="text-[10px] text-slate-500 font-semibold">Sign in for price</p>
             )}
@@ -122,7 +122,7 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
               e.preventDefault();
               handleEnquire();
             }}
-            className="w-full px-2 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-red-600 hover:text-white hover:border-red-600 transition flex items-center justify-center gap-1"
+            className="w-full px-2 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-red-600 hover:text-white hover:border-red-600 transition flex items-center justify-center gap-1"
           >
             <MessageCircle size={12} />
             Enquire
