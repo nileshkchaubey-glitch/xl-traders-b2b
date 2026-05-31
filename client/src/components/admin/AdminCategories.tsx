@@ -28,7 +28,6 @@ export default function AdminCategories() {
     name: '',
     slug: '',
     description: '',
-    icon_emoji: '',
   });
 
   // Load categories
@@ -73,7 +72,6 @@ export default function AdminCategories() {
         name: formData.name,
         slug: formData.slug,
         description: formData.description,
-        icon_emoji: formData.icon_emoji,
       };
 
       if (editingId) {
@@ -111,7 +109,6 @@ export default function AdminCategories() {
       name: category.name,
       slug: category.slug,
       description: category.description || '',
-      icon_emoji: category.icon_emoji || '',
     });
     setEditingId(category.id);
     setIsOpen(true);
@@ -122,7 +119,6 @@ export default function AdminCategories() {
       name: '',
       slug: '',
       description: '',
-      icon_emoji: '',
     });
     setEditingId(null);
   };
@@ -219,17 +215,6 @@ export default function AdminCategories() {
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                   placeholder="e.g., round-container"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="emoji">Icon Emoji</Label>
-                <Input
-                  id="emoji"
-                  value={formData.icon_emoji}
-                  onChange={(e) => setFormData({ ...formData, icon_emoji: e.target.value })}
-                  placeholder="e.g., 🥤"
-                  maxLength={2}
                 />
               </div>
 
