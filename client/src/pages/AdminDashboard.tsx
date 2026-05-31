@@ -24,12 +24,14 @@ import AdminBulkImport from '@/components/admin/AdminBulkImport';
  */
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
-  const { user, isAdmin, signOut } = useAuthStore();
+  const { user, isAuthenticated, isAdmin, isLoading, signOut } = useAuthStore();
   const [activeTab, setActiveTab] = useState('products');
 
   // Redirect non-admins
   useEffect(() => {
-    if (!user) {
+    if (isLoading) return;
+
+    if (!isAuthenticated) {
       setLocation('/auth');
       return;
     }
@@ -37,9 +39,20 @@ export default function AdminDashboard() {
       toast.error('Admin access required');
       setLocation('/');
     }
-  }, [user, isAdmin, setLocation]);
+  }, [isLoading, isAuthenticated, isAdmin, setLocation]);
 
-  if (!user || !isAdmin) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !isAdmin) {
     return null;
   }
 
