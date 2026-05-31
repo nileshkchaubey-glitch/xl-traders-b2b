@@ -222,7 +222,7 @@ export default function ProductDetail() {
                   <img
                     src={mainImage}
                     alt={product.image_alt_text || product.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain p-4"
                     onError={() => handleImageError(`main-${selectedImageIndex}`)}
                   />
                 ) : (
@@ -240,7 +240,7 @@ export default function ProductDetail() {
                       }`}
                     >
                       {!imageErrors.has(img.id) ? (
-                        <img src={img.image_url} alt={img.alt_text || `Product image ${idx + 1}`} className="w-full h-full object-cover" onError={() => handleImageError(img.id)} />
+                        <img src={img.image_url} alt={img.alt_text || `Product image ${idx + 1}`} className="w-full h-full object-contain p-1 bg-white" onError={() => handleImageError(img.id)} />
                       ) : (
                         <ImagePlaceholder className="w-20 h-20" showText={false} />
                       )}
