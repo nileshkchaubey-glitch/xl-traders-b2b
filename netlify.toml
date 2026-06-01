@@ -1,11 +1,12 @@
 # Netlify Configuration for XL Traders B2B (Vite + React + Supabase)
 
 [build]
-  command = "pnpm install && pnpm run build"
+  command = "npm install -g pnpm@10.15.1 && pnpm install --no-frozen-lockfile && pnpm run build"
   publish = "dist/public"
 
 [build.environment]
   NODE_VERSION = "22.13.0"
+  COREPACK_ENABLE_STRICT = "0"
 
 # SPA routing — all routes serve index.html
 [[redirects]]
