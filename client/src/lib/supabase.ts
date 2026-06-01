@@ -20,6 +20,9 @@ export interface Category {
   slug: string;
   description?: string;
   icon_emoji?: string;
+  image_url?: string | null;
+  group_name?: string | null;
+  group_order?: number | null;
   display_order: number;
   is_active: boolean;
   created_at: string;
