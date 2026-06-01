@@ -12,6 +12,7 @@ import { Plus, Edit2, Trash2, Search, X, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { productService, categoryService, storageService, productImageService } from '@/lib/productService';
 import { Product, Category } from '@/lib/supabase';
+import { normalizeImageUrl } from '@/lib/imageUtils';
 
 /**
  * Admin Products Component
@@ -33,6 +34,8 @@ export default function AdminProducts() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -53,6 +56,8 @@ export default function AdminProducts() {
   const [imageMetadata, setImageMetadata] = useState<Array<{ altText: string; description: string }>>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  // Paste-an-image-URL (e.g. Google Drive link) as an alternative to uploading.
+  const [imageUrlInput, setImageUrlInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Revoke object URLs on unmount to avoid memory leaks
@@ -92,8 +97,23 @@ export default function AdminProducts() {
     return matchesSearch && matchesCategory;
   });
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Paginate (keeps the table fast as the catalog grows past a few hundred items)
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // Reset to first page whenever the filters change.
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedCategory]);
+
+  // Handle form submission. `addAnother` keeps the dialog open and resets the
+  // form (preserving the chosen category) so several products can be added in
+  // quick succession.
+  const handleSubmit = async (e: React.FormEvent, addAnother = false) => {
     e.preventDefault();
 
     if (!formData.name || !formData.category_id || !formData.price) {
@@ -126,8 +146,13 @@ export default function AdminProducts() {
         product = await productService.create(productData as any);
       }
 
-      // Upload images and persist them. The first uploaded image becomes the
-      // product's primary image_url; all images are stored in product_images.
+      // Determine the primary image. Two sources are supported:
+      //   1. Uploaded files (stored in Supabase Storage + product_images).
+      //   2. A pasted image URL (e.g. a Google Drive link) — normalised so it
+      //      renders directly in <img> tags.
+      // Uploaded files take precedence when both are provided.
+      let primaryImageUrl: string | null = null;
+
       if (images.length > 0) {
         const uploadedUrls: string[] = [];
         for (let i = 0; i < images.length; i++) {
@@ -147,16 +172,28 @@ export default function AdminProducts() {
             toast.error(`Failed to upload image ${i + 1}`);
           }
         }
+        if (uploadedUrls.length > 0) primaryImageUrl = uploadedUrls[0];
+      } else if (imageUrlInput.trim()) {
+        primaryImageUrl = normalizeImageUrl(imageUrlInput);
+      }
 
-        // Set the primary image on the product so it shows in cards/catalog.
-        if (uploadedUrls.length > 0) {
-          await productService.update(product.id, { image_url: uploadedUrls[0] });
-        }
+      // Set the primary image on the product so it shows in cards/catalog.
+      if (primaryImageUrl) {
+        await productService.update(product.id, { image_url: primaryImageUrl });
       }
 
       toast.success(editingId ? 'Product updated' : 'Product created');
-      resetForm();
-      setIsOpen(false);
+
+      if (addAnother && !editingId) {
+        // Keep the dialog open and preserve category/unit for fast repeat entry.
+        const keepCategory = formData.category_id;
+        const keepUnit = formData.unit_of_measure;
+        resetForm();
+        setFormData((prev) => ({ ...prev, category_id: keepCategory, unit_of_measure: keepUnit }));
+      } else {
+        resetForm();
+        setIsOpen(false);
+      }
       loadData();
     } catch (error) {
       toast.error('Failed to save product');
@@ -238,6 +275,7 @@ export default function AdminProducts() {
     setImageMetadata([]);
     setImagePreviews([]);
     setExistingImageUrl(product.image_url || null);
+    setImageUrlInput(product.image_url || '');
     setIsOpen(true);
   };
 
@@ -260,6 +298,7 @@ export default function AdminProducts() {
     setImageMetadata([]);
     setImagePreviews([]);
     setExistingImageUrl(null);
+    setImageUrlInput('');
     setEditingId(null);
   };
 
@@ -467,6 +506,37 @@ export default function AdminProducts() {
                     file:bg-red-50 file:text-red-600
                     hover:file:bg-red-100"
                 />
+
+                {/* Paste an image URL instead of uploading (e.g. Google Drive link) */}
+                {images.length === 0 && (
+                  <div className="pt-1">
+                    <div className="flex items-center gap-3 my-2">
+                      <div className="flex-1 h-px bg-slate-200" />
+                      <span className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">or paste a link</span>
+                      <div className="flex-1 h-px bg-slate-200" />
+                    </div>
+                    <Input
+                      type="url"
+                      placeholder="https://drive.google.com/file/d/... or any image URL"
+                      value={imageUrlInput}
+                      onChange={(e) => setImageUrlInput(e.target.value)}
+                    />
+                    {imageUrlInput.trim() && (
+                      <div className="flex items-center gap-3 mt-2 p-2 border rounded-lg bg-slate-50">
+                        <img
+                          src={normalizeImageUrl(imageUrlInput, 200)}
+                          alt="Link preview"
+                          className="w-16 h-16 object-contain rounded bg-white border flex-shrink-0"
+                          onError={(e) => { (e.currentTarget.style.visibility = 'hidden'); }}
+                        />
+                        <span className="text-xs text-slate-500">
+                          Google Drive links are auto-converted to a viewable image. Make sure the file is shared as
+                          “Anyone with the link”.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {images.length > 0 && (
                   <div className="space-y-2 mt-4">
                     {images.map((img, idx) => (
@@ -542,6 +612,17 @@ export default function AdminProducts() {
                 <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
+                {!editingId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    disabled={isSaving}
+                    onClick={(e) => handleSubmit(e as unknown as React.FormEvent, true)}
+                  >
+                    {isSaving ? 'Saving...' : 'Save & Add Another'}
+                  </Button>
+                )}
                 <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
                   {isSaving ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
                 </Button>
@@ -605,14 +686,15 @@ export default function AdminProducts() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProducts.map(product => (
+                pagedProducts.map(product => (
                   <TableRow key={product.id}>
                     <TableCell>
                       {product.image_url ? (
                         <img
-                          src={product.image_url}
+                          src={normalizeImageUrl(product.image_url, 96)}
                           alt={product.image_alt_text}
-                          className="w-12 h-12 object-cover rounded"
+                          className="w-12 h-12 object-contain rounded bg-white border border-slate-100"
+                          loading="lazy"
                         />
                       ) : (
                         <div className="w-12 h-12 bg-slate-200 rounded flex items-center justify-center text-xs text-slate-500">
@@ -693,6 +775,37 @@ export default function AdminProducts() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-between gap-4 border-t px-4 py-3 flex-wrap">
+            <p className="text-sm text-slate-500">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(currentPage * PAGE_SIZE, filteredProducts.length)} of {filteredProducts.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-slate-600 px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

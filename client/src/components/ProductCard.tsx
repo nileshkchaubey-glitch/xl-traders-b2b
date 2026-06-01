@@ -2,8 +2,7 @@ import { Product } from '@/lib/supabase';
 import { Link } from 'wouter';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/authStore';
-import { ImagePlaceholder } from './ImagePlaceholder';
-import { useState } from 'react';
+import ProductImage from './ProductImage';
 
 interface ProductCardProps {
   product: Product;
@@ -14,7 +13,6 @@ interface ProductCardProps {
 export default function ProductCard({ product, view = 'grid', onEnquire }: ProductCardProps) {
   const { isAuthenticated } = useAuthStore();
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
-  const [imageError, setImageError] = useState(false);
 
   const handleEnquire = () => {
     const message = `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`;
@@ -26,19 +24,13 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     return (
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition flex">
         {/* Image */}
-        <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-white">
-          {product.image_url && !imageError ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-contain p-1.5"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
-          ) : (
-            <ImagePlaceholder className="w-24 h-24" showText={false} />
-          )}
-        </div>
+        <ProductImage
+          src={product.image_url}
+          alt={product.image_alt_text || product.name}
+          className="w-24 h-24 flex-shrink-0"
+          imgClassName="object-contain p-1.5"
+          width={200}
+        />
 
         {/* Content */}
         <div className="flex-1 p-3 flex items-center justify-between gap-3">
@@ -79,17 +71,13 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition cursor-pointer h-full flex flex-col">
         {/* Image */}
         <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-white">
-          {product.image_url && !imageError ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
-          ) : (
-            <ImagePlaceholder className="w-full h-full" showText={false} />
-          )}
+          <ProductImage
+            src={product.image_url}
+            alt={product.image_alt_text || product.name}
+            className="w-full h-full"
+            imgClassName="object-contain p-2 group-hover:scale-105 transition duration-300"
+            width={400}
+          />
           {product.is_featured && (
             <div className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
               Featured

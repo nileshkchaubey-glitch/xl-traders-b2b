@@ -5,6 +5,7 @@ import { MessageCircle, ArrowRight, Star, TrendingUp, Sparkles } from 'lucide-re
 import { productService } from '@/lib/productService';
 import { Product } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/authStore';
+import { normalizeImageUrl } from '@/lib/imageUtils';
 
 const TABS = [
   { id: 'bestsellers', label: 'Best Sellers', icon: Star },
@@ -32,10 +33,11 @@ function FeaturedProductCard({ product, whatsappNumber }: FeaturedProductCardPro
         <div className="aspect-[4/3] bg-slate-100 overflow-hidden relative">
           {product.image_url ? (
             <img
-              src={product.image_url}
+              src={normalizeImageUrl(product.image_url, 400)}
               alt={product.image_alt_text || product.name}
               className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
               loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">

@@ -130,10 +130,24 @@ If you see demo products ("Corrugated Boxes" etc.), the real query is failing.
 
 - [ ] Supplier management feature (track suppliers, link to products)
 - [ ] Inquiry tracking (admin dashboard for enquiries)
-- [ ] Admin panel improvements (pagination, inline edit, bulk actions for 500+ products)
-- [ ] Migrate images from Drive thumbnails → Supabase Storage (more reliable)
+- [x] Admin panel improvements — inline price edit + table pagination done.
+      Bulk actions (multi-select) still pending.
+- [ ] Migrate images from Drive thumbnails → Supabase Storage (more reliable).
+      Interim: all product images now run through `normalizeImageUrl()` so raw
+      Drive share links render correctly.
 - [ ] Custom domain (xltraders.in)
-- [ ] Remove any leftover Manus files (ManusDialog.tsx, public/__manus__/)
+- [x] Removed leftover Manus files (ManusDialog.tsx, public/__manus__/) and the
+      dead legacy `pages/Admin.tsx` (superseded by AdminDashboard).
+
+### Recently shipped (this branch)
+- Admin "Add Product": paste an image URL (e.g. Google Drive link) instead of
+  uploading a file, plus a "Save & Add Another" flow for fast bulk entry.
+- Shared `ProductImage` component with shimmer skeleton + branded fallback;
+  used across catalog grid/list, product detail and admin.
+- Google Drive URL normalisation (`lib/imageUtils.ts`) so share links load.
+- Route-level code-splitting (admin/auth/product-detail lazy-loaded): initial
+  JS bundle roughly halved (~1.0 MB → ~0.52 MB) by keeping xlsx/papaparse out
+  of the public bundle.
 
 ---
 

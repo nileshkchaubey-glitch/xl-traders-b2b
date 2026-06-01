@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -8,22 +8,36 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { useAuthStore } from "./lib/authStore";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
-import ProductDetail from "./pages/ProductDetail";
-import Auth from "./pages/Auth";
-import AdminDashboard from "./pages/AdminDashboard";
+
+// Code-split the heavier / less-frequently-hit routes so the homepage and
+// catalog ship a smaller initial bundle. The admin panel in particular pulls
+// in xlsx + papaparse (bulk import) which regular visitors never need.
+const ProductDetail = lazy(() => import("./pages/ProductDetail"));
+const Auth = lazy(() => import("./pages/Auth"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 function Router() {
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/catalog"} component={Catalog} />
-      <Route path={"/product/:id"} component={ProductDetail} />
-      <Route path={"/auth"} component={Auth} />
-      <Route path={"/admin"} component={AdminDashboard} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<RouteFallback />}>
+      <Switch>
+        <Route path={"/"} component={Home} />
+        <Route path={"/catalog"} component={Catalog} />
+        <Route path={"/product/:id"} component={ProductDetail} />
+        <Route path={"/auth"} component={Auth} />
+        <Route path={"/admin"} component={AdminDashboard} />
+        <Route path={"/404"} component={NotFound} />
+        {/* Final fallback route */}
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

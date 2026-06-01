@@ -7,6 +7,7 @@ import { productService, productImageService } from '@/lib/productService';
 import { Product, ProductImage } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/authStore';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
+import { normalizeImageUrl } from '@/lib/imageUtils';
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
 const RECENTLY_VIEWED_KEY = 'xl_recently_viewed';
@@ -39,7 +40,7 @@ function MiniProductCard({ product, isAuthenticated }: { product: Product; isAut
         <div className="h-28 overflow-hidden bg-slate-100">
           {product.image_url && !imgError ? (
             <img
-              src={product.image_url}
+              src={normalizeImageUrl(product.image_url, 300)}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
               loading="lazy"
@@ -220,9 +221,11 @@ export default function ProductDetail() {
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden mb-4 aspect-square flex items-center justify-center">
                 {mainImage && !imageErrors.has(`main-${selectedImageIndex}`) ? (
                   <img
-                    src={mainImage}
+                    src={normalizeImageUrl(mainImage, 800)}
                     alt={product.image_alt_text || product.name}
                     className="w-full h-full object-contain p-4"
+                    loading="lazy"
+                    decoding="async"
                     onError={() => handleImageError(`main-${selectedImageIndex}`)}
                   />
                 ) : (
@@ -240,7 +243,7 @@ export default function ProductDetail() {
                       }`}
                     >
                       {!imageErrors.has(img.id) ? (
-                        <img src={img.image_url} alt={img.alt_text || `Product image ${idx + 1}`} className="w-full h-full object-contain p-1 bg-white" onError={() => handleImageError(img.id)} />
+                        <img src={normalizeImageUrl(img.image_url, 160)} alt={img.alt_text || `Product image ${idx + 1}`} className="w-full h-full object-contain p-1 bg-white" loading="lazy" onError={() => handleImageError(img.id)} />
                       ) : (
                         <ImagePlaceholder className="w-20 h-20" showText={false} />
                       )}
