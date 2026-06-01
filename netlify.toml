@@ -5,7 +5,7 @@
   publish = "dist/public"
 
 [build.environment]
-  NODE_VERSION = "22.13.0"
+  NODE_VERSION = "20"
   COREPACK_ENABLE_STRICT = "0"
 
 # SPA routing — all routes serve index.html
