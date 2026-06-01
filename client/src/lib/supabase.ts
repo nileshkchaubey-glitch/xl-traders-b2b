@@ -1,30 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Fall back to the public publishable key so the app always connects to the
+// real database even when build-time env vars are absent (e.g. Netlify/CF
+// deploys that haven't set VITE_SUPABASE_URL yet).
+// These are the *publishable* (anon) credentials — safe to embed in client code.
+const supabaseUrl =
+  import.meta.env.VITE_SUPABASE_URL ||
+  'https://danoeaftaazhbldeeuxj.supabase.co';
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  'sb_publishable_zYDYXT11klzTge5TNcbSNA_Jv3v-3IO';
 
-// Create a dummy client for demo mode if env vars are missing
-let supabaseClient: any;
-
-if (supabaseUrl && supabaseAnonKey) {
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-} else {
-  console.warn('⚠️ Supabase environment variables not configured. Running in demo mode.');
-  console.warn('To enable full functionality, set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
-  
-  supabaseClient = {
-    auth: { onAuthStateChange: () => ({ data: { subscription: null } }) },
-    from: () => ({
-      select: () => ({ data: [], error: null }),
-      insert: () => ({ data: null, error: null }),
-      update: () => ({ data: null, error: null }),
-      delete: () => ({ data: null, error: null }),
-    }),
-    storage: { from: () => ({ upload: () => ({ data: null, error: null }) }) },
-  };
-}
-
-export const supabase = supabaseClient;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Types for database
 export interface Category {

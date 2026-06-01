@@ -1,7 +1,10 @@
 import { supabase, Product, Category, ProductImage, Enquiry } from './supabase';
 import { demoProducts, demoCategories } from './demoData';
 
-const isDemo = !import.meta.env.VITE_SUPABASE_URL;
+// Demo mode is opt-in only (VITE_DEMO_MODE=true). The supabase client now
+// always has real credentials via built-in fallbacks, so we never fall into
+// demo mode by accident on a deployment that lacks VITE_SUPABASE_URL.
+const isDemo = import.meta.env.VITE_DEMO_MODE === 'true';
 
 // ============================================================================
 // CATEGORIES
