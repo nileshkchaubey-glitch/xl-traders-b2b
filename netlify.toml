@@ -1,7 +1,7 @@
 # Netlify Configuration for XL Traders B2B (Vite + React + Supabase)
 
 [build]
-  command = "npm install -g pnpm@10.15.1 && pnpm install --no-frozen-lockfile && pnpm run build"
+  command = "pnpm install --no-frozen-lockfile && pnpm run build"
   publish = "dist/public"
 
 [build.environment]
