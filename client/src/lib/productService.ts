@@ -10,6 +10,12 @@ const isDemo = import.meta.env.VITE_DEMO_MODE === 'true';
 // CATEGORIES
 // ============================================================================
 
+export interface CategoryGroup {
+  group_name: string;
+  group_order: number;
+  categories: Category[];
+}
+
 export const categoryService = {
   async getAll() {
     if (isDemo) return demoCategories;
@@ -71,6 +77,26 @@ export const categoryService = {
 
     if (error) throw error;
   },
+
+  // Returns categories bucketed by group_name, sorted by group_order.
+  // Returns [] when no category has a group_name yet (caller falls back to flat list).
+  async getCategoriesGroupedByGroup(): Promise<CategoryGroup[]> {
+    if (isDemo) return [];
+    const cats = await this.getAll();
+    if (!cats.some((c) => c.group_name)) return [];
+
+    const groupMap = new Map<string, CategoryGroup>();
+    for (const cat of cats) {
+      const key = cat.group_name ?? '__other__';
+      const displayName = cat.group_name ?? 'Other';
+      const order = cat.group_name ? (cat.group_order ?? 999) : 999;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, { group_name: displayName, group_order: order, categories: [] });
+      }
+      groupMap.get(key)!.categories.push(cat);
+    }
+    return [...groupMap.values()].sort((a, b) => a.group_order - b.group_order);
+  },
 };
 
 // ============================================================================
@@ -78,10 +104,11 @@ export const categoryService = {
 // ============================================================================
 
 export const productService = {
-  async getAll(filters?: { categoryId?: string; search?: string; featured?: boolean; brand?: string }) {
+  async getAll(filters?: { categoryId?: string; categoryIds?: string[]; search?: string; featured?: boolean; brand?: string }) {
     if (isDemo) {
       let results = [...demoProducts];
       if (filters?.categoryId) results = results.filter(p => p.category_id === filters.categoryId);
+      if (filters?.categoryIds?.length) results = results.filter(p => filters.categoryIds!.includes(p.category_id));
       if (filters?.featured) results = results.filter(p => p.is_featured);
       if (filters?.brand) results = results.filter(p => p.brand === filters.brand);
       if (filters?.search) {
@@ -103,6 +130,10 @@ export const productService = {
 
       if (filters?.categoryId) {
         query = query.eq('category_id', filters.categoryId);
+      }
+
+      if (filters?.categoryIds?.length) {
+        query = query.in('category_id', filters.categoryIds);
       }
 
       if (filters?.featured) {
