@@ -1,7 +1,7 @@
 # Netlify Configuration for XL Traders B2B (Vite + React + Supabase)
 
 [build]
-  command = "npm install && npm run build"
+  command = "pnpm install && pnpm run build"
   publish = "dist/public"
 
 [build.environment]

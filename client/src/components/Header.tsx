@@ -11,7 +11,7 @@ interface HeaderProps {
 export default function Header({ variant = 'default' }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { isAuthenticated, user, signOut } = useAuthStore();
+  const { isAuthenticated, isAdmin, user, signOut } = useAuthStore();
   const [location, setLocation] = useLocation();
   const isHome = variant === 'home' || location === '/';
 
@@ -111,6 +111,13 @@ export default function Header({ variant = 'default' }: HeaderProps) {
               {/* Auth Buttons */}
               {isAuthenticated ? (
                 <div className="hidden md:flex items-center gap-2">
+                  {isAdmin && (
+                    <Link href="/admin">
+                      <Button variant="outline" size="sm">
+                        Admin
+                      </Button>
+                    </Link>
+                  )}
                   <span className="text-sm text-slate-600">{user?.email}</span>
                   <button
                     onClick={handleSignOut}
@@ -182,9 +189,11 @@ export default function Header({ variant = 'default' }: HeaderProps) {
               </a>
               {isAuthenticated ? (
                 <>
-                  <Link href="/admin" className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition">
-                    Admin Panel
-                  </Link>
+                  {isAdmin && (
+                    <Link href="/admin" className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition">
+                      Admin Panel
+                    </Link>
+                  )}
                   <button
                     onClick={handleSignOut}
                     className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"

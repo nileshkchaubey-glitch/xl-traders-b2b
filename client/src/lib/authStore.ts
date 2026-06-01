@@ -1,22 +1,83 @@
 import { create } from 'zustand';
 import { supabase, UserProfile } from './supabase';
 
+const ADMIN_EMAILS = new Set(
+  (import.meta.env.VITE_ADMIN_EMAILS || 'nileshk.chaubey@gmail.com')
+    .split(',')
+    .map((email: string) => email.trim().toLowerCase())
+    .filter(Boolean)
+);
+
+function resolveIsAdmin(
+  user: { email?: string | null } | null,
+  profile: UserProfile | null
+): boolean {
+  if (profile?.is_admin === true) return true;
+  const email = user?.email?.toLowerCase();
+  return !!email && ADMIN_EMAILS.has(email);
+}
+
+async function fetchUserProfile(user: { id: string; email?: string | null }) {
+  const { data: profile, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to fetch user profile:', error.message);
+  }
+
+  return profile;
+}
+
+async function buildAuthState(user: { id: string; email?: string | null }) {
+  let profile = await fetchUserProfile(user);
+
+  if (!profile && user.email) {
+    const isKnownAdmin = ADMIN_EMAILS.has(user.email.toLowerCase());
+    const { data: created, error } = await supabase
+      .from('user_profiles')
+      .insert({
+        id: user.id,
+        email: user.email,
+        is_active: true,
+        is_admin: isKnownAdmin,
+      })
+      .select('*')
+      .maybeSingle();
+
+    if (!error && created) {
+      profile = created;
+    }
+  }
+
+  return {
+    user,
+    profile: profile || null,
+    isAuthenticated: true,
+    isAdmin: resolveIsAdmin(user, profile),
+  };
+}
+
+let authListenerAttached = false;
+
 interface AuthState {
   user: any | null;
   profile: UserProfile | null;
   isLoading: boolean;
   isAdmin: boolean;
   isAuthenticated: boolean;
-  
-  // Actions
+
   initialize: () => Promise<void>;
+  refreshProfile: () => Promise<boolean>;
   signUp: (email: string, password: string, company: string) => Promise<{ error: any | null }>;
   signIn: (email: string, password: string) => Promise<{ error: any | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any | null }>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
   isLoading: true,
@@ -25,31 +86,38 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   initialize: async () => {
     try {
-      // Check if Supabase is available
-      if (!supabase.auth || !supabase.auth.getUser) {
+      if (!supabase.auth?.getSession) {
         console.warn('Supabase auth not available (demo mode)');
         set({ isLoading: false });
         return;
       }
-      
-      // Check if user is already logged in
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        // Fetch user profile
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
 
-        set({
-          user,
-          profile: profile || null,
-          isAuthenticated: true,
-          isAdmin: profile?.is_admin || false,
-          isLoading: false,
+      if (!authListenerAttached) {
+        authListenerAttached = true;
+        supabase.auth.onAuthStateChange(async (_event, session) => {
+          if (session?.user) {
+            set({ isLoading: true });
+            const authState = await buildAuthState(session.user);
+            set({ ...authState, isLoading: false });
+          } else {
+            set({
+              user: null,
+              profile: null,
+              isAuthenticated: false,
+              isAdmin: false,
+              isLoading: false,
+            });
+          }
         });
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        const authState = await buildAuthState(session.user);
+        set({ ...authState, isLoading: false });
       } else {
         set({ isLoading: false });
       }
@@ -59,9 +127,22 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
+  refreshProfile: async () => {
+    const { user } = get();
+    if (!user) return false;
+
+    set({ isLoading: true });
+    const authState = await buildAuthState(user);
+    set({ ...authState, isLoading: false });
+    return authState.isAdmin;
+  },
+
   signUp: async (email: string, password: string, company: string) => {
     try {
-      const { data: { user }, error: signUpError } = await supabase.auth.signUp({
+      const {
+        data: { user },
+        error: signUpError,
+      } = await supabase.auth.signUp({
         email,
         password,
       });
@@ -69,26 +150,24 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (signUpError) return { error: signUpError };
 
       if (user) {
-        // Create user profile
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: user.id,
-            email,
-            company_name: company,
-            is_active: true,
-          });
+        const { error: profileError } = await supabase.from('user_profiles').insert({
+          id: user.id,
+          email,
+          company_name: company,
+          is_active: true,
+        });
 
         if (profileError) return { error: profileError };
 
         set({
           user,
           isAuthenticated: true,
+          isAdmin: resolveIsAdmin(user, null),
           profile: {
             id: user.id,
             email,
             company_name: company,
-            is_admin: false,
+            is_admin: resolveIsAdmin(user, null),
             is_active: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -104,30 +183,31 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signIn: async (email: string, password: string) => {
     try {
-      const { data: { user }, error } = await supabase.auth.signInWithPassword({
+      set({ isLoading: true });
+
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) return { error };
+      if (error) {
+        set({ isLoading: false });
+        return { error };
+      }
 
       if (user) {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        set({
-          user,
-          profile: profile || null,
-          isAuthenticated: true,
-          isAdmin: profile?.is_admin || false,
-        });
+        const authState = await buildAuthState(user);
+        set({ ...authState, isLoading: false });
+      } else {
+        set({ isLoading: false });
       }
 
       return { error: null };
     } catch (error) {
+      set({ isLoading: false });
       return { error };
     }
   },
@@ -139,12 +219,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       profile: null,
       isAuthenticated: false,
       isAdmin: false,
+      isLoading: false,
     });
   },
 
   updateProfile: async (updates: Partial<UserProfile>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return { error: 'Not authenticated' };
 
       const { error } = await supabase
@@ -154,9 +237,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (error) return { error };
 
-      set((state) => ({
-        profile: state.profile ? { ...state.profile, ...updates } : null,
-      }));
+      set((state) => {
+        const profile = state.profile ? { ...state.profile, ...updates } : null;
+        return {
+          profile,
+          isAdmin: resolveIsAdmin(state.user, profile),
+        };
+      });
 
       return { error: null };
     } catch (error) {

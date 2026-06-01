@@ -26,13 +26,14 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     return (
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition flex">
         {/* Image */}
-        <div className="w-24 h-24 flex-shrink-0 overflow-hidden">
+        <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-white">
           {product.image_url && !imageError ? (
             <img
               src={product.image_url}
               alt={product.image_alt_text || product.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain p-1.5"
               onError={() => setImageError(true)}
+              loading="lazy"
             />
           ) : (
             <ImagePlaceholder className="w-24 h-24" showText={false} />
@@ -77,12 +78,12 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     <Link href={`/product/${product.id}`}>
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition cursor-pointer h-full flex flex-col">
         {/* Image */}
-        <div className="h-36 overflow-hidden relative group flex-shrink-0">
+        <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-white">
           {product.image_url && !imageError ? (
             <img
               src={product.image_url}
               alt={product.image_alt_text || product.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+              className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
               onError={() => setImageError(true)}
               loading="lazy"
             />
@@ -90,7 +91,7 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
             <ImagePlaceholder className="w-full h-full" showText={false} />
           )}
           {product.is_featured && (
-            <div className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+            <div className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
               Featured
             </div>
           )}

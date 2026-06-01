@@ -8,9 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit2, Trash2, Search, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Star } from 'lucide-react';
 import { toast } from 'sonner';
-import { productService, categoryService, storageService } from '@/lib/productService';
+import { productService, categoryService, storageService, productImageService } from '@/lib/productService';
 import { Product, Category } from '@/lib/supabase';
 
 /**
@@ -42,13 +42,26 @@ export default function AdminProducts() {
     price: '',
     mrp: '',
     unit_of_measure: 'pcs',
+    quantity_in_unit: '',
     discount_percent: '0',
     brand: '',
     is_active: true,
+    is_featured: false,
   });
 
   const [images, setImages] = useState<File[]>([]);
   const [imageMetadata, setImageMetadata] = useState<Array<{ altText: string; description: string }>>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Revoke object URLs on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load data
   useEffect(() => {
@@ -88,6 +101,7 @@ export default function AdminProducts() {
       return;
     }
 
+    setIsSaving(true);
     try {
       const productData = {
         name: formData.name,
@@ -96,10 +110,12 @@ export default function AdminProducts() {
         price: parseFloat(formData.price),
         mrp: formData.mrp ? parseFloat(formData.mrp) : undefined,
         unit_of_measure: formData.unit_of_measure,
+        quantity_in_unit: formData.quantity_in_unit ? parseInt(formData.quantity_in_unit) : undefined,
         discount_percent: parseInt(formData.discount_percent),
         brand: formData.brand || undefined,
         is_active: formData.is_active,
-        image_alt_text: imageMetadata[0]?.altText || '',
+        is_featured: formData.is_featured,
+        image_alt_text: imageMetadata[0]?.altText || formData.name,
         image_description: imageMetadata[0]?.description || '',
       };
 
@@ -110,15 +126,31 @@ export default function AdminProducts() {
         product = await productService.create(productData as any);
       }
 
-      // Upload images
+      // Upload images and persist them. The first uploaded image becomes the
+      // product's primary image_url; all images are stored in product_images.
       if (images.length > 0) {
+        const uploadedUrls: string[] = [];
         for (let i = 0; i < images.length; i++) {
           try {
             const imageUrl = await storageService.uploadProductImage(images[i], product.id);
-            // Image uploaded successfully
+            if (!imageUrl) continue;
+            uploadedUrls.push(imageUrl);
+            await productImageService.create({
+              product_id: product.id,
+              image_url: imageUrl,
+              alt_text: imageMetadata[i]?.altText || formData.name,
+              description: imageMetadata[i]?.description || '',
+              display_order: i,
+            });
           } catch (error) {
+            console.error(error);
             toast.error(`Failed to upload image ${i + 1}`);
           }
+        }
+
+        // Set the primary image on the product so it shows in cards/catalog.
+        if (uploadedUrls.length > 0) {
+          await productService.update(product.id, { image_url: uploadedUrls[0] });
         }
       }
 
@@ -129,6 +161,8 @@ export default function AdminProducts() {
     } catch (error) {
       toast.error('Failed to save product');
       console.error(error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -150,6 +184,17 @@ export default function AdminProducts() {
       await productService.toggleActive(id, !isActive);
       loadData();
       toast.success(isActive ? 'Product deactivated' : 'Product activated');
+    } catch (error) {
+      toast.error('Failed to update product');
+      console.error(error);
+    }
+  };
+
+  const handleToggleFeatured = async (id: string, isFeatured: boolean) => {
+    try {
+      await productService.toggleFeatured(id, !isFeatured);
+      loadData();
+      toast.success(isFeatured ? 'Removed from featured' : 'Added to featured');
     } catch (error) {
       toast.error('Failed to update product');
       console.error(error);
@@ -182,13 +227,17 @@ export default function AdminProducts() {
       price: product.price.toString(),
       mrp: product.mrp?.toString() || '',
       unit_of_measure: product.unit_of_measure || 'pcs',
+      quantity_in_unit: product.quantity_in_unit?.toString() || '',
       discount_percent: (product.discount_percent || 0).toString(),
       brand: product.brand || '',
       is_active: product.is_active,
+      is_featured: product.is_featured || false,
     });
     setEditingId(product.id);
     setImages([]);
     setImageMetadata([]);
+    setImagePreviews([]);
+    setExistingImageUrl(product.image_url || null);
     setIsOpen(true);
   };
 
@@ -200,12 +249,17 @@ export default function AdminProducts() {
       price: '',
       mrp: '',
       unit_of_measure: 'pcs',
+      quantity_in_unit: '',
       discount_percent: '0',
       brand: '',
       is_active: true,
+      is_featured: false,
     });
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
     setImages([]);
     setImageMetadata([]);
+    setImagePreviews([]);
+    setExistingImageUrl(null);
     setEditingId(null);
   };
 
@@ -216,14 +270,19 @@ export default function AdminProducts() {
       return;
     }
     setImages([...images, ...files]);
+    setImagePreviews([...imagePreviews, ...files.map((f) => URL.createObjectURL(f))]);
     setImageMetadata([
       ...imageMetadata,
       ...files.map(() => ({ altText: '', description: '' })),
     ]);
+    // Allow re-selecting the same file after removal
+    e.target.value = '';
   };
 
   const removeImage = (index: number) => {
+    if (imagePreviews[index]) URL.revokeObjectURL(imagePreviews[index]);
     setImages(images.filter((_, i) => i !== index));
+    setImagePreviews(imagePreviews.filter((_, i) => i !== index));
     setImageMetadata(imageMetadata.filter((_, i) => i !== index));
   };
 
@@ -326,20 +385,33 @@ export default function AdminProducts() {
                 </div>
               </div>
 
-              {/* Unit */}
-              <div className="space-y-2">
-                <Label htmlFor="unit">Unit of Measure</Label>
-                <Select value={formData.unit_of_measure} onValueChange={(value) => setFormData({ ...formData, unit_of_measure: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pcs">Per Piece</SelectItem>
-                    <SelectItem value="box">Per Box</SelectItem>
-                    <SelectItem value="pack">Per Pack</SelectItem>
-                    <SelectItem value="roll">Per Roll</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Unit + Pack quantity */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unit of Measure</Label>
+                  <Select value={formData.unit_of_measure} onValueChange={(value) => setFormData({ ...formData, unit_of_measure: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pcs">Per Piece</SelectItem>
+                      <SelectItem value="box">Per Box</SelectItem>
+                      <SelectItem value="pack">Per Pack</SelectItem>
+                      <SelectItem value="roll">Per Roll</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quantity_in_unit">Pack Size <span className="text-slate-400 font-normal">(qty per unit)</span></Label>
+                  <Input
+                    id="quantity_in_unit"
+                    type="number"
+                    min="1"
+                    value={formData.quantity_in_unit}
+                    onChange={(e) => setFormData({ ...formData, quantity_in_unit: e.target.value })}
+                    placeholder="e.g., 100"
+                  />
+                </div>
               </div>
 
               {/* Description */}
@@ -368,6 +440,21 @@ export default function AdminProducts() {
               {/* Images */}
               <div className="space-y-2">
                 <Label>Product Images (up to 5)</Label>
+
+                {/* Current image (edit mode) */}
+                {editingId && existingImageUrl && images.length === 0 && (
+                  <div className="flex items-center gap-3 mb-2 p-2 border rounded-lg bg-slate-50">
+                    <img
+                      src={existingImageUrl}
+                      alt="Current product"
+                      className="w-16 h-16 object-contain rounded bg-white border"
+                    />
+                    <span className="text-sm text-slate-600">
+                      Current image. Upload new images below to replace it.
+                    </span>
+                  </div>
+                )}
+
                 <input
                   type="file"
                   multiple
@@ -384,12 +471,26 @@ export default function AdminProducts() {
                   <div className="space-y-2 mt-4">
                     {images.map((img, idx) => (
                       <div key={idx} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">{img.name}</span>
+                        <div className="flex items-center gap-3">
+                          {imagePreviews[idx] && (
+                            <img
+                              src={imagePreviews[idx]}
+                              alt={img.name}
+                              className="w-16 h-16 object-contain rounded bg-slate-50 border flex-shrink-0"
+                            />
+                          )}
+                          <span className="text-sm font-medium flex-1 truncate">
+                            {img.name}
+                            {idx === 0 && (
+                              <span className="ml-2 text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                PRIMARY
+                              </span>
+                            )}
+                          </span>
                           <button
                             type="button"
                             onClick={() => removeImage(idx)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 flex-shrink-0"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -418,22 +519,31 @@ export default function AdminProducts() {
                 )}
               </div>
 
-              {/* Active Toggle */}
-              <div className="flex items-center gap-3 border-t pt-4">
-                <Switch
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-                <Label>Active</Label>
+              {/* Active + Featured Toggles */}
+              <div className="flex flex-wrap items-center gap-6 border-t pt-4">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={formData.is_active}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                  />
+                  <Label>Active</Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={formData.is_featured}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_featured: checked })}
+                  />
+                  <Label>Featured <span className="text-slate-400 font-normal">(shows on homepage)</span></Label>
+                </div>
               </div>
 
               {/* Actions */}
               <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end border-t pt-4">
-                <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)}>
+                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
-                <Button type="submit" className="w-full sm:w-auto">
-                  {editingId ? 'Update Product' : 'Create Product'}
+                <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
                 </Button>
               </div>
             </form>
@@ -554,6 +664,15 @@ export default function AdminProducts() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => handleToggleFeatured(product.id, product.is_featured)}
+                          title={product.is_featured ? 'Remove from featured' : 'Add to featured'}
+                          className={`p-2 rounded hover:bg-slate-100 ${
+                            product.is_featured ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          <Star className="w-4 h-4" fill={product.is_featured ? 'currentColor' : 'none'} />
+                        </button>
                         <button
                           onClick={() => handleEdit(product)}
                           className="p-2 hover:bg-slate-100 rounded text-slate-600 hover:text-slate-900"
