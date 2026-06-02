@@ -9,7 +9,7 @@ const supabaseUrl =
   'https://danoeaftaazhbldeeuxj.supabase.co';
 const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'sb_publishable_zYDYXT11klzTge5TNcbSNA_Jv3v-3IO';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhbm9lYWZ0YWF6aGJsZGVldXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMTk5NzEsImV4cCI6MjA5NTY5NTk3MX0.be0cn5iaDQlR_cJ-UR2khyshzZ2Y8H15jrT1RbS4RQI';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
