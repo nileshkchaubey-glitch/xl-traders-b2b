@@ -45,6 +45,7 @@ export default function AdminProducts() {
     quantity_in_unit: '',
     discount_percent: '0',
     brand: '',
+    imageUrl: '',
     is_active: true,
     is_featured: false,
   });
@@ -92,14 +93,18 @@ export default function AdminProducts() {
     return matchesSearch && matchesCategory;
   });
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Handle form submission. `keepOpen` powers the "Save & Add Another" flow:
+  // after a successful create the form resets but the dialog stays open so the
+  // admin can enter the next product without re-opening the modal.
+  const handleSubmit = async (e: React.FormEvent, keepOpen = false) => {
     e.preventDefault();
 
     if (!formData.name || !formData.category_id || !formData.price) {
       toast.error('Please fill in all required fields');
       return;
     }
+
+    const pastedUrl = formData.imageUrl.trim();
 
     setIsSaving(true);
     try {
@@ -117,6 +122,9 @@ export default function AdminProducts() {
         is_featured: formData.is_featured,
         image_alt_text: imageMetadata[0]?.altText || formData.name,
         image_description: imageMetadata[0]?.description || '',
+        // A pasted image URL (e.g. Google Drive thumbnail) sets the primary
+        // image directly. An uploaded file below takes precedence over this.
+        ...(pastedUrl ? { image_url: pastedUrl } : {}),
       };
 
       let product: Product;
@@ -156,7 +164,7 @@ export default function AdminProducts() {
 
       toast.success(editingId ? 'Product updated' : 'Product created');
       resetForm();
-      setIsOpen(false);
+      if (!keepOpen) setIsOpen(false);
       loadData();
     } catch (error) {
       toast.error('Failed to save product');
@@ -230,6 +238,7 @@ export default function AdminProducts() {
       quantity_in_unit: product.quantity_in_unit?.toString() || '',
       discount_percent: (product.discount_percent || 0).toString(),
       brand: product.brand || '',
+      imageUrl: product.image_url || '',
       is_active: product.is_active,
       is_featured: product.is_featured || false,
     });
@@ -252,6 +261,7 @@ export default function AdminProducts() {
       quantity_in_unit: '',
       discount_percent: '0',
       brand: '',
+      imageUrl: '',
       is_active: true,
       is_featured: false,
     });
@@ -437,12 +447,41 @@ export default function AdminProducts() {
                 />
               </div>
 
+              {/* Image URL (fastest path — paste a Google Drive / web link) */}
+              <div className="space-y-2">
+                <Label htmlFor="imageUrl">
+                  Image URL <span className="text-slate-400 font-normal">(paste a link — fastest)</span>
+                </Label>
+                <div className="flex items-start gap-3">
+                  <Input
+                    id="imageUrl"
+                    value={formData.imageUrl}
+                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                    placeholder="https://drive.google.com/thumbnail?id=...&sz=w800"
+                  />
+                  {formData.imageUrl.trim() && images.length === 0 && (
+                    <img
+                      src={formData.imageUrl.trim()}
+                      alt="Preview"
+                      referrerPolicy="no-referrer"
+                      className="w-16 h-16 object-contain rounded bg-white border flex-shrink-0"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+                      }}
+                      onLoad={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.visibility = 'visible';
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+
               {/* Images */}
               <div className="space-y-2">
-                <Label>Product Images (up to 5)</Label>
+                <Label>Or Upload Images <span className="text-slate-400 font-normal">(up to 5 — overrides URL above)</span></Label>
 
                 {/* Current image (edit mode) */}
-                {editingId && existingImageUrl && images.length === 0 && (
+                {editingId && existingImageUrl && images.length === 0 && !formData.imageUrl.trim() && (
                   <div className="flex items-center gap-3 mb-2 p-2 border rounded-lg bg-slate-50">
                     <img
                       src={existingImageUrl}
@@ -542,6 +581,17 @@ export default function AdminProducts() {
                 <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
+                {!editingId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    onClick={(e) => handleSubmit(e, true)}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving...' : 'Save & Add Another'}
+                  </Button>
+                )}
                 <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
                   {isSaving ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
                 </Button>
@@ -612,7 +662,9 @@ export default function AdminProducts() {
                         <img
                           src={product.image_url}
                           alt={product.image_alt_text}
-                          className="w-12 h-12 object-cover rounded"
+                          className="w-12 h-12 object-contain rounded bg-slate-50 border"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
                         />
                       ) : (
                         <div className="w-12 h-12 bg-slate-200 rounded flex items-center justify-center text-xs text-slate-500">

@@ -16,6 +16,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Split large, infrequently-changing vendor code into its own chunks so
+        // the main app bundle stays small and these can be cached separately.
+        manualChunks: {
+          react: ["react", "react-dom", "wouter"],
+          supabase: ["@supabase/supabase-js"],
+          charts: ["recharts"],
+          xlsx: ["xlsx"],
+        },
+      },
+    },
   },
   server: {
     port: 3000,

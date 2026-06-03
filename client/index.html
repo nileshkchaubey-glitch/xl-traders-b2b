@@ -18,10 +18,11 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script
-      defer
-      src="%VITE_ANALYTICS_ENDPOINT%/umami"
-      data-website-id="%VITE_ANALYTICS_WEBSITE_ID%"></script>
+    <!--
+      Umami analytics is loaded at runtime from main.tsx only when both
+      VITE_ANALYTICS_ENDPOINT and VITE_ANALYTICS_WEBSITE_ID are configured.
+      (Previously hard-coded here, which 404'd on every page load when unset.)
+    -->
   </body>
 
 </html>

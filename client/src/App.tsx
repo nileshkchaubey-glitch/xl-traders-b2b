@@ -1,16 +1,28 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useAuthStore } from "./lib/authStore";
+import WhatsAppFloat from "./components/WhatsAppFloat";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
 import ProductDetail from "./pages/ProductDetail";
 import Auth from "./pages/Auth";
-import AdminDashboard from "./pages/AdminDashboard";
+
+// The admin dashboard pulls in heavy, admin-only deps (xlsx, recharts).
+// Lazy-load it so regular shoppers never download that code.
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+
+function PageFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center text-slate-500">
+      Loading…
+    </div>
+  );
+}
 
 function Router() {
   return (
@@ -19,7 +31,11 @@ function Router() {
       <Route path={"/catalog"} component={Catalog} />
       <Route path={"/product/:id"} component={ProductDetail} />
       <Route path={"/auth"} component={Auth} />
-      <Route path={"/admin"} component={AdminDashboard} />
+      <Route path={"/admin"}>
+        <Suspense fallback={<PageFallback />}>
+          <AdminDashboard />
+        </Suspense>
+      </Route>
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
@@ -34,10 +50,14 @@ function Router() {
 
 function App() {
   const { initialize } = useAuthStore();
+  const [location] = useLocation();
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Keep the floating CTA off the admin panel — it's a shopper-facing element.
+  const showWhatsAppFloat = !location.startsWith("/admin");
 
   return (
     <ErrorBoundary>
@@ -48,6 +68,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          {showWhatsAppFloat && <WhatsAppFloat />}
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

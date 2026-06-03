@@ -15,6 +15,16 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
   const { isAuthenticated } = useAuthStore();
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  // Show a strike-through MRP + discount only when there's a genuine saving.
+  const hasDiscount = !!product.mrp && product.mrp > product.price;
+  const discountPercent =
+    product.discount_percent && product.discount_percent > 0
+      ? product.discount_percent
+      : hasDiscount
+        ? Math.round(((product.mrp! - product.price) / product.mrp!) * 100)
+        : 0;
 
   const handleEnquire = () => {
     const message = `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`;
@@ -34,6 +44,8 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
               className="w-full h-full object-contain p-1.5"
               onError={() => setImageError(true)}
               loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
             />
           ) : (
             <ImagePlaceholder className="w-24 h-24" showText={false} />
@@ -78,21 +90,36 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     <Link href={`/product/${product.id}`}>
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition cursor-pointer h-full flex flex-col">
         {/* Image */}
-        <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-white">
+        <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-slate-50">
           {product.image_url && !imageError ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
+            <>
+              {!imageLoaded && (
+                <div className="absolute inset-0 animate-pulse bg-slate-100" />
+              )}
+              <img
+                src={product.image_url}
+                alt={product.image_alt_text || product.name}
+                className={`w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300 ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                onError={() => setImageError(true)}
+                onLoad={() => setImageLoaded(true)}
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </>
           ) : (
             <ImagePlaceholder className="w-full h-full" showText={false} />
           )}
           {product.is_featured && (
             <div className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
               Featured
+            </div>
+          )}
+          {discountPercent > 0 && (
+            <div className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+              {discountPercent}% OFF
             </div>
           )}
         </div>
@@ -111,7 +138,14 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
           {/* Price */}
           <div className="mb-1.5">
             {isAuthenticated ? (
-              <p className="font-bold text-red-600 text-sm leading-none">₹{product.price.toLocaleString()}</p>
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <p className="font-bold text-red-600 text-sm leading-none">₹{product.price.toLocaleString()}</p>
+                {hasDiscount && (
+                  <p className="text-[10px] text-slate-400 line-through leading-none">
+                    ₹{product.mrp!.toLocaleString()}
+                  </p>
+                )}
+              </div>
             ) : (
               <p className="text-[10px] text-slate-500 font-semibold">Sign in for price</p>
             )}
