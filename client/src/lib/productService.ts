@@ -6,6 +6,19 @@ import { demoProducts, demoCategories } from './demoData';
 // demo mode by accident on a deployment that lacks VITE_SUPABASE_URL.
 const isDemo = import.meta.env.VITE_DEMO_MODE === 'true';
 
+// Columns safe to return to unauthenticated (anon) users — price/mrp excluded.
+// Mirrors the DB-level column REVOKE on the anon role.
+const GUEST_PRODUCT_COLS =
+  'id,name,category_id,description,sku,unit_of_measure,quantity_in_unit,' +
+  'image_url,image_alt_text,image_description,specifications,' +
+  'is_active,is_featured,display_order,brand,stock_status,tags,' +
+  'min_order_qty,created_at,updated_at';
+
+async function productSelectCols(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session ? '*' : GUEST_PRODUCT_COLS;
+}
+
 // ============================================================================
 // CATEGORIES
 // ============================================================================
@@ -122,9 +135,10 @@ export const productService = {
     }
 
     try {
+      const cols = await productSelectCols();
       let query = supabase
         .from('products')
-        .select('*')
+        .select(cols)
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
@@ -184,9 +198,10 @@ export const productService = {
     }
     
     try {
+      const cols = await productSelectCols();
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(cols)
         .eq('id', id)
         .single();
 
@@ -210,9 +225,10 @@ export const productService = {
     }
     
     try {
+      const cols = await productSelectCols();
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(cols)
         .eq('is_active', true)
         .eq('is_featured', true)
         .order('display_order', { ascending: true })
@@ -236,9 +252,10 @@ export const productService = {
     }
     
     try {
+      const cols = await productSelectCols();
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(cols)
         .eq('is_active', true)
         .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
         .limit(limit);

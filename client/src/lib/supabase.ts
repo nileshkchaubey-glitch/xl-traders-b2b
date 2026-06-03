@@ -34,7 +34,7 @@ export interface Product {
   name: string;
   category_id: string;
   description?: string;
-  price: number;
+  price?: number;
   mrp?: number;
   unit_of_measure: string;
   quantity_in_unit?: number;
