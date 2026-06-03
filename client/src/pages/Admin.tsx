@@ -117,7 +117,7 @@ export default function Admin() {
       name: product.name,
       category_id: product.category_id,
       description: product.description || '',
-      price: product.price.toString(),
+      price: (product.price ?? 0).toString(),
       quantity_in_unit: product.quantity_in_unit?.toString() || '',
       unit_of_measure: product.unit_of_measure || 'pcs',
       sku: product.sku || '',
@@ -443,7 +443,7 @@ export default function Admin() {
                             {category?.name}
                           </td>
                           <td className="px-6 py-4 text-sm font-semibold text-red-600">
-                            ₹{product.price.toLocaleString()}
+                            ₹{product.price?.toLocaleString()}
                           </td>
                           <td className="px-6 py-4">
                             <button
