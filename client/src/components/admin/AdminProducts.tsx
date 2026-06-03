@@ -224,7 +224,7 @@ export default function AdminProducts() {
       name: product.name,
       category_id: product.category_id,
       description: product.description || '',
-      price: product.price.toString(),
+      price: (product.price ?? 0).toString(),
       mrp: product.mrp?.toString() || '',
       unit_of_measure: product.unit_of_measure || 'pcs',
       quantity_in_unit: product.quantity_in_unit?.toString() || '',
@@ -646,7 +646,7 @@ export default function AdminProducts() {
                           onClick={() => setEditingPrice(product.id)}
                           className="font-semibold text-red-600 hover:text-red-700 cursor-pointer"
                         >
-                          ₹{product.price.toFixed(2)}
+                          ₹{(product.price ?? 0).toFixed(2)}
                         </button>
                       )}
                     </TableCell>

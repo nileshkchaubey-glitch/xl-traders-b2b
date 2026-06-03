@@ -94,10 +94,10 @@ export default function Catalog() {
 
         switch (sortBy) {
           case 'price-low':
-            result.sort((a, b) => a.price - b.price);
+            result.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
             break;
           case 'price-high':
-            result.sort((a, b) => b.price - a.price);
+            result.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
             break;
           case 'name':
             result.sort((a, b) => a.name.localeCompare(b.name));

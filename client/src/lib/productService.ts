@@ -6,6 +6,23 @@ import { demoProducts, demoCategories } from './demoData';
 // demo mode by accident on a deployment that lacks VITE_SUPABASE_URL.
 const isDemo = import.meta.env.VITE_DEMO_MODE === 'true';
 
+// Columns granted to anon role — must exactly match sql/04-price-column-security.sql.
+// price, mrp, and discount_percent are intentionally excluded.
+// stock_status, tags, min_order_qty are omitted here because they are from
+// untracked migrations and may not exist in all DB instances; they ARE granted
+// conditionally by the SQL via a DO $$ existence check.
+const GUEST_PRODUCT_COLS =
+  'id,name,category_id,description,sku,unit_of_measure,quantity_in_unit,' +
+  'image_url,image_alt_text,image_description,specifications,' +
+  'is_active,is_featured,display_order,brand,created_at,updated_at';
+
+// Returns the right SELECT columns based on whether the caller has a session.
+// Authenticated users get all columns (*). Guests get GUEST_PRODUCT_COLS only.
+async function productSelectCols(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session ? '*' : GUEST_PRODUCT_COLS;
+}
+
 // ============================================================================
 // CATEGORIES
 // ============================================================================
@@ -31,7 +48,7 @@ export const categoryService = {
       return data as Category[];
     } catch (error) {
       console.error('Error fetching categories:', error);
-      return demoCategories;
+      return [];
     }
   },
 
@@ -122,9 +139,10 @@ export const productService = {
     }
 
     try {
+      const cols = await productSelectCols();
       let query = supabase
         .from('products')
-        .select('*')
+        .select(cols)
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
@@ -156,7 +174,7 @@ export const productService = {
       return data as Product[];
     } catch (error) {
       console.error('Error fetching products:', error);
-      return demoProducts;
+      return [];
     }
   },
 
@@ -184,9 +202,10 @@ export const productService = {
     }
     
     try {
+      const cols = await productSelectCols();
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(cols)
         .eq('id', id)
         .single();
 
@@ -210,9 +229,10 @@ export const productService = {
     }
     
     try {
+      const cols = await productSelectCols();
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(cols)
         .eq('is_active', true)
         .eq('is_featured', true)
         .order('display_order', { ascending: true })
@@ -222,7 +242,7 @@ export const productService = {
       return data as Product[];
     } catch (error) {
       console.error('Error fetching featured products:', error);
-      return demoProducts.filter(p => p.is_featured).slice(0, limit);
+      return [];
     }
   },
 
@@ -236,9 +256,10 @@ export const productService = {
     }
     
     try {
+      const cols = await productSelectCols();
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(cols)
         .eq('is_active', true)
         .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
         .limit(limit);

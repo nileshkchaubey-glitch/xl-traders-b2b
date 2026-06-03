@@ -55,7 +55,7 @@ function MiniProductCard({ product, isAuthenticated }: { product: Product; isAut
           </p>
           {isAuthenticated && (
             <p className="text-sm font-bold text-red-600 mb-1.5">
-              ₹{product.price.toLocaleString()}
+              ₹{product.price?.toLocaleString()}
             </p>
           )}
           <span className="block w-full text-center text-xs font-semibold py-1 bg-slate-100 text-slate-700 rounded group-hover:bg-red-600 group-hover:text-white transition">
@@ -149,7 +149,9 @@ export default function ProductDetail() {
   }, [id]);
 
   const handleEnquire = () => {
-    const message = `Hi, I'm interested in: ${product?.name}\n\nPrice: ₹${product?.price}\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nPlease provide more details and availability.`;
+    const message = isAuthenticated
+      ? `Hi, I'm interested in: ${product?.name}\n\nPrice: ₹${product?.price}\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nPlease provide more details and availability.`
+      : `Hi, I'm interested in: ${product?.name}\n\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nCould you please share the price and availability?`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -261,7 +263,7 @@ export default function ProductDetail() {
                   {isAuthenticated ? (
                     <div>
                       <p className="text-slate-600 text-sm font-semibold mb-2">Price</p>
-                      <p className="text-4xl font-bold text-red-600">₹{product.price.toLocaleString()}</p>
+                      <p className="text-4xl font-bold text-red-600">₹{product.price?.toLocaleString()}</p>
                       <p className="text-slate-500 text-sm mt-2">Per {product.quantity_in_unit} {product.unit_of_measure}</p>
                     </div>
                   ) : (

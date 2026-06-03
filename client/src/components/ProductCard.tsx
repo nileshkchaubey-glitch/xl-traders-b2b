@@ -17,9 +17,10 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
   const [imageError, setImageError] = useState(false);
 
   const handleEnquire = () => {
-    const message = `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`;
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+    const message = isAuthenticated
+      ? `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`
+      : `Hi, I'm interested in: ${product.name}. Could you please share the price and more details?`;
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   if (view === 'list') {
@@ -56,7 +57,7 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
           {/* Price & Action */}
           <div className="flex-shrink-0 text-right">
             {isAuthenticated ? (
-              <p className="font-bold text-red-600 text-sm">₹{product.price.toLocaleString()}</p>
+              <p className="font-bold text-red-600 text-sm">₹{product.price?.toLocaleString()}</p>
             ) : (
               <p className="text-xs text-slate-500 font-semibold">Login to see price</p>
             )}
@@ -111,7 +112,7 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
           {/* Price */}
           <div className="mb-1.5">
             {isAuthenticated ? (
-              <p className="font-bold text-red-600 text-sm leading-none">₹{product.price.toLocaleString()}</p>
+              <p className="font-bold text-red-600 text-sm leading-none">₹{product.price?.toLocaleString()}</p>
             ) : (
               <p className="text-[10px] text-slate-500 font-semibold">Sign in for price</p>
             )}
