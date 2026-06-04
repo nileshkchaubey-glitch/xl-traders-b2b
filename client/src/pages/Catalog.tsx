@@ -453,8 +453,20 @@ export default function Catalog() {
 
               {/* Products Grid/List */}
               {isLoading ? (
-                <div className="text-center py-12">
-                  <p className="text-slate-500">Loading products...</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-white border border-slate-200 rounded-lg overflow-hidden animate-pulse"
+                    >
+                      <div className="aspect-square bg-slate-100" />
+                      <div className="p-2 space-y-2">
+                        <div className="h-3 bg-slate-100 rounded w-3/4" />
+                        <div className="h-3 bg-slate-100 rounded w-1/2" />
+                        <div className="h-6 bg-slate-100 rounded" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : products.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
@@ -467,7 +479,7 @@ export default function Catalog() {
                 <div
                   className={
                     viewMode === 'grid'
-                      ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3'
+                      ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3'
                       : 'space-y-4'
                   }
                 >

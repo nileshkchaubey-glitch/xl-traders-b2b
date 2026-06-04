@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -10,20 +10,33 @@ import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
 import ProductDetail from "./pages/ProductDetail";
 import Auth from "./pages/Auth";
-import AdminDashboard from "./pages/AdminDashboard";
+
+// The admin dashboard pulls in heavy deps (xlsx, recharts). Code-split it so it
+// only downloads when an admin actually visits /admin — keeps the public bundle lean.
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <p className="text-slate-500 text-sm">Loading…</p>
+    </div>
+  );
+}
 
 function Router() {
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/catalog"} component={Catalog} />
-      <Route path={"/product/:id"} component={ProductDetail} />
-      <Route path={"/auth"} component={Auth} />
-      <Route path={"/admin"} component={AdminDashboard} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<RouteFallback />}>
+      <Switch>
+        <Route path={"/"} component={Home} />
+        <Route path={"/catalog"} component={Catalog} />
+        <Route path={"/product/:id"} component={ProductDetail} />
+        <Route path={"/auth"} component={Auth} />
+        <Route path={"/admin"} component={AdminDashboard} />
+        <Route path={"/404"} component={NotFound} />
+        {/* Final fallback route */}
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

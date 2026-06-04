@@ -29,13 +29,14 @@ function FeaturedProductCard({ product, whatsappNumber }: FeaturedProductCardPro
     <article className="group bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-red-200 transition-all duration-300 flex flex-col">
       {/* Product image */}
       <Link href={`/product/${product.id}`}>
-        <div className="aspect-[4/3] bg-slate-100 overflow-hidden relative">
+        <div className="aspect-[4/3] bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden relative">
           {product.image_url ? (
             <img
               src={product.image_url}
               alt={product.image_alt_text || product.name}
-              className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+              className="w-full h-full object-contain p-3 transition duration-500 group-hover:scale-105"
               loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">

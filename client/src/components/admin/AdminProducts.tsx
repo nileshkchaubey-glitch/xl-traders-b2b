@@ -92,9 +92,11 @@ export default function AdminProducts() {
     return matchesSearch && matchesCategory;
   });
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Handle form submission.
+  // `addAnother` keeps the dialog open and retains the selected category so the
+  // admin can enter many products in the same category without re-opening the form.
+  const handleSubmit = async (e: React.FormEvent | null, addAnother = false) => {
+    e?.preventDefault();
 
     if (!formData.name || !formData.category_id || !formData.price) {
       toast.error('Please fill in all required fields');
@@ -155,9 +157,19 @@ export default function AdminProducts() {
       }
 
       toast.success(editingId ? 'Product updated' : 'Product created');
-      resetForm();
-      setIsOpen(false);
-      loadData();
+
+      if (addAnother && !editingId) {
+        // Keep the category selected so the next product in the same category
+        // is just a name + price + image away.
+        const keepCategory = formData.category_id;
+        resetForm();
+        setFormData((prev) => ({ ...prev, category_id: keepCategory }));
+        loadData();
+      } else {
+        resetForm();
+        setIsOpen(false);
+        loadData();
+      }
     } catch (error) {
       toast.error('Failed to save product');
       console.error(error);
@@ -542,6 +554,17 @@ export default function AdminProducts() {
                 <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
+                {!editingId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    onClick={() => handleSubmit(null, true)}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving...' : 'Save & Add Another'}
+                  </Button>
+                )}
                 <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
                   {isSaving ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
                 </Button>
