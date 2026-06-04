@@ -286,9 +286,8 @@ export default function AdminProducts() {
     setImageMetadata(imageMetadata.filter((_, i) => i !== index));
   };
 
-  const getCategoryName = (id: string) => {
-    return categories.find(c => c.id === id)?.name || 'Unknown';
-  };
+  const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || 'Unknown';
+  const getCategoryGroup = (id: string) => categories.find(c => c.id === id)?.group_name || null;
 
   return (
     <div className="space-y-6">
@@ -586,6 +585,7 @@ export default function AdminProducts() {
                 <TableHead>Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Group</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -594,13 +594,13 @@ export default function AdminProducts() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-slate-500">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-slate-500">
                     No products found
                   </TableCell>
                 </TableRow>
@@ -623,6 +623,9 @@ export default function AdminProducts() {
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell className="text-sm text-slate-600">
                       {getCategoryName(product.category_id)}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500">
+                      {getCategoryGroup(product.category_id) ?? <span className="text-slate-300">—</span>}
                     </TableCell>
                     <TableCell>
                       {editingPrice === product.id ? (
