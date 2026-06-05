@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -33,6 +33,9 @@ export default function AdminProducts() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -92,8 +95,19 @@ export default function AdminProducts() {
     return matchesSearch && matchesCategory;
   });
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Paginate the filtered list so the table stays fast with hundreds of products.
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const paginatedProducts = filteredProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset to the first page whenever the active filters change.
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedCategory]);
+
+  // Handle form submission. When `addAnother` is true the dialog stays open and
+  // only product-specific fields are cleared (category/unit/brand are kept) so
+  // an admin can rapidly enter many products in the same category.
+  const handleSubmit = async (e: React.FormEvent | React.MouseEvent, addAnother = false) => {
     e.preventDefault();
 
     if (!formData.name || !formData.category_id || !formData.price) {
@@ -155,9 +169,15 @@ export default function AdminProducts() {
       }
 
       toast.success(editingId ? 'Product updated' : 'Product created');
-      resetForm();
-      setIsOpen(false);
       loadData();
+      if (addAnother && !editingId) {
+        // Keep the dialog open for the next entry; preserve category/unit/brand.
+        resetForm(true);
+        setTimeout(() => nameInputRef.current?.focus(), 0);
+      } else {
+        resetForm();
+        setIsOpen(false);
+      }
     } catch (error) {
       toast.error('Failed to save product');
       console.error(error);
@@ -241,20 +261,20 @@ export default function AdminProducts() {
     setIsOpen(true);
   };
 
-  const resetForm = () => {
-    setFormData({
+  const resetForm = (keepCategory = false) => {
+    setFormData((prev) => ({
       name: '',
-      category_id: '',
+      category_id: keepCategory ? prev.category_id : '',
       description: '',
       price: '',
       mrp: '',
-      unit_of_measure: 'pcs',
+      unit_of_measure: keepCategory ? prev.unit_of_measure : 'pcs',
       quantity_in_unit: '',
       discount_percent: '0',
-      brand: '',
+      brand: keepCategory ? prev.brand : '',
       is_active: true,
       is_featured: false,
-    });
+    }));
     imagePreviews.forEach((url) => URL.revokeObjectURL(url));
     setImages([]);
     setImageMetadata([]);
@@ -323,6 +343,7 @@ export default function AdminProducts() {
               <div className="space-y-2">
                 <Label htmlFor="name">Product Name *</Label>
                 <Input
+                  ref={nameInputRef}
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -542,6 +563,17 @@ export default function AdminProducts() {
                 <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
+                {!editingId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    onClick={(e) => handleSubmit(e, true)}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving...' : 'Save & Add Another'}
+                  </Button>
+                )}
                 <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
                   {isSaving ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
                 </Button>
@@ -605,7 +637,7 @@ export default function AdminProducts() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProducts.map(product => (
+                paginatedProducts.map(product => (
                   <TableRow key={product.id}>
                     <TableCell>
                       {product.image_url ? (
@@ -694,6 +726,37 @@ export default function AdminProducts() {
           </Table>
         </div>
       </Card>
+
+      {/* Pagination */}
+      {!loading && filteredProducts.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <p className="text-sm text-slate-600">
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredProducts.length)} of{' '}
+            {filteredProducts.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-slate-600 px-2">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

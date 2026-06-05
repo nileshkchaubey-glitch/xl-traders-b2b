@@ -15,6 +15,7 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
   const { isAuthenticated } = useAuthStore();
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const handleEnquire = () => {
     const message = isAuthenticated
@@ -27,15 +28,22 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     return (
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition flex">
         {/* Image */}
-        <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-white">
+        <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-slate-50 relative">
           {product.image_url && !imageError ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-contain p-1.5"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
+            <>
+              {!imageLoaded && <div className="absolute inset-0 animate-pulse bg-slate-100" />}
+              <img
+                src={product.image_url}
+                alt={product.image_alt_text || product.name}
+                className={`w-full h-full object-contain p-1.5 transition-opacity duration-300 ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                onError={() => setImageError(true)}
+                onLoad={() => setImageLoaded(true)}
+                loading="lazy"
+                decoding="async"
+              />
+            </>
           ) : (
             <ImagePlaceholder className="w-24 h-24" showText={false} />
           )}
@@ -79,15 +87,22 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     <Link href={`/product/${product.id}`}>
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition cursor-pointer h-full flex flex-col">
         {/* Image */}
-        <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-white">
+        <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-slate-50">
           {product.image_url && !imageError ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
+            <>
+              {!imageLoaded && <div className="absolute inset-0 animate-pulse bg-slate-100" />}
+              <img
+                src={product.image_url}
+                alt={product.image_alt_text || product.name}
+                className={`w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300 ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                onError={() => setImageError(true)}
+                onLoad={() => setImageLoaded(true)}
+                loading="lazy"
+                decoding="async"
+              />
+            </>
           ) : (
             <ImagePlaceholder className="w-full h-full" showText={false} />
           )}
