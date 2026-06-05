@@ -1,10 +1,17 @@
 import { supabase, Product, Category, ProductImage, Enquiry } from './supabase';
 import { demoProducts, demoCategories } from './demoData';
 
-// Demo mode is opt-in only (VITE_DEMO_MODE=true). The supabase client now
-// always has real credentials via built-in fallbacks, so we never fall into
-// demo mode by accident on a deployment that lacks VITE_SUPABASE_URL.
+// Demo mode is opt-in only (VITE_DEMO_MODE=true).
 const isDemo = import.meta.env.VITE_DEMO_MODE === 'true';
+
+/**
+ * Escape characters that have special meaning in PostgREST filter strings.
+ * Without this, user-supplied search input could inject extra filter clauses
+ * (e.g. ",is_active.eq.false") into `.or()` / `.ilike()` calls.
+ */
+function escapePostgrestValue(value: string): string {
+  return value.replace(/[,\.()"\\]/g, (ch) => `\\${ch}`);
+}
 
 // Columns granted to anon role — must exactly match sql/04-price-column-security.sql.
 // price, mrp, and discount_percent are intentionally excluded.
@@ -163,8 +170,9 @@ export const productService = {
       }
 
       if (filters?.search) {
+        const safe = escapePostgrestValue(filters.search);
         query = query.or(
-          `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
+          `name.ilike.%${safe}%,description.ilike.%${safe}%`
         );
       }
 
@@ -257,11 +265,12 @@ export const productService = {
     
     try {
       const cols = await productSelectCols();
+      const safe = escapePostgrestValue(query);
       const { data, error } = await supabase
         .from('products')
         .select(cols)
         .eq('is_active', true)
-        .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+        .or(`name.ilike.%${safe}%,description.ilike.%${safe}%`)
         .limit(limit);
 
       if (error) throw error;

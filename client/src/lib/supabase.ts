@@ -1,15 +1,17 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
-// Fall back to the public publishable key so the app always connects to the
-// real database even when build-time env vars are absent (e.g. Netlify/CF
-// deploys that haven't set VITE_SUPABASE_URL yet).
-// These are the *publishable* (anon) credentials — safe to embed in client code.
-const supabaseUrl =
-  import.meta.env.VITE_SUPABASE_URL ||
-  'https://danoeaftaazhbldeeuxj.supabase.co';
-const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhbm9lYWZ0YWF6aGJsZGVldXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMTk5NzEsImV4cCI6MjA5NTY5NTk3MX0.be0cn5iaDQlR_cJ-UR2khyshzZ2Y8H15jrT1RbS4RQI';
+// SECURITY: Supabase credentials MUST come from environment variables.
+// Never hardcode project URLs or keys — it makes key rotation impossible
+// without a code deploy and leaks the exact project identifier.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    "Missing Supabase credentials. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY " +
+      "in your .env file (see .env.example)."
+  );
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
