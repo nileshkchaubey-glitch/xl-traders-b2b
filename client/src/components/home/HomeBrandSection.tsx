@@ -8,7 +8,10 @@ export default function HomeBrandSection() {
   const [brands, setBrands] = useState<string[]>([]);
 
   useEffect(() => {
-    productService.getBrands().then(setBrands).catch(() => setBrands([]));
+    productService.getBrands().then(setBrands).catch((err) => {
+      console.warn('Failed to load brands:', err);
+      setBrands([]);
+    });
   }, []);
 
   if (!brands.length) return null;

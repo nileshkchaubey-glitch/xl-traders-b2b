@@ -157,7 +157,9 @@ export default function HomeCategoryGrid() {
   const [cats, setCats] = useState<Category[]>([]);
 
   useEffect(() => {
-    categoryService.getAll().then(setCats).catch(() => {});
+    categoryService.getAll().then(setCats).catch((err) => {
+      console.warn('Failed to load categories for homepage grid:', err);
+    });
   }, []);
 
   const groups = useMemo(() => buildGroups(cats), [cats]);

@@ -37,19 +37,14 @@ export const categoryService = {
   async getAll() {
     if (isDemo) return demoCategories;
     
-    try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
 
-      if (error) throw error;
-      return data as Category[];
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      return [];
-    }
+    if (error) throw error;
+    return data as Category[];
   },
 
   async getById(id: string) {
@@ -138,62 +133,53 @@ export const productService = {
       return results;
     }
 
-    try {
-      const cols = await productSelectCols();
-      let query = supabase
-        .from('products')
-        .select(cols)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
+    const cols = await productSelectCols();
+    let query = supabase
+      .from('products')
+      .select(cols)
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
 
-      if (filters?.categoryId) {
-        query = query.eq('category_id', filters.categoryId);
-      }
-
-      if (filters?.categoryIds?.length) {
-        query = query.in('category_id', filters.categoryIds);
-      }
-
-      if (filters?.featured) {
-        query = query.eq('is_featured', true);
-      }
-
-      if (filters?.brand) {
-        query = query.eq('brand', filters.brand);
-      }
-
-      if (filters?.search) {
-        query = query.or(
-          `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
-        );
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as Product[];
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      return [];
+    if (filters?.categoryId) {
+      query = query.eq('category_id', filters.categoryId);
     }
+
+    if (filters?.categoryIds?.length) {
+      query = query.in('category_id', filters.categoryIds);
+    }
+
+    if (filters?.featured) {
+      query = query.eq('is_featured', true);
+    }
+
+    if (filters?.brand) {
+      query = query.eq('brand', filters.brand);
+    }
+
+    if (filters?.search) {
+      query = query.or(
+        `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
+      );
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data as Product[];
   },
 
   async getBrands(): Promise<string[]> {
     if (isDemo) return [];
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('brand')
-        .eq('is_active', true)
-        .not('brand', 'is', null);
-      if (error) throw error;
-      const brands = [...new Set(
-        (data as { brand: string | null }[]).map(p => p.brand).filter((b): b is string => !!b)
-      )].sort();
-      return brands;
-    } catch {
-      return [];
-    }
+    const { data, error } = await supabase
+      .from('products')
+      .select('brand')
+      .eq('is_active', true)
+      .not('brand', 'is', null);
+    if (error) throw error;
+    const brands = [...new Set(
+      (data as { brand: string | null }[]).map(p => p.brand).filter((b): b is string => !!b)
+    )].sort();
+    return brands;
   },
 
   async getById(id: string) {
@@ -201,20 +187,15 @@ export const productService = {
       return demoProducts.find(p => p.id === id) || null;
     }
     
-    try {
-      const cols = await productSelectCols();
-      const { data, error } = await supabase
-        .from('products')
-        .select(cols)
-        .eq('id', id)
-        .single();
+    const cols = await productSelectCols();
+    const { data, error } = await supabase
+      .from('products')
+      .select(cols)
+      .eq('id', id)
+      .single();
 
-      if (error) throw error;
-      return data as Product;
-    } catch (error) {
-      console.error('Error fetching product:', error);
-      return null;
-    }
+    if (error) throw error;
+    return data as Product;
   },
 
   async getByIdWithImages(id: string) {
@@ -228,22 +209,17 @@ export const productService = {
       return demoProducts.filter(p => p.is_featured).slice(0, limit);
     }
     
-    try {
-      const cols = await productSelectCols();
-      const { data, error } = await supabase
-        .from('products')
-        .select(cols)
-        .eq('is_active', true)
-        .eq('is_featured', true)
-        .order('display_order', { ascending: true })
-        .limit(limit);
+    const cols = await productSelectCols();
+    const { data, error } = await supabase
+      .from('products')
+      .select(cols)
+      .eq('is_active', true)
+      .eq('is_featured', true)
+      .order('display_order', { ascending: true })
+      .limit(limit);
 
-      if (error) throw error;
-      return data as Product[];
-    } catch (error) {
-      console.error('Error fetching featured products:', error);
-      return [];
-    }
+    if (error) throw error;
+    return data as Product[];
   },
 
   async search(query: string, limit: number = 20) {
@@ -255,21 +231,16 @@ export const productService = {
       ).slice(0, limit);
     }
     
-    try {
-      const cols = await productSelectCols();
-      const { data, error } = await supabase
-        .from('products')
-        .select(cols)
-        .eq('is_active', true)
-        .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
-        .limit(limit);
+    const cols = await productSelectCols();
+    const { data, error } = await supabase
+      .from('products')
+      .select(cols)
+      .eq('is_active', true)
+      .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+      .limit(limit);
 
-      if (error) throw error;
-      return data as Product[];
-    } catch (error) {
-      console.error('Error searching products:', error);
-      return [];
-    }
+    if (error) throw error;
+    return data as Product[];
   },
 
   async create(product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) {
@@ -321,19 +292,14 @@ export const productImageService = {
   async getByProductId(productId: string) {
     if (isDemo) return [];
     
-    try {
-      const { data, error } = await supabase
-        .from('product_images')
-        .select('*')
-        .eq('product_id', productId)
-        .order('display_order', { ascending: true });
+    const { data, error } = await supabase
+      .from('product_images')
+      .select('*')
+      .eq('product_id', productId)
+      .order('display_order', { ascending: true });
 
-      if (error) throw error;
-      return data as ProductImage[];
-    } catch (error) {
-      console.error('Error fetching product images:', error);
-      return [];
-    }
+    if (error) throw error;
+    return data as ProductImage[];
   },
 
   async create(image: Omit<ProductImage, 'id' | 'created_at'>) {

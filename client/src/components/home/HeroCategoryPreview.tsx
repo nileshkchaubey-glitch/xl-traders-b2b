@@ -32,8 +32,8 @@ export default function HeroCategoryPreview() {
           if (slug) tally[slug] = (tally[slug] || 0) + 1;
         }
         setCounts(tally);
-      } catch {
-        // use fallbacks
+      } catch (error) {
+        console.warn('Failed to load category counts, using fallbacks:', error);
       }
     };
     loadCounts();

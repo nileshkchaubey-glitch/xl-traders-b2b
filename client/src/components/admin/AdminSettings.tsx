@@ -78,10 +78,10 @@ export default function AdminSettings() {
 
       toast.success('Settings saved');
     } catch (error) {
-      console.error(error);
-      // Save to localStorage anyway
+      console.error('Failed to save settings to database:', error);
+      // Save to localStorage as fallback
       localStorage.setItem('xl-traders-settings', JSON.stringify(settings));
-      toast.success('Settings saved locally');
+      toast.warning('Could not save to database. Settings saved locally as fallback.');
     } finally {
       setSaving(false);
     }

@@ -114,7 +114,8 @@ export default function HomeFeaturedProducts({ whatsappNumber }: HomeFeaturedPro
       try {
         const all = await productService.getAll();
         setProducts(all);
-      } catch {
+      } catch (error) {
+        console.warn('Failed to load featured products:', error);
         setProducts([]);
       } finally {
         setLoading(false);

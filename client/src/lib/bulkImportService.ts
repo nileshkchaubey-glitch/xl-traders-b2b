@@ -70,6 +70,13 @@ export async function parseExcel(file: File): Promise<ParsedFile> {
   return new Promise((resolve) => {
     const reader = new FileReader();
 
+    reader.onerror = () => {
+      resolve({
+        rows: [],
+        errors: [`Failed to read file: ${reader.error?.message || 'Unknown read error'}`],
+      });
+    };
+
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
@@ -150,40 +157,38 @@ function validateAndParseRow(row: any, rowNumber: number): ImportRow | null {
 /**
  * Get or create category by name
  */
-async function getOrCreateCategory(categoryName: string): Promise<string | null> {
-  try {
-    // Try to find existing category
-    const { data: existing } = await supabase
-      .from('categories')
-      .select('id')
-      .ilike('name', categoryName)
-      .single();
+async function getOrCreateCategory(categoryName: string): Promise<string> {
+  // Try to find existing category
+  const { data: existing } = await supabase
+    .from('categories')
+    .select('id')
+    .ilike('name', categoryName)
+    .single();
 
-    if (existing) return existing.id;
+  if (existing) return existing.id;
 
-    // Create new category
-    const slug = categoryName.toLowerCase().replace(/\s+/g, '-');
-    const { data: created, error } = await supabase
-      .from('categories')
-      .insert({
-        name: categoryName,
-        slug,
-        description: `${categoryName} products`,
-        display_order: 999,
-      })
-      .select('id')
-      .single();
+  // Create new category
+  const slug = categoryName.toLowerCase().replace(/\s+/g, '-');
+  const { data: created, error } = await supabase
+    .from('categories')
+    .insert({
+      name: categoryName,
+      slug,
+      description: `${categoryName} products`,
+      display_order: 999,
+    })
+    .select('id')
+    .single();
 
-    if (error) {
-      console.error('Error creating category:', error);
-      return null;
-    }
-
-    return created?.id || null;
-  } catch (error) {
-    console.error('Error in getOrCreateCategory:', error);
-    return null;
+  if (error) {
+    throw new Error(`Failed to create category "${categoryName}": ${error.message}`);
   }
+
+  if (!created) {
+    throw new Error(`Category "${categoryName}" was not returned after creation`);
+  }
+
+  return created.id;
 }
 
 /**
@@ -204,13 +209,6 @@ export async function bulkImportProducts(rows: ImportRow[]): Promise<ImportResul
     try {
       // Get or create category
       const categoryId = await getOrCreateCategory(row.category);
-      if (!categoryId) {
-        result.errors.push({
-          row: rowNumber,
-          error: 'Failed to get or create category',
-        });
-        continue;
-      }
 
       // Check if product exists by name
       const { data: existing } = await supabase

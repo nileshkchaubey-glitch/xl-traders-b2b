@@ -47,7 +47,9 @@ async function buildAuthState(user: { id: string; email?: string | null }) {
       .select('*')
       .maybeSingle();
 
-    if (!error && created) {
+    if (error) {
+      console.error('Failed to create user profile:', error.message);
+    } else if (created) {
       profile = created;
     }
   }
@@ -213,7 +215,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Sign out error:', error.message);
+    }
     set({
       user: null,
       profile: null,

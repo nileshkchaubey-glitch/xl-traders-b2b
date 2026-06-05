@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useSearch } from 'wouter';
-import { Grid3x3, List, ChevronDown, Package } from 'lucide-react';
+import { Grid3x3, List, ChevronDown, Package, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
@@ -34,6 +35,7 @@ export default function Catalog() {
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
 
@@ -62,6 +64,7 @@ export default function Catalog() {
         setCategoryGroups(groups);
       } catch (error) {
         console.error('Error loading categories/brands:', error);
+        toast.error('Failed to load filters. Please refresh the page.');
       }
     };
     loadMeta();
@@ -71,6 +74,7 @@ export default function Catalog() {
   useEffect(() => {
     const loadProducts = async () => {
       setIsLoading(true);
+      setLoadError(null);
       try {
         let result: Product[] = [];
 
@@ -113,6 +117,8 @@ export default function Catalog() {
         setProducts(result);
       } catch (error) {
         console.error('Error loading products:', error);
+        setLoadError('Failed to load products. Please try again.');
+        toast.error('Failed to load products');
       } finally {
         setIsLoading(false);
       }
@@ -455,6 +461,18 @@ export default function Catalog() {
               {isLoading ? (
                 <div className="text-center py-12">
                   <p className="text-slate-500">Loading products...</p>
+                </div>
+              ) : loadError ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-12 text-center">
+                  <AlertTriangle size={32} className="mx-auto mb-3 text-red-400" />
+                  <p className="text-red-700 text-lg font-semibold">Something went wrong</p>
+                  <p className="text-red-600 text-sm mt-2">{loadError}</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition"
+                  >
+                    Retry
+                  </button>
                 </div>
               ) : products.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">

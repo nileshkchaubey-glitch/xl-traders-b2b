@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useLocation, Link } from 'wouter';
-import { ArrowLeft, MessageCircle, Share2 } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Share2, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { productService, productImageService, enquiryService } from '@/lib/productService';
@@ -99,6 +100,7 @@ export default function ProductDetail() {
   const [images, setImages] = useState<ProductImage[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
@@ -111,6 +113,7 @@ export default function ProductDetail() {
   useEffect(() => {
     const loadProduct = async () => {
       if (!id) return;
+      setLoadError(null);
       try {
         const prod = await productService.getById(id);
         setProduct(prod);
@@ -127,6 +130,8 @@ export default function ProductDetail() {
         }
       } catch (error) {
         console.error('Error loading product:', error);
+        setLoadError('Failed to load product details.');
+        toast.error('Failed to load product details');
       } finally {
         setIsLoading(false);
       }
@@ -141,9 +146,11 @@ export default function ProductDetail() {
       const ids = getRecentlyViewedIds().filter(rid => rid !== id);
       if (!ids.length) return;
       try {
-        const results = await Promise.all(ids.map(rid => productService.getById(rid)));
+        const results = await Promise.all(ids.map(rid => productService.getById(rid).catch(() => null)));
         setRecentlyViewed(results.filter((p): p is Product => p !== null));
-      } catch { /* silently skip */ }
+      } catch (error) {
+        console.warn('Failed to load recently viewed products:', error);
+      }
     };
     loadRecent();
   }, [id]);
@@ -164,6 +171,7 @@ export default function ProductDetail() {
         });
       } catch (err) {
         console.error('Failed to save enquiry:', err);
+        toast.error('Could not save enquiry. Your WhatsApp message will still open.');
       }
     }
     const message = isAuthenticated
@@ -190,6 +198,25 @@ export default function ProductDetail() {
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
             <p className="text-slate-500 text-sm">Loading product...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <AlertTriangle size={32} className="mx-auto mb-3 text-red-400" />
+            <p className="text-red-700 text-lg font-semibold mb-2">Something went wrong</p>
+            <p className="text-red-600 text-sm mb-4">{loadError}</p>
+            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
+              Retry
+            </button>
           </div>
         </main>
         <Footer />
