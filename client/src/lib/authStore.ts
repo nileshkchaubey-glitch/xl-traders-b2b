@@ -8,7 +8,7 @@ const ADMIN_EMAILS = new Set(
     .filter(Boolean)
 );
 
-function resolveIsAdmin(
+export function resolveIsAdmin(
   user: { email?: string | null } | null,
   profile: UserProfile | null
 ): boolean {

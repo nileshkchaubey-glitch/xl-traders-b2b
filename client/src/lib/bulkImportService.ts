@@ -111,7 +111,7 @@ export async function parseExcel(file: File): Promise<ParsedFile> {
 /**
  * Validate and parse a single row
  */
-function validateAndParseRow(row: any, rowNumber: number): ImportRow | null {
+export function validateAndParseRow(row: any, rowNumber: number): ImportRow | null {
   if (!row.name || typeof row.name !== 'string' || !row.name.trim()) {
     throw new Error('Missing or invalid product name');
   }
