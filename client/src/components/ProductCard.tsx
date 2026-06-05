@@ -2,6 +2,7 @@ import { Product } from '@/lib/supabase';
 import { Link } from 'wouter';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/authStore';
+import { enquiryService } from '@/lib/productService';
 import { ImagePlaceholder } from './ImagePlaceholder';
 import { useState } from 'react';
 
@@ -12,11 +13,28 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, view = 'grid', onEnquire }: ProductCardProps) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user, profile } = useAuthStore();
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   const [imageError, setImageError] = useState(false);
 
-  const handleEnquire = () => {
+  const handleEnquire = async () => {
+    if (isAuthenticated && user) {
+      try {
+        await enquiryService.create({
+          user_id: user.id,
+          product_id: product.id,
+          customer_name: profile?.contact_person || profile?.company_name || user.email || 'Customer',
+          customer_email: profile?.email || user.email || '',
+          customer_phone: profile?.phone || '',
+          customer_company: profile?.company_name,
+          quantity_requested: 1,
+          enquiry_source: 'whatsapp',
+          status: 'new',
+        });
+      } catch (err) {
+        console.error('Failed to save enquiry:', err);
+      }
+    }
     const message = isAuthenticated
       ? `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`
       : `Hi, I'm interested in: ${product.name}. Could you please share the price and more details?`;
