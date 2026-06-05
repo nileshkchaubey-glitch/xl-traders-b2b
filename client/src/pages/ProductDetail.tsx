@@ -3,7 +3,7 @@ import { useParams, useLocation, Link } from 'wouter';
 import { ArrowLeft, MessageCircle, Share2 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { productService, productImageService } from '@/lib/productService';
+import { productService, productImageService, enquiryService } from '@/lib/productService';
 import { Product, ProductImage } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/authStore';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
@@ -102,7 +102,7 @@ export default function ProductDetail() {
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user, profile } = useAuthStore();
 
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   const phone1 = import.meta.env.VITE_PHONE_1 || '9773239442';
@@ -148,7 +148,24 @@ export default function ProductDetail() {
     loadRecent();
   }, [id]);
 
-  const handleEnquire = () => {
+  const handleEnquire = async () => {
+    if (isAuthenticated && user && product) {
+      try {
+        await enquiryService.create({
+          user_id: user.id,
+          product_id: product.id,
+          customer_name: profile?.contact_person || profile?.company_name || user.email || 'Customer',
+          customer_email: profile?.email || user.email || '',
+          customer_phone: profile?.phone || '',
+          customer_company: profile?.company_name,
+          quantity_requested: 1,
+          enquiry_source: 'whatsapp',
+          status: 'new',
+        });
+      } catch (err) {
+        console.error('Failed to save enquiry:', err);
+      }
+    }
     const message = isAuthenticated
       ? `Hi, I'm interested in: ${product?.name}\n\nPrice: ₹${product?.price}\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nPlease provide more details and availability.`
       : `Hi, I'm interested in: ${product?.name}\n\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nCould you please share the price and availability?`;
