@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react';
-import { useParams, useLocation, Link } from 'wouter';
-import { ArrowLeft, MessageCircle, Share2 } from 'lucide-react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { productService, productImageService, enquiryService } from '@/lib/productService';
-import { Product, ProductImage } from '@/lib/supabase';
-import { useAuthStore } from '@/lib/authStore';
-import { ImagePlaceholder } from '@/components/ImagePlaceholder';
+import { useEffect, useState } from "react";
+import { useParams, useLocation, Link } from "wouter";
+import { ArrowLeft, MessageCircle, Share2 } from "lucide-react";
+import PageShell from "@/components/PageShell";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { productService, productImageService } from "@/lib/productService";
+import { Product, ProductImage } from "@/lib/supabase";
+import { useAuthStore } from "@/lib/authStore";
+import { ImagePlaceholder } from "@/components/ImagePlaceholder";
+import { formatPrice } from "@/lib/formatters";
+import { submitEnquiryAndOpenWhatsApp } from "@/lib/enquiryHelpers";
+import { PHONE_1 } from "@/lib/contactConfig";
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
-const RECENTLY_VIEWED_KEY = 'xl_recently_viewed';
+const RECENTLY_VIEWED_KEY = "xl_recently_viewed";
 const MAX_RECENT = 6;
 
 function saveToRecentlyViewed(id: string) {
@@ -18,7 +21,9 @@ function saveToRecentlyViewed(id: string) {
     const ids: string[] = stored ? JSON.parse(stored) : [];
     const updated = [id, ...ids.filter(i => i !== id)].slice(0, MAX_RECENT);
     localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
-  } catch { /* storage unavailable */ }
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 function getRecentlyViewedIds(): string[] {
@@ -31,7 +36,13 @@ function getRecentlyViewedIds(): string[] {
 }
 
 // ─── Mini product card (similar / recently viewed) ─────────────────────────
-function MiniProductCard({ product, isAuthenticated }: { product: Product; isAuthenticated: boolean }) {
+function MiniProductCard({
+  product,
+  isAuthenticated,
+}: {
+  product: Product;
+  isAuthenticated: boolean;
+}) {
   const [imgError, setImgError] = useState(false);
   return (
     <Link href={`/product/${product.id}`}>
@@ -55,7 +66,7 @@ function MiniProductCard({ product, isAuthenticated }: { product: Product; isAut
           </p>
           {isAuthenticated && (
             <p className="text-sm font-bold text-red-600 mb-1.5">
-              ₹{product.price?.toLocaleString()}
+              {formatPrice(product.price)}
             </p>
           )}
           <span className="block w-full text-center text-xs font-semibold py-1 bg-slate-100 text-slate-700 rounded group-hover:bg-red-600 group-hover:text-white transition">
@@ -68,7 +79,15 @@ function MiniProductCard({ product, isAuthenticated }: { product: Product; isAut
 }
 
 // ─── Horizontal scroll product row ─────────────────────────────────────────
-function ProductRow({ title, products, isAuthenticated }: { title: string; products: Product[]; isAuthenticated: boolean }) {
+function ProductRow({
+  title,
+  products,
+  isAuthenticated,
+}: {
+  title: string;
+  products: Product[];
+  isAuthenticated: boolean;
+}) {
   if (!products.length) return null;
   return (
     <section className="mt-10">
@@ -84,7 +103,11 @@ function ProductRow({ title, products, isAuthenticated }: { title: string; produ
       {/* Desktop: grid */}
       <div className="hidden sm:grid grid-cols-3 lg:grid-cols-4 gap-4">
         {products.map(p => (
-          <MiniProductCard key={p.id} product={p} isAuthenticated={isAuthenticated} />
+          <MiniProductCard
+            key={p.id}
+            product={p}
+            isAuthenticated={isAuthenticated}
+          />
         ))}
       </div>
     </section>
@@ -104,8 +127,7 @@ export default function ProductDetail() {
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
   const { isAuthenticated, user, profile } = useAuthStore();
 
-  const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
-  const phone1 = import.meta.env.VITE_PHONE_1 || '9773239442';
+  const phone1 = PHONE_1;
 
   // Load product + similar products + save to recently viewed
   useEffect(() => {
@@ -122,11 +144,13 @@ export default function ProductDetail() {
 
         // Fetch similar products from same category
         if (prod?.category_id) {
-          const all = await productService.getAll({ categoryId: prod.category_id });
+          const all = await productService.getAll({
+            categoryId: prod.category_id,
+          });
           setSimilarProducts(all.filter(p => p.id !== id).slice(0, 4));
         }
       } catch (error) {
-        console.error('Error loading product:', error);
+        console.error("Error loading product:", error);
       } finally {
         setIsLoading(false);
       }
@@ -141,40 +165,29 @@ export default function ProductDetail() {
       const ids = getRecentlyViewedIds().filter(rid => rid !== id);
       if (!ids.length) return;
       try {
-        const results = await Promise.all(ids.map(rid => productService.getById(rid)));
+        const results = await Promise.all(
+          ids.map(rid => productService.getById(rid))
+        );
         setRecentlyViewed(results.filter((p): p is Product => p !== null));
-      } catch { /* silently skip */ }
+      } catch {
+        /* silently skip */
+      }
     };
     loadRecent();
   }, [id]);
 
-  const handleEnquire = async () => {
-    if (isAuthenticated && user && product) {
-      try {
-        await enquiryService.create({
-          user_id: user.id,
-          product_id: product.id,
-          customer_name: profile?.contact_person || profile?.company_name || user.email || 'Customer',
-          customer_email: profile?.email || user.email || '',
-          customer_phone: profile?.phone || '',
-          customer_company: profile?.company_name,
-          quantity_requested: 1,
-          enquiry_source: 'whatsapp',
-          status: 'new',
-        });
-      } catch (err) {
-        console.error('Failed to save enquiry:', err);
-      }
-    }
-    const message = isAuthenticated
-      ? `Hi, I'm interested in: ${product?.name}\n\nPrice: ₹${product?.price}\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nPlease provide more details and availability.`
-      : `Hi, I'm interested in: ${product?.name}\n\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nCould you please share the price and availability?`;
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
+  const handleEnquire = () => {
+    if (!product) return;
+    submitEnquiryAndOpenWhatsApp({ product, isAuthenticated, user, profile });
   };
 
   const handleShare = () => {
     if (navigator.share) {
-      navigator.share({ title: product?.name, text: `Check out this product: ${product?.name}`, url: window.location.href });
+      navigator.share({
+        title: product?.name,
+        text: `Check out this product: ${product?.name}`,
+        url: window.location.href,
+      });
     }
   };
 
@@ -184,185 +197,240 @@ export default function ProductDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-slate-500 text-sm">Loading product...</p>
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <PageShell>
+        <div className="flex-1 flex items-center justify-center py-32">
+          <LoadingSpinner message="Loading product..." />
+        </div>
+      </PageShell>
     );
   }
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
+      <PageShell>
+        <div className="flex-1 flex items-center justify-center py-32">
           <div className="text-center">
             <p className="text-slate-500 text-lg mb-4">Product not found</p>
-            <button onClick={() => setLocation('/catalog')} className="text-red-600 font-semibold hover:text-red-700">
+            <button
+              onClick={() => setLocation("/catalog")}
+              className="text-red-600 font-semibold hover:text-red-700"
+            >
               Back to Catalog
             </button>
           </div>
-        </main>
-        <Footer />
-      </div>
+        </div>
+      </PageShell>
     );
   }
 
   const displayImages = images.length > 0 ? images : [];
-  const mainImage = displayImages.length > 0 ? displayImages[selectedImageIndex]?.image_url : product.image_url;
+  const mainImage =
+    displayImages.length > 0
+      ? displayImages[selectedImageIndex]?.image_url
+      : product.image_url;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Header />
+    <PageShell>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Back */}
+        <button
+          onClick={() => setLocation("/catalog")}
+          className="flex items-center gap-2 text-red-600 font-semibold hover:text-red-700 mb-8 transition"
+        >
+          <ArrowLeft size={18} />
+          Back to Catalog
+        </button>
 
-      <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          {/* Back */}
-          <button
-            onClick={() => setLocation('/catalog')}
-            className="flex items-center gap-2 text-red-600 font-semibold hover:text-red-700 mb-8 transition"
-          >
-            <ArrowLeft size={18} />
-            Back to Catalog
-          </button>
-
-          {/* Product grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Images */}
-            <div>
-              <div className="bg-white border border-slate-200 rounded-lg overflow-hidden mb-4 aspect-square flex items-center justify-center">
-                {mainImage && !imageErrors.has(`main-${selectedImageIndex}`) ? (
-                  <img
-                    src={mainImage}
-                    alt={product.image_alt_text || product.name}
-                    className="w-full h-full object-contain p-4"
-                    onError={() => handleImageError(`main-${selectedImageIndex}`)}
-                  />
-                ) : (
-                  <ImagePlaceholder className="w-full h-full" showText={true} />
-                )}
-              </div>
-              {displayImages.length > 1 && (
-                <div className="flex gap-3 overflow-x-auto">
-                  {displayImages.map((img, idx) => (
-                    <button
-                      key={img.id}
-                      onClick={() => setSelectedImageIndex(idx)}
-                      className={`flex-shrink-0 w-20 h-20 rounded border-2 overflow-hidden transition ${
-                        selectedImageIndex === idx ? 'border-red-600' : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      {!imageErrors.has(img.id) ? (
-                        <img src={img.image_url} alt={img.alt_text || `Product image ${idx + 1}`} className="w-full h-full object-contain p-1 bg-white" onError={() => handleImageError(img.id)} />
-                      ) : (
-                        <ImagePlaceholder className="w-20 h-20" showText={false} />
-                      )}
-                    </button>
-                  ))}
-                </div>
+        {/* Product grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          {/* Images */}
+          <div>
+            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden mb-4 aspect-square flex items-center justify-center">
+              {mainImage && !imageErrors.has(`main-${selectedImageIndex}`) ? (
+                <img
+                  src={mainImage}
+                  alt={product.image_alt_text || product.name}
+                  className="w-full h-full object-contain p-4"
+                  onError={() => handleImageError(`main-${selectedImageIndex}`)}
+                />
+              ) : (
+                <ImagePlaceholder className="w-full h-full" showText={true} />
               )}
             </div>
-
-            {/* Product Details */}
-            <div>
-              <div className="bg-white border border-slate-200 rounded-lg p-8">
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">{product.name}</h1>
-                <p className="text-slate-500 text-sm mb-6">SKU: {product.sku || 'N/A'}</p>
-
-                {/* Price */}
-                <div className="mb-8 pb-8 border-b border-slate-200">
-                  {isAuthenticated ? (
-                    <div>
-                      <p className="text-slate-600 text-sm font-semibold mb-2">Price</p>
-                      <p className="text-4xl font-bold text-red-600">₹{product.price?.toLocaleString()}</p>
-                      <p className="text-slate-500 text-sm mt-2">Per {product.quantity_in_unit} {product.unit_of_measure}</p>
-                    </div>
-                  ) : (
-                    <div className="bg-slate-100 border border-slate-200 rounded-lg p-4 text-center">
-                      <p className="text-slate-600 font-semibold mb-2">Sign in to view pricing</p>
-                      <button onClick={() => setLocation('/auth')} className="text-red-600 font-semibold hover:text-red-700">
-                        Sign In Now
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Specifications */}
-                {product.specifications && Object.keys(product.specifications).length > 0 && (
-                  <div className="mb-8 pb-8 border-b border-slate-200">
-                    <h3 className="font-bold text-slate-900 mb-4">Specifications</h3>
-                    <div className="space-y-3">
-                      {Object.entries(product.specifications).map(([key, value]) => (
-                        <div key={key} className="flex justify-between">
-                          <span className="text-slate-600 capitalize">{key}:</span>
-                          <span className="font-semibold text-slate-900">{String(value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Description */}
-                {product.description && (
-                  <div className="mb-8 pb-8 border-b border-slate-200">
-                    <h3 className="font-bold text-slate-900 mb-3">Description</h3>
-                    <p className="text-slate-600 leading-relaxed">{product.description}</p>
-                  </div>
-                )}
-
-                {/* Features */}
-                <div className="mb-8 pb-8 border-b border-slate-200">
-                  <h3 className="font-bold text-slate-900 mb-4">Key Features</h3>
-                  <ul className="space-y-2">
-                    <li className="flex gap-2 text-slate-600"><span className="text-red-600 font-bold">✓</span>Premium quality materials</li>
-                    <li className="flex gap-2 text-slate-600"><span className="text-red-600 font-bold">✓</span>Bulk order discounts available</li>
-                    <li className="flex gap-2 text-slate-600"><span className="text-red-600 font-bold">✓</span>Fast delivery in Surat</li>
-                  </ul>
-                </div>
-
-                {/* Actions */}
-                <div className="space-y-3">
+            {displayImages.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto">
+                {displayImages.map((img, idx) => (
                   <button
-                    onClick={handleEnquire}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition flex items-center justify-center gap-2"
+                    key={img.id}
+                    onClick={() => setSelectedImageIndex(idx)}
+                    className={`flex-shrink-0 w-20 h-20 rounded border-2 overflow-hidden transition ${
+                      selectedImageIndex === idx
+                        ? "border-red-600"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
                   >
-                    <MessageCircle size={20} />
-                    Enquire on WhatsApp
+                    {!imageErrors.has(img.id) ? (
+                      <img
+                        src={img.image_url}
+                        alt={img.alt_text || `Product image ${idx + 1}`}
+                        className="w-full h-full object-contain p-1 bg-white"
+                        onError={() => handleImageError(img.id)}
+                      />
+                    ) : (
+                      <ImagePlaceholder
+                        className="w-20 h-20"
+                        showText={false}
+                      />
+                    )}
                   </button>
-                  <div className="flex gap-3">
-                    <a href={`tel:${phone1}`} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-lg transition text-center">
-                      📞 Call
-                    </a>
-                    <button onClick={handleShare} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-lg transition flex items-center justify-center gap-2">
-                      <Share2 size={18} />
-                      Share
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Product Details */}
+          <div>
+            <div className="bg-white border border-slate-200 rounded-lg p-8">
+              <h1 className="text-3xl font-bold text-slate-900 mb-2">
+                {product.name}
+              </h1>
+              <p className="text-slate-500 text-sm mb-6">
+                SKU: {product.sku || "N/A"}
+              </p>
+
+              {/* Price */}
+              <div className="mb-8 pb-8 border-b border-slate-200">
+                {isAuthenticated ? (
+                  <div>
+                    <p className="text-slate-600 text-sm font-semibold mb-2">
+                      Price
+                    </p>
+                    <p className="text-4xl font-bold text-red-600">
+                      {formatPrice(product.price)}
+                    </p>
+                    <p className="text-slate-500 text-sm mt-2">
+                      Per {product.quantity_in_unit} {product.unit_of_measure}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-slate-100 border border-slate-200 rounded-lg p-4 text-center">
+                    <p className="text-slate-600 font-semibold mb-2">
+                      Sign in to view pricing
+                    </p>
+                    <button
+                      onClick={() => setLocation("/auth")}
+                      className="text-red-600 font-semibold hover:text-red-700"
+                    >
+                      Sign In Now
                     </button>
                   </div>
-                </div>
+                )}
+              </div>
 
-                <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
-                  <p className="font-semibold mb-1">💡 Need bulk quantities?</p>
-                  <p>Contact us for special pricing on bulk orders and customization options.</p>
+              {/* Specifications */}
+              {product.specifications &&
+                Object.keys(product.specifications).length > 0 && (
+                  <div className="mb-8 pb-8 border-b border-slate-200">
+                    <h3 className="font-bold text-slate-900 mb-4">
+                      Specifications
+                    </h3>
+                    <div className="space-y-3">
+                      {Object.entries(product.specifications).map(
+                        ([key, value]) => (
+                          <div key={key} className="flex justify-between">
+                            <span className="text-slate-600 capitalize">
+                              {key}:
+                            </span>
+                            <span className="font-semibold text-slate-900">
+                              {String(value)}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {/* Description */}
+              {product.description && (
+                <div className="mb-8 pb-8 border-b border-slate-200">
+                  <h3 className="font-bold text-slate-900 mb-3">Description</h3>
+                  <p className="text-slate-600 leading-relaxed">
+                    {product.description}
+                  </p>
                 </div>
+              )}
+
+              {/* Features */}
+              <div className="mb-8 pb-8 border-b border-slate-200">
+                <h3 className="font-bold text-slate-900 mb-4">Key Features</h3>
+                <ul className="space-y-2">
+                  <li className="flex gap-2 text-slate-600">
+                    <span className="text-red-600 font-bold">✓</span>Premium
+                    quality materials
+                  </li>
+                  <li className="flex gap-2 text-slate-600">
+                    <span className="text-red-600 font-bold">✓</span>Bulk order
+                    discounts available
+                  </li>
+                  <li className="flex gap-2 text-slate-600">
+                    <span className="text-red-600 font-bold">✓</span>Fast
+                    delivery in Surat
+                  </li>
+                </ul>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-3">
+                <button
+                  onClick={handleEnquire}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={20} />
+                  Enquire on WhatsApp
+                </button>
+                <div className="flex gap-3">
+                  <a
+                    href={`tel:${phone1}`}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-lg transition text-center"
+                  >
+                    📞 Call
+                  </a>
+                  <button
+                    onClick={handleShare}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-lg transition flex items-center justify-center gap-2"
+                  >
+                    <Share2 size={18} />
+                    Share
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+                <p className="font-semibold mb-1">💡 Need bulk quantities?</p>
+                <p>
+                  Contact us for special pricing on bulk orders and
+                  customization options.
+                </p>
               </div>
             </div>
           </div>
-
-          {/* Similar Products */}
-          <ProductRow title="Similar Products" products={similarProducts} isAuthenticated={isAuthenticated} />
-
-          {/* Recently Viewed */}
-          <ProductRow title="Recently Viewed" products={recentlyViewed} isAuthenticated={isAuthenticated} />
         </div>
-      </main>
 
-      <Footer />
-    </div>
+        {/* Similar Products */}
+        <ProductRow
+          title="Similar Products"
+          products={similarProducts}
+          isAuthenticated={isAuthenticated}
+        />
+
+        {/* Recently Viewed */}
+        <ProductRow
+          title="Recently Viewed"
+          products={recentlyViewed}
+          isAuthenticated={isAuthenticated}
+        />
+      </div>
+    </PageShell>
   );
 }

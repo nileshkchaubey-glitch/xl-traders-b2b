@@ -1,11 +1,12 @@
-import { Link } from 'wouter';
-import { ArrowRight, Check, MessageCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
-import HeroTopBar from './HeroTopBar';
-import HeroProductShowcase from './HeroProductShowcase';
-import HeroTrustStrip from './HeroTrustStrip';
-import HeroBrandsSlider from './HeroBrandsSlider';
-import { TRUST_POINTS } from './heroConfig';
+import { Link } from "wouter";
+import { ArrowRight, Check, MessageCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import HeroTopBar from "./HeroTopBar";
+import HeroProductShowcase from "./HeroProductShowcase";
+import HeroTrustStrip from "./HeroTrustStrip";
+import HeroBrandsSlider from "./HeroBrandsSlider";
+import { TRUST_POINTS } from "./heroConfig";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 interface HomeHeroProps {
   whatsappNumber: string;
@@ -13,8 +14,9 @@ interface HomeHeroProps {
 }
 
 export default function HomeHero({ whatsappNumber, phone }: HomeHeroProps) {
-  const catalogMessage = encodeURIComponent(
-    'Hi XL Traders, I want to browse your wholesale packaging catalog.'
+  const catalogUrl = buildWhatsAppUrl(
+    "Hi XL Traders, I want to browse your wholesale packaging catalog.",
+    whatsappNumber
   );
 
   return (
@@ -38,18 +40,21 @@ export default function HomeHero({ whatsappNumber, phone }: HomeHeroProps) {
               </p>
 
               <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold text-slate-900 leading-[1.15] tracking-tight">
-                Packaging Solutions For{' '}
+                Packaging Solutions For{" "}
                 <span className="text-red-600">Growing Businesses</span>
               </h1>
 
               <p className="mt-5 text-base md:text-lg text-slate-600 leading-relaxed max-w-xl">
-                Wholesale food packaging, disposable containers, paper cups, carry bags,
-                corrugated boxes and restaurant supplies.
+                Wholesale food packaging, disposable containers, paper cups,
+                carry bags, corrugated boxes and restaurant supplies.
               </p>
 
               <ul className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {TRUST_POINTS.map((point) => (
-                  <li key={point} className="flex items-start gap-2 text-sm text-slate-700">
+                {TRUST_POINTS.map(point => (
+                  <li
+                    key={point}
+                    className="flex items-start gap-2 text-sm text-slate-700"
+                  >
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
                       <Check size={12} strokeWidth={3} />
                     </span>
@@ -67,7 +72,7 @@ export default function HomeHero({ whatsappNumber, phone }: HomeHeroProps) {
                   <ArrowRight size={18} />
                 </Link>
                 <a
-                  href={`https://wa.me/${whatsappNumber}?text=${catalogMessage}`}
+                  href={catalogUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-800 hover:border-emerald-500 hover:text-emerald-700 transition"
@@ -78,7 +83,8 @@ export default function HomeHero({ whatsappNumber, phone }: HomeHeroProps) {
               </div>
 
               <p className="mt-6 text-xs text-slate-500">
-                For restaurants, cafes, cloud kitchens, caterers, bakeries &amp; distributors
+                For restaurants, cafes, cloud kitchens, caterers, bakeries &amp;
+                distributors
               </p>
             </motion.div>
 
@@ -99,7 +105,7 @@ export default function HomeHero({ whatsappNumber, phone }: HomeHeroProps) {
 
       {/* Sticky WhatsApp — mobile */}
       <a
-        href={`https://wa.me/${whatsappNumber}?text=${catalogMessage}`}
+        href={catalogUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="md:hidden fixed bottom-5 right-4 z-50 flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/40 hover:bg-emerald-700 transition"

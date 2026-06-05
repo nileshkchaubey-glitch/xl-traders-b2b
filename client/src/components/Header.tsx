@@ -1,55 +1,64 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'wouter';
-import { Search, Menu, X, LogOut, LogIn } from 'lucide-react';
-import { useAuthStore } from '@/lib/authStore';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { Search, Menu, X, LogOut, LogIn } from "lucide-react";
+import { useAuthStore } from "@/lib/authStore";
+import { Button } from "@/components/ui/button";
+import { WHATSAPP_NUMBER, PHONE_1 } from "@/lib/contactConfig";
 
 interface HeaderProps {
-  variant?: 'default' | 'home';
+  variant?: "default" | "home";
 }
 
-export default function Header({ variant = 'default' }: HeaderProps) {
+export default function Header({ variant = "default" }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const { isAuthenticated, isAdmin, user, signOut } = useAuthStore();
   const [location, setLocation] = useLocation();
-  const isHome = variant === 'home' || location === '/';
+  const isHome = variant === "home" || location === "/";
 
-  const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
-  const phone1 = import.meta.env.VITE_PHONE_1 || '9773239442';
+  const whatsappNumber = WHATSAPP_NUMBER;
+  const phone1 = PHONE_1;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       setLocation(`/catalog?search=${encodeURIComponent(searchQuery)}`);
-      setSearchQuery('');
+      setSearchQuery("");
     }
   };
 
   const handleSignOut = async () => {
     await signOut();
-    setLocation('/');
+    setLocation("/");
   };
 
   return (
     <>
       {/* Top Info Bar — hidden on homepage (hero has delivery + search) */}
       {!isHome && (
-      <div className="bg-slate-900 text-slate-300 text-xs py-1.5">
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-6">
-            <a href={`tel:${phone1}`} className="flex items-center gap-2 hover:text-red-500 transition">
-              <span className="inline-block w-1 h-1 bg-green-500 rounded-full"></span>
-              📞 {phone1}
-            </a>
-            <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-red-500 transition">
-              <span className="inline-block w-1 h-1 bg-green-500 rounded-full"></span>
-              💬 WhatsApp
-            </a>
+        <div className="bg-slate-900 text-slate-300 text-xs py-1.5">
+          <div className="max-w-7xl mx-auto px-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-6">
+              <a
+                href={`tel:${phone1}`}
+                className="flex items-center gap-2 hover:text-red-500 transition"
+              >
+                <span className="inline-block w-1 h-1 bg-green-500 rounded-full"></span>
+                📞 {phone1}
+              </a>
+              <a
+                href={`https://wa.me/${whatsappNumber}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-red-500 transition"
+              >
+                <span className="inline-block w-1 h-1 bg-green-500 rounded-full"></span>
+                💬 WhatsApp
+              </a>
+            </div>
+            <span className="text-slate-400">Same-day Delivery in Surat</span>
           </div>
-          <span className="text-slate-400">Same-day Delivery in Surat</span>
         </div>
-      </div>
       )}
 
       {/* Main Header */}
@@ -68,13 +77,16 @@ export default function Header({ variant = 'default' }: HeaderProps) {
             </Link>
 
             {/* Search Box - Desktop */}
-            <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-sm mx-6">
+            <form
+              onSubmit={handleSearch}
+              className="hidden md:flex flex-1 max-w-sm mx-6"
+            >
               <div className="flex w-full border border-slate-300 rounded-md overflow-hidden focus-within:border-red-600 focus-within:ring-2 focus-within:ring-red-100 transition">
                 <input
                   type="text"
                   placeholder="Search products..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={e => setSearchQuery(e.target.value)}
                   className="flex-1 px-3 py-2 text-sm bg-transparent outline-none"
                 />
                 <button
@@ -90,22 +102,22 @@ export default function Header({ variant = 'default' }: HeaderProps) {
             <div className="flex items-center gap-2 md:gap-3">
               {/* Contact Buttons - Desktop (hidden on home — hero has CTAs) */}
               {!isHome && (
-              <div className="hidden md:flex gap-2">
-                <a
-                  href={`tel:${phone1}`}
-                  className="px-3 py-2 text-sm font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded hover:bg-slate-200 transition"
-                >
-                  📞 Call
-                </a>
-                <a
-                  href={`https://wa.me/${whatsappNumber}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-2 text-sm font-semibold text-white bg-green-600 rounded hover:bg-green-700 transition"
-                >
-                  💬 WhatsApp
-                </a>
-              </div>
+                <div className="hidden md:flex gap-2">
+                  <a
+                    href={`tel:${phone1}`}
+                    className="px-3 py-2 text-sm font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded hover:bg-slate-200 transition"
+                  >
+                    📞 Call
+                  </a>
+                  <a
+                    href={`https://wa.me/${whatsappNumber}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 text-sm font-semibold text-white bg-green-600 rounded hover:bg-green-700 transition"
+                  >
+                    💬 WhatsApp
+                  </a>
+                </div>
               )}
 
               {/* Auth Buttons */}
@@ -153,7 +165,7 @@ export default function Header({ variant = 'default' }: HeaderProps) {
                 type="text"
                 placeholder="Search products..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={e => setSearchQuery(e.target.value)}
                 className="flex-1 px-3 py-2 text-sm bg-transparent outline-none"
               />
               <button
@@ -170,7 +182,10 @@ export default function Header({ variant = 'default' }: HeaderProps) {
         {isMenuOpen && (
           <div className="md:hidden border-t border-slate-200 bg-slate-50">
             <div className="max-w-7xl mx-auto px-4 py-4 space-y-3">
-              <Link href="/catalog" className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition">
+              <Link
+                href="/catalog"
+                className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+              >
                 Product Catalog
               </Link>
               <a
@@ -190,7 +205,10 @@ export default function Header({ variant = 'default' }: HeaderProps) {
               {isAuthenticated ? (
                 <>
                   {isAdmin && (
-                    <Link href="/admin" className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition">
+                    <Link
+                      href="/admin"
+                      className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+                    >
                       Admin Panel
                     </Link>
                   )}
@@ -202,7 +220,10 @@ export default function Header({ variant = 'default' }: HeaderProps) {
                   </button>
                 </>
               ) : (
-                <Link href="/auth" className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition">
+                <Link
+                  href="/auth"
+                  className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+                >
                   Sign In
                 </Link>
               )}
@@ -214,19 +235,34 @@ export default function Header({ variant = 'default' }: HeaderProps) {
       {/* Category Navigation */}
       <nav className="bg-white border-b border-slate-200 hidden md:block">
         <div className="max-w-7xl mx-auto px-4 flex gap-6 overflow-x-auto">
-          <Link href="/catalog" className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap">
+          <Link
+            href="/catalog"
+            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
+          >
             All Products
           </Link>
-          <Link href="/catalog?category=round-container" className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap">
+          <Link
+            href="/catalog?category=round-container"
+            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
+          >
             🥤 Round Containers
           </Link>
-          <Link href="/catalog?category=rectangle-container" className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap">
+          <Link
+            href="/catalog?category=rectangle-container"
+            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
+          >
             📦 Rectangle Containers
           </Link>
-          <Link href="/catalog?category=hinged-container" className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap">
+          <Link
+            href="/catalog?category=hinged-container"
+            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
+          >
             🔗 Hinged Containers
           </Link>
-          <Link href="/catalog?category=aluminum-containers" className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap">
+          <Link
+            href="/catalog?category=aluminum-containers"
+            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
+          >
             🥫 Aluminum Containers
           </Link>
         </div>

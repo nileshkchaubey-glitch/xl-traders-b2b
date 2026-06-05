@@ -1,16 +1,17 @@
-import { Link } from 'wouter';
-import { Mail, Phone, MapPin, Facebook, Linkedin, Twitter } from 'lucide-react';
+import { Link } from "wouter";
+import { Mail, Phone, MapPin, Facebook, Linkedin, Twitter } from "lucide-react";
+import {
+  BUSINESS_NAME as businessName,
+  BUSINESS_CITY as businessCity,
+  BUSINESS_STATE as businessState,
+  BUSINESS_COUNTRY as businessCountry,
+  EMAIL as email,
+  PHONE_1 as phone1,
+  PHONE_2 as phone2,
+  WHATSAPP_NUMBER as whatsappNumber,
+} from "@/lib/contactConfig";
 
 export default function Footer() {
-  const businessName = import.meta.env.VITE_BUSINESS_NAME || 'XL Traders';
-  const businessCity = import.meta.env.VITE_BUSINESS_CITY || 'Surat';
-  const businessState = import.meta.env.VITE_BUSINESS_STATE || 'Gujarat';
-  const businessCountry = import.meta.env.VITE_BUSINESS_COUNTRY || 'India';
-  const email = import.meta.env.VITE_EMAIL || 'xltraders990@gmail.com';
-  const phone1 = import.meta.env.VITE_PHONE_1 || '9773239442';
-  const phone2 = import.meta.env.VITE_PHONE_2 || '7778052990';
-  const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
-
   const currentYear = new Date().getFullYear();
 
   return (
@@ -24,16 +25,32 @@ export default function Footer() {
               <span className="text-red-600">XL</span> Traders
             </h3>
             <p className="text-sm text-slate-400 mb-4">
-              Premium wholesale packaging and disposables supplier serving businesses across India.
+              Premium wholesale packaging and disposables supplier serving
+              businesses across India.
             </p>
             <div className="flex gap-3">
-              <a href={`https://facebook.com`} target="_blank" rel="noopener noreferrer" className="p-2 bg-slate-800 rounded hover:bg-red-600 transition">
+              <a
+                href={`https://facebook.com`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-slate-800 rounded hover:bg-red-600 transition"
+              >
                 <Facebook size={16} />
               </a>
-              <a href={`https://linkedin.com`} target="_blank" rel="noopener noreferrer" className="p-2 bg-slate-800 rounded hover:bg-red-600 transition">
+              <a
+                href={`https://linkedin.com`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-slate-800 rounded hover:bg-red-600 transition"
+              >
                 <Linkedin size={16} />
               </a>
-              <a href={`https://twitter.com`} target="_blank" rel="noopener noreferrer" className="p-2 bg-slate-800 rounded hover:bg-red-600 transition">
+              <a
+                href={`https://twitter.com`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-slate-800 rounded hover:bg-red-600 transition"
+              >
                 <Twitter size={16} />
               </a>
             </div>
@@ -44,22 +61,34 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/" className="text-slate-400 hover:text-red-500 transition">
+                <Link
+                  href="/"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
                   Home
                 </Link>
               </li>
               <li>
-                <Link href="/catalog" className="text-slate-400 hover:text-red-500 transition">
+                <Link
+                  href="/catalog"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
                   Product Catalog
                 </Link>
               </li>
               <li>
-                <Link href="/auth" className="text-slate-400 hover:text-red-500 transition">
+                <Link
+                  href="/auth"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
                   Sign In
                 </Link>
               </li>
               <li>
-                <a href="#contact" className="text-slate-400 hover:text-red-500 transition">
+                <a
+                  href="#contact"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
                   Contact Us
                 </a>
               </li>
@@ -70,14 +99,70 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Categories</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/catalog?category=round-container" className="text-slate-400 hover:text-red-500 transition">Food Containers</Link></li>
-              <li><Link href="/catalog?category=paper-cup" className="text-slate-400 hover:text-red-500 transition">Paper Cups</Link></li>
-              <li><Link href="/catalog?category=paper-box" className="text-slate-400 hover:text-red-500 transition">Carry Bags</Link></li>
-              <li><Link href="/catalog?category=aluminum-containers" className="text-slate-400 hover:text-red-500 transition">Aluminium Containers</Link></li>
-              <li><Link href="/catalog?category=meal-tray" className="text-slate-400 hover:text-red-500 transition">Meal Trays</Link></li>
-              <li><Link href="/catalog?category=pizza-box" className="text-slate-400 hover:text-red-500 transition">Pizza Boxes</Link></li>
-              <li><Link href="/catalog?category=cling-wrap" className="text-slate-400 hover:text-red-500 transition">Wrapping Films</Link></li>
-              <li><Link href="/catalog" className="text-slate-400 hover:text-red-500 transition">View All →</Link></li>
+              <li>
+                <Link
+                  href="/catalog?category=round-container"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
+                  Food Containers
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/catalog?category=paper-cup"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
+                  Paper Cups
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/catalog?category=paper-box"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
+                  Carry Bags
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/catalog?category=aluminum-containers"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
+                  Aluminium Containers
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/catalog?category=meal-tray"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
+                  Meal Trays
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/catalog?category=pizza-box"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
+                  Pizza Boxes
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/catalog?category=cling-wrap"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
+                  Wrapping Films
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/catalog"
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
+                  View All →
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -86,26 +171,42 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-4">Contact Us</h4>
             <ul className="space-y-3 text-sm">
               <li className="flex gap-2">
-                <MapPin size={16} className="flex-shrink-0 text-red-500 mt-0.5" />
+                <MapPin
+                  size={16}
+                  className="flex-shrink-0 text-red-500 mt-0.5"
+                />
                 <span className="text-slate-400">
-                  {businessCity}, {businessState}<br />
+                  {businessCity}, {businessState}
+                  <br />
                   {businessCountry}
                 </span>
               </li>
               <li className="flex gap-2">
-                <Phone size={16} className="flex-shrink-0 text-red-500 mt-0.5" />
+                <Phone
+                  size={16}
+                  className="flex-shrink-0 text-red-500 mt-0.5"
+                />
                 <div className="text-slate-400">
-                  <a href={`tel:${phone1}`} className="hover:text-red-500 transition block">
+                  <a
+                    href={`tel:${phone1}`}
+                    className="hover:text-red-500 transition block"
+                  >
                     {phone1}
                   </a>
-                  <a href={`tel:${phone2}`} className="hover:text-red-500 transition block">
+                  <a
+                    href={`tel:${phone2}`}
+                    className="hover:text-red-500 transition block"
+                  >
                     {phone2}
                   </a>
                 </div>
               </li>
               <li className="flex gap-2">
                 <Mail size={16} className="flex-shrink-0 text-red-500 mt-0.5" />
-                <a href={`mailto:${email}`} className="text-slate-400 hover:text-red-500 transition">
+                <a
+                  href={`mailto:${email}`}
+                  className="text-slate-400 hover:text-red-500 transition"
+                >
                   {email}
                 </a>
               </li>
@@ -117,7 +218,9 @@ export default function Footer() {
         <div className="border-t border-slate-800 pt-8">
           {/* Bottom Bar */}
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-400">
-            <p>&copy; {currentYear} {businessName}. All rights reserved.</p>
+            <p>
+              &copy; {currentYear} {businessName}. All rights reserved.
+            </p>
             <div className="flex gap-6">
               <a href="#privacy" className="hover:text-red-500 transition">
                 Privacy Policy

@@ -1,16 +1,35 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MessageCircle, Eye, ExternalLink } from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase, Enquiry } from '@/lib/supabase';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { MessageCircle, Eye, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
+import { supabase, Enquiry } from "@/lib/supabase";
+import { openWhatsApp } from "@/lib/whatsapp";
 
 /**
  * Admin Enquiries Component
- * 
+ *
  * Features:
  * - View all customer enquiries
  * - Filter by status
@@ -22,7 +41,7 @@ export default function AdminEnquiries() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Load enquiries
   useEffect(() => {
@@ -33,14 +52,14 @@ export default function AdminEnquiries() {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('enquiries')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("enquiries")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setEnquiries(data || []);
     } catch (error) {
-      toast.error('Failed to load enquiries');
+      toast.error("Failed to load enquiries");
       console.error(error);
     } finally {
       setLoading(false);
@@ -48,61 +67,61 @@ export default function AdminEnquiries() {
   };
 
   // Filter enquiries
-  const filteredEnquiries = statusFilter === 'all'
-    ? enquiries
-    : enquiries.filter(e => e.status === statusFilter);
+  const filteredEnquiries =
+    statusFilter === "all"
+      ? enquiries
+      : enquiries.filter(e => e.status === statusFilter);
 
   // Update enquiry status
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
       const { error } = await supabase
-        .from('enquiries')
+        .from("enquiries")
         .update({ status: newStatus })
-        .eq('id', id);
+        .eq("id", id);
 
       if (error) throw error;
 
-      setEnquiries(enquiries.map(e => 
-        e.id === id ? { ...e, status: newStatus } : e
-      ));
+      setEnquiries(
+        enquiries.map(e => (e.id === id ? { ...e, status: newStatus } : e))
+      );
 
       if (selectedEnquiry?.id === id) {
         setSelectedEnquiry({ ...selectedEnquiry, status: newStatus });
       }
 
-      toast.success('Status updated');
+      toast.success("Status updated");
     } catch (error) {
-      toast.error('Failed to update status');
+      toast.error("Failed to update status");
       console.error(error);
     }
   };
 
   // Send WhatsApp message
   const handleSendWhatsApp = (enquiry: Enquiry) => {
-    const message = `Hi ${enquiry.customer_name}, Thank you for your enquiry. We received your request for ${enquiry.quantity_requested || 'our products'}. Our team will contact you shortly.`;
-    const whatsappUrl = `https://wa.me/${enquiry.customer_phone}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+    const message = `Hi ${enquiry.customer_name}, Thank you for your enquiry. We received your request for ${enquiry.quantity_requested || "our products"}. Our team will contact you shortly.`;
+    openWhatsApp(message, enquiry.customer_phone);
   };
 
   // Get status badge color
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      new: 'bg-blue-100 text-blue-700',
-      contacted: 'bg-yellow-100 text-yellow-700',
-      quoted: 'bg-purple-100 text-purple-700',
-      closed: 'bg-green-100 text-green-700',
+      new: "bg-blue-100 text-blue-700",
+      contacted: "bg-yellow-100 text-yellow-700",
+      quoted: "bg-purple-100 text-purple-700",
+      closed: "bg-green-100 text-green-700",
     };
-    return colors[status] || 'bg-slate-100 text-slate-700';
+    return colors[status] || "bg-slate-100 text-slate-700";
   };
 
   // Format date
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(date).toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -112,7 +131,9 @@ export default function AdminEnquiries() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Enquiries</h2>
-          <p className="text-slate-600 text-sm mt-1">{filteredEnquiries.length} enquiries</p>
+          <p className="text-slate-600 text-sm mt-1">
+            {filteredEnquiries.length} enquiries
+          </p>
         </div>
         <Button onClick={loadEnquiries} variant="outline">
           Refresh
@@ -152,13 +173,19 @@ export default function AdminEnquiries() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center py-8 text-slate-500"
+                  >
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filteredEnquiries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center py-8 text-slate-500"
+                  >
                     No enquiries found
                   </TableCell>
                 </TableRow>
@@ -176,17 +203,19 @@ export default function AdminEnquiries() {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-slate-600">
-                      {enquiry.customer_company || '-'}
+                      {enquiry.customer_company || "-"}
                     </TableCell>
-                    <TableCell>
-                      {enquiry.quantity_requested || '-'}
-                    </TableCell>
+                    <TableCell>{enquiry.quantity_requested || "-"}</TableCell>
                     <TableCell>
                       <Select
                         value={enquiry.status}
-                        onValueChange={(value) => handleStatusChange(enquiry.id, value)}
+                        onValueChange={value =>
+                          handleStatusChange(enquiry.id, value)
+                        }
                       >
-                        <SelectTrigger className={`w-32 text-xs ${getStatusColor(enquiry.status)}`}>
+                        <SelectTrigger
+                          className={`w-32 text-xs ${getStatusColor(enquiry.status)}`}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -228,7 +257,10 @@ export default function AdminEnquiries() {
 
       {/* Details Dialog */}
       {selectedEnquiry && (
-        <Dialog open={!!selectedEnquiry} onOpenChange={() => setSelectedEnquiry(null)}>
+        <Dialog
+          open={!!selectedEnquiry}
+          onOpenChange={() => setSelectedEnquiry(null)}
+        >
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Enquiry Details</DialogTitle>
@@ -237,24 +269,34 @@ export default function AdminEnquiries() {
             <div className="space-y-4">
               {/* Customer Info */}
               <div>
-                <h3 className="font-semibold text-slate-900 mb-2">Customer Information</h3>
+                <h3 className="font-semibold text-slate-900 mb-2">
+                  Customer Information
+                </h3>
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-slate-600">Name:</span>
-                    <p className="font-medium">{selectedEnquiry.customer_name}</p>
+                    <p className="font-medium">
+                      {selectedEnquiry.customer_name}
+                    </p>
                   </div>
                   <div>
                     <span className="text-slate-600">Email:</span>
-                    <p className="font-medium">{selectedEnquiry.customer_email}</p>
+                    <p className="font-medium">
+                      {selectedEnquiry.customer_email}
+                    </p>
                   </div>
                   <div>
                     <span className="text-slate-600">Phone:</span>
-                    <p className="font-medium">{selectedEnquiry.customer_phone}</p>
+                    <p className="font-medium">
+                      {selectedEnquiry.customer_phone}
+                    </p>
                   </div>
                   {selectedEnquiry.customer_company && (
                     <div>
                       <span className="text-slate-600">Company:</span>
-                      <p className="font-medium">{selectedEnquiry.customer_company}</p>
+                      <p className="font-medium">
+                        {selectedEnquiry.customer_company}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -262,21 +304,29 @@ export default function AdminEnquiries() {
 
               {/* Enquiry Info */}
               <div className="border-t pt-4">
-                <h3 className="font-semibold text-slate-900 mb-2">Enquiry Information</h3>
+                <h3 className="font-semibold text-slate-900 mb-2">
+                  Enquiry Information
+                </h3>
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-slate-600">Quantity:</span>
-                    <p className="font-medium">{selectedEnquiry.quantity_requested || '-'}</p>
+                    <p className="font-medium">
+                      {selectedEnquiry.quantity_requested || "-"}
+                    </p>
                   </div>
                   <div>
                     <span className="text-slate-600">Status:</span>
-                    <p className={`font-medium inline-block px-2 py-1 rounded text-xs mt-1 ${getStatusColor(selectedEnquiry.status)}`}>
+                    <p
+                      className={`font-medium inline-block px-2 py-1 rounded text-xs mt-1 ${getStatusColor(selectedEnquiry.status)}`}
+                    >
                       {selectedEnquiry.status}
                     </p>
                   </div>
                   <div>
                     <span className="text-slate-600">Date:</span>
-                    <p className="font-medium">{formatDate(selectedEnquiry.created_at)}</p>
+                    <p className="font-medium">
+                      {formatDate(selectedEnquiry.created_at)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -302,7 +352,12 @@ export default function AdminEnquiries() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => window.open(`mailto:${selectedEnquiry.customer_email}`, '_blank')}
+                  onClick={() =>
+                    window.open(
+                      `mailto:${selectedEnquiry.customer_email}`,
+                      "_blank"
+                    )
+                  }
                   className="flex-1 gap-2"
                 >
                   <ExternalLink className="w-4 h-4" />

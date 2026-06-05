@@ -1,24 +1,33 @@
-import { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'wouter';
-import { useAuthStore } from '@/lib/authStore';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
+import { useAuthStore } from "@/lib/authStore";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  LogOut,
+  Package,
+  Grid3x3,
+  MessageSquare,
+  Settings,
+  Upload,
+} from "lucide-react";
+import { toast } from "sonner";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
-import AdminProducts from '@/components/admin/AdminProducts';
-import AdminCategories from '@/components/admin/AdminCategories';
-import AdminEnquiries from '@/components/admin/AdminEnquiries';
-import AdminSettings from '@/components/admin/AdminSettings';
-import AdminBulkImport from '@/components/admin/AdminBulkImport';
+import AdminProducts from "@/components/admin/AdminProducts";
+import AdminCategories from "@/components/admin/AdminCategories";
+import AdminEnquiries from "@/components/admin/AdminEnquiries";
+import AdminSettings from "@/components/admin/AdminSettings";
+import AdminBulkImport from "@/components/admin/AdminBulkImport";
 
 /**
  * Admin Dashboard - Main entry point for admin panel
  */
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
-  const { user, isAuthenticated, isAdmin, isLoading, refreshProfile, signOut } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('products');
+  const { user, isAuthenticated, isAdmin, isLoading, refreshProfile, signOut } =
+    useAuthStore();
+  const [activeTab, setActiveTab] = useState("products");
   const [accessChecked, setAccessChecked] = useState(false);
   const redirectingRef = useRef(false);
 
@@ -31,7 +40,7 @@ export default function AdminDashboard() {
       if (!isAuthenticated) {
         if (!redirectingRef.current) {
           redirectingRef.current = true;
-          setLocation('/auth');
+          setLocation("/auth");
         }
         return;
       }
@@ -51,8 +60,8 @@ export default function AdminDashboard() {
 
       if (!redirectingRef.current) {
         redirectingRef.current = true;
-        toast.error('Admin access required');
-        setLocation('/');
+        toast.error("Admin access required");
+        setLocation("/");
       }
     }
 
@@ -66,10 +75,7 @@ export default function AdminDashboard() {
   if (isLoading || (isAuthenticated && !accessChecked && !isAdmin)) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-500 text-sm">Loading admin panel...</p>
-        </div>
+        <LoadingSpinner message="Loading admin panel..." />
       </div>
     );
   }
@@ -80,8 +86,8 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     await signOut();
-    setLocation('/');
-    toast.success('Logged out');
+    setLocation("/");
+    toast.success("Logged out");
   };
 
   return (
