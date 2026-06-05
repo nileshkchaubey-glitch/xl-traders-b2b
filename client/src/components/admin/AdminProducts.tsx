@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit2, Trash2, Search, X, Star } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Star, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { productService, categoryService, storageService, productImageService } from '@/lib/productService';
 import { Product, Category } from '@/lib/supabase';
@@ -163,6 +163,23 @@ export default function AdminProducts() {
       console.error(error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDuplicate = async (product: Product) => {
+    try {
+      const { id, created_at, updated_at, sku, ...fields } = product;
+      await productService.create({
+        ...fields,
+        name: `${product.name} (Copy)`,
+        sku: undefined,
+        is_active: false,
+      } as any);
+      toast.success('Product duplicated');
+      loadData();
+    } catch (error) {
+      toast.error('Failed to duplicate product');
+      console.error(error);
     }
   };
 
@@ -675,6 +692,13 @@ export default function AdminProducts() {
                           }`}
                         >
                           <Star className="w-4 h-4" fill={product.is_featured ? 'currentColor' : 'none'} />
+                        </button>
+                        <button
+                          onClick={() => handleDuplicate(product)}
+                          title="Duplicate"
+                          className="p-2 hover:bg-slate-100 rounded text-slate-600 hover:text-slate-900"
+                        >
+                          <Copy className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleEdit(product)}
