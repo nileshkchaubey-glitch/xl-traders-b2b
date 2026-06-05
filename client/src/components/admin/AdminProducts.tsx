@@ -8,9 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit2, Trash2, Search, X, Star, Copy } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Star, Copy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { productService, categoryService, storageService, productImageService } from '@/lib/productService';
+import { generateDescription } from '@/lib/aiService';
 import { Product, Category } from '@/lib/supabase';
 
 /**
@@ -54,6 +55,7 @@ export default function AdminProducts() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Revoke object URLs on unmount to avoid memory leaks
   useEffect(() => {
@@ -432,7 +434,33 @@ export default function AdminProducts() {
 
               {/* Description */}
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description">Description</Label>
+                  <button
+                    type="button"
+                    disabled={isGenerating || !formData.name}
+                    onClick={async () => {
+                      const catName = categories.find(c => c.id === formData.category_id)?.name || '';
+                      setIsGenerating(true);
+                      try {
+                        const text = await generateDescription(formData.name, catName);
+                        setFormData(f => ({ ...f, description: text }));
+                      } catch (err: any) {
+                        toast.error(err?.message || 'Failed to generate description');
+                      } finally {
+                        setIsGenerating(false);
+                      }
+                    }}
+                    className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <span>✨</span>
+                    )}
+                    Generate
+                  </button>
+                </div>
                 <Textarea
                   id="description"
                   value={formData.description}
