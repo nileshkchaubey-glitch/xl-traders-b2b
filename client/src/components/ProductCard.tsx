@@ -12,12 +12,56 @@ interface ProductCardProps {
   onEnquire?: (product: Product) => void;
 }
 
+/**
+ * SmartImage — product image with a loading shimmer and fade-in.
+ * Falls back to the branded placeholder on error or when no URL is set.
+ * Used by both grid and list views so behaviour stays consistent.
+ */
+function SmartImage({
+  src,
+  alt,
+  className,
+  placeholderClassName,
+}: {
+  src?: string;
+  alt: string;
+  className: string;
+  placeholderClassName: string;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  if (!src || error) {
+    return <ImagePlaceholder className={placeholderClassName} showText={false} />;
+  }
+
+  return (
+    <>
+      {!loaded && (
+        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-100 to-slate-200" />
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`${className} ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+      />
+    </>
+  );
+}
+
 export default function ProductCard({ product, view = 'grid', onEnquire }: ProductCardProps) {
   const { isAuthenticated, user, profile } = useAuthStore();
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
-  const [imageError, setImageError] = useState(false);
 
   const handleEnquire = async () => {
+    if (onEnquire) {
+      onEnquire(product);
+      return;
+    }
     if (isAuthenticated && user) {
       try {
         await enquiryService.create({
@@ -45,19 +89,14 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     return (
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition flex">
         {/* Image */}
-        <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-white">
-          {product.image_url && !imageError ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-contain p-1.5"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
-          ) : (
-            <ImagePlaceholder className="w-24 h-24" showText={false} />
-          )}
-        </div>
+        <Link href={`/product/${product.id}`} className="w-24 h-24 flex-shrink-0 relative overflow-hidden bg-white">
+          <SmartImage
+            src={product.image_url}
+            alt={product.image_alt_text || product.name}
+            className="w-full h-full object-contain p-1.5"
+            placeholderClassName="w-24 h-24"
+          />
+        </Link>
 
         {/* Content */}
         <div className="flex-1 p-3 flex items-center justify-between gap-3">
@@ -98,19 +137,14 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition cursor-pointer h-full flex flex-col">
         {/* Image */}
         <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-white">
-          {product.image_url && !imageError ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
-          ) : (
-            <ImagePlaceholder className="w-full h-full" showText={false} />
-          )}
+          <SmartImage
+            src={product.image_url}
+            alt={product.image_alt_text || product.name}
+            className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+            placeholderClassName="w-full h-full"
+          />
           {product.is_featured && (
-            <div className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+            <div className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10">
               Featured
             </div>
           )}

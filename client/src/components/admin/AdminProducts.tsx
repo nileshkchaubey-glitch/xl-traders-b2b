@@ -34,6 +34,8 @@ export default function AdminProducts() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -54,6 +56,8 @@ export default function AdminProducts() {
   const [imageMetadata, setImageMetadata] = useState<Array<{ altText: string; description: string }>>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  // Paste-an-image-URL option (Drive thumbnails / external) — no file upload needed.
+  const [imageUrl, setImageUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -94,8 +98,22 @@ export default function AdminProducts() {
     return matchesSearch && matchesCategory;
   });
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Paginate so the table stays fast with hundreds of products.
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // Reset to first page whenever the filters change.
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedCategory]);
+
+  // Handle form submission. When `keepOpen` is true (Save & Add Another) the
+  // dialog stays open and the form resets for rapid back-to-back entry.
+  const handleSubmit = async (e: React.FormEvent, keepOpen = false) => {
     e.preventDefault();
 
     if (!formData.name || !formData.category_id || !formData.price) {
@@ -105,7 +123,7 @@ export default function AdminProducts() {
 
     setIsSaving(true);
     try {
-      const productData = {
+      const productData: Partial<Product> = {
         name: formData.name,
         category_id: formData.category_id,
         description: formData.description,
@@ -120,6 +138,13 @@ export default function AdminProducts() {
         image_alt_text: imageMetadata[0]?.altText || formData.name,
         image_description: imageMetadata[0]?.description || '',
       };
+
+      // A pasted image URL sets the primary image without any upload. Uploaded
+      // files (handled below) take precedence if both are provided.
+      const pastedUrl = imageUrl.trim();
+      if (pastedUrl) {
+        productData.image_url = pastedUrl;
+      }
 
       let product: Product;
       if (editingId) {
@@ -158,7 +183,7 @@ export default function AdminProducts() {
 
       toast.success(editingId ? 'Product updated' : 'Product created');
       resetForm();
-      setIsOpen(false);
+      if (!keepOpen) setIsOpen(false);
       loadData();
     } catch (error) {
       toast.error('Failed to save product');
@@ -256,6 +281,7 @@ export default function AdminProducts() {
     setImages([]);
     setImageMetadata([]);
     setImagePreviews([]);
+    setImageUrl('');
     setExistingImageUrl(product.image_url || null);
     setIsOpen(true);
   };
@@ -278,6 +304,7 @@ export default function AdminProducts() {
     setImages([]);
     setImageMetadata([]);
     setImagePreviews([]);
+    setImageUrl('');
     setExistingImageUrl(null);
     setEditingId(null);
   };
@@ -499,6 +526,38 @@ export default function AdminProducts() {
                   </div>
                 )}
 
+                {/* Option A — paste an image URL (Drive thumbnail / external) */}
+                {images.length === 0 && (
+                  <div className="space-y-2">
+                    <Input
+                      type="url"
+                      inputMode="url"
+                      placeholder="Paste image URL (e.g. Google Drive thumbnail)"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                    />
+                    {imageUrl.trim() && (
+                      <div className="flex items-center gap-3 p-2 border rounded-lg bg-slate-50">
+                        <img
+                          src={imageUrl.trim()}
+                          alt="URL preview"
+                          className="w-16 h-16 object-contain rounded bg-white border"
+                          onError={(e) => { (e.currentTarget.style.opacity = '0.25'); }}
+                          onLoad={(e) => { (e.currentTarget.style.opacity = '1'); }}
+                        />
+                        <span className="text-sm text-slate-600">
+                          This URL will be the primary image.
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3">
+                      <div className="h-px flex-1 bg-slate-200" />
+                      <span className="text-xs text-slate-400 font-medium">OR upload files</span>
+                      <div className="h-px flex-1 bg-slate-200" />
+                    </div>
+                  </div>
+                )}
+
                 <input
                   type="file"
                   multiple
@@ -586,6 +645,17 @@ export default function AdminProducts() {
                 <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
+                {!editingId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    disabled={isSaving}
+                    onClick={(e) => handleSubmit(e as unknown as React.FormEvent, true)}
+                  >
+                    {isSaving ? 'Saving...' : 'Save & Add Another'}
+                  </Button>
+                )}
                 <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
                   {isSaving ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
                 </Button>
@@ -650,7 +720,7 @@ export default function AdminProducts() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProducts.map(product => (
+                pagedProducts.map(product => (
                   <TableRow key={product.id}>
                     <TableCell>
                       {product.image_url ? (
@@ -748,6 +818,38 @@ export default function AdminProducts() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {!loading && filteredProducts.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between gap-4 border-t px-4 py-3 flex-wrap">
+            <p className="text-sm text-slate-500">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(currentPage * PAGE_SIZE, filteredProducts.length)} of{' '}
+              {filteredProducts.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-slate-600 px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
