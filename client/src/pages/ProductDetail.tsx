@@ -148,46 +148,39 @@ export default function ProductDetail() {
     loadRecent();
   }, [id]);
 
-  const handleEnquire = async () => {
+  const handleEnquire = () => {
     const message = isAuthenticated
       ? `Hi, I'm interested in: ${product?.name}\n\nPrice: ₹${product?.price}\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nPlease provide more details and availability.`
       : `Hi, I'm interested in: ${product?.name}\n\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nCould you please share the price and availability?`;
 
-    // Always log to inquiries (guests + authenticated)
-    try {
-      await inquiriesService.create({
-        customer_name: (isAuthenticated && profile)
-          ? (profile.contact_person || profile.company_name || user?.email || '')
-          : '',
-        phone: (isAuthenticated && profile?.phone) ? profile.phone : '',
-        message,
-        product_name: product?.name ?? '',
-        source: 'website',
-      });
-    } catch (err) {
-      console.error('Failed to save inquiry:', err);
-    }
-
-    // Additionally log to detailed enquiries table for authenticated users
-    if (isAuthenticated && user && product) {
-      try {
-        await enquiryService.create({
-          user_id: user.id,
-          product_id: product.id,
-          customer_name: profile?.contact_person || profile?.company_name || user.email || 'Customer',
-          customer_email: profile?.email || user.email || '',
-          customer_phone: profile?.phone || '',
-          customer_company: profile?.company_name,
-          quantity_requested: 1,
-          enquiry_source: 'whatsapp',
-          status: 'new',
-        });
-      } catch (err) {
-        console.error('Failed to save enquiry:', err);
-      }
-    }
-
+    // Open WhatsApp immediately (must stay in synchronous click-handler
+    // context so browsers don't treat it as a popup).
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
+
+    // Fire-and-forget DB logging — never blocks WhatsApp opening.
+    inquiriesService.create({
+      customer_name: (isAuthenticated && profile)
+        ? (profile.contact_person || profile.company_name || user?.email || '')
+        : '',
+      phone: (isAuthenticated && profile?.phone) ? profile.phone : '',
+      message,
+      product_name: product?.name ?? '',
+      source: 'website',
+    }).catch(() => {});
+
+    if (isAuthenticated && user && product) {
+      enquiryService.create({
+        user_id: user.id,
+        product_id: product.id,
+        customer_name: profile?.contact_person || profile?.company_name || user.email || 'Customer',
+        customer_email: profile?.email || user.email || '',
+        customer_phone: profile?.phone || '',
+        customer_company: profile?.company_name,
+        quantity_requested: 1,
+        enquiry_source: 'whatsapp',
+        status: 'new',
+      }).catch(() => {});
+    }
   };
 
   const handleShare = () => {
