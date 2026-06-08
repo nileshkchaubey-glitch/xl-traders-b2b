@@ -1,0 +1,109 @@
+/**
+ * Image auto-resize and compression utility.
+ * Uses browser Canvas API — no external deps.
+ *
+ * Default: resize to max 800×800, white background, JPEG quality 0.85
+ */
+
+export interface ResizeResult {
+  file: File;
+  originalSize: number;
+  newSize: number;
+  originalDimensions: { w: number; h: number };
+  newDimensions: { w: number; h: number };
+}
+
+export async function autoResizeImage(
+  file: File,
+  maxSize = 800,
+  quality = 0.85,
+): Promise<ResizeResult> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const originalDimensions = { w: img.width, h: img.height };
+
+      let w = img.width;
+      let h = img.height;
+
+      if (w > maxSize || h > maxSize) {
+        if (w >= h) {
+          h = Math.round((h * maxSize) / w);
+          w = maxSize;
+        } else {
+          w = Math.round((w * maxSize) / h);
+          h = maxSize;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error('Canvas not available'));
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error('Compression failed'));
+          const outName = file.name.replace(/\.[^.]+$/, '.jpg');
+          const outFile = new File([blob], outName, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          resolve({
+            file: outFile,
+            originalSize: file.size,
+            newSize: outFile.size,
+            originalDimensions,
+            newDimensions: { w, h },
+          });
+        },
+        'image/jpeg',
+        quality,
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load image'));
+    };
+
+    img.src = objectUrl;
+  });
+}
+
+export async function batchAutoResize(
+  files: File[],
+  maxSize = 800,
+  quality = 0.85,
+): Promise<ResizeResult[]> {
+  const results: ResizeResult[] = [];
+  for (const file of files) {
+    try {
+      const result = await autoResizeImage(file, maxSize, quality);
+      results.push(result);
+    } catch {
+      results.push({
+        file,
+        originalSize: file.size,
+        newSize: file.size,
+        originalDimensions: { w: 0, h: 0 },
+        newDimensions: { w: 0, h: 0 },
+      });
+    }
+  }
+  return results;
+}
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
