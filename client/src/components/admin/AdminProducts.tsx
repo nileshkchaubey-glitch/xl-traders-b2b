@@ -34,6 +34,8 @@ export default function AdminProducts() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -54,6 +56,9 @@ export default function AdminProducts() {
   const [imageMetadata, setImageMetadata] = useState<Array<{ altText: string; description: string }>>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  // Lets admins paste a direct image URL (e.g. Google Drive thumbnail link) instead
+  // of uploading a file — matches how the existing catalog images are sourced.
+  const [imageUrlInput, setImageUrlInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -94,8 +99,22 @@ export default function AdminProducts() {
     return matchesSearch && matchesCategory;
   });
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Paginate the (possibly large) product list so the admin table stays fast.
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  // Reset to the first page whenever the filters change.
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedCategory]);
+
+  // Handle form submission. When `addAnother` is true the dialog stays open and the
+  // form is reset (keeping category + brand) so admins can rapidly enter many products.
+  const handleSubmit = async (e: React.FormEvent, addAnother = false) => {
     e.preventDefault();
 
     if (!formData.name || !formData.category_id || !formData.price) {
@@ -105,6 +124,7 @@ export default function AdminProducts() {
 
     setIsSaving(true);
     try {
+      const pastedUrl = imageUrlInput.trim();
       const productData = {
         name: formData.name,
         category_id: formData.category_id,
@@ -119,6 +139,8 @@ export default function AdminProducts() {
         is_featured: formData.is_featured,
         image_alt_text: imageMetadata[0]?.altText || formData.name,
         image_description: imageMetadata[0]?.description || '',
+        // A pasted URL seeds the primary image; uploaded files (below) override it.
+        ...(pastedUrl ? { image_url: pastedUrl } : {}),
       };
 
       let product: Product;
@@ -157,8 +179,13 @@ export default function AdminProducts() {
       }
 
       toast.success(editingId ? 'Product updated' : 'Product created');
-      resetForm();
-      setIsOpen(false);
+      if (addAnother) {
+        // Keep the dialog open and preserve category + brand for fast bulk entry.
+        resetForm({ keepCategory: true });
+      } else {
+        resetForm();
+        setIsOpen(false);
+      }
       loadData();
     } catch (error) {
       toast.error('Failed to save product');
@@ -256,28 +283,30 @@ export default function AdminProducts() {
     setImages([]);
     setImageMetadata([]);
     setImagePreviews([]);
+    setImageUrlInput(product.image_url || '');
     setExistingImageUrl(product.image_url || null);
     setIsOpen(true);
   };
 
-  const resetForm = () => {
-    setFormData({
+  const resetForm = (opts?: { keepCategory?: boolean }) => {
+    setFormData((prev) => ({
       name: '',
-      category_id: '',
+      category_id: opts?.keepCategory ? prev.category_id : '',
       description: '',
       price: '',
       mrp: '',
-      unit_of_measure: 'pcs',
+      unit_of_measure: opts?.keepCategory ? prev.unit_of_measure : 'pcs',
       quantity_in_unit: '',
       discount_percent: '0',
-      brand: '',
+      brand: opts?.keepCategory ? prev.brand : '',
       is_active: true,
       is_featured: false,
-    });
+    }));
     imagePreviews.forEach((url) => URL.revokeObjectURL(url));
     setImages([]);
     setImageMetadata([]);
     setImagePreviews([]);
+    setImageUrlInput('');
     setExistingImageUrl(null);
     setEditingId(null);
   };
@@ -485,6 +514,29 @@ export default function AdminProducts() {
               <div className="space-y-2">
                 <Label>Product Images (up to 5)</Label>
 
+                {/* Paste a direct image URL (e.g. Google Drive thumbnail link) */}
+                <Input
+                  type="url"
+                  inputMode="url"
+                  placeholder="Paste image URL (e.g. https://drive.google.com/thumbnail?id=...&sz=w800)"
+                  value={imageUrlInput}
+                  onChange={(e) => setImageUrlInput(e.target.value)}
+                />
+                {imageUrlInput.trim() && images.length === 0 && imageUrlInput.trim() !== existingImageUrl && (
+                  <div className="flex items-center gap-3 p-2 border rounded-lg bg-slate-50">
+                    <img
+                      src={imageUrlInput.trim()}
+                      alt="Image URL preview"
+                      className="w-16 h-16 object-contain rounded bg-white border"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.3'; }}
+                    />
+                    <span className="text-sm text-slate-600">Image from pasted URL.</span>
+                  </div>
+                )}
+                <p className="text-xs text-slate-400">
+                  Paste a link above <span className="font-medium">or</span> upload files below. Uploaded files take priority as the primary image.
+                </p>
+
                 {/* Current image (edit mode) */}
                 {editingId && existingImageUrl && images.length === 0 && (
                   <div className="flex items-center gap-3 mb-2 p-2 border rounded-lg bg-slate-50">
@@ -586,6 +638,17 @@ export default function AdminProducts() {
                 <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
+                {!editingId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    disabled={isSaving}
+                    onClick={(e) => handleSubmit(e, true)}
+                  >
+                    {isSaving ? 'Saving...' : 'Save & Add Another'}
+                  </Button>
+                )}
                 <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
                   {isSaving ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
                 </Button>
@@ -650,7 +713,7 @@ export default function AdminProducts() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProducts.map(product => (
+                paginatedProducts.map(product => (
                   <TableRow key={product.id}>
                     <TableCell>
                       {product.image_url ? (
@@ -748,6 +811,37 @@ export default function AdminProducts() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {!loading && filteredProducts.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between gap-4 border-t px-4 py-3 flex-wrap">
+            <p className="text-sm text-slate-500">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(currentPage * PAGE_SIZE, filteredProducts.length)} of {filteredProducts.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-slate-600 px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
