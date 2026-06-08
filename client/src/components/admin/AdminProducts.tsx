@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus, Edit2, Trash2, Search, X, Star, Copy, Loader2,
-  ChevronLeft, ChevronRight, ImageIcon, Zap,
+  ChevronLeft, ChevronRight, ImageIcon, Zap, Images,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,7 @@ import { productService, categoryService, storageService, productImageService } 
 import { generateDescription } from '@/lib/aiService';
 import { autoResizeImage, batchAutoResize, formatBytes } from '@/lib/imageUtils';
 import { Product, Category } from '@/lib/supabase';
+import AdminImageGallery from '@/components/admin/AdminImageGallery';
 
 const PAGE_SIZE = 50;
 
@@ -77,6 +78,9 @@ export default function AdminProducts() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
+
+  // Image gallery
+  const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
 
   // Form
   const [formData, setFormData] = useState({
@@ -569,6 +573,13 @@ export default function AdminProducts() {
                           <Star className="w-4 h-4" fill={product.is_featured ? 'currentColor' : 'none'} />
                         </button>
                         <button
+                          onClick={() => setGalleryProduct(product)}
+                          title="Manage images"
+                          className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
+                        >
+                          <Images className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleDuplicate(product)}
                           title="Duplicate"
                           className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
@@ -830,6 +841,18 @@ export default function AdminProducts() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Image Gallery Dialog */}
+      <AdminImageGallery
+        product={galleryProduct}
+        open={!!galleryProduct}
+        onClose={() => setGalleryProduct(null)}
+        onPrimaryChanged={(productId, newUrl) => {
+          setProducts((prev) =>
+            prev.map((p) => (p.id === productId ? { ...p, image_url: newUrl } : p)),
+          );
+        }}
+      />
     </div>
   );
 }
