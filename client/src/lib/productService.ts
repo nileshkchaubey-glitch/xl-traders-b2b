@@ -1,4 +1,4 @@
-import { supabase, Product, Category, ProductImage, Enquiry } from './supabase';
+import { supabase, Product, Category, ProductImage, Enquiry, Inquiry } from './supabase';
 import { demoProducts, demoCategories } from './demoData';
 
 // Demo mode is opt-in only (VITE_DEMO_MODE=true). The supabase client now
@@ -467,5 +467,19 @@ export const storageService = {
       .getPublicUrl(filePath);
 
     return data.publicUrl;
+  },
+};
+
+// ============================================================================
+// INQUIRIES — lightweight log for every WhatsApp button click (all users)
+// ============================================================================
+
+export const inquiriesService = {
+  async create(inquiry: Omit<Inquiry, 'id' | 'created_at'>) {
+    const { error } = await supabase
+      .from('inquiries')
+      .insert(inquiry);
+
+    if (error) throw error;
   },
 };
