@@ -94,3 +94,15 @@ export interface Enquiry {
   created_at: string;
   updated_at: string;
 }
+
+// Lightweight inquiry log — written for every WhatsApp button click,
+// guests and authenticated users alike.
+export interface Inquiry {
+  id?: string;
+  customer_name: string;
+  phone: string;
+  message: string;
+  product_name: string;
+  source: string;
+  created_at?: string;
+}

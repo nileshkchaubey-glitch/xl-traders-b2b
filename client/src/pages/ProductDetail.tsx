@@ -3,7 +3,7 @@ import { useParams, useLocation, Link } from 'wouter';
 import { ArrowLeft, MessageCircle, Share2 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { productService, productImageService, enquiryService } from '@/lib/productService';
+import { productService, productImageService, enquiryService, inquiriesService } from '@/lib/productService';
 import { Product, ProductImage } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/authStore';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
@@ -149,6 +149,26 @@ export default function ProductDetail() {
   }, [id]);
 
   const handleEnquire = async () => {
+    const message = isAuthenticated
+      ? `Hi, I'm interested in: ${product?.name}\n\nPrice: ₹${product?.price}\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nPlease provide more details and availability.`
+      : `Hi, I'm interested in: ${product?.name}\n\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nCould you please share the price and availability?`;
+
+    // Always log to inquiries (guests + authenticated)
+    try {
+      await inquiriesService.create({
+        customer_name: (isAuthenticated && profile)
+          ? (profile.contact_person || profile.company_name || user?.email || '')
+          : '',
+        phone: (isAuthenticated && profile?.phone) ? profile.phone : '',
+        message,
+        product_name: product?.name ?? '',
+        source: 'website',
+      });
+    } catch (err) {
+      console.error('Failed to save inquiry:', err);
+    }
+
+    // Additionally log to detailed enquiries table for authenticated users
     if (isAuthenticated && user && product) {
       try {
         await enquiryService.create({
@@ -166,9 +186,7 @@ export default function ProductDetail() {
         console.error('Failed to save enquiry:', err);
       }
     }
-    const message = isAuthenticated
-      ? `Hi, I'm interested in: ${product?.name}\n\nPrice: ₹${product?.price}\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nPlease provide more details and availability.`
-      : `Hi, I'm interested in: ${product?.name}\n\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nCould you please share the price and availability?`;
+
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
   };
 

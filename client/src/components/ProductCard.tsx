@@ -2,7 +2,7 @@ import { Product } from '@/lib/supabase';
 import { Link } from 'wouter';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/authStore';
-import { enquiryService } from '@/lib/productService';
+import { enquiryService, inquiriesService } from '@/lib/productService';
 import { ImagePlaceholder } from './ImagePlaceholder';
 import { useState } from 'react';
 
@@ -18,6 +18,26 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
   const [imageError, setImageError] = useState(false);
 
   const handleEnquire = async () => {
+    const message = isAuthenticated
+      ? `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`
+      : `Hi, I'm interested in: ${product.name}. Could you please share the price and more details?`;
+
+    // Always log to inquiries (guests + authenticated)
+    try {
+      await inquiriesService.create({
+        customer_name: (isAuthenticated && profile)
+          ? (profile.contact_person || profile.company_name || user?.email || '')
+          : '',
+        phone: (isAuthenticated && profile?.phone) ? profile.phone : '',
+        message,
+        product_name: product.name,
+        source: 'website',
+      });
+    } catch (err) {
+      console.error('Failed to save inquiry:', err);
+    }
+
+    // Additionally log to detailed enquiries for authenticated users
     if (isAuthenticated && user) {
       try {
         await enquiryService.create({
@@ -35,9 +55,7 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
         console.error('Failed to save enquiry:', err);
       }
     }
-    const message = isAuthenticated
-      ? `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`
-      : `Hi, I'm interested in: ${product.name}. Could you please share the price and more details?`;
+
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
