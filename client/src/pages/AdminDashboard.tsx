@@ -140,35 +140,40 @@ export default function AdminDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
+          {/*
+            forceMount keeps every panel in the DOM so React state is never
+            destroyed when the user switches tabs. data-[state=inactive]:hidden
+            visually hides the panel — Radix sets data-state="inactive" automatically.
+          */}
+          <TabsContent value="overview" forceMount className="data-[state=inactive]:hidden">
             <AdminOverview onTabChange={setActiveTab} />
           </TabsContent>
 
-          <TabsContent value="products">
+          <TabsContent value="products" forceMount className="data-[state=inactive]:hidden">
             <AdminProducts />
           </TabsContent>
 
-          <TabsContent value="orders">
+          <TabsContent value="orders" forceMount className="data-[state=inactive]:hidden">
             <AdminOrders />
           </TabsContent>
 
-          <TabsContent value="categories">
+          <TabsContent value="categories" forceMount className="data-[state=inactive]:hidden">
             <AdminCategories />
           </TabsContent>
 
-          <TabsContent value="enquiries">
+          <TabsContent value="enquiries" forceMount className="data-[state=inactive]:hidden">
             <AdminEnquiries />
           </TabsContent>
 
-          <TabsContent value="bulk-import">
-            <AdminBulkImport />
+          <TabsContent value="bulk-import" forceMount className="data-[state=inactive]:hidden">
+            <AdminBulkImport onGoToProducts={() => setActiveTab('products')} />
           </TabsContent>
 
-          <TabsContent value="google-sheets">
+          <TabsContent value="google-sheets" forceMount className="data-[state=inactive]:hidden">
             <AdminGoogleSheets />
           </TabsContent>
 
-          <TabsContent value="settings">
+          <TabsContent value="settings" forceMount className="data-[state=inactive]:hidden">
             <AdminSettings />
           </TabsContent>
         </Tabs>

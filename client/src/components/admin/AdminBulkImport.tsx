@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Upload, Download, FileText, AlertCircle, CheckCircle, Loader2, FileSpreadsheet } from 'lucide-react';
+import { Upload, Download, AlertCircle, CheckCircle, Loader2, FileSpreadsheet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +15,11 @@ import { toast } from 'sonner';
 
 type ImportStep = 'upload' | 'preview' | 'importing' | 'complete';
 
-export default function AdminBulkImport() {
+interface Props {
+  onGoToProducts?: () => void;
+}
+
+export default function AdminBulkImport({ onGoToProducts }: Props) {
   const [step, setStep] = useState<ImportStep>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<ImportRow[]>([]);
@@ -296,7 +300,7 @@ export default function AdminBulkImport() {
 
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleReset} className="flex-1">Import Another File</Button>
-            <Button onClick={() => window.location.reload()} className="flex-1">View Updated Products</Button>
+            <Button onClick={() => onGoToProducts?.()} className="flex-1">View Updated Products</Button>
           </div>
         </div>
       )}
