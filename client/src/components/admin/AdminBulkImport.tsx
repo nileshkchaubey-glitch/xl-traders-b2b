@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Upload, Download, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, Download, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   parseCSV,
   parseExcel,
@@ -20,14 +22,14 @@ export default function AdminBulkImport() {
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [exporting, setExporting] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
-
     setFile(selectedFile);
     setIsLoading(true);
-
     try {
       let result;
       if (selectedFile.name.endsWith('.csv')) {
@@ -36,16 +38,13 @@ export default function AdminBulkImport() {
         result = await parseExcel(selectedFile);
       } else {
         toast.error('Please upload a CSV or Excel file');
-        setIsLoading(false);
         return;
       }
-
       setParsedRows(result.rows);
       setParseErrors(result.errors);
-
       if (result.rows.length > 0) {
         setStep('preview');
-        toast.success(`Parsed ${result.rows.length} products`);
+        toast.success(`Parsed ${result.rows.length} products from ${selectedFile.name}`);
       } else {
         toast.error('No valid rows found in file');
       }
@@ -60,9 +59,11 @@ export default function AdminBulkImport() {
   const handleImport = async () => {
     setIsLoading(true);
     setStep('importing');
-
+    setProgress(0);
     try {
-      const result = await bulkImportProducts(parsedRows);
+      const result = await bulkImportProducts(parsedRows, (done, total) => {
+        setProgress(Math.round((done / total) * 100));
+      });
       setImportResult(result);
       setStep('complete');
       toast.success(result.summary);
@@ -81,121 +82,120 @@ export default function AdminBulkImport() {
     setParsedRows([]);
     setParseErrors([]);
     setImportResult(null);
+    setProgress(0);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await exportProductsAsCSV();
+      toast.success('Products exported as CSV');
+    } catch {
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">Bulk Import Products</h2>
-        <p className="text-slate-600">
-          Import or update multiple products at once using CSV or Excel files
+        <h2 className="text-2xl font-bold text-slate-900">Bulk Import — CSV / Excel</h2>
+        <p className="text-slate-500 text-sm mt-1">
+          Import or update multiple products at once. Existing products (matched by name) will be updated.
         </p>
       </div>
 
-      {/* Action Buttons */}
+      {/* Actions */}
       <div className="flex gap-3 flex-wrap">
-        <button
-          onClick={generateCSVTemplate}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition"
-        >
-          <FileText size={18} />
+        <Button variant="outline" className="gap-2" onClick={generateCSVTemplate}>
+          <FileText className="w-4 h-4" />
           Download Template
-        </button>
-        <button
-          onClick={() => exportProductsAsCSV()}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition"
-        >
-          <Download size={18} />
+        </Button>
+        <Button variant="outline" className="gap-2" onClick={handleExport} disabled={exporting}>
+          {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           Export All Products
-        </button>
+        </Button>
       </div>
 
-      {/* Upload Section */}
+      {/* Upload */}
       {step === 'upload' && (
-        <div className="bg-white border border-slate-200 rounded-lg p-8">
-          <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-slate-400 transition cursor-pointer">
+        <Card className="p-8">
+          <label
+            htmlFor="bulk-file-input"
+            className={`flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-14 text-center cursor-pointer hover:border-red-400 hover:bg-red-50 transition-colors ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
+          >
+            {isLoading ? (
+              <Loader2 className="w-12 h-12 text-red-600 animate-spin mb-4" />
+            ) : (
+              <Upload className="w-12 h-12 text-slate-400 mb-4" />
+            )}
+            <p className="text-lg font-semibold text-slate-800 mb-1">
+              {isLoading ? 'Parsing file…' : 'Drop your file here or click to browse'}
+            </p>
+            <p className="text-sm text-slate-500">CSV, XLSX, or XLS — any size</p>
             <input
               type="file"
+              id="bulk-file-input"
               accept=".csv,.xlsx,.xls"
               onChange={handleFileSelect}
               disabled={isLoading}
               className="hidden"
-              id="file-input"
             />
-            <label htmlFor="file-input" className="cursor-pointer block">
-              <Upload size={48} className="mx-auto mb-4 text-slate-400" />
-              <p className="text-lg font-semibold text-slate-900 mb-2">
-                Drop your file here or click to browse
-              </p>
-              <p className="text-sm text-slate-500">
-                Supported formats: CSV, XLSX, XLS
-              </p>
-            </label>
+          </label>
+
+          {/* Column guide */}
+          <div className="mt-6 bg-slate-50 rounded-xl p-4 text-sm text-slate-600">
+            <p className="font-semibold text-slate-700 mb-2">Required column headers:</p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              {['name ✱', 'category ✱', 'price ✱', 'unit ✱', 'quantity_in_unit ✱', 'mrp', 'description', 'brand', 'is_featured'].map((col) => (
+                <code key={col} className="bg-white border border-slate-200 rounded px-2 py-1 text-xs">{col}</code>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">✱ Required. Headers are case-insensitive.</p>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* Preview Section */}
+      {/* Preview */}
       {step === 'preview' && (
         <div className="space-y-4">
-          {/* Parse Errors */}
           {parseErrors.length > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <Card className="p-4 bg-yellow-50 border-yellow-200">
               <div className="flex gap-2 mb-2">
-                <AlertCircle size={20} className="text-yellow-600 flex-shrink-0" />
-                <p className="font-semibold text-yellow-900">
-                  {parseErrors.length} parsing error(s)
-                </p>
+                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                <p className="font-semibold text-yellow-900">{parseErrors.length} row(s) with errors (skipped)</p>
               </div>
-              <ul className="space-y-1 text-sm text-yellow-800">
-                {parseErrors.slice(0, 5).map((error, idx) => (
-                  <li key={idx}>• {error}</li>
-                ))}
-                {parseErrors.length > 5 && (
-                  <li>• ... and {parseErrors.length - 5} more errors</li>
-                )}
+              <ul className="text-sm text-yellow-800 space-y-0.5">
+                {parseErrors.slice(0, 6).map((err, i) => <li key={i}>• {err}</li>)}
+                {parseErrors.length > 6 && <li>• … and {parseErrors.length - 6} more</li>}
               </ul>
-            </div>
+            </Card>
           )}
 
-          {/* Preview Table */}
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-            <div className="p-4 bg-slate-50 border-b border-slate-200">
+          <Card>
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <p className="font-semibold text-slate-900">
-                Preview: {parsedRows.length} products ready to import
+                {parsedRows.length} products ready to import
+                {file && <span className="text-slate-400 font-normal ml-2 text-sm">from {file.name}</span>}
               </p>
             </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="px-4 py-2 text-left font-semibold text-slate-900">
-                      Product Name
-                    </th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-900">
-                      Category
-                    </th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-900">
-                      Price
-                    </th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-900">
-                      Unit
-                    </th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-900">
-                      Qty
-                    </th>
+                    {['Name', 'Category', 'Price (₹)', 'MRP (₹)', 'Unit', 'Qty'].map((h) => (
+                      <th key={h} className="px-4 py-2.5 text-left font-semibold text-slate-700">{h}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {parsedRows.slice(0, 10).map((row, idx) => (
-                    <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50">
-                      <td className="px-4 py-2 text-slate-900">{row.name}</td>
+                  {parsedRows.slice(0, 15).map((row, i) => (
+                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="px-4 py-2 text-slate-900 max-w-[200px] truncate">{row.name}</td>
                       <td className="px-4 py-2 text-slate-600">{row.category}</td>
-                      <td className="px-4 py-2 text-slate-900 font-semibold">
-                        ₹{row.price.toLocaleString()}
-                      </td>
+                      <td className="px-4 py-2 font-semibold">₹{row.price.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-slate-500">{row.mrp ? `₹${row.mrp.toLocaleString()}` : '—'}</td>
                       <td className="px-4 py-2 text-slate-600">{row.unit}</td>
                       <td className="px-4 py-2 text-slate-600">{row.quantity_in_unit}</td>
                     </tr>
@@ -203,102 +203,87 @@ export default function AdminBulkImport() {
                 </tbody>
               </table>
             </div>
-
-            {parsedRows.length > 10 && (
-              <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 text-sm text-slate-600">
-                ... and {parsedRows.length - 10} more products
+            {parsedRows.length > 15 && (
+              <div className="px-4 py-3 bg-slate-50 border-t text-sm text-slate-500">
+                … and {parsedRows.length - 15} more products
               </div>
             )}
-          </div>
+          </Card>
 
-          {/* Action Buttons */}
           <div className="flex gap-3">
-            <button
-              onClick={handleReset}
-              className="px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleImport}
-              disabled={isLoading}
-              className="flex-1 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold disabled:opacity-50"
-            >
-              {isLoading ? 'Importing...' : `Import ${parsedRows.length} Products`}
-            </button>
+            <Button variant="outline" onClick={handleReset}>Cancel</Button>
+            <Button onClick={handleImport} disabled={isLoading} className="flex-1">
+              Import {parsedRows.length} Products
+            </Button>
           </div>
         </div>
       )}
 
-      {/* Importing Section */}
+      {/* Importing */}
       {step === 'importing' && (
-        <div className="bg-white border border-slate-200 rounded-lg p-8 text-center">
-          <div className="animate-spin inline-block mb-4">
-            <Upload size={48} className="text-red-600" />
+        <Card className="p-10 text-center space-y-5">
+          <Loader2 className="w-12 h-12 text-red-600 animate-spin mx-auto" />
+          <div>
+            <p className="text-lg font-semibold text-slate-900">Importing products…</p>
+            <p className="text-sm text-slate-500 mt-1">
+              {progress}% — {Math.round((progress / 100) * parsedRows.length)} of {parsedRows.length} done
+            </p>
           </div>
-          <p className="text-lg font-semibold text-slate-900">Importing products...</p>
-          <p className="text-sm text-slate-600 mt-2">This may take a moment</p>
-        </div>
-      )}
-
-      {/* Complete Section */}
-      {step === 'complete' && importResult && (
-        <div className="space-y-4">
-          {/* Summary */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-            <div className="flex gap-3 mb-4">
-              <CheckCircle size={24} className="text-green-600 flex-shrink-0" />
-              <div>
-                <p className="font-bold text-green-900 text-lg">Import Complete</p>
-                <p className="text-green-800 mt-1">{importResult.summary}</p>
-              </div>
+          <div className="w-full max-w-sm mx-auto">
+            <div className="w-full bg-slate-100 rounded-full h-3">
+              <div
+                className="bg-red-600 h-3 rounded-full transition-all duration-200"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           </div>
+        </Card>
+      )}
 
-          {/* Error Details */}
+      {/* Complete */}
+      {step === 'complete' && importResult && (
+        <div className="space-y-4">
+          <Card className="p-6 bg-green-50 border-green-200">
+            <div className="flex gap-3">
+              <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-green-900 text-lg">Import Complete</p>
+                <p className="text-green-700 text-sm mt-1">{importResult.summary}</p>
+              </div>
+            </div>
+          </Card>
+
           {importResult.errors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="font-semibold text-red-900 mb-3">Failed Rows:</p>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {importResult.errors.map((err, idx) => (
-                  <div key={idx} className="text-sm text-red-800 bg-white rounded p-2">
+            <Card className="p-4 bg-red-50 border-red-200">
+              <p className="font-semibold text-red-900 mb-3">Failed rows:</p>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {importResult.errors.map((err, i) => (
+                  <div key={i} className="text-sm text-red-800 bg-white rounded p-2">
                     <span className="font-semibold">Row {err.row}:</span> {err.error}
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
 
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
+            <Card className="p-4 text-center">
               <p className="text-3xl font-bold text-green-600">{importResult.added}</p>
               <p className="text-sm text-slate-600 mt-1">Added</p>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
+            </Card>
+            <Card className="p-4 text-center">
               <p className="text-3xl font-bold text-blue-600">{importResult.updated}</p>
               <p className="text-sm text-slate-600 mt-1">Updated</p>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
+            </Card>
+            <Card className="p-4 text-center">
               <p className="text-3xl font-bold text-red-600">{importResult.errors.length}</p>
               <p className="text-sm text-slate-600 mt-1">Errors</p>
-            </div>
+            </Card>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-3">
-            <button
-              onClick={handleReset}
-              className="flex-1 px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition font-semibold"
-            >
-              Import Another File
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="flex-1 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold"
-            >
-              View Updated Products
-            </button>
+            <Button variant="outline" onClick={handleReset} className="flex-1">Import Another File</Button>
+            <Button onClick={() => window.location.reload()} className="flex-1">View Updated Products</Button>
           </div>
         </div>
       )}
