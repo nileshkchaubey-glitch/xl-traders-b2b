@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [tableAvailable, setTableAvailable] = useState(true);
 
   const [settings, setSettings] = useState({
     whatsapp_number: '919773239442',
@@ -42,18 +43,21 @@ export default function AdminSettings() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      // Try to load from a settings table or use defaults
       const { data, error } = await supabase
         .from('business_settings')
         .select('*')
         .single();
 
-      if (data && !error) {
+      if (error) {
+        // Table missing (PGRST116) or 406 Not Acceptable — use defaults silently
+        setTableAvailable(false);
+        return;
+      }
+      if (data) {
         setSettings(prev => ({ ...prev, ...data }));
       }
-    } catch (error) {
-      // Settings table might not exist, use defaults
-      console.log('Using default settings');
+    } catch {
+      setTableAvailable(false);
     } finally {
       setLoading(false);
     }
@@ -98,6 +102,15 @@ export default function AdminSettings() {
         <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
         <p className="text-slate-600 text-sm mt-1">Manage business information and contact details</p>
       </div>
+
+      {/* Table unavailable notice */}
+      {!tableAvailable && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span className="font-semibold">Settings not configured</span> — the{' '}
+          <code className="font-mono text-xs">business_settings</code> table was not found in Supabase.
+          Changes will be saved to localStorage only.
+        </div>
+      )}
 
       {/* Business Information */}
       <Card className="p-6 space-y-6">

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MessageCircle, Eye, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -232,6 +232,7 @@ export default function AdminEnquiries() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Enquiry Details</DialogTitle>
+              <DialogDescription className="sr-only">View full details for this customer enquiry</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">

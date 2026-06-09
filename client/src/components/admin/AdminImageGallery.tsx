@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -284,6 +284,7 @@ export default function AdminImageGallery({ product, open, onClose, onPrimaryCha
             <ImageIcon className="w-5 h-5 text-red-600" />
             Image Gallery — {product.name}
           </DialogTitle>
+          <DialogDescription className="sr-only">Manage images for {product.name}</DialogDescription>
         </DialogHeader>
 
         {/* Controls */}
