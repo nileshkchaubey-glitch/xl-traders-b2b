@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Upload, Download, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, Download, FileText, AlertCircle, CheckCircle, Loader2, FileSpreadsheet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,10 +7,10 @@ import {
   parseExcel,
   bulkImportProducts,
   exportProductsAsCSV,
-  generateCSVTemplate,
   ImportRow,
   ImportResult,
 } from '@/lib/bulkImportService';
+import { downloadProductTemplate } from '@/lib/templateService';
 import { toast } from 'sonner';
 
 type ImportStep = 'upload' | 'preview' | 'importing' | 'complete';
@@ -99,20 +99,14 @@ export default function AdminBulkImport() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Bulk Import — CSV / Excel</h2>
-        <p className="text-slate-500 text-sm mt-1">
-          Import or update multiple products at once. Existing products (matched by name) will be updated.
-        </p>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-3 flex-wrap">
-        <Button variant="outline" className="gap-2" onClick={generateCSVTemplate}>
-          <FileText className="w-4 h-4" />
-          Download Template
-        </Button>
-        <Button variant="outline" className="gap-2" onClick={handleExport} disabled={exporting}>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Bulk Import — CSV / Excel</h2>
+          <p className="text-slate-500 text-sm mt-1">
+            Import or update multiple products at once. Matched by SKU first, then by name.
+          </p>
+        </div>
+        <Button variant="outline" className="gap-2" onClick={handleExport} disabled={exporting} >
           {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           Export All Products
         </Button>
@@ -120,10 +114,40 @@ export default function AdminBulkImport() {
 
       {/* Upload */}
       {step === 'upload' && (
-        <Card className="p-8">
+        <Card className="p-6 space-y-6">
+          {/* Template download banner */}
+          <div className="rounded-xl border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-5 flex gap-4 items-start">
+            <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <FileSpreadsheet className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-green-900">New to bulk import?</p>
+              <p className="text-sm text-green-700 mt-0.5">
+                Download the ready-made XLSX template. It includes sample data, an Instructions sheet, and
+                all supported columns (SKU, barcode, MOQ, brand…). Fill it in, then upload below.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-green-800 font-medium">
+                {['name ✱', 'category ✱', 'price ✱', 'unit ✱', 'sku', 'barcode', 'moq', 'mrp', 'quantity_in_unit', 'brand', 'description', 'is_featured'].map((col) => (
+                  <span key={col} className={`px-2 py-0.5 rounded-full border ${col.includes('✱') ? 'bg-green-200 border-green-300' : 'bg-white border-green-200'}`}>
+                    {col}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <Button
+              onClick={() => { try { downloadProductTemplate(); toast.success('Template downloaded'); } catch { toast.error('Download failed'); } }}
+              className="bg-green-600 hover:bg-green-700 gap-2 flex-shrink-0"
+              size="sm"
+            >
+              <Download className="w-4 h-4" />
+              Download (.xlsx)
+            </Button>
+          </div>
+
+          {/* Drop zone */}
           <label
             htmlFor="bulk-file-input"
-            className={`flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-14 text-center cursor-pointer hover:border-red-400 hover:bg-red-50 transition-colors ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
+            className={`flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-12 text-center cursor-pointer hover:border-red-400 hover:bg-red-50 transition-colors ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
           >
             {isLoading ? (
               <Loader2 className="w-12 h-12 text-red-600 animate-spin mb-4" />
@@ -133,7 +157,7 @@ export default function AdminBulkImport() {
             <p className="text-lg font-semibold text-slate-800 mb-1">
               {isLoading ? 'Parsing file…' : 'Drop your file here or click to browse'}
             </p>
-            <p className="text-sm text-slate-500">CSV, XLSX, or XLS — any size</p>
+            <p className="text-sm text-slate-500">CSV, XLSX, or XLS</p>
             <input
               type="file"
               id="bulk-file-input"
@@ -143,17 +167,6 @@ export default function AdminBulkImport() {
               className="hidden"
             />
           </label>
-
-          {/* Column guide */}
-          <div className="mt-6 bg-slate-50 rounded-xl p-4 text-sm text-slate-600">
-            <p className="font-semibold text-slate-700 mb-2">Required column headers:</p>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-              {['name ✱', 'category ✱', 'price ✱', 'unit ✱', 'quantity_in_unit ✱', 'mrp', 'description', 'brand', 'is_featured'].map((col) => (
-                <code key={col} className="bg-white border border-slate-200 rounded px-2 py-1 text-xs">{col}</code>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-slate-500">✱ Required. Headers are case-insensitive.</p>
-          </div>
         </Card>
       )}
 

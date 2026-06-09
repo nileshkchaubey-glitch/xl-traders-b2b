@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sheet, Link, AlertCircle, CheckCircle, Loader2, Info } from 'lucide-react';
+import { Link, AlertCircle, CheckCircle, Loader2, Info, Download, FileSpreadsheet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import Papa from 'papaparse';
 import { fetchGoogleSheetAsCsv } from '@/lib/googleSheetsService';
 import { bulkImportProducts, ImportRow } from '@/lib/bulkImportService';
+import { downloadProductTemplate } from '@/lib/templateService';
 
 type Step = 'input' | 'mapping' | 'preview' | 'importing' | 'done';
 
@@ -20,6 +21,9 @@ interface ColMap {
   description: string;
   brand: string;
   is_featured: string;
+  sku: string;
+  barcode: string;
+  moq: string;
 }
 
 const DEFAULT_MAP: ColMap = {
@@ -32,6 +36,9 @@ const DEFAULT_MAP: ColMap = {
   description: 'description',
   brand: 'brand',
   is_featured: 'is_featured',
+  sku: 'sku',
+  barcode: 'barcode',
+  moq: 'moq',
 };
 
 function mapRow(raw: Record<string, string>, map: ColMap): ImportRow | null {
@@ -47,11 +54,15 @@ function mapRow(raw: Record<string, string>, map: ColMap): ImportRow | null {
   return {
     name,
     category,
+    sku: map.sku ? raw[map.sku]?.trim() : undefined,
+    barcode: map.barcode ? raw[map.barcode]?.trim() : undefined,
+    moq: map.moq && raw[map.moq] ? parseInt(raw[map.moq]) : undefined,
     price: isNaN(price) ? 0 : price,
     mrp: map.mrp ? parseFloat(raw[map.mrp]) || undefined : undefined,
     unit: unit || 'pcs',
     quantity_in_unit: isNaN(qty) ? 1 : qty,
     description: map.description ? raw[map.description]?.trim() : undefined,
+    brand: map.brand ? raw[map.brand]?.trim() : undefined,
     is_featured:
       raw[map.is_featured]?.toLowerCase() === 'true' || raw[map.is_featured] === '1',
   };
@@ -67,6 +78,15 @@ export default function AdminGoogleSheets() {
   const [preview, setPreview] = useState<ImportRow[]>([]);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{ added: number; updated: number; errors: number } | null>(null);
+
+  const handleDownloadTemplate = () => {
+    try {
+      downloadProductTemplate();
+      toast.success('Template downloaded — open in Google Sheets via File → Import');
+    } catch {
+      toast.error('Failed to generate template');
+    }
+  };
 
   const handleFetch = async () => {
     if (!sheetUrl.trim()) {
@@ -85,7 +105,6 @@ export default function AdminGoogleSheets() {
       setHeaders(parsed.meta.fields ?? []);
       setRawRows(parsed.data as Record<string, string>[]);
 
-      // Auto-detect column mapping
       const fields = parsed.meta.fields ?? [];
       const autoMap: ColMap = { ...DEFAULT_MAP };
       for (const key of Object.keys(autoMap) as (keyof ColMap)[]) {
@@ -116,7 +135,7 @@ export default function AdminGoogleSheets() {
     setStep('importing');
     setProgress(0);
     try {
-      const res = await bulkImportProducts(preview, (done, total) => {
+      const res = await bulkImportProducts(preview, 'google-sheets', (done, total) => {
         setProgress(Math.round((done / total) * 100));
       });
       setResult({ added: res.added, updated: res.updated, errors: res.errors.length });
@@ -139,16 +158,60 @@ export default function AdminGoogleSheets() {
   };
 
   const REQUIRED_FIELDS: (keyof ColMap)[] = ['name', 'category', 'price', 'unit'];
-  const OPTIONAL_FIELDS: (keyof ColMap)[] = ['mrp', 'quantity_in_unit', 'description', 'brand', 'is_featured'];
+  const OPTIONAL_FIELDS: (keyof ColMap)[] = ['sku', 'barcode', 'moq', 'mrp', 'quantity_in_unit', 'brand', 'description', 'is_featured'];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Import from Google Sheets</h2>
-        <p className="text-slate-500 text-sm mt-1">
-          Sync your product catalogue directly from a Google Spreadsheet
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Import from Google Sheets</h2>
+          <p className="text-slate-500 text-sm mt-1">
+            Sync your product catalogue directly from a Google Spreadsheet
+          </p>
+        </div>
+        {/* Download Template button — always visible */}
+        <Button
+          onClick={handleDownloadTemplate}
+          variant="outline"
+          className="gap-2 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 flex-shrink-0"
+        >
+          <Download className="w-4 h-4" />
+          Download Template
+        </Button>
       </div>
+
+      {/* Template call-to-action banner */}
+      {step === 'input' && (
+        <Card className="p-5 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+          <div className="flex gap-4 items-start">
+            <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <FileSpreadsheet className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-green-900">Start with our ready-made template</p>
+              <p className="text-sm text-green-700 mt-0.5">
+                Download the XLSX template → fill in your products → upload to Google Drive → import below.
+                Includes sample data, instructions sheet, and all supported columns.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-green-800 font-medium">
+                {['name ✱', 'category ✱', 'price ✱', 'unit ✱', 'sku', 'barcode', 'moq', 'mrp', 'quantity_in_unit', 'brand', 'description', 'is_featured'].map((col) => (
+                  <span key={col} className={`px-2 py-0.5 rounded-full border ${col.includes('✱') ? 'bg-green-200 border-green-300' : 'bg-white border-green-200'}`}>
+                    {col}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <Button
+              onClick={handleDownloadTemplate}
+              className="bg-green-600 hover:bg-green-700 gap-2 flex-shrink-0"
+              size="sm"
+            >
+              <Download className="w-4 h-4" />
+              Download (.xlsx)
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Instructions */}
       <Card className="p-4 bg-blue-50 border-blue-200">
@@ -186,18 +249,6 @@ export default function AdminGoogleSheets() {
               {isFetching ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {isFetching ? 'Fetching...' : 'Connect Sheet'}
             </Button>
-          </div>
-
-          <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-600">
-            <p className="font-medium text-slate-700 mb-2">Expected column names in your sheet:</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {['name ✱', 'category ✱', 'price ✱', 'unit ✱', 'mrp', 'quantity_in_unit', 'description', 'brand', 'is_featured'].map((col) => (
-                <code key={col} className="bg-white border border-slate-200 rounded px-2 py-1 text-xs">
-                  {col}
-                </code>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-slate-500">✱ Required. Column names are case-insensitive and auto-detected.</p>
           </div>
         </div>
       )}
@@ -238,7 +289,7 @@ export default function AdminGoogleSheets() {
 
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Optional Fields</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {OPTIONAL_FIELDS.map((field) => (
                   <div key={field}>
                     <label className="block text-xs font-semibold text-slate-700 mb-1 capitalize">
@@ -279,7 +330,7 @@ export default function AdminGoogleSheets() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
-                    {['Name', 'Category', 'Price (₹)', 'Unit', 'Qty'].map((h) => (
+                    {['Name', 'Category', 'SKU', 'Price (₹)', 'Unit', 'Qty', 'Brand'].map((h) => (
                       <th key={h} className="px-4 py-2 text-left font-semibold text-slate-700">{h}</th>
                     ))}
                   </tr>
@@ -289,9 +340,11 @@ export default function AdminGoogleSheets() {
                     <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="px-4 py-2 text-slate-900 max-w-[200px] truncate">{row.name}</td>
                       <td className="px-4 py-2 text-slate-600">{row.category}</td>
+                      <td className="px-4 py-2 font-mono text-xs text-slate-500">{row.sku || '—'}</td>
                       <td className="px-4 py-2 font-semibold text-slate-900">₹{row.price.toLocaleString()}</td>
                       <td className="px-4 py-2 text-slate-600">{row.unit}</td>
                       <td className="px-4 py-2 text-slate-600">{row.quantity_in_unit}</td>
+                      <td className="px-4 py-2 text-slate-600">{row.brand || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
