@@ -1,8 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useAuthStore } from '@/lib/authStore';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload, LayoutDashboard, FileSpreadsheet, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,6 +26,31 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [accessChecked, setAccessChecked] = useState(false);
   const redirectingRef = useRef(false);
+
+  // Unsaved-changes guard for the product editor dialog
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
+  const [showLeaveWarning, setShowLeaveWarning] = useState(false);
+
+  const handleTabChange = useCallback((tab: string) => {
+    if (productDialogOpen && tab !== 'products') {
+      setPendingTab(tab);
+      setShowLeaveWarning(true);
+    } else {
+      setActiveTab(tab);
+    }
+  }, [productDialogOpen]);
+
+  const confirmLeave = useCallback(() => {
+    if (pendingTab) setActiveTab(pendingTab);
+    setPendingTab(null);
+    setShowLeaveWarning(false);
+  }, [pendingTab]);
+
+  const cancelLeave = useCallback(() => {
+    setPendingTab(null);
+    setShowLeaveWarning(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,9 +131,32 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Unsaved-changes warning */}
+      <AlertDialog open={showLeaveWarning} onOpenChange={(open) => { if (!open) cancelLeave(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have the product editor open with unsaved changes.
+              Switching tabs will not close the editor, but if you save while on another tab the dialog will appear hidden.
+              Stay on Products to finish editing, or leave anyway.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelLeave}>Stay editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLeave}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Leave anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Main content */}
       <div className="max-w-screen-xl mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           {/* Tab nav */}
           <TabsList className="flex w-full overflow-x-auto gap-1 mb-8 h-auto p-1 bg-white border border-slate-200 rounded-xl shadow-sm flex-wrap">
             <TabsTrigger value="overview" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
@@ -150,7 +203,7 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="products" forceMount className="data-[state=inactive]:hidden">
-            <AdminProducts />
+            <AdminProducts onDialogOpenChange={setProductDialogOpen} />
           </TabsContent>
 
           <TabsContent value="orders" forceMount className="data-[state=inactive]:hidden">

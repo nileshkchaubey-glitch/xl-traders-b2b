@@ -67,7 +67,11 @@ const QUICK_ADD_DEFAULTS: QuickAdd = {
   name: '', category_id: '', price: '', mrp: '', unit_of_measure: 'pcs', quantity_in_unit: '', brand: '',
 };
 
-export default function AdminProducts() {
+interface AdminProductsProps {
+  onDialogOpenChange?: (isOpen: boolean) => void;
+}
+
+export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps = {}) {
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -149,6 +153,11 @@ export default function AdminProducts() {
     return () => { imagePreviews.forEach((url) => URL.revokeObjectURL(url)); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Notify parent whenever the full-edit dialog opens or closes
+  useEffect(() => {
+    onDialogOpenChange?.(isOpen);
+  }, [isOpen, onDialogOpenChange]);
 
   // Focus cell input when editing starts
   useEffect(() => {
