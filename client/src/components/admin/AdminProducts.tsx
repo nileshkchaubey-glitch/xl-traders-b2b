@@ -94,8 +94,10 @@ export default function AdminProducts() {
     return matchesSearch && matchesCategory;
   });
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Handle form submission. When `addAnother` is true (create mode only) the
+  // dialog stays open and the category/brand/unit are retained so the admin can
+  // rapidly add several products in the same category without re-selecting it.
+  const handleSubmit = async (e: React.FormEvent, addAnother = false) => {
     e.preventDefault();
 
     if (!formData.name || !formData.category_id || !formData.price) {
@@ -157,8 +159,13 @@ export default function AdminProducts() {
       }
 
       toast.success(editingId ? 'Product updated' : 'Product created');
-      resetForm();
-      setIsOpen(false);
+      if (addAnother && !editingId) {
+        // Keep the dialog open and retain category/brand/unit for the next entry.
+        resetFormKeepContext();
+      } else {
+        resetForm();
+        setIsOpen(false);
+      }
       loadData();
     } catch (error) {
       toast.error('Failed to save product');
@@ -274,6 +281,28 @@ export default function AdminProducts() {
       is_active: true,
       is_featured: false,
     });
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    setImages([]);
+    setImageMetadata([]);
+    setImagePreviews([]);
+    setExistingImageUrl(null);
+    setEditingId(null);
+  };
+
+  // Clears the per-product fields but keeps category, brand and unit so the
+  // admin can add the next product in the same category without re-selecting.
+  const resetFormKeepContext = () => {
+    setFormData((f) => ({
+      ...f,
+      name: '',
+      description: '',
+      price: '',
+      mrp: '',
+      quantity_in_unit: '',
+      discount_percent: '0',
+      is_featured: false,
+      // category_id, brand, unit_of_measure and is_active are intentionally kept
+    }));
     imagePreviews.forEach((url) => URL.revokeObjectURL(url));
     setImages([]);
     setImageMetadata([]);
@@ -586,6 +615,17 @@ export default function AdminProducts() {
                 <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setIsOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
+                {!editingId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    onClick={(e) => handleSubmit(e, true)}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving...' : 'Save & Add Another'}
+                  </Button>
+                )}
                 <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
                   {isSaving ? 'Saving...' : editingId ? 'Update Product' : 'Create Product'}
                 </Button>
