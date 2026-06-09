@@ -1,11 +1,10 @@
 import { Product } from '@/lib/supabase';
 import { Link } from 'wouter';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Package } from 'lucide-react';
 import { useAuthStore } from '@/lib/authStore';
 import { enquiryService, inquiriesService } from '@/lib/productService';
 import { ImagePlaceholder } from './ImagePlaceholder';
 import AddToCartButton from './cart/AddToCartButton';
-import { useState } from 'react';
 
 interface ProductCardProps {
   product: Product;
@@ -16,7 +15,15 @@ interface ProductCardProps {
 export default function ProductCard({ product, view = 'grid', onEnquire }: ProductCardProps) {
   const { isAuthenticated, user, profile } = useAuthStore();
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
-  const [imageError, setImageError] = useState(false);
+
+  // CSS-only broken-image fallback — no React state, so a page full of broken
+  // images can't trigger a cascade of re-renders. onError hides the <img> and
+  // reveals its sibling placeholder.
+  const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    img.style.display = 'none';
+    (img.nextElementSibling as HTMLElement | null)?.classList.remove('hidden');
+  };
 
   const handleEnquire = () => {
     const message = isAuthenticated
@@ -57,14 +64,20 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition flex">
         {/* Image */}
         <Link href={`/product/${product.id}`} className="w-24 h-24 flex-shrink-0 overflow-hidden bg-white">
-          {product.image_url && !imageError ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-contain p-1.5"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
+          {product.image_url ? (
+            <>
+              <img
+                src={product.image_url}
+                alt={product.image_alt_text || product.name}
+                className="w-full h-full object-contain p-1.5"
+                loading="lazy"
+                style={{ background: '#f1f5f9' }}
+                onError={handleImgError}
+              />
+              <div className="hidden w-full h-full flex items-center justify-center bg-slate-100">
+                <Package className="w-6 h-6 text-slate-300" />
+              </div>
+            </>
           ) : (
             <ImagePlaceholder className="w-24 h-24" showText={false} />
           )}
@@ -114,14 +127,20 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
       {/* Image */}
       <Link href={`/product/${product.id}`} className="block">
         <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-white">
-          {product.image_url && !imageError ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
+          {product.image_url ? (
+            <>
+              <img
+                src={product.image_url}
+                alt={product.image_alt_text || product.name}
+                className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
+                loading="lazy"
+                style={{ background: '#f1f5f9' }}
+                onError={handleImgError}
+              />
+              <div className="hidden w-full h-full flex items-center justify-center bg-slate-100">
+                <Package className="w-6 h-6 text-slate-300" />
+              </div>
+            </>
           ) : (
             <ImagePlaceholder className="w-full h-full" showText={false} />
           )}

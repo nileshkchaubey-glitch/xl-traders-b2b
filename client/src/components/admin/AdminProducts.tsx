@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus, Edit2, Trash2, Search, X, Star, Copy, Loader2,
-  ChevronLeft, ChevronRight, ImageIcon, Zap, Images, Check,
+  ChevronLeft, ChevronRight, ImageIcon, Zap, Images, Check, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -146,8 +146,27 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
     setCategories(cats);
   }, []);
 
-  useEffect(() => { loadCategories(); }, [loadCategories]);
-  useEffect(() => { loadProducts(); }, [loadProducts]);
+  // One-time initial fetch. With forceMount the component never unmounts, so
+  // switching tabs away and back must NOT re-hit Supabase — hasFetched guards
+  // against that (and against React StrictMode's double-invoke on mount).
+  const hasFetched = useRef(false);
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+    loadCategories();
+    loadProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // React to filter / pagination changes only — skip the very first render so
+  // we don't double-fetch alongside the initial load above. Tab switches don't
+  // change these deps, so revisiting the tab serves cached data.
+  const skipFilterEffect = useRef(true);
+  useEffect(() => {
+    if (skipFilterEffect.current) { skipFilterEffect.current = false; return; }
+    loadProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, selectedCategory, status]);
 
   useEffect(() => {
     return () => { imagePreviews.forEach((url) => URL.revokeObjectURL(url)); };
@@ -585,14 +604,26 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
             <span className="ml-3 text-xs text-slate-400">Click any cell to edit inline</span>
           </p>
         </div>
-        <Button
-          onClick={() => { setShowQuickAdd((v) => !v); }}
-          className="gap-2 shrink-0"
-          variant={showQuickAdd ? 'outline' : 'default'}
-        >
-          {showQuickAdd ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showQuickAdd ? 'Cancel quick-add' : 'Quick Add'}
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            onClick={() => loadProducts()}
+            variant="outline"
+            className="gap-2"
+            disabled={loading}
+            title="Reload products from the database"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button
+            onClick={() => { setShowQuickAdd((v) => !v); }}
+            className="gap-2"
+            variant={showQuickAdd ? 'outline' : 'default'}
+          >
+            {showQuickAdd ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showQuickAdd ? 'Cancel quick-add' : 'Quick Add'}
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
