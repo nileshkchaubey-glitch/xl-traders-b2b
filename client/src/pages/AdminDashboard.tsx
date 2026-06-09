@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useAuthStore } from '@/lib/authStore';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload, LayoutDashboard, Sheet, FileSpreadsheet } from 'lucide-react';
+import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload, LayoutDashboard, FileSpreadsheet, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 
 import AdminOverview from '@/components/admin/AdminOverview';
@@ -13,6 +13,7 @@ import AdminEnquiries from '@/components/admin/AdminEnquiries';
 import AdminSettings from '@/components/admin/AdminSettings';
 import AdminBulkImport from '@/components/admin/AdminBulkImport';
 import AdminGoogleSheets from '@/components/admin/AdminGoogleSheets';
+import AdminOrders from '@/components/admin/AdminOrders';
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
@@ -113,6 +114,10 @@ export default function AdminDashboard() {
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">Products</span>
             </TabsTrigger>
+            <TabsTrigger value="orders" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
+              <ShoppingBag className="w-4 h-4" />
+              <span className="hidden sm:inline">Orders</span>
+            </TabsTrigger>
             <TabsTrigger value="categories" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
               <Grid3x3 className="w-4 h-4" />
               <span className="hidden sm:inline">Catalogues</span>
@@ -141,6 +146,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="products">
             <AdminProducts />
+          </TabsContent>
+
+          <TabsContent value="orders">
+            <AdminOrders />
           </TabsContent>
 
           <TabsContent value="categories">

@@ -101,6 +101,7 @@ export default function AdminProducts() {
     name: '', category_id: '', description: '', price: '', mrp: '',
     unit_of_measure: 'pcs', quantity_in_unit: '', discount_percent: '0',
     brand: '', is_active: true, is_featured: false,
+    sku: '', barcode: '', moq: '1',
   });
   const [images, setImages] = useState<File[]>([]);
   const [imageMetadata, setImageMetadata] = useState<Array<{ altText: string; description: string }>>([]);
@@ -355,7 +356,7 @@ export default function AdminProducts() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', category_id: '', description: '', price: '', mrp: '', unit_of_measure: 'pcs', quantity_in_unit: '', discount_percent: '0', brand: '', is_active: true, is_featured: false });
+    setFormData({ name: '', category_id: '', description: '', price: '', mrp: '', unit_of_measure: 'pcs', quantity_in_unit: '', discount_percent: '0', brand: '', is_active: true, is_featured: false, sku: '', barcode: '', moq: '1' });
     imagePreviews.forEach((url) => URL.revokeObjectURL(url));
     setImages([]); setImageMetadata([]); setImagePreviews([]); setExistingImageUrl(null); setEditingId(null);
   };
@@ -373,6 +374,9 @@ export default function AdminProducts() {
       brand: product.brand || '',
       is_active: product.is_active,
       is_featured: product.is_featured || false,
+      sku: product.sku || '',
+      barcode: product.barcode || '',
+      moq: (product.moq ?? 1).toString(),
     });
     setEditingId(product.id);
     setImages([]); setImageMetadata([]); setImagePreviews([]);
@@ -394,6 +398,9 @@ export default function AdminProducts() {
         discount_percent: parseInt(formData.discount_percent),
         brand: formData.brand || undefined,
         is_active: formData.is_active, is_featured: formData.is_featured,
+        sku: formData.sku || undefined,
+        barcode: formData.barcode || undefined,
+        moq: formData.moq ? parseInt(formData.moq) : 1,
         image_alt_text: imageMetadata[0]?.altText || formData.name,
         image_description: imageMetadata[0]?.description || '',
       };
@@ -633,6 +640,7 @@ export default function AdminProducts() {
                 <th className="w-20 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Unit</th>
                 <th className="w-20 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Qty</th>
                 <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Brand</th>
+                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">SKU</th>
                 <th className="w-22 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Status</th>
                 <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Actions</th>
               </tr>
@@ -765,14 +773,14 @@ export default function AdminProducts() {
               {/* ── Products ──────────────────────────────────────────────── */}
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-slate-500">
+                  <td colSpan={12} className="text-center py-12 text-slate-500">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                     Loading products…
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-slate-400">No products found</td>
+                  <td colSpan={12} className="text-center py-12 text-slate-400">No products found</td>
                 </tr>
               ) : products.map((product) => (
                 <tr
@@ -846,6 +854,12 @@ export default function AdminProducts() {
                   {/* Brand */}
                   <td className="px-2 py-2 max-w-[110px]">
                     {renderTextCell(product, 'brand', 'Brand')}
+                  </td>
+                  {/* SKU — read-only in table */}
+                  <td className="px-2 py-2">
+                    <span className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                      {product.sku || <span className="text-slate-300 italic font-sans">—</span>}
+                    </span>
                   </td>
                   {/* Status toggle */}
                   <td className="px-2 py-2">
@@ -972,6 +986,20 @@ export default function AdminProducts() {
             <div className="space-y-1.5">
               <Label>Brand</Label>
               <Input value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} placeholder="e.g. Oshine, Biopack" />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label>SKU</Label>
+                <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} placeholder="e.g. BOX-0001" className="font-mono text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Barcode</Label>
+                <Input value={formData.barcode} onChange={(e) => setFormData({ ...formData, barcode: e.target.value })} placeholder="e.g. 8901234567890" className="font-mono text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Min. Order Qty</Label>
+                <Input type="number" min="1" value={formData.moq} onChange={(e) => setFormData({ ...formData, moq: e.target.value })} placeholder="1" />
+              </div>
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
