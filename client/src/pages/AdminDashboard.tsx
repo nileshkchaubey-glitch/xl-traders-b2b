@@ -26,6 +26,9 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [accessChecked, setAccessChecked] = useState(false);
   const redirectingRef = useRef(false);
+  // Once admin access is confirmed, never re-run verification — auth-store
+  // updates (e.g. profile refresh) would otherwise retrigger the effect.
+  const hasVerified = useRef(false);
 
   // Unsaved-changes guard for the product editor dialog
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -56,6 +59,7 @@ export default function AdminDashboard() {
     let cancelled = false;
 
     async function verifyAccess() {
+      if (hasVerified.current) return;
       if (isLoading) return;
       if (!isAuthenticated) {
         if (!redirectingRef.current) {
@@ -64,10 +68,10 @@ export default function AdminDashboard() {
         }
         return;
       }
-      if (isAdmin) { setAccessChecked(true); return; }
+      if (isAdmin) { hasVerified.current = true; setAccessChecked(true); return; }
       const admin = await refreshProfile();
       if (cancelled) return;
-      if (admin) { setAccessChecked(true); return; }
+      if (admin) { hasVerified.current = true; setAccessChecked(true); return; }
       if (!redirectingRef.current) {
         redirectingRef.current = true;
         toast.error('Admin access required');
