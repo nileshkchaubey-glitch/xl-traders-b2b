@@ -2,7 +2,7 @@ import { Product } from '@/lib/supabase';
 import { Link } from 'wouter';
 import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/authStore';
-import { enquiryService } from '@/lib/productService';
+import { enquiryService, inquiriesService } from '@/lib/productService';
 import { ImagePlaceholder } from './ImagePlaceholder';
 import AddToCartButton from './cart/AddToCartButton';
 import { useState } from 'react';
@@ -18,30 +18,38 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   const [imageError, setImageError] = useState(false);
 
-  const handleEnquire = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isAuthenticated && user) {
-      try {
-        await enquiryService.create({
-          user_id: user.id,
-          product_id: product.id,
-          customer_name: profile?.contact_person || profile?.company_name || user.email || 'Customer',
-          customer_email: profile?.email || user.email || '',
-          customer_phone: profile?.phone || '',
-          customer_company: profile?.company_name,
-          quantity_requested: 1,
-          enquiry_source: 'whatsapp',
-          status: 'new',
-        });
-      } catch (err) {
-        console.error('Failed to save enquiry:', err);
-      }
-    }
+  const handleEnquire = () => {
     const message = isAuthenticated
       ? `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`
       : `Hi, I'm interested in: ${product.name}. Could you please share the price and more details?`;
+
+    // Open WhatsApp immediately — stays in synchronous click context.
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
+
+    // Fire-and-forget DB logging.
+    inquiriesService.create({
+      customer_name: (isAuthenticated && profile)
+        ? (profile.contact_person || profile.company_name || user?.email || '')
+        : '',
+      phone: (isAuthenticated && profile?.phone) ? profile.phone : '',
+      message,
+      product_name: product.name,
+      source: 'website',
+    }).catch(() => {});
+
+    if (isAuthenticated && user) {
+      enquiryService.create({
+        user_id: user.id,
+        product_id: product.id,
+        customer_name: profile?.contact_person || profile?.company_name || user.email || 'Customer',
+        customer_email: profile?.email || user.email || '',
+        customer_phone: profile?.phone || '',
+        customer_company: profile?.company_name,
+        quantity_requested: 1,
+        enquiry_source: 'whatsapp',
+        status: 'new',
+      }).catch(() => {});
+    }
   };
 
   if (view === 'list') {

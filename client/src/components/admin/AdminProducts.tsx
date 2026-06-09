@@ -443,6 +443,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
   };
 
   const getCategoryName = (id: string) => categories.find((c) => c.id === id)?.name || '—';
+  const getCategoryGroup = (id: string) => categories.find((c) => c.id === id)?.group_name || null;
 
   // ── Inline cell renderer ────────────────────────────────────────────────────
   const isEditing = (productId: string, field: string) =>
@@ -650,6 +651,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
                 <th className="w-20 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Qty</th>
                 <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Brand</th>
                 <th className="w-24 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">SKU</th>
+                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Group</th>
                 <th className="w-22 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Status</th>
                 <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Actions</th>
               </tr>
@@ -752,6 +754,12 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
                       disabled={quickAdding}
                     />
                   </td>
+                  {/* SKU placeholder — auto-generated on save */}
+                  <td className="px-2 py-2">
+                    <span className="text-xs text-slate-400 italic">auto</span>
+                  </td>
+                  {/* Group placeholder */}
+                  <td className="px-2 py-2" />
                   {/* Status placeholder */}
                   <td className="px-2 py-2">
                     <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Active</span>
@@ -782,14 +790,14 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
               {/* ── Products ──────────────────────────────────────────────── */}
               {loading ? (
                 <tr>
-                  <td colSpan={12} className="text-center py-12 text-slate-500">
+                  <td colSpan={13} className="text-center py-12 text-slate-500">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                     Loading products…
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="text-center py-12 text-slate-400">No products found</td>
+                  <td colSpan={13} className="text-center py-12 text-slate-400">No products found</td>
                 </tr>
               ) : products.map((product) => (
                 <tr
@@ -868,6 +876,12 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
                   <td className="px-2 py-2">
                     <span className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                       {product.sku || <span className="text-slate-300 italic font-sans">—</span>}
+                    </span>
+                  </td>
+                  {/* Group */}
+                  <td className="px-2 py-2">
+                    <span className="text-xs text-slate-500">
+                      {getCategoryGroup(product.category_id) ?? <span className="text-slate-300">—</span>}
                     </span>
                   </td>
                   {/* Status toggle */}

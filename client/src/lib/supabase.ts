@@ -128,3 +128,15 @@ export interface ImportLog {
   skipped: number;
   errors: Array<{ row: number; error: string }>;
 }
+
+// Lightweight inquiry log — written for every WhatsApp button click,
+// guests and authenticated users alike.
+export interface Inquiry {
+  id?: string;
+  customer_name: string;
+  phone: string;
+  message: string;
+  product_name: string;
+  source: string;
+  created_at?: string;
+}
