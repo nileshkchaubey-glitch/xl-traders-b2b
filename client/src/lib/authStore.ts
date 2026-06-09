@@ -94,15 +94,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (!authListenerAttached) {
         authListenerAttached = true;
-        supabase.auth.onAuthStateChange(async (event, session) => {
-          // Token refresh doesn't change the user — skip to avoid a global re-render
-          // that looks like a page reload (this fires on every tab focus).
-          if (event === 'TOKEN_REFRESHED') return;
-
+        supabase.auth.onAuthStateChange(async (_event, session) => {
           if (session?.user) {
-            // Only show the loading spinner for meaningful auth transitions.
-            const showLoading = event === 'INITIAL_SESSION' || event === 'SIGNED_IN';
-            if (showLoading) set({ isLoading: true });
+            set({ isLoading: true });
             const authState = await buildAuthState(session.user);
             set({ ...authState, isLoading: false });
           } else {
