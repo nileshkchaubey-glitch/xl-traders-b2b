@@ -37,28 +37,36 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order_id
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 
+-- Drop policies first (safe re-run)
+DROP POLICY IF EXISTS "Anyone can place orders" ON public.orders;
+DROP POLICY IF EXISTS "Anyone can add order items" ON public.order_items;
+DROP POLICY IF EXISTS "Authenticated users can read orders" ON public.orders;
+DROP POLICY IF EXISTS "Authenticated users can update orders" ON public.orders;
+DROP POLICY IF EXISTS "Authenticated users can delete orders" ON public.orders;
+DROP POLICY IF EXISTS "Authenticated users can read order items" ON public.order_items;
+
 -- Anyone (including anonymous visitors) can INSERT orders
-CREATE POLICY IF NOT EXISTS "Anyone can place orders"
+CREATE POLICY "Anyone can place orders"
   ON public.orders FOR INSERT
   WITH CHECK (true);
 
-CREATE POLICY IF NOT EXISTS "Anyone can add order items"
+CREATE POLICY "Anyone can add order items"
   ON public.order_items FOR INSERT
   WITH CHECK (true);
 
 -- Only authenticated users (admins) can SELECT / UPDATE / DELETE
-CREATE POLICY IF NOT EXISTS "Authenticated users can read orders"
+CREATE POLICY "Authenticated users can read orders"
   ON public.orders FOR SELECT
   USING (auth.role() = 'authenticated');
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can update orders"
+CREATE POLICY "Authenticated users can update orders"
   ON public.orders FOR UPDATE
   USING (auth.role() = 'authenticated');
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can delete orders"
+CREATE POLICY "Authenticated users can delete orders"
   ON public.orders FOR DELETE
   USING (auth.role() = 'authenticated');
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can read order items"
+CREATE POLICY "Authenticated users can read order items"
   ON public.order_items FOR SELECT
   USING (auth.role() = 'authenticated');

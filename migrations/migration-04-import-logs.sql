@@ -15,7 +15,10 @@ CREATE TABLE IF NOT EXISTS public.import_logs (
 -- RLS: enable — only authenticated users can read/write
 ALTER TABLE public.import_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can manage import logs"
+-- Drop policy first (safe re-run)
+DROP POLICY IF EXISTS "Authenticated users can manage import logs" ON public.import_logs;
+
+CREATE POLICY "Authenticated users can manage import logs"
   ON public.import_logs FOR ALL
   USING (auth.role() = 'authenticated')
   WITH CHECK (auth.role() = 'authenticated');
