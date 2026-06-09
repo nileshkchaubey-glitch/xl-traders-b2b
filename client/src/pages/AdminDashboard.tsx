@@ -193,12 +193,8 @@ export default function AdminDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          {/*
-            forceMount keeps every panel in the DOM so React state is never
-            destroyed when the user switches tabs. data-[state=inactive]:hidden
-            visually hides the panel — Radix sets data-state="inactive" automatically.
-          */}
-          <TabsContent value="overview" forceMount className="data-[state=inactive]:hidden">
+          {/* products uses forceMount to preserve unsaved dialog form state across tab switches */}
+          <TabsContent value="overview">
             <AdminOverview onTabChange={setActiveTab} />
           </TabsContent>
 
@@ -206,27 +202,27 @@ export default function AdminDashboard() {
             <AdminProducts onDialogOpenChange={setProductDialogOpen} />
           </TabsContent>
 
-          <TabsContent value="orders" forceMount className="data-[state=inactive]:hidden">
+          <TabsContent value="orders">
             <AdminOrders />
           </TabsContent>
 
-          <TabsContent value="categories" forceMount className="data-[state=inactive]:hidden">
+          <TabsContent value="categories">
             <AdminCategories />
           </TabsContent>
 
-          <TabsContent value="enquiries" forceMount className="data-[state=inactive]:hidden">
+          <TabsContent value="enquiries">
             <AdminEnquiries />
           </TabsContent>
 
-          <TabsContent value="bulk-import" forceMount className="data-[state=inactive]:hidden">
+          <TabsContent value="bulk-import">
             <AdminBulkImport onGoToProducts={() => setActiveTab('products')} />
           </TabsContent>
 
-          <TabsContent value="google-sheets" forceMount className="data-[state=inactive]:hidden">
+          <TabsContent value="google-sheets">
             <AdminGoogleSheets />
           </TabsContent>
 
-          <TabsContent value="settings" forceMount className="data-[state=inactive]:hidden">
+          <TabsContent value="settings">
             <AdminSettings />
           </TabsContent>
         </Tabs>
