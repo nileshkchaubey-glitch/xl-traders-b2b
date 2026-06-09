@@ -1,9 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Fall back to the public publishable key so the app always connects to the
-// real database even when build-time env vars are absent (e.g. Netlify/CF
-// deploys that haven't set VITE_SUPABASE_URL yet).
-// These are the *publishable* (anon) credentials — safe to embed in client code.
 const supabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
   'https://danoeaftaazhbldeeuxj.supabase.co';
@@ -13,7 +9,6 @@ const supabaseAnonKey =
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Types for database
 export interface Category {
   id: string;
   name: string;
@@ -39,6 +34,8 @@ export interface Product {
   unit_of_measure: string;
   quantity_in_unit?: number;
   sku?: string;
+  barcode?: string;
+  moq?: number;
   brand?: string;
   discount_percent?: number;
   image_url?: string;
@@ -93,6 +90,43 @@ export interface Enquiry {
   status: string;
   created_at: string;
   updated_at: string;
+}
+
+export type OrderStatus = 'new' | 'confirmed' | 'processing' | 'delivered' | 'cancelled';
+
+export interface Order {
+  id: string;
+  created_at: string;
+  customer_name: string | null;
+  phone: string | null;
+  status: OrderStatus;
+  total_amount: number | null;
+  item_count: number | null;
+  notes: string | null;
+  source: string;
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id: string | null;
+  sku: string | null;
+  product_name: string | null;
+  quantity: number;
+  unit_price: number | null;
+  unit_of_measure: string | null;
+  subtotal: number | null;
+}
+
+export interface ImportLog {
+  id: string;
+  created_at: string;
+  source: string | null;
+  rows_total: number | null;
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{ row: number; error: string }>;
 }
 
 // Lightweight inquiry log — written for every WhatsApp button click,

@@ -1,9 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useAuthStore } from '@/lib/authStore';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload, LayoutDashboard, Sheet, FileSpreadsheet } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload, LayoutDashboard, FileSpreadsheet, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 
 import AdminOverview from '@/components/admin/AdminOverview';
@@ -13,6 +18,7 @@ import AdminEnquiries from '@/components/admin/AdminEnquiries';
 import AdminSettings from '@/components/admin/AdminSettings';
 import AdminBulkImport from '@/components/admin/AdminBulkImport';
 import AdminGoogleSheets from '@/components/admin/AdminGoogleSheets';
+import AdminOrders from '@/components/admin/AdminOrders';
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
@@ -20,6 +26,31 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [accessChecked, setAccessChecked] = useState(false);
   const redirectingRef = useRef(false);
+
+  // Unsaved-changes guard for the product editor dialog
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
+  const [showLeaveWarning, setShowLeaveWarning] = useState(false);
+
+  const handleTabChange = useCallback((tab: string) => {
+    if (productDialogOpen && tab !== 'products') {
+      setPendingTab(tab);
+      setShowLeaveWarning(true);
+    } else {
+      setActiveTab(tab);
+    }
+  }, [productDialogOpen]);
+
+  const confirmLeave = useCallback(() => {
+    if (pendingTab) setActiveTab(pendingTab);
+    setPendingTab(null);
+    setShowLeaveWarning(false);
+  }, [pendingTab]);
+
+  const cancelLeave = useCallback(() => {
+    setPendingTab(null);
+    setShowLeaveWarning(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,9 +131,32 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Unsaved-changes warning */}
+      <AlertDialog open={showLeaveWarning} onOpenChange={(open) => { if (!open) cancelLeave(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have the product editor open with unsaved changes.
+              Switching tabs will not close the editor, but if you save while on another tab the dialog will appear hidden.
+              Stay on Products to finish editing, or leave anyway.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelLeave}>Stay editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLeave}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Leave anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Main content */}
       <div className="max-w-screen-xl mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           {/* Tab nav */}
           <TabsList className="flex w-full overflow-x-auto gap-1 mb-8 h-auto p-1 bg-white border border-slate-200 rounded-xl shadow-sm flex-wrap">
             <TabsTrigger value="overview" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
@@ -112,6 +166,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="products" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">Products</span>
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
+              <ShoppingBag className="w-4 h-4" />
+              <span className="hidden sm:inline">Orders</span>
             </TabsTrigger>
             <TabsTrigger value="categories" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
               <Grid3x3 className="w-4 h-4" />
@@ -135,31 +193,40 @@ export default function AdminDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
+          {/*
+            forceMount keeps every panel in the DOM so React state is never
+            destroyed when the user switches tabs. data-[state=inactive]:hidden
+            visually hides the panel — Radix sets data-state="inactive" automatically.
+          */}
+          <TabsContent value="overview" forceMount className="data-[state=inactive]:hidden">
             <AdminOverview onTabChange={setActiveTab} />
           </TabsContent>
 
-          <TabsContent value="products">
-            <AdminProducts />
+          <TabsContent value="products" forceMount className="data-[state=inactive]:hidden">
+            <AdminProducts onDialogOpenChange={setProductDialogOpen} />
           </TabsContent>
 
-          <TabsContent value="categories">
+          <TabsContent value="orders" forceMount className="data-[state=inactive]:hidden">
+            <AdminOrders />
+          </TabsContent>
+
+          <TabsContent value="categories" forceMount className="data-[state=inactive]:hidden">
             <AdminCategories />
           </TabsContent>
 
-          <TabsContent value="enquiries">
+          <TabsContent value="enquiries" forceMount className="data-[state=inactive]:hidden">
             <AdminEnquiries />
           </TabsContent>
 
-          <TabsContent value="bulk-import">
-            <AdminBulkImport />
+          <TabsContent value="bulk-import" forceMount className="data-[state=inactive]:hidden">
+            <AdminBulkImport onGoToProducts={() => setActiveTab('products')} />
           </TabsContent>
 
-          <TabsContent value="google-sheets">
+          <TabsContent value="google-sheets" forceMount className="data-[state=inactive]:hidden">
             <AdminGoogleSheets />
           </TabsContent>
 
-          <TabsContent value="settings">
+          <TabsContent value="settings" forceMount className="data-[state=inactive]:hidden">
             <AdminSettings />
           </TabsContent>
         </Tabs>

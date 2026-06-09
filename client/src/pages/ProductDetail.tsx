@@ -7,6 +7,7 @@ import { productService, productImageService, enquiryService, inquiriesService }
 import { Product, ProductImage } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/authStore';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
+import AddToCartButton from '@/components/cart/AddToCartButton';
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
 const RECENTLY_VIEWED_KEY = 'xl_recently_viewed';
@@ -73,7 +74,6 @@ function ProductRow({ title, products, isAuthenticated }: { title: string; produ
   return (
     <section className="mt-10">
       <h2 className="text-lg font-bold text-slate-900 mb-4">{title}</h2>
-      {/* Mobile: horizontal scroll */}
       <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-hide sm:hidden">
         {products.map(p => (
           <div key={p.id} className="snap-start">
@@ -81,7 +81,6 @@ function ProductRow({ title, products, isAuthenticated }: { title: string; produ
           </div>
         ))}
       </div>
-      {/* Desktop: grid */}
       <div className="hidden sm:grid grid-cols-3 lg:grid-cols-4 gap-4">
         {products.map(p => (
           <MiniProductCard key={p.id} product={p} isAuthenticated={isAuthenticated} />
@@ -107,7 +106,6 @@ export default function ProductDetail() {
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   const phone1 = import.meta.env.VITE_PHONE_1 || '9773239442';
 
-  // Load product + similar products + save to recently viewed
   useEffect(() => {
     const loadProduct = async () => {
       if (!id) return;
@@ -116,11 +114,7 @@ export default function ProductDetail() {
         setProduct(prod);
         const imgs = await productImageService.getByProductId(id);
         setImages(imgs);
-
-        // Persist to recently viewed before fetching related data
         saveToRecentlyViewed(id);
-
-        // Fetch similar products from same category
         if (prod?.category_id) {
           const all = await productService.getAll({ categoryId: prod.category_id });
           setSimilarProducts(all.filter(p => p.id !== id).slice(0, 4));
@@ -134,7 +128,6 @@ export default function ProductDetail() {
     loadProduct();
   }, [id]);
 
-  // Load recently viewed products (excluding current)
   useEffect(() => {
     if (!id) return;
     const loadRecent = async () => {
@@ -283,8 +276,16 @@ export default function ProductDetail() {
             {/* Product Details */}
             <div>
               <div className="bg-white border border-slate-200 rounded-lg p-8">
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">{product.name}</h1>
-                <p className="text-slate-500 text-sm mb-6">SKU: {product.sku || 'N/A'}</p>
+                <h1 className="text-3xl font-bold text-slate-900 mb-1">{product.name}</h1>
+                <div className="flex items-center gap-3 flex-wrap mb-6">
+                  <p className="text-slate-400 text-sm">SKU: {product.sku || 'N/A'}</p>
+                  {product.barcode && <p className="text-slate-400 text-sm">Barcode: {product.barcode}</p>}
+                  {product.moq && product.moq > 1 && (
+                    <span className="text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
+                      Min. order: {product.moq}
+                    </span>
+                  )}
+                </div>
 
                 {/* Price */}
                 <div className="mb-8 pb-8 border-b border-slate-200">
@@ -339,9 +340,14 @@ export default function ProductDetail() {
 
                 {/* Actions */}
                 <div className="space-y-3">
+                  {/* Add to Cart (only when authenticated + price available) */}
+                  {isAuthenticated && product.price && (
+                    <AddToCartButton product={product} />
+                  )}
+
                   <button
                     onClick={handleEnquire}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition flex items-center justify-center gap-2"
+                    className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-6 rounded-lg transition flex items-center justify-center gap-2"
                   >
                     <MessageCircle size={20} />
                     Enquire on WhatsApp

@@ -6,6 +6,9 @@ export interface ImportRow {
   name: string;
   category: string;
   group?: string;
+  sku?: string;
+  barcode?: string;
+  moq?: number;
   price: number;
   mrp?: number;
   unit: string;
@@ -18,6 +21,7 @@ export interface ImportRow {
 export interface ImportResult {
   added: number;
   updated: number;
+  skipped: number;
   errors: Array<{ row: number; error: string }>;
   summary: string;
 }
@@ -103,6 +107,9 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
     name: row.name.trim(),
     category: row.category.trim(),
     group: row.group ? row.group.trim() : undefined,
+    sku: row.sku ? row.sku.trim() : undefined,
+    barcode: row.barcode ? row.barcode.trim() : undefined,
+    moq: row.moq ? parseInt(row.moq) : undefined,
     price,
     mrp: row.mrp ? parseFloat(row.mrp) : undefined,
     unit: row.unit.trim(),
@@ -135,16 +142,25 @@ async function getOrCreateCategory(categoryName: string): Promise<string | null>
   }
 }
 
+/** Generate a unique SKU if the row doesn't have one */
+function generateSku(): string {
+  return `IMP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+}
+
 /**
  * Bulk import/update products.
- * @param rows Validated import rows.
- * @param onProgress Optional callback called after each row: (done, total) => void
+ * Matching priority: SKU first → name fallback.
+ * Writes results to import_logs table.
  */
 export async function bulkImportProducts(
   rows: ImportRow[],
+  source: string = 'csv',
   onProgress?: (done: number, total: number) => void,
 ): Promise<ImportResult> {
-  const result: ImportResult = { added: 0, updated: 0, errors: [], summary: '' };
+  const result: ImportResult = { added: 0, updated: 0, skipped: 0, errors: [], summary: '' };
+
+  // Track SKUs seen in this batch to catch duplicates within the sheet
+  const seenSkus = new Set<string>();
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -157,13 +173,37 @@ export async function bulkImportProducts(
         continue;
       }
 
-      const { data: existing } = await supabase
-        .from('products')
-        .select('id')
-        .ilike('name', row.name)
-        .single();
+      let existing: { id: string } | null = null;
+
+      // 1. Match by SKU first (if provided)
+      if (row.sku) {
+        if (seenSkus.has(row.sku)) {
+          result.skipped++;
+          result.errors.push({ row: rowNumber, error: `Duplicate SKU in sheet: ${row.sku}` });
+          continue;
+        }
+        seenSkus.add(row.sku);
+
+        const { data } = await supabase
+          .from('products')
+          .select('id')
+          .eq('sku', row.sku)
+          .maybeSingle();
+        existing = data;
+      }
+
+      // 2. Fall back to name match
+      if (!existing) {
+        const { data } = await supabase
+          .from('products')
+          .select('id')
+          .ilike('name', row.name)
+          .maybeSingle();
+        existing = data;
+      }
 
       if (existing) {
+        // UPDATE
         const { error } = await supabase
           .from('products')
           .update({
@@ -174,7 +214,10 @@ export async function bulkImportProducts(
             quantity_in_unit: row.quantity_in_unit,
             description: row.description,
             brand: row.brand,
+            barcode: row.barcode,
+            moq: row.moq ?? 1,
             is_featured: row.is_featured || false,
+            ...(row.sku ? { sku: row.sku } : {}),
             updated_at: new Date().toISOString(),
           })
           .eq('id', existing.id);
@@ -185,13 +228,16 @@ export async function bulkImportProducts(
           result.updated++;
         }
       } else {
-        const sku = `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        // INSERT
+        const sku = row.sku || generateSku();
         const { error } = await supabase
           .from('products')
           .insert({
             name: row.name,
             category_id: categoryId,
             sku,
+            barcode: row.barcode,
+            moq: row.moq ?? 1,
             price: row.price,
             mrp: row.mrp,
             unit_of_measure: row.unit,
@@ -215,7 +261,22 @@ export async function bulkImportProducts(
     onProgress?.(i + 1, rows.length);
   }
 
-  result.summary = `✅ Added: ${result.added} | 🔄 Updated: ${result.updated} | ❌ Errors: ${result.errors.length}`;
+  result.summary = `✅ Added: ${result.added} | 🔄 Updated: ${result.updated} | ⏭ Skipped: ${result.skipped} | ❌ Errors: ${result.errors.length}`;
+
+  // Write import log
+  try {
+    await supabase.from('import_logs').insert({
+      source,
+      rows_total: rows.length,
+      inserted: result.added,
+      updated: result.updated,
+      skipped: result.skipped,
+      errors: result.errors,
+    });
+  } catch (logErr) {
+    console.warn('Failed to write import log:', logErr);
+  }
+
   return result;
 }
 
@@ -223,7 +284,7 @@ export async function exportProductsAsCSV(): Promise<void> {
   try {
     const { data: products, error } = await supabase
       .from('products')
-      .select('name, categories(name), price, mrp, unit_of_measure, quantity_in_unit, description, brand, is_featured')
+      .select('name, categories(name), sku, barcode, moq, price, mrp, unit_of_measure, quantity_in_unit, description, brand, is_featured')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -232,7 +293,9 @@ export async function exportProductsAsCSV(): Promise<void> {
     const csvData = products.map((p: any) => ({
       name: p.name,
       category: p.categories?.name || '',
-      group: '',
+      sku: p.sku || '',
+      barcode: p.barcode || '',
+      moq: p.moq ?? 1,
       price: p.price,
       mrp: p.mrp || '',
       unit: p.unit_of_measure,
@@ -263,7 +326,9 @@ export function generateCSVTemplate(): void {
     {
       name: 'Product Name',
       category: 'Category Name',
-      group: 'Group (optional)',
+      sku: 'CAT-0001',
+      barcode: '',
+      moq: '1',
       price: '100.00',
       mrp: '150.00',
       unit: 'piece',
@@ -275,7 +340,9 @@ export function generateCSVTemplate(): void {
     {
       name: '5 Ply Corrugated Box - 12x10x8',
       category: 'Corrugated Boxes',
-      group: 'Boxes',
+      sku: 'BOX-0001',
+      barcode: '8901234567890',
+      moq: '50',
       price: '3187.00',
       mrp: '3500.00',
       unit: 'box',

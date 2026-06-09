@@ -4,6 +4,7 @@ import { MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/authStore';
 import { enquiryService, inquiriesService } from '@/lib/productService';
 import { ImagePlaceholder } from './ImagePlaceholder';
+import AddToCartButton from './cart/AddToCartButton';
 import { useState } from 'react';
 
 interface ProductCardProps {
@@ -55,7 +56,7 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     return (
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition flex">
         {/* Image */}
-        <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-white">
+        <Link href={`/product/${product.id}`} className="w-24 h-24 flex-shrink-0 overflow-hidden bg-white">
           {product.image_url && !imageError ? (
             <img
               src={product.image_url}
@@ -67,7 +68,7 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
           ) : (
             <ImagePlaceholder className="w-24 h-24" showText={false} />
           )}
-        </div>
+        </Link>
 
         {/* Content */}
         <div className="flex-1 p-3 flex items-center justify-between gap-3">
@@ -82,20 +83,25 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
             </p>
           </div>
 
-          {/* Price & Action */}
-          <div className="flex-shrink-0 text-right">
+          {/* Price & Actions */}
+          <div className="flex-shrink-0 text-right space-y-2">
             {isAuthenticated ? (
               <p className="font-bold text-red-600 text-sm">₹{product.price?.toLocaleString()}</p>
             ) : (
               <p className="text-xs text-slate-500 font-semibold">Login to see price</p>
             )}
-            <button
-              onClick={handleEnquire}
-              className="mt-2 px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-red-600 hover:text-white hover:border-red-600 transition flex items-center gap-1 whitespace-nowrap"
-            >
-              <MessageCircle size={12} />
-              Enquire
-            </button>
+            <div className="flex gap-1.5 justify-end">
+              {isAuthenticated && (
+                <AddToCartButton product={product} compact />
+              )}
+              <button
+                onClick={handleEnquire}
+                className="px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-red-600 hover:text-white hover:border-red-600 transition flex items-center gap-1 whitespace-nowrap"
+              >
+                <MessageCircle size={12} />
+                Enquire
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -104,9 +110,9 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
 
   // Grid view
   return (
-    <Link href={`/product/${product.id}`}>
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition cursor-pointer h-full flex flex-col">
-        {/* Image */}
+    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition h-full flex flex-col">
+      {/* Image */}
+      <Link href={`/product/${product.id}`} className="block">
         <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-white">
           {product.image_url && !imageError ? (
             <img
@@ -125,33 +131,37 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
             </div>
           )}
         </div>
+      </Link>
 
-        {/* Content */}
-        <div className="p-2 flex-1 flex flex-col">
-          {product.quantity_in_unit ? (
-            <p className="text-[10px] text-slate-500 font-medium mb-0.5">
-              Pack of {product.quantity_in_unit} {product.unit_of_measure}
-            </p>
-          ) : null}
-          <h3 className="font-semibold text-xs text-slate-900 line-clamp-2 leading-tight flex-1 mb-1.5">
+      {/* Content */}
+      <div className="p-2 flex-1 flex flex-col">
+        {product.quantity_in_unit ? (
+          <p className="text-[10px] text-slate-500 font-medium mb-0.5">
+            Pack of {product.quantity_in_unit} {product.unit_of_measure}
+          </p>
+        ) : null}
+        <Link href={`/product/${product.id}`} className="block flex-1 mb-1.5">
+          <h3 className="font-semibold text-xs text-slate-900 line-clamp-2 leading-tight hover:text-red-600 transition">
             {product.name}
           </h3>
+        </Link>
 
-          {/* Price */}
-          <div className="mb-1.5">
-            {isAuthenticated ? (
-              <p className="font-bold text-red-600 text-sm leading-none">₹{product.price?.toLocaleString()}</p>
-            ) : (
-              <p className="text-[10px] text-slate-500 font-semibold">Sign in for price</p>
-            )}
-          </div>
+        {/* Price */}
+        <div className="mb-1.5">
+          {isAuthenticated ? (
+            <p className="font-bold text-red-600 text-sm leading-none">₹{product.price?.toLocaleString()}</p>
+          ) : (
+            <p className="text-[10px] text-slate-500 font-semibold">Sign in for price</p>
+          )}
+        </div>
 
-          {/* Enquire Button */}
+        {/* Buttons */}
+        <div className="space-y-1">
+          {isAuthenticated && (
+            <AddToCartButton product={product} compact />
+          )}
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              handleEnquire();
-            }}
+            onClick={handleEnquire}
             className="w-full px-2 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-red-600 hover:text-white hover:border-red-600 transition flex items-center justify-center gap-1"
           >
             <MessageCircle size={12} />
@@ -159,6 +169,6 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
           </button>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

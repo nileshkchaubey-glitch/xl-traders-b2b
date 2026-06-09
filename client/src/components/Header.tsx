@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Search, Menu, X, LogOut, LogIn } from 'lucide-react';
+import { Search, Menu, X, LogOut, LogIn, ShoppingCart } from 'lucide-react';
 import { useAuthStore } from '@/lib/authStore';
+import { useCartStore } from '@/stores/cartStore';
 import { Button } from '@/components/ui/button';
+import CartDrawer from '@/components/cart/CartDrawer';
 
 interface HeaderProps {
   variant?: 'default' | 'home';
@@ -11,7 +13,9 @@ interface HeaderProps {
 export default function Header({ variant = 'default' }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [cartOpen, setCartOpen] = useState(false);
   const { isAuthenticated, isAdmin, user, signOut } = useAuthStore();
+  const cartCount = useCartStore((s) => s.getItemCount());
   const [location, setLocation] = useLocation();
   const isHome = variant === 'home' || location === '/';
 
@@ -33,7 +37,7 @@ export default function Header({ variant = 'default' }: HeaderProps) {
 
   return (
     <>
-      {/* Top Info Bar — hidden on homepage (hero has delivery + search) */}
+      {/* Top Info Bar — hidden on homepage */}
       {!isHome && (
       <div className="bg-slate-900 text-slate-300 text-xs py-1.5">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between gap-4 flex-wrap">
@@ -88,7 +92,7 @@ export default function Header({ variant = 'default' }: HeaderProps) {
 
             {/* Right Actions */}
             <div className="flex items-center gap-2 md:gap-3">
-              {/* Contact Buttons - Desktop (hidden on home — hero has CTAs) */}
+              {/* Contact Buttons - Desktop */}
               {!isHome && (
               <div className="hidden md:flex gap-2">
                 <a
@@ -107,6 +111,20 @@ export default function Header({ variant = 'default' }: HeaderProps) {
                 </a>
               </div>
               )}
+
+              {/* Cart Icon */}
+              <button
+                onClick={() => setCartOpen(true)}
+                className="relative p-2 rounded-lg hover:bg-slate-100 transition"
+                aria-label="Open cart"
+              >
+                <ShoppingCart size={22} className="text-slate-700" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                )}
+              </button>
 
               {/* Auth Buttons */}
               {isAuthenticated ? (
@@ -173,6 +191,13 @@ export default function Header({ variant = 'default' }: HeaderProps) {
               <Link href="/catalog" className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition">
                 Product Catalog
               </Link>
+              <button
+                onClick={() => { setCartOpen(true); setIsMenuOpen(false); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+              >
+                <ShoppingCart size={16} />
+                Cart {cartCount > 0 && <span className="bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">{cartCount}</span>}
+              </button>
               <a
                 href={`tel:${phone1}`}
                 className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
@@ -231,6 +256,9 @@ export default function Header({ variant = 'default' }: HeaderProps) {
           </Link>
         </div>
       </nav>
+
+      {/* Cart Drawer */}
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
     </>
   );
 }
