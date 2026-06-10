@@ -687,7 +687,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
                   </td>
                   {/* Category */}
                   <td className="px-2 py-2">
-                    <Select value={quickAdd.category_id || undefined} onValueChange={(v) => setQuickAdd({ ...quickAdd, category_id: v })}>
+                    <Select value={quickAdd.category_id || ''} onValueChange={(v) => setQuickAdd({ ...quickAdd, category_id: v })}>
                       <SelectTrigger className="h-8 text-sm w-full border-green-300">
                         <SelectValue placeholder="Category *" />
                       </SelectTrigger>
@@ -977,7 +977,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
             </div>
             <div className="space-y-1.5">
               <Label>Category *</Label>
-              <Select value={formData.category_id || undefined} onValueChange={(v) => setFormData({ ...formData, category_id: v })}>
+              <Select value={formData.category_id || ''} onValueChange={(v) => setFormData({ ...formData, category_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>{categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}</SelectContent>
               </Select>

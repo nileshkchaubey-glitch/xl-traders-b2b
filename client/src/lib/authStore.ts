@@ -94,7 +94,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (!authListenerAttached) {
         authListenerAttached = true;
-        supabase.auth.onAuthStateChange(async (_event, session) => {
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'TOKEN_REFRESHED') {
+            // Silently update stored user so the refreshed JWT stays in sync.
+            // No isLoading flip, no profile refetch — avoids a global re-render
+            // on every tab focus / ~55-min token rotation.
+            set({ user: session?.user ?? null });
+            return;
+          }
+
           if (session?.user) {
             set({ isLoading: true });
             const authState = await buildAuthState(session.user);
