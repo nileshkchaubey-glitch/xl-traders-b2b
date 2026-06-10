@@ -15,6 +15,11 @@ export interface ImportRow {
   quantity_in_unit: number;
   description?: string;
   brand?: string;
+  image_url_1?: string;
+  image_url_2?: string;
+  image_url_3?: string;
+  image_url_4?: string;
+  image_url_5?: string;
   is_featured?: boolean;
 }
 
@@ -116,8 +121,45 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
     quantity_in_unit: quantity,
     description: row.description ? row.description.trim() : undefined,
     brand: row.brand ? row.brand.trim() : undefined,
+    image_url_1: row.image_url_1 ? String(row.image_url_1).trim() : undefined,
+    image_url_2: row.image_url_2 ? String(row.image_url_2).trim() : undefined,
+    image_url_3: row.image_url_3 ? String(row.image_url_3).trim() : undefined,
+    image_url_4: row.image_url_4 ? String(row.image_url_4).trim() : undefined,
+    image_url_5: row.image_url_5 ? String(row.image_url_5).trim() : undefined,
     is_featured: row.is_featured === 'true' || row.is_featured === true || row.is_featured === 1,
   };
+}
+
+// Collect the up-to-5 image URLs from a parsed row (skips empty strings).
+function collectImageUrls(row: ImportRow): string[] {
+  return [row.image_url_1, row.image_url_2, row.image_url_3, row.image_url_4, row.image_url_5]
+    .filter((u): u is string => !!u);
+}
+
+/**
+ * Write image URLs to product_images (display_order 1-5).
+ * Clears all existing product_images rows for this product first so a
+ * re-import with fewer images doesn't leave stale entries.
+ * Also sets products.image_url to the first URL (primary image).
+ */
+async function saveProductImages(productId: string, imageUrls: string[], productName: string): Promise<void> {
+  if (!imageUrls.length) return;
+
+  // Remove existing images for this product then re-insert
+  await supabase.from('product_images').delete().eq('product_id', productId);
+
+  const imageRows = imageUrls.map((url, i) => ({
+    product_id: productId,
+    image_url: url,
+    alt_text: productName,
+    display_order: i + 1,
+  }));
+
+  const { error } = await supabase.from('product_images').insert(imageRows);
+  if (error) console.warn('Failed to save product images:', error.message);
+
+  // First image becomes the product's primary image_url
+  await supabase.from('products').update({ image_url: imageUrls[0] }).eq('id', productId);
 }
 
 async function getOrCreateCategory(categoryName: string): Promise<string | null> {
@@ -202,6 +244,8 @@ export async function bulkImportProducts(
         existing = data;
       }
 
+      const imageUrls = collectImageUrls(row);
+
       if (existing) {
         // UPDATE
         const { error } = await supabase
@@ -226,11 +270,12 @@ export async function bulkImportProducts(
           result.errors.push({ row: rowNumber, error: `Update failed: ${error.message}` });
         } else {
           result.updated++;
+          await saveProductImages(existing.id, imageUrls, row.name);
         }
       } else {
         // INSERT
         const sku = row.sku || generateSku();
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('products')
           .insert({
             name: row.name,
@@ -246,12 +291,15 @@ export async function bulkImportProducts(
             brand: row.brand,
             is_featured: row.is_featured || false,
             is_active: true,
-          });
+          })
+          .select('id')
+          .single();
 
         if (error) {
           result.errors.push({ row: rowNumber, error: `Insert failed: ${error.message}` });
         } else {
           result.added++;
+          if (inserted?.id) await saveProductImages(inserted.id, imageUrls, row.name);
         }
       }
     } catch (error) {
