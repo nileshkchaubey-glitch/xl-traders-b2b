@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { productService, categoryService, storageService, productImageService } from '@/lib/productService';
 import { generateDescription } from '@/lib/aiService';
-import { autoResizeImage, batchAutoResize, formatBytes } from '@/lib/imageUtils';
+import { autoResizeImage, batchAutoResize, formatBytes, normalizeImageUrl } from '@/lib/imageUtils';
 import { Product, Category } from '@/lib/supabase';
 import AdminImageGallery from '@/components/admin/AdminImageGallery';
 
@@ -105,7 +105,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
     name: '', category_id: '', description: '', price: '', mrp: '',
     unit_of_measure: 'pcs', quantity_in_unit: '', discount_percent: '0',
     brand: '', is_active: true, is_featured: false,
-    sku: '', barcode: '', moq: '1',
+    sku: '', barcode: '', moq: '1', image_url: '',
   });
   const [images, setImages] = useState<File[]>([]);
   const [imageMetadata, setImageMetadata] = useState<Array<{ altText: string; description: string }>>([]);
@@ -384,7 +384,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
   };
 
   const resetForm = () => {
-    setFormData({ name: '', category_id: '', description: '', price: '', mrp: '', unit_of_measure: 'pcs', quantity_in_unit: '', discount_percent: '0', brand: '', is_active: true, is_featured: false, sku: '', barcode: '', moq: '1' });
+    setFormData({ name: '', category_id: '', description: '', price: '', mrp: '', unit_of_measure: 'pcs', quantity_in_unit: '', discount_percent: '0', brand: '', is_active: true, is_featured: false, sku: '', barcode: '', moq: '1', image_url: '' });
     imagePreviews.forEach((url) => URL.revokeObjectURL(url));
     setImages([]); setImageMetadata([]); setImagePreviews([]); setExistingImageUrl(null); setEditingId(null);
   };
@@ -405,6 +405,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
       sku: product.sku || '',
       barcode: product.barcode || '',
       moq: (product.moq ?? 1).toString(),
+      image_url: product.image_url || '',
     });
     setEditingId(product.id);
     setImages([]); setImageMetadata([]); setImagePreviews([]);
@@ -432,6 +433,10 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
         image_alt_text: imageMetadata[0]?.altText || formData.name,
         image_description: imageMetadata[0]?.description || '',
       };
+      // Pasted image URL (e.g. a Google Drive link) — normalized so it renders.
+      // An uploaded file, if any, overrides this below as the primary image.
+      const pastedUrl = normalizeImageUrl(formData.image_url);
+      if (pastedUrl) productData.image_url = pastedUrl;
       let product: Product;
       if (editingId) {
         product = await productService.update(editingId, productData);
@@ -843,7 +848,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
                     <button onClick={() => setGalleryProduct(product)} title="Manage images" className="block">
                       {product.image_url ? (
                         <img
-                          src={product.image_url}
+                          src={normalizeImageUrl(product.image_url)}
                           alt={product.image_alt_text || product.name}
                           className="w-11 h-11 object-cover rounded-lg border hover:ring-2 ring-red-400 transition-all"
                         />
@@ -1096,10 +1101,30 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
               </div>
               {editingId && existingImageUrl && images.length === 0 && (
                 <div className="flex items-center gap-3 p-2 border rounded-lg bg-slate-50">
-                  <img src={existingImageUrl} alt="Current" className="w-14 h-14 object-contain rounded bg-white border" />
-                  <span className="text-sm text-slate-600">Current image. Upload new to replace.</span>
+                  <img src={normalizeImageUrl(existingImageUrl)} alt="Current" className="w-14 h-14 object-contain rounded bg-white border" />
+                  <span className="text-sm text-slate-600">Current image. Upload a file or paste a new URL to replace.</span>
                 </div>
               )}
+              {/* Paste image URL — fastest way to add: a Google Drive share link
+                  is auto-converted to a renderable thumbnail on save. */}
+              <div className="flex items-center gap-2">
+                <Input
+                  value={formData.image_url}
+                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  placeholder="Paste image URL (Google Drive link works)"
+                  className="text-sm"
+                />
+                {formData.image_url.trim() && images.length === 0 && (
+                  <img
+                    src={normalizeImageUrl(formData.image_url)}
+                    alt="Preview"
+                    className="w-10 h-10 object-contain rounded bg-white border flex-shrink-0"
+                  />
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <span className="h-px flex-1 bg-slate-200" />or upload<span className="h-px flex-1 bg-slate-200" />
+              </div>
               <input
                 type="file" multiple accept="image/*"
                 onChange={handleImageSelect} disabled={isResizing}

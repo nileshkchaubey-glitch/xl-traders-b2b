@@ -5,6 +5,7 @@ import { useAuthStore } from '@/lib/authStore';
 import { enquiryService, inquiriesService } from '@/lib/productService';
 import { ImagePlaceholder } from './ImagePlaceholder';
 import AddToCartButton from './cart/AddToCartButton';
+import { normalizeImageUrl } from '@/lib/imageUtils';
 
 interface ProductCardProps {
   product: Product;
@@ -15,6 +16,9 @@ interface ProductCardProps {
 export default function ProductCard({ product, view = 'grid', onEnquire }: ProductCardProps) {
   const { isAuthenticated, user, profile } = useAuthStore();
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
+  // Rewrite Google Drive share links (and pass other URLs through) so images
+  // actually render instead of showing the broken-image placeholder.
+  const imageUrl = normalizeImageUrl(product.image_url);
 
   // CSS-only broken-image fallback — no React state, so a page full of broken
   // images can't trigger a cascade of re-renders. onError hides the <img> and
@@ -64,13 +68,14 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition flex">
         {/* Image */}
         <Link href={`/product/${product.id}`} className="w-24 h-24 flex-shrink-0 overflow-hidden bg-white">
-          {product.image_url ? (
+          {imageUrl ? (
             <>
               <img
-                src={product.image_url}
+                src={imageUrl}
                 alt={product.image_alt_text || product.name}
                 className="w-full h-full object-contain p-1.5"
                 loading="lazy"
+                decoding="async"
                 style={{ background: '#f1f5f9' }}
                 onError={handleImgError}
               />
@@ -127,13 +132,14 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
       {/* Image */}
       <Link href={`/product/${product.id}`} className="block">
         <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-white">
-          {product.image_url ? (
+          {imageUrl ? (
             <>
               <img
-                src={product.image_url}
+                src={imageUrl}
                 alt={product.image_alt_text || product.name}
                 className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
                 loading="lazy"
+                decoding="async"
                 style={{ background: '#f1f5f9' }}
                 onError={handleImgError}
               />
