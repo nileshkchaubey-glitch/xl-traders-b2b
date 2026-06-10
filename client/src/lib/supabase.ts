@@ -42,6 +42,9 @@ export interface Product {
   image_alt_text?: string;
   image_description?: string;
   specifications?: Record<string, any>;
+  slug?: string;
+  meta_title?: string;
+  meta_description?: string;
   is_active: boolean;
   is_featured: boolean;
   display_order: number;

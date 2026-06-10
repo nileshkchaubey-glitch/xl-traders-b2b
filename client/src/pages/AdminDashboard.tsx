@@ -8,7 +8,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload, LayoutDashboard, FileSpreadsheet, ShoppingBag } from 'lucide-react';
+import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload, LayoutDashboard, FileSpreadsheet, ShoppingBag, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 
 import AdminOverview from '@/components/admin/AdminOverview';
@@ -19,6 +19,8 @@ import AdminSettings from '@/components/admin/AdminSettings';
 import AdminBulkImport from '@/components/admin/AdminBulkImport';
 import AdminGoogleSheets from '@/components/admin/AdminGoogleSheets';
 import AdminOrders from '@/components/admin/AdminOrders';
+import AdminSEO from '@/components/admin/AdminSEO';
+import { AttentionFilter } from '@/lib/catalogHealth';
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
@@ -29,6 +31,9 @@ export default function AdminDashboard() {
   // Once admin access is confirmed, never re-run verification — auth-store
   // updates (e.g. profile refresh) would otherwise retrigger the effect.
   const hasVerified = useRef(false);
+
+  // "Needs Attention" filter for the Products tab, set from Overview
+  const [productsAttention, setProductsAttention] = useState<AttentionFilter>(null);
 
   // Unsaved-changes guard for the product editor dialog
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -183,6 +188,10 @@ export default function AdminDashboard() {
               <MessageSquare className="w-4 h-4" />
               <span className="hidden sm:inline">Enquiries</span>
             </TabsTrigger>
+            <TabsTrigger value="seo" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
+              <Globe className="w-4 h-4" />
+              <span className="hidden sm:inline">SEO</span>
+            </TabsTrigger>
             <TabsTrigger value="bulk-import" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
               <Upload className="w-4 h-4" />
               <span className="hidden sm:inline">CSV Import</span>
@@ -199,11 +208,18 @@ export default function AdminDashboard() {
 
           {/* products uses forceMount to preserve unsaved dialog form state across tab switches */}
           <TabsContent value="overview">
-            <AdminOverview onTabChange={setActiveTab} />
+            <AdminOverview
+              onTabChange={setActiveTab}
+              onNeedsAttention={(filter) => { setProductsAttention(filter); setActiveTab('products'); }}
+            />
           </TabsContent>
 
           <TabsContent value="products" forceMount className="data-[state=inactive]:hidden">
-            <AdminProducts onDialogOpenChange={setProductDialogOpen} />
+            <AdminProducts
+              onDialogOpenChange={setProductDialogOpen}
+              attentionFilter={productsAttention}
+              onAttentionChange={setProductsAttention}
+            />
           </TabsContent>
 
           <TabsContent value="orders">
@@ -216,6 +232,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="enquiries">
             <AdminEnquiries />
+          </TabsContent>
+
+          <TabsContent value="seo">
+            <AdminSEO />
           </TabsContent>
 
           <TabsContent value="bulk-import">
