@@ -18,6 +18,7 @@ import { productService, categoryService, storageService, productImageService } 
 import { generateDescription } from '@/lib/aiService';
 import { autoResizeImage, batchAutoResize, formatBytes, normalizeImageUrl } from '@/lib/imageUtils';
 import { Product, Category } from '@/lib/supabase';
+import { productCompleteness, completenessColor, AttentionFilter, ATTENTION_LABELS } from '@/lib/catalogHealth';
 import AdminImageGallery from '@/components/admin/AdminImageGallery';
 
 const PAGE_SIZE = 50;
@@ -29,6 +30,7 @@ interface AdminGetAllResult { data: Product[]; count: number; }
 
 async function adminGetAllProducts(
   page: number, search: string, categoryId: string, status: StatusFilter,
+  attention: AttentionFilter = null,
 ): Promise<AdminGetAllResult> {
   let query = supabase
     .from('products')
@@ -39,6 +41,9 @@ async function adminGetAllProducts(
   if (status === 'active') query = query.eq('is_active', true);
   else if (status === 'inactive') query = query.eq('is_active', false);
   else if (status === 'featured') query = query.eq('is_featured', true);
+  if (attention === 'no-image') query = query.or('image_url.is.null,image_url.eq.');
+  else if (attention === 'no-price') query = query.or('price.is.null,price.eq.0');
+  else if (attention === 'no-slug') query = query.or('slug.is.null,slug.eq.');
   query = query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   const { data, error, count } = await query;
   if (error) throw error;
@@ -69,9 +74,16 @@ const QUICK_ADD_DEFAULTS: QuickAdd = {
 
 interface AdminProductsProps {
   onDialogOpenChange?: (isOpen: boolean) => void;
+  // "Needs Attention" filter, set from the Overview tab's quick action queue.
+  attentionFilter?: AttentionFilter;
+  onAttentionChange?: (filter: AttentionFilter) => void;
 }
 
-export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps = {}) {
+export default function AdminProducts({
+  onDialogOpenChange,
+  attentionFilter = null,
+  onAttentionChange,
+}: AdminProductsProps = {}) {
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -131,7 +143,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
     try {
       setLoading(true);
       setSelected(new Set());
-      const result = await adminGetAllProducts(page, debouncedSearch, selectedCategory, status);
+      const result = await adminGetAllProducts(page, debouncedSearch, selectedCategory, status, attentionFilter);
       setProducts(result.data);
       setTotalCount(result.count);
     } catch {
@@ -139,7 +151,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, selectedCategory, status]);
+  }, [page, debouncedSearch, selectedCategory, status, attentionFilter]);
 
   const loadCategories = useCallback(async () => {
     const cats = await categoryService.getAll();
@@ -162,11 +174,18 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
   // we don't double-fetch alongside the initial load above. Tab switches don't
   // change these deps, so revisiting the tab serves cached data.
   const skipFilterEffect = useRef(true);
+  const prevAttention = useRef(attentionFilter);
   useEffect(() => {
     if (skipFilterEffect.current) { skipFilterEffect.current = false; return; }
+    if (prevAttention.current !== attentionFilter) {
+      prevAttention.current = attentionFilter;
+      // Jump back to page 1 on attention change; the page update re-runs this
+      // effect, which then fetches.
+      if (page !== 1) { setPage(1); return; }
+    }
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearch, selectedCategory, status]);
+  }, [page, debouncedSearch, selectedCategory, status, attentionFilter]);
 
   useEffect(() => {
     return () => { imagePreviews.forEach((url) => URL.revokeObjectURL(url)); };
@@ -653,6 +672,18 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
             <SelectItem value="featured">Featured ⭐</SelectItem>
           </SelectContent>
         </Select>
+        {attentionFilter && (
+          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-1.5 text-sm font-semibold">
+            Needs attention: {ATTENTION_LABELS[attentionFilter]}
+            <button
+              onClick={() => onAttentionChange?.(null)}
+              className="p-0.5 hover:bg-amber-100 rounded"
+              title="Clear filter"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bulk action bar */}
@@ -688,6 +719,7 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
                 <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Brand</th>
                 <th className="w-24 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">SKU</th>
                 <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Group</th>
+                <th className="w-18 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide" title="Completeness: image, price, category, slug, meta title">Score</th>
                 <th className="w-22 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Status</th>
                 <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Actions</th>
               </tr>
@@ -796,6 +828,8 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
                   </td>
                   {/* Group placeholder */}
                   <td className="px-2 py-2" />
+                  {/* Score placeholder */}
+                  <td className="px-2 py-2" />
                   {/* Status placeholder */}
                   <td className="px-2 py-2">
                     <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Active</span>
@@ -826,14 +860,14 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
               {/* ── Products ──────────────────────────────────────────────── */}
               {loading ? (
                 <tr>
-                  <td colSpan={13} className="text-center py-12 text-slate-500">
+                  <td colSpan={14} className="text-center py-12 text-slate-500">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                     Loading products…
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="text-center py-12 text-slate-400">No products found</td>
+                  <td colSpan={14} className="text-center py-12 text-slate-400">No products found</td>
                 </tr>
               ) : products.map((product) => (
                 <tr
@@ -919,6 +953,20 @@ export default function AdminProducts({ onDialogOpenChange }: AdminProductsProps
                     <span className="text-xs text-slate-500">
                       {getCategoryGroup(product.category_id) ?? <span className="text-slate-300">—</span>}
                     </span>
+                  </td>
+                  {/* Completeness score */}
+                  <td className="px-2 py-2">
+                    {(() => {
+                      const { score, missing } = productCompleteness(product);
+                      return (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${completenessColor(score)}`}
+                          title={missing.length ? `Missing: ${missing.join(', ')}` : 'Complete'}
+                        >
+                          {score}%
+                        </span>
+                      );
+                    })()}
                   </td>
                   {/* Status toggle */}
                   <td className="px-2 py-2">

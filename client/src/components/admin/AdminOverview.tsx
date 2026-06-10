@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Package, Grid3x3, MessageSquare, Star, TrendingUp, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Package, Grid3x3, MessageSquare, Star, TrendingUp, CheckCircle, XCircle, Clock, ImageOff, IndianRupee, Link2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
+import { AttentionFilter } from '@/lib/catalogHealth';
+
+interface HealthCounts {
+  image: number;
+  price: number;
+  category: number;
+  slug: number;
+  meta: number;
+}
 
 interface Stats {
   totalProducts: number;
@@ -11,8 +20,14 @@ interface Stats {
   totalCategories: number;
   totalEnquiries: number;
   newEnquiries: number;
+  health: HealthCounts;
   recentProducts: Array<{ id: string; name: string; created_at: string; is_active: boolean; category_name: string }>;
 }
+
+// Count head-queries are cheap and stay accurate beyond PostgREST's 1000-row
+// page cap. slug/meta_title columns may not exist until the SEO migration
+// runs — those two queries then error and we fall back to 0.
+const countOrZero = (r: { count: number | null; error: any }) => (r.error ? 0 : r.count ?? 0);
 
 async function fetchStats(): Promise<Stats> {
   const [
@@ -23,6 +38,11 @@ async function fetchStats(): Promise<Stats> {
     { count: totalCategories },
     { count: totalEnquiries },
     { count: newEnquiries },
+    hasImage,
+    hasPrice,
+    hasCategory,
+    hasSlug,
+    hasMeta,
     { data: recentRaw },
   ] = await Promise.all([
     supabase.from('products').select('*', { count: 'exact', head: true }),
@@ -32,6 +52,11 @@ async function fetchStats(): Promise<Stats> {
     supabase.from('categories').select('*', { count: 'exact', head: true }),
     supabase.from('enquiries').select('*', { count: 'exact', head: true }),
     supabase.from('enquiries').select('*', { count: 'exact', head: true }).eq('status', 'new'),
+    supabase.from('products').select('*', { count: 'exact', head: true }).not('image_url', 'is', null).neq('image_url', ''),
+    supabase.from('products').select('*', { count: 'exact', head: true }).gt('price', 0),
+    supabase.from('products').select('*', { count: 'exact', head: true }).not('category_id', 'is', null),
+    supabase.from('products').select('*', { count: 'exact', head: true }).not('slug', 'is', null).neq('slug', ''),
+    supabase.from('products').select('*', { count: 'exact', head: true }).not('meta_title', 'is', null).neq('meta_title', ''),
     supabase
       .from('products')
       .select('id, name, created_at, is_active, categories(name)')
@@ -55,8 +80,37 @@ async function fetchStats(): Promise<Stats> {
     totalCategories: totalCategories ?? 0,
     totalEnquiries: totalEnquiries ?? 0,
     newEnquiries: newEnquiries ?? 0,
+    health: {
+      image: countOrZero(hasImage),
+      price: countOrZero(hasPrice),
+      category: countOrZero(hasCategory),
+      slug: countOrZero(hasSlug),
+      meta: countOrZero(hasMeta),
+    },
     recentProducts,
   };
+}
+
+function healthBarColor(pct: number): string {
+  if (pct >= 80) return 'bg-green-500';
+  if (pct >= 50) return 'bg-amber-500';
+  return 'bg-red-500';
+}
+
+function HealthBar({ label, count, total }: { label: string; count: number; total: number }) {
+  const pct = total ? Math.round((count / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-24 text-sm text-slate-600 flex-shrink-0">{label}</span>
+      <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+        <div
+          className={`h-2.5 rounded-full transition-all duration-700 ${healthBarColor(pct)}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="w-20 text-right text-xs font-semibold text-slate-700 flex-shrink-0">{pct}% ({count})</span>
+    </div>
+  );
 }
 
 function StatCard({
@@ -95,7 +149,13 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function AdminOverview({ onTabChange }: { onTabChange?: (tab: string) => void }) {
+interface AdminOverviewProps {
+  onTabChange?: (tab: string) => void;
+  // Opens the Products tab with a "Needs Attention" filter pre-applied.
+  onNeedsAttention?: (filter: Exclude<AttentionFilter, null>) => void;
+}
+
+export default function AdminOverview({ onTabChange, onNeedsAttention }: AdminOverviewProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -202,6 +262,50 @@ export default function AdminOverview({ onTabChange }: { onTabChange?: (tab: str
           <span>{stats.inactiveProducts} inactive</span>
         </div>
       </Card>
+
+      {/* Catalogue Health + Needs Attention */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-5">
+          <h3 className="text-base font-semibold text-slate-800 mb-4">Catalogue Health</h3>
+          <div className="space-y-3">
+            <HealthBar label="Images" count={stats.health.image} total={stats.totalProducts} />
+            <HealthBar label="Prices" count={stats.health.price} total={stats.totalProducts} />
+            <HealthBar label="Categories" count={stats.health.category} total={stats.totalProducts} />
+            <HealthBar label="Slugs" count={stats.health.slug} total={stats.totalProducts} />
+            <HealthBar label="SEO" count={stats.health.meta} total={stats.totalProducts} />
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <h3 className="text-base font-semibold text-slate-800 mb-1">Needs Attention</h3>
+          <p className="text-xs text-slate-400 mb-4">Click to open Products filtered to these items</p>
+          <div className="space-y-2">
+            {([
+              { label: 'Products with no image', icon: ImageOff, count: stats.totalProducts - stats.health.image, filter: 'no-image' as const },
+              { label: 'Products with no price', icon: IndianRupee, count: stats.totalProducts - stats.health.price, filter: 'no-price' as const },
+              { label: 'Products with no slug', icon: Link2, count: stats.totalProducts - stats.health.slug, filter: 'no-slug' as const },
+            ]).map((item) => (
+              <button
+                key={item.filter}
+                onClick={() => onNeedsAttention?.(item.filter)}
+                className="w-full flex items-center justify-between px-3 py-2.5 border border-slate-200 rounded-lg hover:bg-red-50 hover:border-red-200 transition-colors"
+              >
+                <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <item.icon className="w-4 h-4 text-slate-400" />
+                  {item.label}
+                </span>
+                <span
+                  className={`text-sm font-bold px-2.5 py-0.5 rounded-full ${
+                    item.count === 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+                  }`}
+                >
+                  {item.count === 0 ? '✓ all done' : item.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Card>
+      </div>
 
       {/* Quick Actions */}
       <div>
