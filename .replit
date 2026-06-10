@@ -1,7 +1,7 @@
 modules = ["nodejs-20", "python-3.12", "web"]
 [agent]
 expertMode = true
-stack = "BEST_EFFORT_FALLBACK"
+stack = "FULLSTACK_JS"
 
 [nix]
 channel = "stable-25_05"
@@ -35,6 +35,7 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "static"
-build = ["pnpm", "run", "build"]
+deploymentTarget = "autoscale"
+build = ["npm", "run", "build"]
 publicDir = "dist/public"
+run = ["node", "./dist/index.cjs"]
