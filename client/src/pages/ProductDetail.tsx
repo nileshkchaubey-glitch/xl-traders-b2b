@@ -8,6 +8,7 @@ import { Product, ProductImage } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/authStore';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
 import AddToCartButton from '@/components/cart/AddToCartButton';
+import { normalizeImageUrl } from '@/lib/imageUtils';
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
 const RECENTLY_VIEWED_KEY = 'xl_recently_viewed';
@@ -40,7 +41,7 @@ function MiniProductCard({ product, isAuthenticated }: { product: Product; isAut
         <div className="h-28 overflow-hidden bg-slate-100">
           {product.image_url && !imgError ? (
             <img
-              src={product.image_url}
+              src={normalizeImageUrl(product.image_url)}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
               loading="lazy"
@@ -219,7 +220,9 @@ export default function ProductDetail() {
   }
 
   const displayImages = images.length > 0 ? images : [];
-  const mainImage = displayImages.length > 0 ? displayImages[selectedImageIndex]?.image_url : product.image_url;
+  const mainImage = normalizeImageUrl(
+    displayImages.length > 0 ? displayImages[selectedImageIndex]?.image_url : product.image_url,
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -263,7 +266,7 @@ export default function ProductDetail() {
                       }`}
                     >
                       {!imageErrors.has(img.id) ? (
-                        <img src={img.image_url} alt={img.alt_text || `Product image ${idx + 1}`} className="w-full h-full object-contain p-1 bg-white" onError={() => handleImageError(img.id)} />
+                        <img src={normalizeImageUrl(img.image_url)} alt={img.alt_text || `Product image ${idx + 1}`} className="w-full h-full object-contain p-1 bg-white" onError={() => handleImageError(img.id)} />
                       ) : (
                         <ImagePlaceholder className="w-20 h-20" showText={false} />
                       )}

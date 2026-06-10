@@ -107,3 +107,45 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/**
+ * Normalize an image URL so it actually renders inside an <img> tag.
+ *
+ * Google Drive "share" links (…/file/d/ID/view, …/open?id=ID, …/uc?export=…)
+ * return an HTML viewer page, not the image bytes, so they show up broken in
+ * the catalog. We rewrite any recognizable Drive link to the thumbnail
+ * endpoint, which DOES serve raw image bytes:
+ *   https://drive.google.com/thumbnail?id=FILE_ID&sz=w1000
+ *
+ * Non-Drive URLs (Supabase Storage, direct https images, etc.) are returned
+ * trimmed and otherwise untouched. Empty/blank input returns ''.
+ */
+export function normalizeImageUrl(url?: string | null, size = 1000): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+
+  if (!/drive\.google\.com|googleusercontent\.com\/d\//.test(trimmed)) {
+    return trimmed;
+  }
+
+  const id = extractDriveFileId(trimmed);
+  if (!id) return trimmed;
+
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w${size}`;
+}
+
+/** Pull the Drive file id out of any common Drive link shape. */
+export function extractDriveFileId(url: string): string | null {
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/, // /file/d/ID/view
+    /[?&]id=([a-zA-Z0-9_-]+)/, // ?id=ID  /  uc?export=view&id=ID  /  thumbnail?id=ID
+    /googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/, // lh3.googleusercontent.com/d/ID
+    /\/d\/([a-zA-Z0-9_-]+)/, // generic /d/ID
+  ];
+  for (const re of patterns) {
+    const m = url.match(re);
+    if (m?.[1]) return m[1];
+  }
+  return null;
+}
