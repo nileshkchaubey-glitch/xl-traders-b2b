@@ -46,18 +46,22 @@ export default function AdminSettings() {
       const { data, error } = await supabase
         .from('business_settings')
         .select('*')
-        .single();
+        .maybeSingle();
 
       if (error) {
-        // Table missing (PGRST116) or 406 Not Acceptable — use defaults silently
-        setTableAvailable(false);
+        // Only show "not configured" banner when the table truly doesn't exist.
+        // PGRST204 = no schema cache entry; 42P01 = undefined_table (raw PG).
+        const isTableMissing = error.code === 'PGRST204' || error.code === '42P01';
+        if (isTableMissing) setTableAvailable(false);
+        // All other errors (RLS denial, network hiccup, etc.): use defaults silently.
         return;
       }
+      // data === null means the table exists but has no rows — use defaults.
       if (data) {
         setSettings(prev => ({ ...prev, ...data }));
       }
     } catch {
-      setTableAvailable(false);
+      // Unexpected JS exception — don't flag table as missing.
     } finally {
       setLoading(false);
     }
