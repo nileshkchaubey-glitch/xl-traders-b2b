@@ -103,6 +103,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return;
           }
 
+          if (event === 'SIGNED_IN') {
+            const currentUser = get().user;
+            if (currentUser && session?.user?.id === currentUser.id) {
+              // supabase-js re-emits SIGNED_IN on every tab refocus when a
+              // session already exists. Same user — skip isLoading to prevent
+              // the full-screen spinner from appearing on every refocus.
+              set({ user: session.user });
+              return;
+            }
+            // Genuine new sign-in (no previous user, or different account).
+            set({ isLoading: true });
+            const authState = await buildAuthState(session!.user);
+            set({ ...authState, isLoading: false });
+            return;
+          }
+
+          if (event === 'SIGNED_OUT') {
+            set({
+              user: null,
+              profile: null,
+              isAuthenticated: false,
+              isAdmin: false,
+              isLoading: false,
+            });
+            return;
+          }
+
+          // INITIAL_SESSION and any future events: use session if present.
           if (session?.user) {
             set({ isLoading: true });
             const authState = await buildAuthState(session.user);
