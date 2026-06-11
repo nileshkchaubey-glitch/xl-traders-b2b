@@ -16,11 +16,26 @@ const GUEST_PRODUCT_COLS =
   'image_url,image_alt_text,image_description,specifications,' +
   'is_active,is_featured,display_order,brand,created_at,updated_at';
 
+// SECURITY-SENSITIVE CACHE: productSelectCols() gates the price/mrp/discount
+// columns (guests must never see them). supabase.auth.getSession() does
+// async storage I/O on every product fetch, so we cache the has-session flag
+// here — BUT a stale `true` after logout would leak price columns to anon
+// users, so authStore's onAuthStateChange calls invalidateSessionCache() on
+// every auth event (SIGNED_IN / SIGNED_OUT / etc.) to force a re-check.
+let cachedHasSession: boolean | null = null;
+
+export function invalidateSessionCache() {
+  cachedHasSession = null;
+}
+
 // Returns the right SELECT columns based on whether the caller has a session.
 // Authenticated users get all columns (*). Guests get GUEST_PRODUCT_COLS only.
 async function productSelectCols(): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session ? '*' : GUEST_PRODUCT_COLS;
+  if (cachedHasSession === null) {
+    const { data: { session } } = await supabase.auth.getSession();
+    cachedHasSession = !!session;
+  }
+  return cachedHasSession ? '*' : GUEST_PRODUCT_COLS;
 }
 
 // ============================================================================
@@ -345,6 +360,18 @@ export const productImageService = {
 
     if (error) throw error;
     return data as ProductImage;
+  },
+
+  // Batch insert — one round-trip instead of N sequential creates.
+  async createMany(images: Array<Omit<ProductImage, 'id' | 'created_at'>>) {
+    if (!images.length) return [];
+    const { data, error } = await supabase
+      .from('product_images')
+      .insert(images)
+      .select();
+
+    if (error) throw error;
+    return (data ?? []) as ProductImage[];
   },
 
   async update(id: string, updates: Partial<ProductImage>) {

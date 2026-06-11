@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -30,9 +30,15 @@ async function uploadCategoryImage(file: File, categoryId: string): Promise<stri
   return data.publicUrl;
 }
 
-export default function AdminCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+interface AdminCategoriesProps {
+  // Categories state lives in AdminDashboard so the Products tab sees
+  // creates/updates/deletes immediately without a reload.
+  categories: Category[];
+  loading: boolean;
+  refreshCategories: () => Promise<void>;
+}
+
+export default function AdminCategories({ categories, loading, refreshCategories }: AdminCategoriesProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -48,23 +54,6 @@ export default function AdminCategories() {
     group_order: '',
     image_url: '',
   });
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  const loadCategories = async () => {
-    try {
-      setLoading(true);
-      const cats = await categoryService.getAll();
-      setCategories(cats);
-    } catch (error) {
-      toast.error('Failed to load categories');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const generateSlug = (name: string) =>
     name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
@@ -103,7 +92,7 @@ export default function AdminCategories() {
 
       resetForm();
       setIsOpen(false);
-      loadCategories();
+      refreshCategories();
     } catch (error) {
       toast.error('Failed to save category');
       console.error(error);
@@ -115,7 +104,7 @@ export default function AdminCategories() {
     try {
       await categoryService.delete(id);
       toast.success('Category deleted');
-      loadCategories();
+      refreshCategories();
     } catch (error) {
       toast.error('Failed to delete category');
       console.error(error);
@@ -185,18 +174,18 @@ export default function AdminCategories() {
       newCategories[draggedIndex],
     ];
 
-    setCategories(newCategories);
     setDraggedId(null);
 
     try {
-      for (let i = 0; i < newCategories.length; i++) {
-        await categoryService.update(newCategories[i].id, { display_order: i } as any);
-      }
+      await Promise.all(
+        newCategories.map((cat, i) => categoryService.update(cat.id, { display_order: i } as any)),
+      );
       toast.success('Order updated');
     } catch (error) {
       toast.error('Failed to update order');
       console.error(error);
     }
+    refreshCategories();
   };
 
   return (

@@ -34,6 +34,7 @@ export default function AdminImageGallery({ product, open, onClose, onPrimaryCha
   // Drag state
   const dragIndex = useRef<number | null>(null);
   const dragOverIndex = useRef<number | null>(null);
+  const [dropHighlight, setDropHighlight] = useState(false);
 
   const loadImages = useCallback(async () => {
     if (!product) return;
@@ -80,6 +81,14 @@ export default function AdminImageGallery({ product, open, onClose, onPrimaryCha
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    setDropHighlight(false);
+
+    // File drop from OS — route to upload instead of reorder
+    if (e.dataTransfer.files.length > 0) {
+      await uploadFiles(Array.from(e.dataTransfer.files));
+      return;
+    }
+
     const from = dragIndex.current;
     const to = dragOverIndex.current;
     if (from === null || to === null || from === to) return;
@@ -170,18 +179,13 @@ export default function AdminImageGallery({ product, open, onClose, onPrimaryCha
   };
 
   // ── Upload ───────────────────────────────────────────────────────────────────
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadFiles = async (files: File[]) => {
     if (!product) return;
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    e.target.value = '';
-
     const MAX_IMAGES = 10;
     if (images.length + files.length > MAX_IMAGES) {
       toast.error(`Maximum ${MAX_IMAGES} images per product`);
       return;
     }
-
     setUploading(true);
     let added = 0;
     for (let i = 0; i < files.length; i++) {
@@ -190,62 +194,38 @@ export default function AdminImageGallery({ product, open, onClose, onPrimaryCha
         toast.error(`${file.name} is not an image`);
         continue;
       }
-
-      // Resize
       if (autoResize) {
         try {
           const result = await autoResizeImage(file);
           const saved = result.originalSize - result.newSize;
           if (saved > 1024) toast.success(`Compressed · saved ${formatBytes(saved)}`);
           file = result.file;
-        } catch {
-          // continue with original
-        }
+        } catch { /* continue with original */ }
       }
-
-      // Upload placeholder
       const tempId = `__uploading__${Date.now()}__${i}`;
       const preview = URL.createObjectURL(file);
       setImages((prev) => [
         ...prev,
         {
-          id: tempId,
-          product_id: product.id,
-          image_url: preview,
-          alt_text: file.name,
-          description: '',
-          display_order: prev.length,
-          created_at: new Date().toISOString(),
-          uploading: true,
-          preview,
+          id: tempId, product_id: product.id, image_url: preview, alt_text: file.name,
+          description: '', display_order: prev.length,
+          created_at: new Date().toISOString(), uploading: true, preview,
         },
       ]);
-
       try {
         const url = await storageService.uploadProductImage(file, product.id);
         if (!url) throw new Error('Upload returned empty URL');
-
         const nextOrder = images.length + added;
         const created = await productImageService.create({
-          product_id: product.id,
-          image_url: url,
-          alt_text: file.name.replace(/\.[^.]+$/, ''),
-          description: '',
-          display_order: nextOrder,
+          product_id: product.id, image_url: url,
+          alt_text: file.name.replace(/\.[^.]+$/, ''), description: '', display_order: nextOrder,
         });
-
-        // If first ever image, also set as primary
         if (images.filter((img) => !img.uploading).length === 0 && added === 0) {
           await productService.update(product.id, { image_url: url });
           onPrimaryChanged?.(product.id, url);
         }
-
         setImages((prev) =>
-          prev.map((img) =>
-            img.id === tempId
-              ? { ...created, uploading: false, preview: undefined }
-              : img,
-          ),
+          prev.map((img) => img.id === tempId ? { ...created, uploading: false, preview: undefined } : img),
         );
         added++;
       } catch (err) {
@@ -257,6 +237,13 @@ export default function AdminImageGallery({ product, open, onClose, onPrimaryCha
     }
     setUploading(false);
     if (added > 0) toast.success(`${added} image${added > 1 ? 's' : ''} uploaded`);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    e.target.value = '';
+    await uploadFiles(files);
   };
 
   // ── Alt text editing ─────────────────────────────────────────────────────────
@@ -329,6 +316,13 @@ export default function AdminImageGallery({ product, open, onClose, onPrimaryCha
         </p>
 
         {/* Gallery grid */}
+        <div
+          className={`rounded-xl transition-all ${dropHighlight ? 'ring-2 ring-blue-400 bg-blue-50/60 p-1' : ''}`}
+          onDragEnter={(e) => { if (e.dataTransfer.types.includes('Files')) setDropHighlight(true); }}
+          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropHighlight(false); }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
+        >
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-red-600" />
@@ -337,13 +331,11 @@ export default function AdminImageGallery({ product, open, onClose, onPrimaryCha
           <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
             <ImageIcon className="w-12 h-12 mb-3 text-slate-300" />
             <p className="font-medium text-slate-600">No images yet</p>
-            <p className="text-sm mt-1">Upload images using the button above</p>
+            <p className="text-sm mt-1">Upload using the button above or drag &amp; drop images here</p>
           </div>
         ) : (
           <div
             className="grid grid-cols-2 sm:grid-cols-3 gap-3"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
           >
             {images.map((img, index) => (
               <div
@@ -491,6 +483,7 @@ export default function AdminImageGallery({ product, open, onClose, onPrimaryCha
             </label>
           </div>
         )}
+        </div>
 
         {/* Footer */}
         <div className="flex justify-between items-center pt-2 border-t border-slate-100">

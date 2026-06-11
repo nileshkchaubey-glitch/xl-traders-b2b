@@ -14,12 +14,13 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { productService, categoryService, storageService, productImageService } from '@/lib/productService';
+import { productService, storageService, productImageService } from '@/lib/productService';
 import { generateDescription } from '@/lib/aiService';
-import { autoResizeImage, batchAutoResize, formatBytes, normalizeImageUrl } from '@/lib/imageUtils';
+import { batchAutoResize, formatBytes, normalizeImageUrl } from '@/lib/imageUtils';
 import { Product, Category } from '@/lib/supabase';
 import { productCompleteness, completenessColor, AttentionFilter, ATTENTION_LABELS } from '@/lib/catalogHealth';
 import AdminImageGallery from '@/components/admin/AdminImageGallery';
+import CategoryCombobox from '@/components/admin/CategoryCombobox';
 
 const PAGE_SIZE = 50;
 const UNITS = ['pcs', 'box', 'pack', 'roll', 'kg', 'litre', 'set'];
@@ -77,16 +78,19 @@ interface AdminProductsProps {
   // "Needs Attention" filter, set from the Overview tab's quick action queue.
   attentionFilter?: AttentionFilter;
   onAttentionChange?: (filter: AttentionFilter) => void;
+  // Lifted to AdminDashboard so the Categories tab's changes appear here
+  // without a reload.
+  categories?: Category[];
 }
 
 export default function AdminProducts({
   onDialogOpenChange,
   attentionFilter = null,
   onAttentionChange,
+  categories = [],
 }: AdminProductsProps = {}) {
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters + pagination
@@ -104,10 +108,10 @@ export default function AdminProducts({
   const [cellSaving, setCellSaving] = useState(false);
   const cellInputRef = useRef<HTMLInputElement>(null);
 
-  // Quick-add row
+  // Quick-add row — open by default for fast catalogue entry
   const [quickAdd, setQuickAdd] = useState<QuickAdd>(QUICK_ADD_DEFAULTS);
   const [quickAdding, setQuickAdding] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(true);
   const quickNameRef = useRef<HTMLInputElement>(null);
 
   // Full dialog (for images, description, AI)
@@ -127,6 +131,7 @@ export default function AdminProducts({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [autoResize, setAutoResize] = useState(true);
+  const [dialogDropHighlight, setDialogDropHighlight] = useState(false);
 
   // Image gallery
   const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
@@ -153,11 +158,6 @@ export default function AdminProducts({
     }
   }, [page, debouncedSearch, selectedCategory, status, attentionFilter]);
 
-  const loadCategories = useCallback(async () => {
-    const cats = await categoryService.getAll();
-    setCategories(cats);
-  }, []);
-
   // One-time initial fetch. With forceMount the component never unmounts, so
   // switching tabs away and back must NOT re-hit Supabase — hasFetched guards
   // against that (and against React StrictMode's double-invoke on mount).
@@ -165,7 +165,6 @@ export default function AdminProducts({
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
-    loadCategories();
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -238,27 +237,29 @@ export default function AdminProducts({
   };
 
   // ── Inline cell save ────────────────────────────────────────────────────────
-  const saveCellEdit = async () => {
-    if (!cellEdit || cellSaving) return;
+  // Returns false when the edit could not be saved (validation/network error)
+  // so Tab navigation knows not to move on and discard the user's input.
+  const saveCellEdit = async (): Promise<boolean> => {
+    if (!cellEdit || cellSaving) return true;
     const { productId, field, value } = cellEdit;
     const product = products.find((p) => p.id === productId);
-    if (!product) return;
+    if (!product) return true;
 
     // Validate
     if (field === 'price') {
       const n = parseFloat(value);
-      if (isNaN(n) || n < 0) { toast.error('Invalid price'); return; }
+      if (isNaN(n) || n < 0) { toast.error('Invalid price'); return false; }
     }
     if (field === 'mrp') {
-      if (value && isNaN(parseFloat(value))) { toast.error('Invalid MRP'); return; }
+      if (value && isNaN(parseFloat(value))) { toast.error('Invalid MRP'); return false; }
     }
     if (field === 'quantity_in_unit') {
-      if (value && (isNaN(parseInt(value)) || parseInt(value) <= 0)) { toast.error('Invalid quantity'); return; }
+      if (value && (isNaN(parseInt(value)) || parseInt(value) <= 0)) { toast.error('Invalid quantity'); return false; }
     }
 
     // No change?
     const currentVal = String((product as any)[field] ?? '');
-    if (value.trim() === currentVal.trim()) { setCellEdit(null); return; }
+    if (value.trim() === currentVal.trim()) { setCellEdit(null); return true; }
 
     setCellSaving(true);
     try {
@@ -271,7 +272,8 @@ export default function AdminProducts({
       await productService.update(productId, update);
       setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, ...update } : p));
       setCellEdit(null);
-    } catch { toast.error('Failed to save'); }
+      return true;
+    } catch { toast.error('Failed to save'); return false; }
     finally { setCellSaving(false); }
   };
 
@@ -281,9 +283,34 @@ export default function AdminProducts({
 
   const cancelCellEdit = () => setCellEdit(null);
 
-  const handleCellKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') saveCellEdit();
-    if (e.key === 'Escape') cancelCellEdit();
+  // Spreadsheet-style Tab navigation across inline-editable cells.
+  const CELL_FIELDS = ['name', 'category_id', 'price', 'mrp', 'unit_of_measure', 'quantity_in_unit', 'brand'];
+
+  const getAdjacentCell = (backward: boolean) => {
+    if (!cellEdit) return null;
+    const fieldIdx = CELL_FIELDS.indexOf(cellEdit.field);
+    const rowIdx = products.findIndex((p) => p.id === cellEdit.productId);
+    if (fieldIdx === -1 || rowIdx === -1) return null;
+    let nextField = fieldIdx + (backward ? -1 : 1);
+    let nextRow = rowIdx;
+    if (nextField >= CELL_FIELDS.length) { nextField = 0; nextRow++; }
+    if (nextField < 0) { nextField = CELL_FIELDS.length - 1; nextRow--; }
+    if (nextRow < 0 || nextRow >= products.length) return null;
+    const target = products[nextRow];
+    const field = CELL_FIELDS[nextField];
+    return { productId: target.id, field, value: (target as any)[field] as string | number | null | undefined };
+  };
+
+  const handleCellKey = async (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { saveCellEdit(); return; }
+    if (e.key === 'Escape') { cancelCellEdit(); return; }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      // Resolve the target before saving — saveCellEdit clears cellEdit.
+      const next = getAdjacentCell(e.shiftKey);
+      const saved = await saveCellEdit();
+      if (saved && next) startCellEdit(next.productId, next.field, next.value);
+    }
   };
 
   // Category inline select
@@ -330,9 +357,12 @@ export default function AdminProducts({
         sku,
       } as any);
       toast.success(`"${quickAdd.name.trim()}" added`);
-      setQuickAdd(QUICK_ADD_DEFAULTS);
-      quickNameRef.current?.focus();
+      // Keep category, unit, qty and brand for the next entry — bulk entry is
+      // usually many products in the same category/brand. Reset the rest.
+      setQuickAdd((q) => ({ ...q, name: '', price: '', mrp: '' }));
       loadProducts();
+      // Re-focus name for the next entry (after the disabled state clears)
+      setTimeout(() => quickNameRef.current?.focus(), 50);
     } catch { toast.error('Failed to add product'); }
     finally { setQuickAdding(false); }
   };
@@ -372,11 +402,9 @@ export default function AdminProducts({
   };
 
   // ── Full dialog (images + description) ─────────────────────────────────────
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  const handleImageFiles = async (files: File[]) => {
     if (!files.length) return;
     if (files.length + images.length > 5) { toast.error('Maximum 5 images allowed'); return; }
-    e.target.value = '';
     if (autoResize) {
       setIsResizing(true);
       try {
@@ -393,6 +421,12 @@ export default function AdminProducts({
       setImagePreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
       setImageMetadata((prev) => [...prev, ...files.map(() => ({ altText: '', description: '' }))]);
     }
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    await handleImageFiles(files);
   };
 
   const removeImage = (index: number) => {
@@ -463,24 +497,41 @@ export default function AdminProducts({
         product = await productService.create(productData);
       }
       if (images.length > 0) {
-        const uploadedUrls: string[] = [];
-        for (let i = 0; i < images.length; i++) {
+        // Upload all files in parallel, then batch-insert gallery rows in one
+        // request — much faster than the old sequential upload+insert loop.
+        const uploaded = await Promise.all(
+          images.map(async (img, i) => {
+            try {
+              const url = await storageService.uploadProductImage(img, product.id);
+              return url ? { url, index: i } : null;
+            } catch { return null; }
+          }),
+        );
+        const ok = uploaded.filter((u): u is { url: string; index: number } => u !== null);
+        const failedCount = images.length - ok.length;
+        if (failedCount > 0) toast.error(`${failedCount} image${failedCount > 1 ? 's' : ''} failed to upload`);
+        if (ok.length > 0) {
           try {
-            const imageUrl = await storageService.uploadProductImage(images[i], product.id);
-            if (!imageUrl) continue;
-            uploadedUrls.push(imageUrl);
-            await productImageService.create({
-              product_id: product.id, image_url: imageUrl,
-              alt_text: imageMetadata[i]?.altText || formData.name,
-              description: imageMetadata[i]?.description || '',
-              display_order: i,
-            });
-          } catch { toast.error(`Failed to upload image ${i + 1}`); }
+            await productImageService.createMany(ok.map(({ url, index }) => ({
+              product_id: product.id,
+              image_url: url,
+              alt_text: imageMetadata[index]?.altText || formData.name,
+              description: imageMetadata[index]?.description || '',
+              display_order: index,
+            })));
+          } catch { toast.error('Failed to save image records'); }
+          product = await productService.update(product.id, { image_url: ok[0].url });
         }
-        if (uploadedUrls.length > 0) await productService.update(product.id, { image_url: uploadedUrls[0] });
       }
       toast.success(editingId ? 'Product updated' : 'Product created');
-      resetForm(); setIsOpen(false); loadProducts();
+      resetForm(); setIsOpen(false);
+      if (editingId) {
+        // Optimistic: patch the edited row in place — no refetch, no flicker.
+        setProducts((prev) => prev.map((p) => (p.id === editingId ? { ...p, ...product } : p)));
+      } else {
+        // New product: refetch so it appears with correct sort/pagination.
+        loadProducts();
+      }
     } catch { toast.error('Failed to save product'); }
     finally { setIsSaving(false); }
   };
@@ -753,16 +804,15 @@ export default function AdminProducts({
                       disabled={quickAdding}
                     />
                   </td>
-                  {/* Category */}
+                  {/* Category — searchable combobox */}
                   <td className="px-2 py-2">
-                    <Select value={quickAdd.category_id || ''} onValueChange={(v) => setQuickAdd({ ...quickAdd, category_id: v })}>
-                      <SelectTrigger className="h-8 text-sm w-full border-green-300">
-                        <SelectValue placeholder="Category *" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <CategoryCombobox
+                      categories={categories}
+                      value={quickAdd.category_id}
+                      onChange={(v) => setQuickAdd({ ...quickAdd, category_id: v })}
+                      placeholder="Category *"
+                      className="h-8 text-sm border-green-300"
+                    />
                   </td>
                   {/* Price */}
                   <td className="px-2 py-2">
@@ -1061,10 +1111,12 @@ export default function AdminProducts({
             </div>
             <div className="space-y-1.5">
               <Label>Category *</Label>
-              <Select value={formData.category_id || ''} onValueChange={(v) => setFormData({ ...formData, category_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>{categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <CategoryCombobox
+                categories={categories}
+                value={formData.category_id}
+                onChange={(v) => setFormData({ ...formData, category_id: v })}
+                placeholder="Select category"
+              />
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
@@ -1136,7 +1188,17 @@ export default function AdminProducts({
               <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Product description…" rows={3} />
             </div>
             {/* Images */}
-            <div className="space-y-2">
+            <div
+              className={`space-y-2 rounded-xl transition-all ${dialogDropHighlight ? 'ring-2 ring-blue-400 bg-blue-50/50 p-2 -mx-2' : ''}`}
+              onDragEnter={(e) => { if (e.dataTransfer.types.includes('Files')) setDialogDropHighlight(true); }}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDialogDropHighlight(false); }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={async (e) => {
+                e.preventDefault();
+                setDialogDropHighlight(false);
+                if (e.dataTransfer.files.length) await handleImageFiles(Array.from(e.dataTransfer.files));
+              }}
+            >
               <div className="flex items-center justify-between">
                 <Label>Images <span className="text-slate-400 font-normal">(up to 5)</span></Label>
                 <button

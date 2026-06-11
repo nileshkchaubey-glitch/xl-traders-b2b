@@ -21,6 +21,8 @@ import AdminGoogleSheets from '@/components/admin/AdminGoogleSheets';
 import AdminOrders from '@/components/admin/AdminOrders';
 import AdminSEO from '@/components/admin/AdminSEO';
 import { AttentionFilter } from '@/lib/catalogHealth';
+import { categoryService } from '@/lib/productService';
+import { Category } from '@/lib/supabase';
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
@@ -34,6 +36,21 @@ export default function AdminDashboard() {
 
   // "Needs Attention" filter for the Products tab, set from Overview
   const [productsAttention, setProductsAttention] = useState<AttentionFilter>(null);
+
+  // Categories are shared by the Products and Categories tabs. Lifted here so
+  // a create/update/delete in one tab is immediately visible in the other
+  // without a page reload.
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const refreshCategories = useCallback(async () => {
+    try {
+      const cats = await categoryService.getAll();
+      setCategories(cats);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
+  useEffect(() => { refreshCategories(); }, [refreshCategories]);
 
   // Unsaved-changes guard for the product editor dialog
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -219,6 +236,7 @@ export default function AdminDashboard() {
               onDialogOpenChange={setProductDialogOpen}
               attentionFilter={productsAttention}
               onAttentionChange={setProductsAttention}
+              categories={categories}
             />
           </TabsContent>
 
@@ -227,7 +245,11 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="categories">
-            <AdminCategories />
+            <AdminCategories
+              categories={categories}
+              loading={categoriesLoading}
+              refreshCategories={refreshCategories}
+            />
           </TabsContent>
 
           <TabsContent value="enquiries">
