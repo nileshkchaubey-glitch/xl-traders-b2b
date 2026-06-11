@@ -67,16 +67,17 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     return (
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition flex">
         {/* Image */}
-        <Link href={`/product/${product.id}`} className="w-24 h-24 flex-shrink-0 overflow-hidden bg-white">
+        <Link href={`/product/${product.id}`} className="w-24 h-24 flex-shrink-0 overflow-hidden bg-slate-50">
           {imageUrl ? (
             <>
               <img
                 src={imageUrl}
                 alt={product.image_alt_text || product.name}
+                width={96}
+                height={96}
                 className="w-full h-full object-contain p-1.5"
                 loading="lazy"
                 decoding="async"
-                style={{ background: '#f1f5f9' }}
                 onError={handleImgError}
               />
               <div className="hidden w-full h-full flex items-center justify-center bg-slate-100">
@@ -131,16 +132,17 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-slate-300 transition h-full flex flex-col">
       {/* Image */}
       <Link href={`/product/${product.id}`} className="block">
-        <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-white">
+        <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-slate-50">
           {imageUrl ? (
             <>
               <img
                 src={imageUrl}
                 alt={product.image_alt_text || product.name}
+                width={400}
+                height={400}
                 className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
                 loading="lazy"
                 decoding="async"
-                style={{ background: '#f1f5f9' }}
                 onError={handleImgError}
               />
               <div className="hidden w-full h-full flex items-center justify-center bg-slate-100">

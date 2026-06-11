@@ -442,6 +442,13 @@ export default function AdminProducts({
     setImages([]); setImageMetadata([]); setImagePreviews([]); setExistingImageUrl(null); setEditingId(null);
   };
 
+  // Open the full dialog with a blank form to add a product that needs an
+  // image, description, or the extra fields the quick-add row doesn't cover.
+  const handleOpenFullAdd = () => {
+    resetForm();
+    setIsOpen(true);
+  };
+
   const handleOpenFullEdit = (product: Product) => {
     setFormData({
       name: product.name,
@@ -494,6 +501,11 @@ export default function AdminProducts({
       if (editingId) {
         product = await productService.update(editingId, productData);
       } else {
+        // Auto-generate a SKU when blank so every product has a stable handle,
+        // matching the quick-add row's behaviour.
+        if (!productData.sku) {
+          productData.sku = `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        }
         product = await productService.create(productData);
       }
       if (images.length > 0) {
@@ -693,10 +705,18 @@ export default function AdminProducts({
           <Button
             onClick={() => { setShowQuickAdd((v) => !v); }}
             className="gap-2"
-            variant={showQuickAdd ? 'outline' : 'default'}
+            variant="outline"
           >
-            {showQuickAdd ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showQuickAdd ? <X className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
             {showQuickAdd ? 'Cancel quick-add' : 'Quick Add'}
+          </Button>
+          <Button
+            onClick={handleOpenFullAdd}
+            className="gap-2"
+            title="Add a product with image, description and full details"
+          >
+            <Plus className="w-4 h-4" />
+            Add Product
           </Button>
         </div>
       </div>
