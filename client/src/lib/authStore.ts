@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase, UserProfile } from './supabase';
+import { invalidateSessionCache } from './productService';
 
 const ADMIN_EMAILS = new Set(
   (import.meta.env.VITE_ADMIN_EMAILS || 'nileshk.chaubey@gmail.com')
@@ -95,6 +96,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!authListenerAttached) {
         authListenerAttached = true;
         supabase.auth.onAuthStateChange(async (event, session) => {
+          // productService caches the has-session flag that gates price
+          // columns (guest vs auth). Invalidate on EVERY auth event so a
+          // stale cache can never show prices to anon users after logout.
+          invalidateSessionCache();
+
           if (event === 'TOKEN_REFRESHED') {
             // Silently update stored user so the refreshed JWT stays in sync.
             // No isLoading flip, no profile refetch — avoids a global re-render
