@@ -344,7 +344,7 @@ export default function AdminProducts({
     setQuickAdding(true);
     try {
       const sku = `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-      await productService.create({
+      const created = await productService.create({
         name: quickAdd.name.trim(),
         category_id: quickAdd.category_id,
         price: parseFloat(quickAdd.price),
@@ -360,7 +360,19 @@ export default function AdminProducts({
       // Keep category, unit, qty and brand for the next entry — bulk entry is
       // usually many products in the same category/brand. Reset the rest.
       setQuickAdd((q) => ({ ...q, name: '', price: '', mrp: '' }));
-      loadProducts();
+      // Optimistic insert instead of a full refetch: the new product sorts to
+      // the top (created_at desc), so on page 1 with no active filters we can
+      // just prepend it. Keeps rapid bulk entry flicker-free. Otherwise the
+      // filtered view might not include it, so fall back to a refetch.
+      const onCleanFirstPage =
+        page === 1 && !debouncedSearch.trim() && selectedCategory === 'all'
+        && status === 'all' && !attentionFilter;
+      if (created && onCleanFirstPage) {
+        setProducts((prev) => [created, ...prev].slice(0, PAGE_SIZE));
+        setTotalCount((c) => c + 1);
+      } else {
+        loadProducts();
+      }
       // Re-focus name for the next entry (after the disabled state clears)
       setTimeout(() => quickNameRef.current?.focus(), 50);
     } catch { toast.error('Failed to add product'); }
