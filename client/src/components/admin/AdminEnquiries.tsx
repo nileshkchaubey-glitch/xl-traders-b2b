@@ -107,22 +107,31 @@ export default function AdminEnquiries() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Enquiries</h2>
-          <p className="text-slate-600 text-sm mt-1">{filteredEnquiries.length} enquiries</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">Enquiries</h1>
+            <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+              {filteredEnquiries.length}
+            </span>
+          </div>
+          <p className="text-slate-400 text-xs mt-0.5">Customer product enquiries submitted via the store</p>
         </div>
-        <Button onClick={loadEnquiries} variant="outline">
-          Refresh
-        </Button>
+        <button
+          onClick={loadEnquiries}
+          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors"
+          title="Refresh"
+        >
+          <Eye className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-4">
+      {/* Filter strip */}
+      <div className="flex flex-wrap gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-48 h-9 bg-slate-50 border-slate-200 text-sm">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -136,7 +145,7 @@ export default function AdminEnquiries() {
       </div>
 
       {/* Enquiries Table */}
-      <Card>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -224,7 +233,7 @@ export default function AdminEnquiries() {
             </TableBody>
           </Table>
         </div>
-      </Card>
+      </div>
 
       {/* Details Dialog */}
       {selectedEnquiry && (

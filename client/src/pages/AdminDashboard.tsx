@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useAuthStore } from '@/lib/authStore';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { LogOut, Package, Grid3x3, MessageSquare, Settings, Upload, LayoutDashboard, FileSpreadsheet, ShoppingBag, Globe } from 'lucide-react';
+import {
+  LogOut, Package, Grid3x3, MessageSquare, Settings, Upload,
+  LayoutDashboard, FileSpreadsheet, ShoppingBag, Globe, Menu, X,
+  ChevronRight, ExternalLink,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import AdminOverview from '@/components/admin/AdminOverview';
@@ -24,22 +26,70 @@ import { AttentionFilter } from '@/lib/catalogHealth';
 import { categoryService } from '@/lib/productService';
 import { Category } from '@/lib/supabase';
 
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Catalogue',
+    items: [
+      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+      { id: 'products', label: 'Products', icon: Package },
+      { id: 'categories', label: 'Catalogues', icon: Grid3x3 },
+    ],
+  },
+  {
+    label: 'Sales',
+    items: [
+      { id: 'orders', label: 'Orders', icon: ShoppingBag },
+      { id: 'enquiries', label: 'Enquiries', icon: MessageSquare },
+    ],
+  },
+  {
+    label: 'Content & Import',
+    items: [
+      { id: 'seo', label: 'SEO', icon: Globe },
+      { id: 'bulk-import', label: 'CSV Import', icon: Upload },
+      { id: 'google-sheets', label: 'Google Sheets', icon: FileSpreadsheet },
+    ],
+  },
+  {
+    label: 'System',
+    items: [{ id: 'settings', label: 'Settings', icon: Settings }],
+  },
+];
+
+const BREADCRUMB: Record<string, { parent: string; label: string }> = {
+  overview:      { parent: 'Catalogue',          label: 'Overview' },
+  products:      { parent: 'Catalogue',          label: 'Products' },
+  categories:    { parent: 'Catalogue',          label: 'Catalogues' },
+  orders:        { parent: 'Sales',              label: 'Orders' },
+  enquiries:     { parent: 'Sales',              label: 'Enquiries' },
+  seo:           { parent: 'Content & Import',   label: 'SEO' },
+  'bulk-import': { parent: 'Content & Import',   label: 'CSV Import' },
+  'google-sheets':{ parent: 'Content & Import',  label: 'Google Sheets' },
+  settings:      { parent: 'System',             label: 'Settings' },
+};
+
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isAdmin, isLoading, refreshProfile, signOut } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [accessChecked, setAccessChecked] = useState(false);
   const redirectingRef = useRef(false);
-  // Once admin access is confirmed, never re-run verification — auth-store
-  // updates (e.g. profile refresh) would otherwise retrigger the effect.
   const hasVerified = useRef(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // "Needs Attention" filter for the Products tab, set from Overview
   const [productsAttention, setProductsAttention] = useState<AttentionFilter>(null);
 
-  // Categories are shared by the Products and Categories tabs. Lifted here so
-  // a create/update/delete in one tab is immediately visible in the other
-  // without a page reload.
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const refreshCategories = useCallback(async () => {
@@ -52,12 +102,12 @@ export default function AdminDashboard() {
   }, []);
   useEffect(() => { refreshCategories(); }, [refreshCategories]);
 
-  // Unsaved-changes guard for the product editor dialog
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [showLeaveWarning, setShowLeaveWarning] = useState(false);
 
   const handleTabChange = useCallback((tab: string) => {
+    setSidebarOpen(false);
     if (productDialogOpen && tab !== 'products') {
       setPendingTab(tab);
       setShowLeaveWarning(true);
@@ -79,15 +129,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function verifyAccess() {
       if (hasVerified.current) return;
       if (isLoading) return;
       if (!isAuthenticated) {
-        if (!redirectingRef.current) {
-          redirectingRef.current = true;
-          setLocation('/auth');
-        }
+        if (!redirectingRef.current) { redirectingRef.current = true; setLocation('/auth'); }
         return;
       }
       if (isAdmin) { hasVerified.current = true; setAccessChecked(true); return; }
@@ -100,7 +146,6 @@ export default function AdminDashboard() {
         setLocation('/');
       }
     }
-
     verifyAccess();
     return () => { cancelled = true; };
   }, [isLoading, isAuthenticated, isAdmin, setLocation, refreshProfile]);
@@ -124,154 +169,176 @@ export default function AdminDashboard() {
     toast.success('Logged out');
   };
 
+  const crumb = BREADCRUMB[activeTab] ?? { parent: '', label: activeTab };
+  const initials = user?.email?.[0]?.toUpperCase() ?? 'A';
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-slate-900 border-b border-red-600 sticky top-0 z-50">
-        <div className="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-base">XL</span>
-            </div>
-            <div className="hidden sm:block">
-              <h1 className="text-white font-bold text-base leading-none">Admin Panel</h1>
-              <p className="text-slate-400 text-xs mt-0.5">XL Traders B2B</p>
-            </div>
-          </div>
+    <div className="flex h-screen bg-[#f4f6f9] overflow-hidden">
 
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden md:block">
-              <p className="text-white text-sm font-medium leading-none">{user?.email}</p>
-              <p className="text-slate-400 text-xs mt-0.5">Administrator</p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="gap-2 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
+      {/* ── Mobile overlay ─────────────────────────────────────────────────── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
+      <aside
+        className={`fixed left-0 top-0 h-full w-[220px] bg-[#1a1d27] flex flex-col z-50 transition-transform duration-200
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:static lg:translate-x-0 flex-shrink-0`}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/[0.07]">
+          <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg">
+            <span className="text-white font-black text-sm leading-none">XL</span>
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-bold text-sm leading-none">XL Traders</p>
+            <p className="text-slate-500 text-[11px] mt-0.5">Admin Panel</p>
+          </div>
+          <button className="lg:hidden text-slate-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
+            <X className="w-4 h-4" />
+          </button>
         </div>
-      </div>
 
-      {/* Unsaved-changes warning */}
-      <AlertDialog open={showLeaveWarning} onOpenChange={(open) => { if (!open) cancelLeave(); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have the product editor open with unsaved changes.
-              Switching tabs will not close the editor, but if you save while on another tab the dialog will appear hidden.
-              Stay on Products to finish editing, or leave anyway.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={cancelLeave}>Stay editing</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmLeave}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              Leave anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-slate-600 px-3 mb-1.5 select-none">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const active = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleTabChange(item.id)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all text-left
+                        ${active
+                          ? 'bg-red-600 text-white shadow-sm shadow-red-900/30'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.07]'
+                        }`}
+                    >
+                      <item.icon className="w-4 h-4 flex-shrink-0" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
 
-      {/* Main content */}
-      <div className="max-w-screen-xl mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          {/* Tab nav */}
-          <TabsList className="flex w-full overflow-x-auto gap-1 mb-8 h-auto p-1 bg-white border border-slate-200 rounded-xl shadow-sm flex-wrap">
-            <TabsTrigger value="overview" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              <LayoutDashboard className="w-4 h-4" />
-              <span className="hidden sm:inline">Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="products" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              <Package className="w-4 h-4" />
-              <span className="hidden sm:inline">Products</span>
-            </TabsTrigger>
-            <TabsTrigger value="orders" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              <ShoppingBag className="w-4 h-4" />
-              <span className="hidden sm:inline">Orders</span>
-            </TabsTrigger>
-            <TabsTrigger value="categories" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              <Grid3x3 className="w-4 h-4" />
-              <span className="hidden sm:inline">Catalogues</span>
-            </TabsTrigger>
-            <TabsTrigger value="enquiries" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">Enquiries</span>
-            </TabsTrigger>
-            <TabsTrigger value="seo" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              <Globe className="w-4 h-4" />
-              <span className="hidden sm:inline">SEO</span>
-            </TabsTrigger>
-            <TabsTrigger value="bulk-import" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">CSV Import</span>
-            </TabsTrigger>
-            <TabsTrigger value="google-sheets" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              <FileSpreadsheet className="w-4 h-4" />
-              <span className="hidden sm:inline">Google Sheets</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-1.5 flex-shrink-0 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Settings</span>
-            </TabsTrigger>
-          </TabsList>
+        {/* User footer */}
+        <div className="border-t border-white/[0.07] p-4">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold shadow">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-white text-[12px] font-semibold truncate leading-none">
+                {user?.email?.split('@')[0] ?? 'Admin'}
+              </p>
+              <p className="text-slate-500 text-[10px] mt-0.5">Administrator</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.07] text-[12px] font-medium transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sign out
+          </button>
+        </div>
+      </aside>
 
-          {/* products uses forceMount to preserve unsaved dialog form state across tab switches */}
-          <TabsContent value="overview">
-            <AdminOverview
-              onTabChange={setActiveTab}
-              onNeedsAttention={(filter) => { setProductsAttention(filter); setActiveTab('products'); }}
-            />
-          </TabsContent>
+      {/* ── Main ────────────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
 
-          <TabsContent value="products" forceMount className="data-[state=inactive]:hidden">
-            <AdminProducts
-              onDialogOpenChange={setProductDialogOpen}
-              attentionFilter={productsAttention}
-              onAttentionChange={setProductsAttention}
-              categories={categories}
-            />
-          </TabsContent>
+        {/* Top bar */}
+        <header className="bg-white border-b border-slate-200/80 px-6 py-3 flex items-center gap-4 flex-shrink-0">
+          <button className="lg:hidden text-slate-400 hover:text-slate-700" onClick={() => setSidebarOpen(true)}>
+            <Menu className="w-5 h-5" />
+          </button>
 
-          <TabsContent value="orders">
-            <AdminOrders />
-          </TabsContent>
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="text-slate-400 text-xs">{crumb.parent}</span>
+            <ChevronRight className="w-3 h-3 text-slate-300" />
+            <span className="font-semibold text-slate-800 text-sm">{crumb.label}</span>
+          </div>
 
-          <TabsContent value="categories">
-            <AdminCategories
-              categories={categories}
-              loading={categoriesLoading}
-              refreshCategories={refreshCategories}
-            />
-          </TabsContent>
+          <div className="flex-1" />
 
-          <TabsContent value="enquiries">
-            <AdminEnquiries />
-          </TabsContent>
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors font-medium"
+          >
+            <ExternalLink className="w-3 h-3" />
+            View Store
+          </a>
+        </header>
 
-          <TabsContent value="seo">
-            <AdminSEO />
-          </TabsContent>
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-screen-xl mx-auto px-6 py-6">
 
-          <TabsContent value="bulk-import">
-            <AdminBulkImport onGoToProducts={() => setActiveTab('products')} />
-          </TabsContent>
+            <AlertDialog open={showLeaveWarning} onOpenChange={(open) => { if (!open) cancelLeave(); }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You have the product editor open. Switching tabs will not close it, but saving while on another tab hides the dialog. Stay on Products to finish editing.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={cancelLeave}>Stay editing</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmLeave} className="bg-red-600 hover:bg-red-700 text-white">
+                    Leave anyway
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
-          <TabsContent value="google-sheets">
-            <AdminGoogleSheets />
-          </TabsContent>
+            {activeTab === 'overview' && (
+              <AdminOverview
+                onTabChange={setActiveTab}
+                onNeedsAttention={(filter) => { setProductsAttention(filter); setActiveTab('products'); }}
+              />
+            )}
 
-          <TabsContent value="settings">
-            <AdminSettings />
-          </TabsContent>
-        </Tabs>
+            <div className={activeTab !== 'products' ? 'hidden' : ''}>
+              <AdminProducts
+                onDialogOpenChange={setProductDialogOpen}
+                attentionFilter={productsAttention}
+                onAttentionChange={setProductsAttention}
+                categories={categories}
+              />
+            </div>
+
+            {activeTab === 'orders' && <AdminOrders />}
+
+            {activeTab === 'categories' && (
+              <AdminCategories
+                categories={categories}
+                loading={categoriesLoading}
+                refreshCategories={refreshCategories}
+              />
+            )}
+
+            {activeTab === 'enquiries' && <AdminEnquiries />}
+            {activeTab === 'seo' && <AdminSEO />}
+            {activeTab === 'bulk-import' && <AdminBulkImport onGoToProducts={() => setActiveTab('products')} />}
+            {activeTab === 'google-sheets' && <AdminGoogleSheets />}
+            {activeTab === 'settings' && <AdminSettings />}
+
+          </div>
+        </main>
       </div>
     </div>
   );

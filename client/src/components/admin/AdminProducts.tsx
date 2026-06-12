@@ -681,61 +681,70 @@ export default function AdminProducts({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-5">
-      {/* Header */}
+    <div className="space-y-4">
+
+      {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Products</h2>
-          <p className="text-slate-500 text-sm mt-0.5">
-            {totalCount.toLocaleString()} total · page {page} of {Math.max(totalPages, 1)}
-            <span className="ml-3 text-xs text-slate-400">Click any cell to edit inline</span>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">Products</h1>
+            <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+              {totalCount.toLocaleString()}
+            </span>
+          </div>
+          <p className="text-slate-400 text-xs mt-0.5">
+            Page {page} of {Math.max(totalPages, 1)} · click any cell to edit inline · Tab moves between fields
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button
+          <button
             onClick={() => loadProducts()}
-            variant="outline"
-            className="gap-2"
             disabled={loading}
-            title="Reload products from the database"
+            title="Reload"
+            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          </button>
           <Button
-            onClick={() => { setShowQuickAdd((v) => !v); }}
-            className="gap-2"
+            onClick={() => setShowQuickAdd((v) => !v)}
             variant="outline"
+            size="sm"
+            className="gap-1.5 text-sm"
           >
-            {showQuickAdd ? <X className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
-            {showQuickAdd ? 'Cancel quick-add' : 'Quick Add'}
+            <Zap className="w-3.5 h-3.5" />
+            {showQuickAdd ? 'Hide quick-add' : 'Quick Add'}
           </Button>
           <Button
             onClick={handleOpenFullAdd}
-            className="gap-2"
-            title="Add a product with image, description and full details"
+            size="sm"
+            className="gap-1.5 text-sm bg-red-600 hover:bg-red-700 text-white border-0"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             Add Product
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex-1 min-w-[180px] relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input placeholder="Search products…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* ── Filters ──────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
+        <div className="flex-1 min-w-[200px] relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <Input
+            placeholder="Search by name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
+          />
         </div>
         <Select value={selectedCategory} onValueChange={(v) => { setSelectedCategory(v); setPage(1); }}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="All catalogues" /></SelectTrigger>
+          <SelectTrigger className="w-44 h-9 bg-slate-50 border-slate-200 text-sm"><SelectValue placeholder="All catalogues" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All catalogues</SelectItem>
             {categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={(v) => { setStatus(v as StatusFilter); setPage(1); }}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All status</SelectItem>
             <SelectItem value="active">Active</SelectItem>
@@ -744,55 +753,52 @@ export default function AdminProducts({
           </SelectContent>
         </Select>
         {attentionFilter && (
-          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-1.5 text-sm font-semibold">
-            Needs attention: {ATTENTION_LABELS[attentionFilter]}
-            <button
-              onClick={() => onAttentionChange?.(null)}
-              className="p-0.5 hover:bg-amber-100 rounded"
-              title="Clear filter"
-            >
-              <X className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 h-9 text-sm font-semibold">
+            <span className="text-amber-500">●</span>
+            {ATTENTION_LABELS[attentionFilter]}
+            <button onClick={() => onAttentionChange?.(null)} className="ml-1 p-0.5 hover:bg-amber-100 rounded">
+              <X className="w-3 h-3" />
             </button>
           </div>
         )}
       </div>
 
-      {/* Bulk action bar */}
+      {/* ── Bulk action bar ───────────────────────────────────────────────────── */}
       {someSelected && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-          <span className="text-sm font-semibold text-red-800">{selected.size} selected</span>
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+          <span className="text-sm font-semibold text-red-700">{selected.size} selected</span>
           <div className="flex-1" />
-          <Button size="sm" variant="outline" onClick={() => bulkActivate(true)}>Activate</Button>
-          <Button size="sm" variant="outline" onClick={() => bulkActivate(false)}>Deactivate</Button>
-          <Button size="sm" variant="destructive" onClick={bulkDelete}>Delete</Button>
-          <button onClick={() => setSelected(new Set())} className="ml-1 p-1 hover:bg-red-100 rounded">
-            <X className="w-4 h-4 text-red-600" />
+          <Button size="sm" variant="outline" onClick={() => bulkActivate(true)} className="h-7 text-xs">Activate</Button>
+          <Button size="sm" variant="outline" onClick={() => bulkActivate(false)} className="h-7 text-xs">Deactivate</Button>
+          <Button size="sm" variant="destructive" onClick={bulkDelete} className="h-7 text-xs">Delete</Button>
+          <button onClick={() => setSelected(new Set())} className="p-1 hover:bg-red-100 rounded text-red-500">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Table */}
-      <Card>
+      {/* ── Table ────────────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[900px]">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
+              <tr className="border-b border-slate-200 bg-slate-50/80">
                 <th className="w-10 px-3 py-3">
                   <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
                 </th>
-                <th className="w-14 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Img</th>
-                <th className="px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Name</th>
-                <th className="w-36 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Category</th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Price ₹</th>
-                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">MRP ₹</th>
-                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Unit</th>
-                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Qty</th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Brand</th>
-                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">SKU</th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Group</th>
-                <th className="w-18 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide" title="Completeness: image, price, category, slug, meta title">Score</th>
-                <th className="w-22 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Status</th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide">Actions</th>
+                <th className="w-14 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Img</th>
+                <th className="px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Name</th>
+                <th className="w-36 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Category</th>
+                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Price ₹</th>
+                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">MRP ₹</th>
+                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Unit</th>
+                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Qty</th>
+                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Brand</th>
+                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">SKU</th>
+                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Group</th>
+                <th className="w-18 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest" title="Completeness: image, price, category, slug, meta title">Score</th>
+                <th className="w-22 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Status</th>
+                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Actions</th>
               </tr>
             </thead>
 
@@ -1042,12 +1048,14 @@ export default function AdminProducts({
                   <td className="px-2 py-2">
                     <button
                       onClick={() => handleToggleActive(product.id, product.is_active)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap ${
+                      title="Click to toggle"
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap border ${
                         product.is_active
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${product.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                       {product.is_active ? 'Active' : 'Inactive'}
                     </button>
                   </td>
@@ -1113,7 +1121,7 @@ export default function AdminProducts({
             </div>
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Full Edit Dialog (description + images + AI) */}
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsOpen(open); }}>

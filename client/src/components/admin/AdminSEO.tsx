@@ -199,8 +199,8 @@ export default function AdminSEO() {
     return (
       <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">SEO</h2>
-          <p className="text-slate-500 text-sm mt-1">Slugs, meta titles and descriptions</p>
+          <h1 className="text-2xl font-bold text-slate-900">SEO</h1>
+          <p className="text-slate-400 text-xs mt-0.5">Slugs, meta titles and descriptions</p>
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800 space-y-2">
           <p className="font-semibold">SEO columns missing in Supabase</p>
@@ -223,9 +223,14 @@ export default function AdminSEO() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">SEO</h2>
-          <p className="text-slate-500 text-sm mt-1">
-            {products.length.toLocaleString()} products · {products.filter((p) => !p.slug).length} missing slug · {products.filter((p) => !p.meta_title).length} missing meta title
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">SEO</h1>
+            <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+              {products.length.toLocaleString()}
+            </span>
+          </div>
+          <p className="text-slate-400 text-xs mt-0.5">
+            {products.filter((p) => !p.slug).length} missing slug · {products.filter((p) => !p.meta_title).length} missing meta title
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">

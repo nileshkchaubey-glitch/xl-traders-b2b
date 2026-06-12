@@ -164,8 +164,8 @@ export default function AdminGoogleSheets() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Import from Google Sheets</h2>
-          <p className="text-slate-500 text-sm mt-1">
+          <h1 className="text-2xl font-bold text-slate-900">Google Sheets Import</h1>
+          <p className="text-slate-400 text-xs mt-0.5">
             Sync your product catalogue directly from a Google Spreadsheet
           </p>
         </div>
