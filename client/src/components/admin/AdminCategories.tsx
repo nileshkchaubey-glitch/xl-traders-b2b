@@ -189,18 +189,27 @@ export default function AdminCategories({ categories, loading, refreshCategories
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Categories</h2>
-          <p className="text-slate-600 text-sm mt-1">{categories.length} categories</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">Catalogues</h1>
+            <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+              {categories.length}
+            </span>
+          </div>
+          <p className="text-slate-400 text-xs mt-0.5">Drag to reorder · click edit to update a catalogue</p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => { resetForm(); setIsOpen(true); }} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Category
+            <Button
+              onClick={() => { resetForm(); setIsOpen(true); }}
+              size="sm"
+              className="gap-1.5 text-sm bg-red-600 hover:bg-red-700 text-white border-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Catalogue
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -342,59 +351,65 @@ export default function AdminCategories({ categories, loading, refreshCategories
           <div className="text-center py-8 text-slate-500">No categories</div>
         ) : (
           categories.map(category => (
-            <Card
+            <div
               key={category.id}
               draggable
               onDragStart={() => handleDragStart(category.id)}
               onDragOver={handleDragOver}
               onDrop={() => handleDrop(category.id)}
-              className={`p-4 cursor-move transition ${draggedId === category.id ? 'opacity-50' : ''}`}
+              className={`bg-white rounded-xl border border-slate-200 shadow-sm p-4 cursor-move transition-all hover:shadow-md ${draggedId === category.id ? 'opacity-40 scale-95' : ''}`}
             >
               <div className="flex items-start gap-3">
-                <GripVertical className="w-5 h-5 text-slate-400 mt-1 flex-shrink-0" />
+                <GripVertical className="w-4 h-4 text-slate-300 mt-1 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     {category.image_url ? (
                       <img
                         src={category.image_url}
                         alt={category.name}
-                        className="w-10 h-10 object-cover rounded flex-shrink-0"
+                        className="w-10 h-10 object-cover rounded-lg flex-shrink-0 border border-slate-100"
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : category.icon_emoji ? (
-                      <span className="text-2xl">{category.icon_emoji}</span>
-                    ) : null}
+                      <span className="text-2xl w-10 h-10 flex items-center justify-center bg-slate-50 rounded-lg border border-slate-100">{category.icon_emoji}</span>
+                    ) : (
+                      <div className="w-10 h-10 bg-slate-100 rounded-lg border border-slate-100 flex items-center justify-center">
+                        <span className="text-slate-400 text-xs font-bold">{category.name[0]?.toUpperCase()}</span>
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-slate-900 truncate">{category.name}</h3>
-                      <p className="text-xs text-slate-500">{category.slug}</p>
+                      <h3 className="font-semibold text-slate-900 truncate text-sm">{category.name}</h3>
+                      <p className="text-[11px] text-slate-400 font-mono">{category.slug}</p>
                     </div>
                   </div>
                   {category.group_name && (
-                    <p className="text-xs text-red-600 font-medium mt-1">{category.group_name}</p>
+                    <span className="inline-block mt-2 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                      {category.group_name}
+                    </span>
                   )}
                   {category.description && (
-                    <p className="text-sm text-slate-600 mt-1">{category.description}</p>
+                    <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">{category.description}</p>
                   )}
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-4 pt-4 border-t">
+              <div className="flex gap-1.5 mt-4 pt-3 border-t border-slate-100">
                 <button
                   onClick={() => handleEdit(category)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 hover:bg-slate-100 rounded text-slate-600 hover:text-slate-900 text-sm"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 text-xs font-medium transition-colors border border-slate-200"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Edit2 className="w-3.5 h-3.5" />
                   Edit
                 </button>
                 <button
                   onClick={() => handleDelete(category.id)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 hover:bg-red-50 rounded text-slate-600 hover:text-red-600 text-sm"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 text-xs font-medium transition-colors border border-transparent hover:border-red-100"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                   Delete
                 </button>
               </div>
-            </Card>
+            </div>
           ))
         )}
       </div>

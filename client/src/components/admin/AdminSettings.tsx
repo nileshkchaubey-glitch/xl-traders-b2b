@@ -103,8 +103,8 @@ export default function AdminSettings() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
-        <p className="text-slate-600 text-sm mt-1">Manage business information and contact details</p>
+        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+        <p className="text-slate-400 text-xs mt-0.5">Business information and contact details</p>
       </div>
 
       {/* Table unavailable notice */}

@@ -1,0 +1,2 @@
+- [Admin panel design system](admin-design-system.md) — XL Traders admin uses Shopify-style dark sidebar + light content area; primary color is red oklch(0.505 0.225 27.325)
+- [Admin JSX pattern](admin-jsx-pattern.md) — always use plain div (not Shadcn Card) for table/grid wrappers to avoid closing-tag mismatches during edits

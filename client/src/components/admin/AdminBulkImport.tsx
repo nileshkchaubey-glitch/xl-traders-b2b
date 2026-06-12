@@ -105,14 +105,20 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Bulk Import — CSV / Excel</h2>
-          <p className="text-slate-500 text-sm mt-1">
-            Import or update multiple products at once. Matched by SKU first, then by name.
+          <h1 className="text-2xl font-bold text-slate-900">CSV Import</h1>
+          <p className="text-slate-400 text-xs mt-0.5">
+            Import or update products in bulk · matched by SKU first, then by name
           </p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={handleExport} disabled={exporting} >
-          {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          Export All Products
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-sm"
+          onClick={handleExport}
+          disabled={exporting}
+        >
+          {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+          Export CSV
         </Button>
       </div>
 

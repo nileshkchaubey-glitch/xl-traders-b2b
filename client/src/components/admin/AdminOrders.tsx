@@ -207,12 +207,12 @@ export default function AdminOrders() {
   }, {} as Record<string, number>);
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Orders</h2>
-        <p className="text-slate-500 text-sm mt-0.5">
-          {orders.length} total orders · placed via cart + WhatsApp
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-slate-900">Orders</h1>
+        <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+          {orders.length}
+        </span>
       </div>
 
       {/* Status summary */}
