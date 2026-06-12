@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -10,7 +10,22 @@ import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
 import ProductDetail from "./pages/ProductDetail";
 import Auth from "./pages/Auth";
-import AdminDashboard from "./pages/AdminDashboard";
+
+// Admin panel is heavy (charts, xlsx/CSV import, image tools) and is only ever
+// opened by the owner. Code-split it so public catalog visitors never download
+// it — keeps the initial bundle lean for the customers who actually matter.
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+
+function AdminFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-3 text-slate-500">
+        <div className="w-8 h-8 border-2 border-slate-300 border-t-red-600 rounded-full animate-spin" />
+        <p className="text-sm font-medium">Loading admin…</p>
+      </div>
+    </div>
+  );
+}
 
 function Router() {
   return (
@@ -19,7 +34,11 @@ function Router() {
       <Route path={"/catalog"} component={Catalog} />
       <Route path={"/product/:id"} component={ProductDetail} />
       <Route path={"/auth"} component={Auth} />
-      <Route path={"/admin"} component={AdminDashboard} />
+      <Route path={"/admin"}>
+        <Suspense fallback={<AdminFallback />}>
+          <AdminDashboard />
+        </Suspense>
+      </Route>
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

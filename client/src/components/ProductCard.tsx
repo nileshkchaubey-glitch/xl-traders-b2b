@@ -29,6 +29,22 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
     (img.nextElementSibling as HTMLElement | null)?.classList.remove('hidden');
   };
 
+  // Fade each thumbnail in once it decodes (Drive thumbnails can be slow) so the
+  // grid doesn't pop. State-free, matching the onError pattern above. Cached
+  // images that are already complete render at full opacity immediately.
+  const handleImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    e.currentTarget.style.opacity = '1';
+  };
+  // A cached image can already be `complete` before React attaches onLoad, so
+  // onLoad would never fire and it'd stay invisible. Reveal those immediately
+  // via a ref callback; the rest fade in on load.
+  const revealIfComplete = (img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0) img.style.opacity = '1';
+  };
+  // Start transparent; the image's existing `transition duration-300` animates
+  // opacity back to 1 on load. No extra transition utility (would conflict).
+  const fadeInClass = 'opacity-0';
+
   const handleEnquire = () => {
     const message = isAuthenticated
       ? `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`
@@ -136,13 +152,15 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
           {imageUrl ? (
             <>
               <img
+                ref={revealIfComplete}
                 src={imageUrl}
                 alt={product.image_alt_text || product.name}
                 width={400}
                 height={400}
-                className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300"
+                className={`w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300 ${fadeInClass}`}
                 loading="lazy"
                 decoding="async"
+                onLoad={handleImgLoad}
                 onError={handleImgError}
               />
               <div className="hidden w-full h-full flex items-center justify-center bg-slate-100">
