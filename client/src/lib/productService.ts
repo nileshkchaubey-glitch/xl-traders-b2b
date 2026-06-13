@@ -498,6 +498,153 @@ export const storageService = {
 };
 
 // ============================================================================
+// MEDIA / IMAGE LIBRARY SERVICE
+// ============================================================================
+
+export interface MediaImage {
+  url: string;
+  name: string;
+  source: 'storage' | 'database';
+  created_at?: string | null;
+  size?: number;
+}
+
+export const mediaService = {
+  async listAllImages(): Promise<MediaImage[]> {
+    if (isDemo) return [];
+    try {
+      // 1. Fetch images from Supabase Storage
+      let storageImages: MediaImage[] = [];
+      try {
+        const { data: storageFiles, error: storageError } = await supabase.storage
+          .from('product-images')
+          .list('products', { limit: 100 });
+
+        if (!storageError && storageFiles) {
+          storageImages = storageFiles
+            .filter(f => f.name !== '.emptyFolderPlaceholder')
+            .map(f => {
+              const filePath = `products/${f.name}`;
+              const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
+              return {
+                url: data.publicUrl,
+                name: f.name,
+                source: 'storage' as const,
+                created_at: f.created_at,
+                size: f.metadata?.size
+              };
+            });
+        }
+      } catch (err) {
+        console.warn('Could not load files from Supabase storage:', err);
+      }
+
+      // 2. Fetch image URLs from products table
+      let productsData: any[] = [];
+      try {
+        const { data } = await supabase
+          .from('products')
+          .select('image_url, name, created_at');
+        if (data) productsData = data;
+      } catch (err) {
+        console.warn('Could not load images from products table:', err);
+      }
+      
+      // 3. Fetch image URLs from product_images table
+      let galleryData: any[] = [];
+      try {
+        const { data } = await supabase
+          .from('product_images')
+          .select('image_url, alt_text, created_at');
+        if (data) galleryData = data;
+      } catch (err) {
+        console.warn('Could not load images from product_images table:', err);
+      }
+
+      const dbImagesMap = new Map<string, MediaImage>();
+      
+      for (const p of productsData) {
+        if (p.image_url) {
+          const url = p.image_url.trim();
+          if (!dbImagesMap.has(url)) {
+            dbImagesMap.set(url, {
+              url,
+              name: p.name || 'Product Image',
+              source: 'database' as const,
+              created_at: p.created_at
+            });
+          }
+        }
+      }
+
+      for (const g of galleryData) {
+        if (g.image_url) {
+          const url = g.image_url.trim();
+          if (!dbImagesMap.has(url)) {
+            dbImagesMap.set(url, {
+              url,
+              name: g.alt_text || 'Gallery Image',
+              source: 'database' as const,
+              created_at: g.created_at
+            });
+          }
+        }
+      }
+
+      const dbImages = Array.from(dbImagesMap.values());
+
+      // Combine both lists. Deduplicate by URL (prefer storage version if URL matches)
+      const combinedMap = new Map<string, MediaImage>();
+      
+      // Add db images first
+      for (const img of dbImages) {
+        combinedMap.set(img.url, img);
+      }
+      
+      // Overwrite/add storage images
+      for (const img of storageImages) {
+        combinedMap.set(img.url, img);
+      }
+
+      // Sort by created_at desc
+      return Array.from(combinedMap.values()).sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+      });
+
+    } catch (error) {
+      console.error('Error in mediaService.listAllImages:', error);
+      return [];
+    }
+  },
+
+  async uploadGlobalImage(file: File): Promise<string> {
+    if (isDemo) return '';
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `global-${Date.now()}-${Math.random().toString(36).substr(2, 6)}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading global image:', error);
+      throw error;
+    }
+  }
+};
+
+// ============================================================================
 // INQUIRIES — lightweight log for every WhatsApp button click (all users)
 // ============================================================================
 

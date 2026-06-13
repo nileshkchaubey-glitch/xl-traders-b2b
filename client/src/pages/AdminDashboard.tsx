@@ -9,7 +9,7 @@ import {
 import {
   LogOut, Package, Grid3x3, MessageSquare, Settings, Upload,
   LayoutDashboard, FileSpreadsheet, ShoppingBag, Globe, Menu, X,
-  ChevronRight, ExternalLink,
+  ChevronRight, ExternalLink, Images,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -22,6 +22,7 @@ import AdminBulkImport from '@/components/admin/AdminBulkImport';
 import AdminGoogleSheets from '@/components/admin/AdminGoogleSheets';
 import AdminOrders from '@/components/admin/AdminOrders';
 import AdminSEO from '@/components/admin/AdminSEO';
+import AdminImageLibrary from '@/components/admin/AdminImageLibrary';
 import { AttentionFilter } from '@/lib/catalogHealth';
 import { categoryService } from '@/lib/productService';
 import { Category } from '@/lib/supabase';
@@ -44,6 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'overview', label: 'Overview', icon: LayoutDashboard },
       { id: 'products', label: 'Products', icon: Package },
       { id: 'categories', label: 'Catalogues', icon: Grid3x3 },
+      { id: 'image-library', label: 'Image Library', icon: Images },
     ],
   },
   {
@@ -71,6 +73,7 @@ const BREADCRUMB: Record<string, { parent: string; label: string }> = {
   overview:      { parent: 'Catalogue',          label: 'Overview' },
   products:      { parent: 'Catalogue',          label: 'Products' },
   categories:    { parent: 'Catalogue',          label: 'Catalogues' },
+  'image-library':{ parent: 'Catalogue',         label: 'Image Library' },
   orders:        { parent: 'Sales',              label: 'Orders' },
   enquiries:     { parent: 'Sales',              label: 'Enquiries' },
   seo:           { parent: 'Content & Import',   label: 'SEO' },
@@ -336,6 +339,7 @@ export default function AdminDashboard() {
             {activeTab === 'bulk-import' && <AdminBulkImport onGoToProducts={() => setActiveTab('products')} />}
             {activeTab === 'google-sheets' && <AdminGoogleSheets />}
             {activeTab === 'settings' && <AdminSettings />}
+            {activeTab === 'image-library' && <AdminImageLibrary />}
 
           </div>
         </main>

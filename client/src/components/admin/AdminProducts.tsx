@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus, Edit2, Trash2, Search, X, Star, Copy, Loader2,
-  ChevronLeft, ChevronRight, ImageIcon, Zap, Images, Check, RefreshCw,
+  ChevronLeft, ChevronRight, ImageIcon, Zap, Images, Check, RefreshCw, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +21,9 @@ import { Product, Category } from '@/lib/supabase';
 import { productCompleteness, completenessColor, AttentionFilter, ATTENTION_LABELS } from '@/lib/catalogHealth';
 import AdminImageGallery from '@/components/admin/AdminImageGallery';
 import CategoryCombobox from '@/components/admin/CategoryCombobox';
+import AISmartPasteDialog from '@/components/admin/AISmartPasteDialog';
+import AdminImageLibrary from '@/components/admin/AdminImageLibrary';
+import { ParsedProduct } from '@/lib/aiService';
 
 const PAGE_SIZE = 50;
 const UNITS = ['pcs', 'box', 'pack', 'roll', 'kg', 'litre', 'set'];
@@ -135,6 +138,47 @@ export default function AdminProducts({
 
   // Image gallery
   const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
+
+  // AI Smart Paste & Media Selector states
+  const [smartPasteOpen, setSmartPasteOpen] = useState(false);
+  const [mediaSelectorOpen, setMediaSelectorOpen] = useState(false);
+
+  // Autofill handler for AI Smart Paste
+  const handleAutofill = (parsedData: ParsedProduct) => {
+    let categoryId = '';
+    if (parsedData.category_name) {
+      const match = categories.find(
+        (c) => c.name.toLowerCase() === parsedData.category_name!.toLowerCase()
+      );
+      if (match) {
+        categoryId = match.id;
+      }
+    }
+
+    setFormData({
+      name: parsedData.name || '',
+      category_id: categoryId || formData.category_id || '',
+      description: parsedData.description || '',
+      price: parsedData.price != null ? parsedData.price.toString() : '',
+      mrp: parsedData.mrp != null ? parsedData.mrp.toString() : '',
+      unit_of_measure: parsedData.unit_of_measure || 'pcs',
+      quantity_in_unit: parsedData.quantity_in_unit != null ? parsedData.quantity_in_unit.toString() : '',
+      discount_percent: '0',
+      brand: parsedData.brand || '',
+      is_active: true,
+      is_featured: false,
+      sku: '',
+      barcode: '',
+      moq: '1',
+      image_url: '',
+    });
+    setEditingId(null);
+    setImages([]);
+    setImageMetadata([]);
+    setImagePreviews([]);
+    setExistingImageUrl(null);
+    setIsOpen(true);
+  };
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -718,6 +762,15 @@ export default function AdminProducts({
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <Button
+            onClick={() => setSmartPasteOpen(true)}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-sm border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            <Sparkles className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+            AI Smart Paste
+          </Button>
+          <Button
             onClick={() => setShowQuickAdd((v) => !v)}
             variant="outline"
             size="sm"
@@ -1262,8 +1315,18 @@ export default function AdminProducts({
                   value={formData.image_url}
                   onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                   placeholder="Paste image URL (Google Drive link works)"
-                  className="text-sm"
+                  className="text-sm flex-1"
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMediaSelectorOpen(true)}
+                  className="text-xs shrink-0 flex items-center gap-1.5 h-9"
+                >
+                  <Images className="w-4 h-4" />
+                  Select from Library
+                </Button>
                 {formData.image_url.trim() && images.length === 0 && (
                   <img
                     src={normalizeImageUrl(formData.image_url)}
@@ -1326,6 +1389,32 @@ export default function AdminProducts({
           setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, image_url: newUrl } : p));
         }}
       />
+
+      {/* AI Smart Paste Dialog */}
+      <AISmartPasteDialog
+        open={smartPasteOpen}
+        onClose={() => setSmartPasteOpen(false)}
+        categories={categories}
+        onAutofill={handleAutofill}
+      />
+
+      {/* Media Selector Dialog */}
+      <Dialog open={mediaSelectorOpen} onOpenChange={setMediaSelectorOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Image from Library</DialogTitle>
+            <DialogDescription className="sr-only">Select an existing image from the media library</DialogDescription>
+          </DialogHeader>
+          <AdminImageLibrary
+            isSelectionMode={true}
+            onSelectImage={(url) => {
+              setFormData((f) => ({ ...f, image_url: url }));
+              setMediaSelectorOpen(false);
+              toast.success('Selected image from library!');
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
