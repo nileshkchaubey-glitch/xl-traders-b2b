@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 // opened by the owner. Code-split it so public catalog visitors never download
 // it — keeps the initial bundle lean for the customers who actually matter.
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminProductEditor = lazy(() => import("./pages/AdminProductEditor"));
 
 function AdminFallback() {
   return (
@@ -34,6 +35,16 @@ function Router() {
       <Route path={"/catalog"} component={Catalog} />
       <Route path={"/product/:id"} component={ProductDetail} />
       <Route path={"/auth"} component={Auth} />
+      <Route path={"/admin/products/new"}>
+        <Suspense fallback={<AdminFallback />}>
+          <AdminProductEditor />
+        </Suspense>
+      </Route>
+      <Route path={"/admin/products/:id"}>
+        <Suspense fallback={<AdminFallback />}>
+          <AdminProductEditor />
+        </Suspense>
+      </Route>
       <Route path={"/admin"}>
         <Suspense fallback={<AdminFallback />}>
           <AdminDashboard />
