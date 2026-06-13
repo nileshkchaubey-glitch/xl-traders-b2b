@@ -2,11 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useAuthStore } from '@/lib/authStore';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
   LogOut, Package, Grid3x3, MessageSquare, Settings, Upload,
   LayoutDashboard, FileSpreadsheet, ShoppingBag, Globe, Menu, X,
   ChevronRight, ExternalLink,
@@ -82,11 +77,14 @@ const BREADCRUMB: Record<string, { parent: string; label: string }> = {
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isAdmin, isLoading, refreshProfile, signOut } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem('admin-active-tab') || 'overview');
   const [accessChecked, setAccessChecked] = useState(false);
   const redirectingRef = useRef(false);
   const hasVerified = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  useEffect(() => {
+    sessionStorage.setItem('admin-active-tab', activeTab);
+  }, [activeTab]);
 
   const [productsAttention, setProductsAttention] = useState<AttentionFilter>(null);
 
@@ -102,29 +100,10 @@ export default function AdminDashboard() {
   }, []);
   useEffect(() => { refreshCategories(); }, [refreshCategories]);
 
-  const [productDialogOpen, setProductDialogOpen] = useState(false);
-  const [pendingTab, setPendingTab] = useState<string | null>(null);
-  const [showLeaveWarning, setShowLeaveWarning] = useState(false);
-
   const handleTabChange = useCallback((tab: string) => {
     setSidebarOpen(false);
-    if (productDialogOpen && tab !== 'products') {
-      setPendingTab(tab);
-      setShowLeaveWarning(true);
-    } else {
-      setActiveTab(tab);
-    }
-  }, [productDialogOpen]);
-
-  const confirmLeave = useCallback(() => {
-    if (pendingTab) setActiveTab(pendingTab);
-    setPendingTab(null);
-    setShowLeaveWarning(false);
-  }, [pendingTab]);
-
-  const cancelLeave = useCallback(() => {
-    setPendingTab(null);
-    setShowLeaveWarning(false);
+    setActiveTab(tab);
+    sessionStorage.setItem('admin-active-tab', tab);
   }, []);
 
   useEffect(() => {
@@ -288,23 +267,6 @@ export default function AdminDashboard() {
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-screen-xl mx-auto px-6 py-6">
 
-            <AlertDialog open={showLeaveWarning} onOpenChange={(open) => { if (!open) cancelLeave(); }}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    You have the product editor open. Switching tabs will not close it, but saving while on another tab hides the dialog. Stay on Products to finish editing.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel onClick={cancelLeave}>Stay editing</AlertDialogCancel>
-                  <AlertDialogAction onClick={confirmLeave} className="bg-red-600 hover:bg-red-700 text-white">
-                    Leave anyway
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-
             {activeTab === 'overview' && (
               <AdminOverview
                 onTabChange={setActiveTab}
@@ -314,7 +276,7 @@ export default function AdminDashboard() {
 
             <div className={activeTab !== 'products' ? 'hidden' : ''}>
               <AdminProducts
-                onDialogOpenChange={setProductDialogOpen}
+                keyboardShortcutsEnabled={activeTab === 'products'}
                 attentionFilter={productsAttention}
                 onAttentionChange={setProductsAttention}
                 categories={categories}
