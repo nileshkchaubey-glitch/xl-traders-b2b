@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus, Edit2, Trash2, Search, X, Star, Copy, Loader2,
   ChevronLeft, ChevronRight, ImageIcon, Zap, Images, Check, RefreshCw, Sparkles,
+  ExternalLink, Power,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +22,16 @@ import AdminImageLibrary from '@/components/admin/AdminImageLibrary';
 import { ParsedProduct } from '@/lib/aiService';
 import KeyboardShortcutsDialog from '@/components/admin/KeyboardShortcutsDialog';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+} from '@/components/ui/context-menu';
 
 const PAGE_SIZE = 50;
 const UNITS = ['pcs', 'box', 'pack', 'roll', 'kg', 'litre', 'set'];
@@ -93,6 +104,7 @@ export default function AdminProducts({
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [menuOpenProductId, setMenuOpenProductId] = useState<string | null>(null);
 
   // Filters + pagination
   const [search, setSearch] = useState('');
@@ -865,161 +877,242 @@ export default function AdminProducts({
                 <tr>
                   <td colSpan={14} className="text-center py-12 text-slate-400">No products found</td>
                 </tr>
-              ) : products.map((product) => (
-                <tr
-                  key={product.id}
-                  className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${selected.has(product.id) ? 'bg-red-50 hover:bg-red-50' : ''}`}
-                >
-                  <td className="px-3 py-2">
-                    <Checkbox checked={selected.has(product.id)} onCheckedChange={() => toggleOne(product.id)} />
-                  </td>
-                  {/* Image — click to open gallery */}
-                  <td className="px-2 py-2">
-                    <button onClick={() => setGalleryProduct(product)} title="Manage images" className="block">
-                      {product.image_url ? (
-                        <img
-                          src={normalizeImageUrl(product.image_url)}
-                          alt={product.image_alt_text || product.name}
-                          className="w-11 h-11 object-cover rounded-lg border hover:ring-2 ring-red-400 transition-all"
-                        />
-                      ) : (
-                        <div className="w-11 h-11 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300 hover:border-red-400 hover:bg-red-50 transition-colors">
-                          <ImageIcon className="w-4 h-4 text-slate-300" />
-                        </div>
-                      )}
-                    </button>
-                  </td>
-                  {/* Name */}
-                  <td className="px-2 py-2 max-w-[200px]">
-                    {renderTextCell(product, 'name', 'Enter name')}
-                  </td>
-                  {/* Category */}
-                  <td className="px-2 py-2">
-                    {renderCategoryCell(product)}
-                  </td>
-                  {/* Price */}
-                  <td className="px-2 py-2">
-                    {renderNumberCell(product, 'price', '₹')}
-                  </td>
-                  {/* MRP */}
-                  <td className="px-2 py-2">
-                    {renderNumberCell(product, 'mrp', '₹', '—')}
-                  </td>
-                  {/* Unit */}
-                  <td className="px-2 py-2">
-                    {renderUnitCell(product)}
-                  </td>
-                  {/* Qty */}
-                  <td className="px-2 py-2">
-                    {isEditing(product.id, 'quantity_in_unit') ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          ref={cellInputRef}
-                          type="number" min="1"
-                          value={cellEdit!.value}
-                          onChange={(e) => setCellEdit({ ...cellEdit!, value: e.target.value })}
-                          onKeyDown={handleCellKey}
-                          onBlur={saveCellEdit}
-                          className="h-8 text-sm w-16"
-                          disabled={cellSaving}
-                        />
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => startCellEdit(product.id, 'quantity_in_unit', product.quantity_in_unit)}
-                        className="text-left hover:bg-slate-100 rounded px-1.5 py-0.5 text-sm transition-colors group text-slate-600"
+              ) : products.map((product) => {
+                const isMenuOpen = menuOpenProductId === product.id;
+                return (
+                  <ContextMenu key={product.id} onOpenChange={(open) => setMenuOpenProductId(open ? product.id : null)}>
+                    <ContextMenuTrigger asChild>
+                      <tr
+                        className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${selected.has(product.id) ? 'bg-red-50 hover:bg-red-50' : ''} ${isMenuOpen ? 'bg-red-50/40 ring-1 ring-red-200' : ''}`}
                       >
-                        {product.quantity_in_unit || <span className="text-slate-300 italic">—</span>}
-                        <span className="ml-1 opacity-0 group-hover:opacity-40 text-xs">✎</span>
-                      </button>
-                    )}
-                  </td>
-                  {/* Brand */}
-                  <td className="px-2 py-2 max-w-[110px]">
-                    {renderTextCell(product, 'brand', 'Brand')}
-                  </td>
-                  {/* SKU — read-only in table */}
-                  <td className="px-2 py-2">
-                    <span className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                      {product.sku || <span className="text-slate-300 italic font-sans">—</span>}
-                    </span>
-                  </td>
-                  {/* Group */}
-                  <td className="px-2 py-2">
-                    <span className="text-xs text-slate-500">
-                      {getCategoryGroup(product.category_id) ?? <span className="text-slate-300">—</span>}
-                    </span>
-                  </td>
-                  {/* Completeness score */}
-                  <td className="px-2 py-2">
-                    {(() => {
-                      const { score, missing } = productCompleteness(product);
-                      return (
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${completenessColor(score)}`}
-                          title={missing.length ? `Missing: ${missing.join(', ')}` : 'Complete'}
-                        >
-                          {score}%
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  {/* Status toggle */}
-                  <td className="px-2 py-2">
-                    <button
-                      onClick={() => handleToggleActive(product.id, product.is_active)}
-                      title="Click to toggle"
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap border ${
-                        product.is_active
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${product.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                      {product.is_active ? 'Active' : 'Inactive'}
-                    </button>
-                  </td>
-                  {/* Actions */}
-                  <td className="px-2 py-2">
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => handleToggleFeatured(product.id, product.is_featured)}
-                        title={product.is_featured ? 'Unfeature' : 'Feature'}
-                        className={`p-1.5 rounded hover:bg-slate-100 transition-colors ${product.is_featured ? 'text-amber-500' : 'text-slate-300 hover:text-slate-500'}`}
-                      >
-                        <Star className="w-3.5 h-3.5" fill={product.is_featured ? 'currentColor' : 'none'} />
-                      </button>
-                      <button
-                        onClick={() => handleOpenFullEdit(product)}
-                        title="Full edit (description, images)"
-                        className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setGalleryProduct(product)}
-                        title="Manage images"
-                        className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
-                      >
-                        <Images className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDuplicate(product)}
-                        title="Duplicate"
-                        className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        <td className="px-3 py-2">
+                          <Checkbox checked={selected.has(product.id)} onCheckedChange={() => toggleOne(product.id)} />
+                        </td>
+                        {/* Image — click to open gallery */}
+                        <td className="px-2 py-2">
+                          <button onClick={() => setGalleryProduct(product)} title="Manage images" className="block">
+                            {product.image_url ? (
+                              <img
+                                src={normalizeImageUrl(product.image_url)}
+                                alt={product.image_alt_text || product.name}
+                                className="w-11 h-11 object-cover rounded-lg border hover:ring-2 ring-red-400 transition-all"
+                              />
+                            ) : (
+                              <div className="w-11 h-11 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300 hover:border-red-400 hover:bg-red-50 transition-colors">
+                                <ImageIcon className="w-4 h-4 text-slate-300" />
+                              </div>
+                            )}
+                          </button>
+                        </td>
+                        {/* Name */}
+                        <td className="px-2 py-2 max-w-[200px]">
+                          {renderTextCell(product, 'name', 'Enter name')}
+                        </td>
+                        {/* Category */}
+                        <td className="px-2 py-2">
+                          {renderCategoryCell(product)}
+                        </td>
+                        {/* Price */}
+                        <td className="px-2 py-2">
+                          {renderNumberCell(product, 'price', '₹')}
+                        </td>
+                        {/* MRP */}
+                        <td className="px-2 py-2">
+                          {renderNumberCell(product, 'mrp', '₹', '—')}
+                        </td>
+                        {/* Unit */}
+                        <td className="px-2 py-2">
+                          {renderUnitCell(product)}
+                        </td>
+                        {/* Qty */}
+                        <td className="px-2 py-2">
+                          {isEditing(product.id, 'quantity_in_unit') ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                ref={cellInputRef}
+                                type="number" min="1"
+                                value={cellEdit!.value}
+                                onChange={(e) => setCellEdit({ ...cellEdit!, value: e.target.value })}
+                                onKeyDown={handleCellKey}
+                                onBlur={saveCellEdit}
+                                className="h-8 text-sm w-16"
+                                disabled={cellSaving}
+                              />
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startCellEdit(product.id, 'quantity_in_unit', product.quantity_in_unit)}
+                              className="text-left hover:bg-slate-100 rounded px-1.5 py-0.5 text-sm transition-colors group text-slate-600"
+                            >
+                              {product.quantity_in_unit || <span className="text-slate-300 italic">—</span>}
+                              <span className="ml-1 opacity-0 group-hover:opacity-40 text-xs">✎</span>
+                            </button>
+                          )}
+                        </td>
+                        {/* Brand */}
+                        <td className="px-2 py-2 max-w-[110px]">
+                          {renderTextCell(product, 'brand', 'Brand')}
+                        </td>
+                        {/* SKU — read-only in table */}
+                        <td className="px-2 py-2">
+                          <span className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {product.sku || <span className="text-slate-300 italic font-sans">—</span>}
+                          </span>
+                        </td>
+                        {/* Group */}
+                        <td className="px-2 py-2">
+                          <span className="text-xs text-slate-500">
+                            {getCategoryGroup(product.category_id) ?? <span className="text-slate-300">—</span>}
+                          </span>
+                        </td>
+                        {/* Completeness score */}
+                        <td className="px-2 py-2">
+                          {(() => {
+                            const { score, missing } = productCompleteness(product);
+                            return (
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${completenessColor(score)}`}
+                                title={missing.length ? `Missing: ${missing.join(', ')}` : 'Complete'}
+                              >
+                                {score}%
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        {/* Status toggle */}
+                        <td className="px-2 py-2">
+                          <button
+                            onClick={() => handleToggleActive(product.id, product.is_active)}
+                            title="Click to toggle"
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap border ${
+                              product.is_active
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${product.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            {product.is_active ? 'Active' : 'Inactive'}
+                          </button>
+                        </td>
+                        {/* Actions */}
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              onClick={() => handleToggleFeatured(product.id, product.is_featured)}
+                              title={product.is_featured ? 'Unfeature' : 'Feature'}
+                              className={`p-1.5 rounded hover:bg-slate-100 transition-colors ${product.is_featured ? 'text-amber-500' : 'text-slate-300 hover:text-slate-500'}`}
+                            >
+                              <Star className="w-3.5 h-3.5" fill={product.is_featured ? 'currentColor' : 'none'} />
+                            </button>
+                            <button
+                              onClick={() => handleOpenFullEdit(product)}
+                              title="Full edit (description, images)"
+                              className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setGalleryProduct(product)}
+                              title="Manage images"
+                              className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
+                            >
+                              <Images className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDuplicate(product)}
+                              title="Duplicate"
+                              className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="w-56">
+                      <ContextMenuItem onClick={() => handleOpenFullEdit(product)} className="gap-2">
+                        <Edit2 className="w-4 h-4 text-slate-500" />
+                        <span>Edit Details</span>
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => setGalleryProduct(product)} className="gap-2">
+                        <Images className="w-4 h-4 text-slate-500" />
+                        <span>Manage Images</span>
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => handleDuplicate(product)} className="gap-2">
+                        <Copy className="w-4 h-4 text-slate-500" />
+                        <span>Duplicate</span>
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => window.open(`/product/${product.id}`, '_blank')} className="gap-2">
+                        <ExternalLink className="w-4 h-4 text-slate-500" />
+                        <span>View Live Page</span>
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => handleToggleActive(product.id, product.is_active)} className="gap-2">
+                        <Power className="w-4 h-4 text-slate-500" />
+                        <span>{product.is_active ? 'Set as Inactive' : 'Set as Active'}</span>
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => handleToggleFeatured(product.id, product.is_featured)} className="gap-2">
+                        <Star className="w-4 h-4 text-slate-500" fill={product.is_featured ? 'currentColor' : 'none'} />
+                        <span>{product.is_featured ? 'Remove Featured' : 'Mark as Featured'}</span>
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuSub>
+                        <ContextMenuSubTrigger className="gap-2">
+                          <Copy className="w-4 h-4 text-slate-500" />
+                          <span>Copy Info</span>
+                        </ContextMenuSubTrigger>
+                        <ContextMenuSubContent className="w-48">
+                          <ContextMenuItem onClick={() => {
+                            if (product.sku) {
+                              navigator.clipboard.writeText(product.sku);
+                              toast.success('SKU copied!');
+                            } else {
+                              toast.error('No SKU available');
+                            }
+                          }}>
+                            Copy SKU
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => {
+                            navigator.clipboard.writeText(product.name);
+                            toast.success('Product name copied!');
+                          }}>
+                            Copy Name
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => {
+                            if (product.price != null) {
+                              navigator.clipboard.writeText(product.price.toString());
+                              toast.success('Price copied!');
+                            }
+                          }}>
+                            Copy Price (₹)
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => {
+                            if (product.image_url) {
+                              navigator.clipboard.writeText(product.image_url);
+                              toast.success('Image URL copied!');
+                            } else {
+                              toast.error('No image URL available');
+                            }
+                          }}>
+                            Copy Image URL
+                          </ContextMenuItem>
+                        </ContextMenuSubContent>
+                      </ContextMenuSub>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => handleDelete(product.id)} className="gap-2 text-red-600 focus:text-red-700 focus:bg-red-50">
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                        <span>Delete Product</span>
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                );
+              })}
             </tbody>
           </table>
         </div>
