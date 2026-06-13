@@ -70,7 +70,7 @@ export default function AISmartPasteDialog({ open, onClose, categories, onAutofi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-slate-900">
             <Sparkles className="w-5 h-5 text-amber-500 fill-amber-500 animate-pulse" />
-            AI Smart Product Entry (AI से प्रोडक्ट एंट्री)
+            AI Smart Product Entry
           </DialogTitle>
           <DialogDescription className="text-slate-500 text-xs">
             Paste product text copied from another website, catalog, PDF, or WhatsApp below.
@@ -82,7 +82,7 @@ export default function AISmartPasteDialog({ open, onClose, categories, onAutofi
             {/* Input area */}
             <div className="space-y-1.5">
               <Label htmlFor="smart-text" className="text-xs font-semibold text-slate-700">
-                Paste Product Text (यहाँ कॉपी-पेस्ट करें)
+                Paste Product Text
               </Label>
               <Textarea
                 id="smart-text"
@@ -127,7 +127,7 @@ Ideal for food packing, microwavable containers."
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    Extract Details (AI से निकालें)
+                    Extract Details
                   </>
                 )}
               </Button>
@@ -233,7 +233,7 @@ Ideal for food packing, microwavable containers."
                 className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold"
               >
                 <Check className="w-4 h-4" />
-                Fill Form &amp; Open (फॉर्म भरें)
+                Populate Form
               </Button>
             </div>
           </div>
