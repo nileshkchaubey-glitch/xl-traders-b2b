@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { AttentionFilter } from '@/lib/catalogHealth';
+import AdminDailyImprovementsWidget from './AdminDailyImprovementsWidget';
+
 
 interface HealthCounts {
   image: number;
@@ -190,6 +192,9 @@ export default function AdminOverview({ onTabChange, onNeedsAttention }: AdminOv
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-0.5">XL Traders B2B — catalogue summary</p>
       </div>
+
+      {/* Daily Admin Improvements PM Widget */}
+      <AdminDailyImprovementsWidget />
 
       {/* KPI row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
