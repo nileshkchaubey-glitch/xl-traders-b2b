@@ -22,6 +22,8 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
   const [filterSource, setFilterSource] = useState<'all' | 'storage' | 'database'>('all');
   const [dragOver, setDragOver] = useState(false);
+  const [gridSize, setGridSize] = useState<'sm' | 'md' | 'lg'>('lg');
+  const [imageFit, setImageFit] = useState<'cover' | 'contain'>('contain');
 
   const loadImages = useCallback(async () => {
     setLoading(true);
@@ -223,6 +225,75 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
         </div>
       )}
 
+      {/* ── Toolbar (Size & Fit controls) ────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+          <span>गैलरी सेटिंग्स (View Options):</span>
+        </div>
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Grid Size buttons */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-slate-400">साइज़ (Size):</span>
+            <div className="bg-slate-200/50 p-0.5 rounded-lg flex items-center border border-slate-300/20">
+              <button
+                type="button"
+                onClick={() => setGridSize('sm')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  gridSize === 'sm' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Small
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridSize('md')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  gridSize === 'md' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Medium
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridSize('lg')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  gridSize === 'lg' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Large (बड़ा)
+              </button>
+            </div>
+          </div>
+
+          {/* Image Fit buttons */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-slate-400">फिट (Fit):</span>
+            <div className="bg-slate-200/50 p-0.5 rounded-lg flex items-center border border-slate-300/20">
+              <button
+                type="button"
+                onClick={() => setImageFit('contain')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  imageFit === 'contain' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Show entire image without cropping"
+              >
+                Fit (पूरा देखें)
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageFit('cover')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  imageFit === 'cover' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Crop image to fill square"
+              >
+                Fill (क्रॉप)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── Image Grid ────────────────────────────────────────────────────── */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-xl">
@@ -236,7 +307,11 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
           <p className="text-xs text-slate-400 mt-0.5">Upload images above to build your gallery.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+        <div className={`grid gap-3.5 transition-all duration-300 ${
+          gridSize === 'sm' ? 'grid-cols-3 sm:grid-cols-5 md:grid-cols-8 gap-2' :
+          gridSize === 'md' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3' :
+          'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'
+        }`}>
           {filteredImages.map((img, i) => {
             const isSelected = selectedUrl === img.url;
             const isStorage = img.source === 'storage';
@@ -245,6 +320,11 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
               <div
                 key={img.url + i}
                 onClick={() => setSelectedUrl(img.url)}
+                onDoubleClick={() => {
+                  if (isSelectionMode && onSelectImage) {
+                    onSelectImage(img.url);
+                  }
+                }}
                 className={`relative group rounded-xl border overflow-hidden bg-white cursor-pointer transition-all flex flex-col ${
                   isSelected 
                     ? 'ring-2 ring-red-500 border-red-500 shadow-md scale-[0.98]' 
@@ -252,11 +332,15 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
                 }`}
               >
                 {/* Image Preview */}
-                <div className="aspect-square bg-slate-50 relative overflow-hidden">
+                <div className="aspect-square bg-slate-50 relative overflow-hidden flex items-center justify-center">
                   <img
                     src={img.url}
                     alt={img.name}
-                    className="w-full h-full object-cover select-none pointer-events-none"
+                    className={`select-none pointer-events-none transition-all duration-300 ${
+                      imageFit === 'cover' 
+                        ? 'w-full h-full object-cover' 
+                        : 'w-full h-full object-contain p-2.5 bg-slate-100/30'
+                    }`}
                     loading="lazy"
                   />
                   {/* Source Badge */}
@@ -282,31 +366,49 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
                 </div>
 
                 {/* Details */}
-                <div className="p-2 flex-1 flex flex-col justify-between">
-                  <p className="text-[11px] font-semibold text-slate-800 line-clamp-1 w-full text-left" title={img.name}>
-                    {img.name.replace(/\.[^.]+$/, '')}
-                  </p>
-                  
-                  {/* Actions overlay / footer */}
-                  <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-slate-100 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleCopyUrl(img.url); }}
-                      className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors"
-                      title="Copy URL"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                    <a
-                      href={img.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors"
-                      title="Open in new tab"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                <div className="p-2.5 flex-1 flex flex-col justify-between">
+                  <div className="space-y-0.5">
+                    <p className="text-[11px] font-bold text-slate-800 line-clamp-2 w-full text-left leading-tight break-all" title={img.name}>
+                      {img.name.replace(/\.[^.]+$/, '')}
+                    </p>
+                    {isStorage && img.size && (
+                      <p className="text-[9px] text-slate-400 font-mono text-left">
+                        {formatBytes(img.size)}
+                      </p>
+                    )}
                   </div>
+                  
+                  {isSelectionMode && onSelectImage ? (
+                    <Button
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); onSelectImage(img.url); }}
+                      className="w-full mt-2 h-7 text-[10px] font-extrabold bg-red-600 hover:bg-red-700 text-white transition-all shadow-xs border-0 rounded-lg flex items-center justify-center shrink-0"
+                    >
+                      Use Image (चुनें)
+                    </Button>
+                  ) : (
+                    /* Actions overlay / footer */
+                    <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-100 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleCopyUrl(img.url); }}
+                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors"
+                        title="Copy URL"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      <a
+                        href={img.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors"
+                        title="Open in new tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             );
