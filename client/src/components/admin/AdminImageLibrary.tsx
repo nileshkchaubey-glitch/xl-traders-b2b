@@ -115,7 +115,7 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
       {/* ── Standalone Mode Header ────────────────────────────────────────── */}
       {!isSelectionMode && (
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Image Library (मीडिया गैलरी)</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Image Library</h1>
           <p className="text-slate-400 text-xs mt-0.5">
             Manage all product images, Drive links, and storage files in one central library.
           </p>
@@ -228,12 +228,12 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
       {/* ── Toolbar (Size & Fit controls) ────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-          <span>गैलरी सेटिंग्स (View Options):</span>
+          <span>View Options:</span>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
           {/* Grid Size buttons */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-slate-400">साइज़ (Size):</span>
+            <span className="text-[11px] text-slate-400">Size:</span>
             <div className="bg-slate-200/50 p-0.5 rounded-lg flex items-center border border-slate-300/20">
               <button
                 type="button"
@@ -260,14 +260,14 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
                   gridSize === 'lg' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                Large (बड़ा)
+                Large
               </button>
             </div>
           </div>
 
           {/* Image Fit buttons */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-slate-400">फिट (Fit):</span>
+            <span className="text-[11px] text-slate-400">Fit:</span>
             <div className="bg-slate-200/50 p-0.5 rounded-lg flex items-center border border-slate-300/20">
               <button
                 type="button"
@@ -277,7 +277,7 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
                 }`}
                 title="Show entire image without cropping"
               >
-                Fit (पूरा देखें)
+                Fit
               </button>
               <button
                 type="button"
@@ -287,7 +287,7 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
                 }`}
                 title="Crop image to fill square"
               >
-                Fill (क्रॉप)
+                Fill
               </button>
             </div>
           </div>
@@ -384,7 +384,7 @@ export default function AdminImageLibrary({ onSelectImage, isSelectionMode = fal
                       onClick={(e) => { e.stopPropagation(); onSelectImage(img.url); }}
                       className="w-full mt-2 h-7 text-[10px] font-extrabold bg-red-600 hover:bg-red-700 text-white transition-all shadow-xs border-0 rounded-lg flex items-center justify-center shrink-0"
                     >
-                      Use Image (चुनें)
+                      Use Image
                     </Button>
                   ) : (
                     /* Actions overlay / footer */
