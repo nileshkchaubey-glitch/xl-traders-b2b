@@ -1,12 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus, Edit2, Trash2, Search, X, Star, Copy, Loader2,
@@ -14,9 +10,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { productService, storageService, productImageService } from '@/lib/productService';
-import { generateDescription } from '@/lib/aiService';
-import { batchAutoResize, formatBytes, normalizeImageUrl } from '@/lib/imageUtils';
+import { productService } from '@/lib/productService';
+import { normalizeImageUrl } from '@/lib/imageUtils';
 import { Product, Category } from '@/lib/supabase';
 import { productCompleteness, completenessColor, AttentionFilter, ATTENTION_LABELS } from '@/lib/catalogHealth';
 import AdminImageGallery from '@/components/admin/AdminImageGallery';
@@ -24,6 +19,8 @@ import CategoryCombobox from '@/components/admin/CategoryCombobox';
 import AISmartPasteDialog from '@/components/admin/AISmartPasteDialog';
 import AdminImageLibrary from '@/components/admin/AdminImageLibrary';
 import { ParsedProduct } from '@/lib/aiService';
+import KeyboardShortcutsDialog from '@/components/admin/KeyboardShortcutsDialog';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 const PAGE_SIZE = 50;
 const UNITS = ['pcs', 'box', 'pack', 'roll', 'kg', 'litre', 'set'];
@@ -77,7 +74,7 @@ const QUICK_ADD_DEFAULTS: QuickAdd = {
 };
 
 interface AdminProductsProps {
-  onDialogOpenChange?: (isOpen: boolean) => void;
+  keyboardShortcutsEnabled?: boolean;
   // "Needs Attention" filter, set from the Overview tab's quick action queue.
   attentionFilter?: AttentionFilter;
   onAttentionChange?: (filter: AttentionFilter) => void;
@@ -87,11 +84,12 @@ interface AdminProductsProps {
 }
 
 export default function AdminProducts({
-  onDialogOpenChange,
+  keyboardShortcutsEnabled = true,
   attentionFilter = null,
   onAttentionChange,
   categories = [],
 }: AdminProductsProps = {}) {
+  const [, setLocation] = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -116,32 +114,14 @@ export default function AdminProducts({
   const [quickAdding, setQuickAdding] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(true);
   const quickNameRef = useRef<HTMLInputElement>(null);
-
-  // Full dialog (for images, description, AI)
-  const [isOpen, setIsOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: '', category_id: '', description: '', price: '', mrp: '',
-    unit_of_measure: 'pcs', quantity_in_unit: '', discount_percent: '0',
-    brand: '', is_active: true, is_featured: false,
-    sku: '', barcode: '', moq: '1', image_url: '',
-  });
-  const [images, setImages] = useState<File[]>([]);
-  const [imageMetadata, setImageMetadata] = useState<Array<{ altText: string; description: string }>>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [autoResize, setAutoResize] = useState(true);
-  const [dialogDropHighlight, setDialogDropHighlight] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Image gallery
   const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
 
-  // AI Smart Paste & Media Selector states
+  // AI Smart Paste states
   const [smartPasteOpen, setSmartPasteOpen] = useState(false);
-  const [mediaSelectorOpen, setMediaSelectorOpen] = useState(false);
 
   // Autofill handler for AI Smart Paste
   const handleAutofill = (parsedData: ParsedProduct) => {
@@ -155,9 +135,9 @@ export default function AdminProducts({
       }
     }
 
-    setFormData({
+    const draft = {
       name: parsedData.name || '',
-      category_id: categoryId || formData.category_id || '',
+      category_id: categoryId || '',
       description: parsedData.description || '',
       price: parsedData.price != null ? parsedData.price.toString() : '',
       mrp: parsedData.mrp != null ? parsedData.mrp.toString() : '',
@@ -171,13 +151,10 @@ export default function AdminProducts({
       barcode: '',
       moq: '1',
       image_url: '',
-    });
-    setEditingId(null);
-    setImages([]);
-    setImageMetadata([]);
-    setImagePreviews([]);
-    setExistingImageUrl(null);
-    setIsOpen(true);
+    };
+
+    sessionStorage.setItem('admin-product-draft:new', JSON.stringify(draft));
+    setLocation('/admin/products/new');
   };
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -229,16 +206,6 @@ export default function AdminProducts({
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, debouncedSearch, selectedCategory, status, attentionFilter]);
-
-  useEffect(() => {
-    return () => { imagePreviews.forEach((url) => URL.revokeObjectURL(url)); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Notify parent whenever the full-edit dialog opens or closes
-  useEffect(() => {
-    onDialogOpenChange?.(isOpen);
-  }, [isOpen, onDialogOpenChange]);
 
   // Focus cell input when editing starts
   useEffect(() => {
@@ -423,6 +390,30 @@ export default function AdminProducts({
     finally { setQuickAdding(false); }
   };
 
+  useKeyboardShortcuts({
+    enabled: keyboardShortcutsEnabled,
+    focusQuickAdd: () => {
+      setShowQuickAdd(true);
+      setTimeout(() => quickNameRef.current?.focus(), 0);
+    },
+    focusSearch: () => searchRef.current?.focus(),
+    save: () => handleQuickAdd(),
+    cancel: () => {
+      if (shortcutsOpen) {
+        setShortcutsOpen(false);
+        return;
+      }
+      const hasQuickAddValues = Object.entries(quickAdd).some(([key, value]) => {
+        if (key === 'unit_of_measure') return value !== QUICK_ADD_DEFAULTS.unit_of_measure;
+        return value !== '';
+      });
+      if (hasQuickAddValues && !window.confirm('Discard the current quick-add entry?')) return;
+      setQuickAdd(QUICK_ADD_DEFAULTS);
+      quickNameRef.current?.blur();
+    },
+    showHelp: () => setShortcutsOpen(true),
+  });
+
   // ── Toggle helpers ──────────────────────────────────────────────────────────
   const handleToggleActive = async (id: string, isActive: boolean) => {
     try {
@@ -457,151 +448,14 @@ export default function AdminProducts({
     } catch { toast.error('Failed to delete'); }
   };
 
-  // ── Full dialog (images + description) ─────────────────────────────────────
-  const handleImageFiles = async (files: File[]) => {
-    if (!files.length) return;
-    if (files.length + images.length > 5) { toast.error('Maximum 5 images allowed'); return; }
-    if (autoResize) {
-      setIsResizing(true);
-      try {
-        const results = await batchAutoResize(files);
-        const newFiles = results.map((r) => r.file);
-        const savings = results.reduce((acc, r) => acc + (r.originalSize - r.newSize), 0);
-        if (savings > 1024) toast.success(`Auto-resized · saved ${formatBytes(savings)}`);
-        setImages((prev) => [...prev, ...newFiles]);
-        setImagePreviews((prev) => [...prev, ...newFiles.map((f) => URL.createObjectURL(f))]);
-        setImageMetadata((prev) => [...prev, ...newFiles.map(() => ({ altText: '', description: '' }))]);
-      } finally { setIsResizing(false); }
-    } else {
-      setImages((prev) => [...prev, ...files]);
-      setImagePreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
-      setImageMetadata((prev) => [...prev, ...files.map(() => ({ altText: '', description: '' }))]);
-    }
-  };
-
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = '';
-    await handleImageFiles(files);
-  };
-
-  const removeImage = (index: number) => {
-    if (imagePreviews[index]) URL.revokeObjectURL(imagePreviews[index]);
-    setImages(images.filter((_, i) => i !== index));
-    setImagePreviews(imagePreviews.filter((_, i) => i !== index));
-    setImageMetadata(imageMetadata.filter((_, i) => i !== index));
-  };
-
-  const resetForm = () => {
-    setFormData({ name: '', category_id: '', description: '', price: '', mrp: '', unit_of_measure: 'pcs', quantity_in_unit: '', discount_percent: '0', brand: '', is_active: true, is_featured: false, sku: '', barcode: '', moq: '1', image_url: '' });
-    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
-    setImages([]); setImageMetadata([]); setImagePreviews([]); setExistingImageUrl(null); setEditingId(null);
-  };
-
-  // Open the full dialog with a blank form to add a product that needs an
-  // image, description, or the extra fields the quick-add row doesn't cover.
+  // Open the route editor for products that need images, descriptions, or
+  // fields beyond the sticky quick-add row.
   const handleOpenFullAdd = () => {
-    resetForm();
-    setIsOpen(true);
+    setLocation('/admin/products/new');
   };
 
   const handleOpenFullEdit = (product: Product) => {
-    setFormData({
-      name: product.name,
-      category_id: product.category_id,
-      description: product.description || '',
-      price: (product.price ?? 0).toString(),
-      mrp: product.mrp?.toString() || '',
-      unit_of_measure: product.unit_of_measure || 'pcs',
-      quantity_in_unit: product.quantity_in_unit?.toString() || '',
-      discount_percent: (product.discount_percent || 0).toString(),
-      brand: product.brand || '',
-      is_active: product.is_active,
-      is_featured: product.is_featured || false,
-      sku: product.sku || '',
-      barcode: product.barcode || '',
-      moq: (product.moq ?? 1).toString(),
-      image_url: product.image_url || '',
-    });
-    setEditingId(product.id);
-    setImages([]); setImageMetadata([]); setImagePreviews([]);
-    setExistingImageUrl(product.image_url || null);
-    setIsOpen(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.category_id || !formData.price) { toast.error('Name, category and price are required'); return; }
-    setIsSaving(true);
-    try {
-      const productData: any = {
-        name: formData.name, category_id: formData.category_id,
-        description: formData.description, price: parseFloat(formData.price),
-        mrp: formData.mrp ? parseFloat(formData.mrp) : undefined,
-        unit_of_measure: formData.unit_of_measure,
-        quantity_in_unit: formData.quantity_in_unit ? parseInt(formData.quantity_in_unit) : undefined,
-        discount_percent: parseInt(formData.discount_percent),
-        brand: formData.brand || undefined,
-        is_active: formData.is_active, is_featured: formData.is_featured,
-        sku: formData.sku || undefined,
-        barcode: formData.barcode || undefined,
-        moq: formData.moq ? parseInt(formData.moq) : 1,
-        image_alt_text: imageMetadata[0]?.altText || formData.name,
-        image_description: imageMetadata[0]?.description || '',
-      };
-      // Pasted image URL (e.g. a Google Drive link) — normalized so it renders.
-      // An uploaded file, if any, overrides this below as the primary image.
-      const pastedUrl = normalizeImageUrl(formData.image_url);
-      if (pastedUrl) productData.image_url = pastedUrl;
-      let product: Product;
-      if (editingId) {
-        product = await productService.update(editingId, productData);
-      } else {
-        // Auto-generate a SKU when blank so every product has a stable handle,
-        // matching the quick-add row's behaviour.
-        if (!productData.sku) {
-          productData.sku = `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-        }
-        product = await productService.create(productData);
-      }
-      if (images.length > 0) {
-        // Upload all files in parallel, then batch-insert gallery rows in one
-        // request — much faster than the old sequential upload+insert loop.
-        const uploaded = await Promise.all(
-          images.map(async (img, i) => {
-            try {
-              const url = await storageService.uploadProductImage(img, product.id);
-              return url ? { url, index: i } : null;
-            } catch { return null; }
-          }),
-        );
-        const ok = uploaded.filter((u): u is { url: string; index: number } => u !== null);
-        const failedCount = images.length - ok.length;
-        if (failedCount > 0) toast.error(`${failedCount} image${failedCount > 1 ? 's' : ''} failed to upload`);
-        if (ok.length > 0) {
-          try {
-            await productImageService.createMany(ok.map(({ url, index }) => ({
-              product_id: product.id,
-              image_url: url,
-              alt_text: imageMetadata[index]?.altText || formData.name,
-              description: imageMetadata[index]?.description || '',
-              display_order: index,
-            })));
-          } catch { toast.error('Failed to save image records'); }
-          product = await productService.update(product.id, { image_url: ok[0].url });
-        }
-      }
-      toast.success(editingId ? 'Product updated' : 'Product created');
-      resetForm(); setIsOpen(false);
-      if (editingId) {
-        // Optimistic: patch the edited row in place — no refetch, no flicker.
-        setProducts((prev) => prev.map((p) => (p.id === editingId ? { ...p, ...product } : p)));
-      } else {
-        // New product: refetch so it appears with correct sort/pagination.
-        loadProducts();
-      }
-    } catch { toast.error('Failed to save product'); }
-    finally { setIsSaving(false); }
+    setLocation(`/admin/products/${product.id}`);
   };
 
   const getCategoryName = (id: string) => categories.find((c) => c.id === id)?.name || '—';
@@ -795,6 +649,7 @@ export default function AdminProducts({
         <div className="flex-1 min-w-[200px] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <Input
+            ref={searchRef}
             placeholder="Search by name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -1188,198 +1043,6 @@ export default function AdminProducts({
         )}
       </div>
 
-      {/* Full Edit Dialog (description + images + AI) */}
-      <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsOpen(open); }}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? 'Full Edit — ' + (formData.name || 'Product') : 'Add New Product'}</DialogTitle>
-            <DialogDescription className="sr-only">
-              {editingId ? 'Edit product details, description, and images' : 'Add a new product to the catalogue'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-1">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Product Name *</Label>
-              <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., 50ml Attach Lid Container" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Category *</Label>
-              <CategoryCombobox
-                categories={categories}
-                value={formData.category_id}
-                onChange={(v) => setFormData({ ...formData, category_id: v })}
-                placeholder="Select category"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label>Price (₹) *</Label>
-                <Input type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} placeholder="0.00" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>MRP (₹)</Label>
-                <Input type="number" step="0.01" value={formData.mrp} onChange={(e) => setFormData({ ...formData, mrp: e.target.value })} placeholder="0.00" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Discount %</Label>
-                <Input type="number" min="0" max="100" value={formData.discount_percent} onChange={(e) => setFormData({ ...formData, discount_percent: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Unit</Label>
-                <Select value={formData.unit_of_measure} onValueChange={(v) => setFormData({ ...formData, unit_of_measure: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Pack Size</Label>
-                <Input type="number" min="1" value={formData.quantity_in_unit} onChange={(e) => setFormData({ ...formData, quantity_in_unit: e.target.value })} placeholder="e.g. 100" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Brand</Label>
-              <Input value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} placeholder="e.g. Oshine, Biopack" />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label>SKU</Label>
-                <Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} placeholder="e.g. BOX-0001" className="font-mono text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Barcode</Label>
-                <Input value={formData.barcode} onChange={(e) => setFormData({ ...formData, barcode: e.target.value })} placeholder="e.g. 8901234567890" className="font-mono text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Min. Order Qty</Label>
-                <Input type="number" min="1" value={formData.moq} onChange={(e) => setFormData({ ...formData, moq: e.target.value })} placeholder="1" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label>Description</Label>
-                <button
-                  type="button"
-                  disabled={isGenerating || !formData.name}
-                  onClick={async () => {
-                    const catName = categories.find((c) => c.id === formData.category_id)?.name || '';
-                    setIsGenerating(true);
-                    try {
-                      const text = await generateDescription(formData.name, catName);
-                      setFormData((f) => ({ ...f, description: text }));
-                    } catch (err: any) {
-                      toast.error(err?.message || 'Failed to generate');
-                    } finally { setIsGenerating(false); }
-                  }}
-                  className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-40"
-                >
-                  {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>✨</span>}
-                  AI Generate
-                </button>
-              </div>
-              <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Product description…" rows={3} />
-            </div>
-            {/* Images */}
-            <div
-              className={`space-y-2 rounded-xl transition-all ${dialogDropHighlight ? 'ring-2 ring-blue-400 bg-blue-50/50 p-2 -mx-2' : ''}`}
-              onDragEnter={(e) => { if (e.dataTransfer.types.includes('Files')) setDialogDropHighlight(true); }}
-              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDialogDropHighlight(false); }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={async (e) => {
-                e.preventDefault();
-                setDialogDropHighlight(false);
-                if (e.dataTransfer.files.length) await handleImageFiles(Array.from(e.dataTransfer.files));
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <Label>Images <span className="text-slate-400 font-normal">(up to 5)</span></Label>
-                <button
-                  type="button"
-                  onClick={() => setAutoResize((v) => !v)}
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-lg border transition-colors ${autoResize ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}
-                >
-                  <Zap className="w-3 h-3" />Auto-resize {autoResize ? 'ON' : 'OFF'}
-                </button>
-              </div>
-              {editingId && existingImageUrl && images.length === 0 && (
-                <div className="flex items-center gap-3 p-2 border rounded-lg bg-slate-50">
-                  <img src={normalizeImageUrl(existingImageUrl)} alt="Current" className="w-14 h-14 object-contain rounded bg-white border" />
-                  <span className="text-sm text-slate-600">Current image. Upload a file or paste a new URL to replace.</span>
-                </div>
-              )}
-              {/* Paste image URL — fastest way to add: a Google Drive share link
-                  is auto-converted to a renderable thumbnail on save. */}
-              <div className="flex items-center gap-2">
-                <Input
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="Paste image URL (Google Drive link works)"
-                  className="text-sm flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setMediaSelectorOpen(true)}
-                  className="text-xs shrink-0 flex items-center gap-1.5 h-9"
-                >
-                  <Images className="w-4 h-4" />
-                  Select from Library
-                </Button>
-                {formData.image_url.trim() && images.length === 0 && (
-                  <img
-                    src={normalizeImageUrl(formData.image_url)}
-                    alt="Preview"
-                    className="w-10 h-10 object-contain rounded bg-white border flex-shrink-0"
-                  />
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-slate-400">
-                <span className="h-px flex-1 bg-slate-200" />or upload<span className="h-px flex-1 bg-slate-200" />
-              </div>
-              <input
-                type="file" multiple accept="image/*"
-                onChange={handleImageSelect} disabled={isResizing}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-600 hover:file:bg-red-100 disabled:opacity-50"
-              />
-              {isResizing && <div className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="w-4 h-4 animate-spin" />Resizing…</div>}
-              {images.length > 0 && (
-                <div className="space-y-2 mt-1">
-                  {images.map((img, idx) => (
-                    <div key={idx} className="border rounded-lg p-3 space-y-2 bg-slate-50 flex items-center gap-3">
-                      {imagePreviews[idx] && <img src={imagePreviews[idx]} alt={img.name} className="w-14 h-14 object-contain rounded bg-white border flex-shrink-0" />}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{img.name}</p>
-                        <p className="text-xs text-slate-400">{formatBytes(img.size)}</p>
-                        <Input className="mt-1 h-7 text-xs" placeholder="Alt text (SEO)" value={imageMetadata[idx]?.altText || ''} onChange={(e) => { const m = [...imageMetadata]; m[idx].altText = e.target.value; setImageMetadata(m); }} />
-                      </div>
-                      <button type="button" onClick={() => removeImage(idx)} className="text-slate-400 hover:text-red-600 flex-shrink-0"><X className="w-4 h-4" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-6 border-t pt-4">
-              <div className="flex items-center gap-3">
-                <Switch checked={formData.is_active} onCheckedChange={(v) => setFormData({ ...formData, is_active: v })} />
-                <Label>Active</Label>
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={formData.is_featured} onCheckedChange={(v) => setFormData({ ...formData, is_featured: v })} />
-                <Label>Featured</Label>
-              </div>
-            </div>
-            <div className="flex gap-3 justify-end border-t pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSaving}>Cancel</Button>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</> : editingId ? 'Update Product' : 'Create Product'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
       {/* Image Gallery */}
       <AdminImageGallery
         product={galleryProduct}
@@ -1398,23 +1061,7 @@ export default function AdminProducts({
         onAutofill={handleAutofill}
       />
 
-      {/* Media Selector Dialog */}
-      <Dialog open={mediaSelectorOpen} onOpenChange={setMediaSelectorOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Select Image from Library</DialogTitle>
-            <DialogDescription className="sr-only">Select an existing image from the media library</DialogDescription>
-          </DialogHeader>
-          <AdminImageLibrary
-            isSelectionMode={true}
-            onSelectImage={(url) => {
-              setFormData((f) => ({ ...f, image_url: url }));
-              setMediaSelectorOpen(false);
-              toast.success('Selected image from library!');
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 }
