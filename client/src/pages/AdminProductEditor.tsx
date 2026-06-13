@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
-import { ChevronRight, Loader2, X, Zap } from 'lucide-react';
+import { ChevronRight, Loader2, X, Zap, Sparkles, Images } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,9 @@ import { generateDescription } from '@/lib/aiService';
 import { batchAutoResize, formatBytes, normalizeImageUrl } from '@/lib/imageUtils';
 import { categoryService, productImageService, productService, storageService } from '@/lib/productService';
 import { Category, Product } from '@/lib/supabase';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import AISmartPasteDialog from '@/components/admin/AISmartPasteDialog';
+import AdminImageLibrary from '@/components/admin/AdminImageLibrary';
 
 const UNITS = ['pcs', 'box', 'pack', 'roll', 'kg', 'litre', 'set'];
 const RETAINED_VALUES_KEY = 'admin-product-retained-values';
@@ -49,9 +52,36 @@ export default function AdminProductEditor() {
   const [autoResize, setAutoResize] = useState(true);
   const [dropHighlight, setDropHighlight] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [smartPasteOpen, setSmartPasteOpen] = useState(false);
+  const [mediaSelectorOpen, setMediaSelectorOpen] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const previewsRef = useRef<string[]>([]);
+
+  const handleAutofill = (parsedData: any) => {
+    let categoryId = formData.category_id;
+    if (parsedData.category_name) {
+      const match = categories.find(
+        (c) => c.name.toLowerCase() === parsedData.category_name!.toLowerCase()
+      );
+      if (match) {
+        categoryId = match.id;
+      }
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      name: parsedData.name || prev.name,
+      category_id: categoryId || prev.category_id,
+      description: parsedData.description || prev.description,
+      price: parsedData.price != null ? parsedData.price.toString() : prev.price,
+      mrp: parsedData.mrp != null ? parsedData.mrp.toString() : prev.mrp,
+      unit_of_measure: parsedData.unit_of_measure || prev.unit_of_measure,
+      quantity_in_unit: parsedData.quantity_in_unit != null ? parsedData.quantity_in_unit.toString() : prev.quantity_in_unit,
+      brand: parsedData.brand || prev.brand,
+    }));
+    toast.success('Fields autofilled from parsed data!');
+  };
 
   const draftKey = `admin-product-draft:${productId ?? 'new'}`;
   const dirty = useMemo(
@@ -348,9 +378,21 @@ export default function AdminProductEditor() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">{isEditing ? 'Edit Product' : 'New Product'}</h1>
-          <p className="mt-1 text-sm text-slate-500">Complete the catalogue details, then save or keep entering products.</p>
+        <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{isEditing ? 'Edit Product' : 'New Product'}</h1>
+            <p className="mt-1 text-sm text-slate-500">Complete the catalogue details, then save or keep entering products.</p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => setSmartPasteOpen(true)}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-sm border-amber-300 text-amber-700 hover:bg-amber-50 shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+            AI Smart Paste
+          </Button>
         </div>
 
         <form ref={formRef} onSubmit={(event) => { event.preventDefault(); save(false); }} className="space-y-6">
@@ -422,7 +464,31 @@ export default function AdminProductEditor() {
                 <span className="text-sm text-slate-600">Current primary image</span>
               </div>
             )}
-            <Input value={formData.image_url} onChange={(event) => updateForm('image_url', event.target.value)} placeholder="Paste image URL (Google Drive link works)" />
+            <div className="flex items-center gap-2">
+              <Input
+                value={formData.image_url}
+                onChange={(event) => updateForm('image_url', event.target.value)}
+                placeholder="Paste image URL (Google Drive link works)"
+                className="flex-1 text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMediaSelectorOpen(true)}
+                className="text-xs shrink-0 flex items-center gap-1.5 h-9"
+              >
+                <Images className="w-4 h-4" />
+                Select from Library
+              </Button>
+              {formData.image_url.trim() && !images.length && (
+                <img
+                  src={normalizeImageUrl(formData.image_url)}
+                  alt="Preview"
+                  className="w-10 h-10 object-contain rounded bg-white border flex-shrink-0"
+                />
+              )}
+            </div>
             <input type="file" multiple accept="image/*" disabled={isResizing} onChange={async (event) => {
               await handleImageFiles(Array.from(event.target.files || []));
               event.target.value = '';
@@ -459,6 +525,32 @@ export default function AdminProductEditor() {
         </form>
       </main>
       <KeyboardShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} editor />
+
+      {/* AI Smart Paste Dialog */}
+      <AISmartPasteDialog
+        open={smartPasteOpen}
+        onClose={() => setSmartPasteOpen(false)}
+        categories={categories}
+        onAutofill={handleAutofill}
+      />
+
+      {/* Media Selector Dialog */}
+      <Dialog open={mediaSelectorOpen} onOpenChange={setMediaSelectorOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Image from Library</DialogTitle>
+            <DialogDescription className="sr-only">Select an existing image from the media library</DialogDescription>
+          </DialogHeader>
+          <AdminImageLibrary
+            isSelectionMode={true}
+            onSelectImage={(url) => {
+              updateForm('image_url', url);
+              setMediaSelectorOpen(false);
+              toast.success('Selected image from library!');
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
