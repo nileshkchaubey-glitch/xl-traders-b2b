@@ -12,6 +12,8 @@ import { downloadProductTemplate } from '@/lib/templateService';
 type Step = 'input' | 'mapping' | 'preview' | 'importing' | 'done';
 
 interface ColMap {
+  master_name: string;
+  variant_label: string;
   name: string;
   category: string;
   price: string;
@@ -27,6 +29,8 @@ interface ColMap {
 }
 
 const DEFAULT_MAP: ColMap = {
+  master_name: 'master_name',
+  variant_label: 'variant_label',
   name: 'name',
   category: 'category',
   price: 'price',
@@ -52,6 +56,8 @@ function mapRow(raw: Record<string, string>, map: ColMap): ImportRow | null {
   if (isNaN(price) || price < 0) return null;
 
   return {
+    master_name: map.master_name ? raw[map.master_name]?.trim() : undefined,
+    variant_label: map.variant_label ? raw[map.variant_label]?.trim() : undefined,
     name,
     category,
     sku: map.sku ? raw[map.sku]?.trim() : undefined,

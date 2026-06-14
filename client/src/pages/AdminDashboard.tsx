@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { useAuthStore } from '@/lib/authStore';
 import {
   LogOut, Package, Grid3x3, MessageSquare, Settings, Upload,
   LayoutDashboard, FileSpreadsheet, ShoppingBag, Globe, Menu, X,
-  ChevronRight, ExternalLink, Images,
+  ChevronRight, ExternalLink, Images, Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,6 +41,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'products', label: 'Products', icon: Package },
       { id: 'categories', label: 'Catalogues', icon: Grid3x3 },
       { id: 'image-library', label: 'Image Library', icon: Images },
+      { id: 'masters', label: 'Masters', icon: Layers },
     ],
   },
   {
@@ -194,6 +195,22 @@ export default function AdminDashboard() {
               <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const active = activeTab === item.id;
+                  if (item.id === 'masters') {
+                    return (
+                      <Link
+                        key={item.id}
+                        to="/admin/masters"
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all text-left
+                          ${active
+                            ? 'bg-red-600 text-white shadow-sm shadow-red-900/30'
+                            : 'text-slate-400 hover:text-white hover:bg-white/[0.07]'
+                          }`}
+                      >
+                        <item.icon className="w-4 h-4 flex-shrink-0" />
+                        {item.label}
+                      </Link>
+                    );
+                  }
                   return (
                     <button
                       key={item.id}

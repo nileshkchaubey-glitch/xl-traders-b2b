@@ -4,6 +4,7 @@ import { ArrowLeft, MessageCircle, Share2 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { productService, productImageService, enquiryService, inquiriesService } from '@/lib/productService';
+import { masterService } from '@/lib/masterService';
 import { Product, ProductImage } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/authStore';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
@@ -107,14 +108,35 @@ export default function ProductDetail() {
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   const phone1 = import.meta.env.VITE_PHONE_1 || '9773239442';
 
+  const [variants, setVariants] = useState<Product[]>([]);
+  const [selectedVariant, setSelectedVariant] = useState<Product | null>(null);
+
   useEffect(() => {
     const loadProduct = async () => {
       if (!id) return;
       try {
         const prod = await productService.getById(id);
         setProduct(prod);
-        const imgs = await productImageService.getByProductId(id);
-        setImages(imgs);
+        setSelectedVariant(prod);
+
+        if (prod?.master_id) {
+          const mImgs = await masterService.getMasterImages(prod.master_id);
+          setImages(mImgs.map(img => ({
+            id: img.id,
+            product_id: prod.id,
+            image_url: img.image_url,
+            display_order: img.display_order,
+            created_at: img.created_at,
+          })));
+
+          const vData = await masterService.getVariantsByMasterId(prod.master_id);
+          setVariants(vData);
+        } else {
+          const imgs = await productImageService.getByProductId(id);
+          setImages(imgs);
+          setVariants([]);
+        }
+
         saveToRecentlyViewed(id);
         if (prod?.category_id) {
           const all = await productService.getAll({ categoryId: prod.category_id });
@@ -142,10 +164,13 @@ export default function ProductDetail() {
     loadRecent();
   }, [id]);
 
+  const currentProd = selectedVariant || product;
+
   const handleEnquire = () => {
+    if (!currentProd) return;
     const message = isAuthenticated
-      ? `Hi, I'm interested in: ${product?.name}\n\nPrice: ₹${product?.price}\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nPlease provide more details and availability.`
-      : `Hi, I'm interested in: ${product?.name}\n\nQuantity: ${product?.quantity_in_unit} ${product?.unit_of_measure}\n\nCould you please share the price and availability?`;
+      ? `Hi, I'm interested in: ${currentProd.name}\n\nPrice: ₹${currentProd.price}\nQuantity: ${currentProd.quantity_in_unit} ${currentProd.unit_of_measure}\n\nPlease provide more details and availability.`
+      : `Hi, I'm interested in: ${currentProd.name}\n\nQuantity: ${currentProd.quantity_in_unit} ${currentProd.unit_of_measure}\n\nCould you please share the price and availability?`;
 
     // Open WhatsApp immediately (must stay in synchronous click-handler
     // context so browsers don't treat it as a popup).
@@ -158,14 +183,14 @@ export default function ProductDetail() {
         : '',
       phone: (isAuthenticated && profile?.phone) ? profile.phone : '',
       message,
-      product_name: product?.name ?? '',
+      product_name: currentProd.name ?? '',
       source: 'website',
     }).catch(() => {});
 
-    if (isAuthenticated && user && product) {
+    if (isAuthenticated && user && currentProd) {
       enquiryService.create({
         user_id: user.id,
-        product_id: product.id,
+        product_id: currentProd.id,
         customer_name: profile?.contact_person || profile?.company_name || user.email || 'Customer',
         customer_email: profile?.email || user.email || '',
         customer_phone: profile?.phone || '',
@@ -178,8 +203,8 @@ export default function ProductDetail() {
   };
 
   const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({ title: product?.name, text: `Check out this product: ${product?.name}`, url: window.location.href });
+    if (navigator.share && currentProd) {
+      navigator.share({ title: currentProd.name, text: `Check out this product: ${currentProd.name}`, url: window.location.href });
     }
   };
 
@@ -221,7 +246,7 @@ export default function ProductDetail() {
 
   const displayImages = images.length > 0 ? images : [];
   const mainImage = normalizeImageUrl(
-    displayImages.length > 0 ? displayImages[selectedImageIndex]?.image_url : product.image_url,
+    displayImages.length > 0 ? displayImages[selectedImageIndex]?.image_url : (currentProd?.image_url || ''),
   );
 
   return (
@@ -247,7 +272,7 @@ export default function ProductDetail() {
                 {mainImage && !imageErrors.has(`main-${selectedImageIndex}`) ? (
                   <img
                     src={mainImage}
-                    alt={product.image_alt_text || product.name}
+                    alt={currentProd?.image_alt_text || currentProd?.name}
                     className="w-full h-full object-contain p-4"
                     onError={() => handleImageError(`main-${selectedImageIndex}`)}
                   />
@@ -279,24 +304,54 @@ export default function ProductDetail() {
             {/* Product Details */}
             <div>
               <div className="bg-white border border-slate-200 rounded-lg p-8">
-                <h1 className="text-3xl font-bold text-slate-900 mb-1">{product.name}</h1>
+                <h1 className="text-3xl font-bold text-slate-900 mb-1">{currentProd.name}</h1>
                 <div className="flex items-center gap-3 flex-wrap mb-6">
-                  <p className="text-slate-400 text-sm">SKU: {product.sku || 'N/A'}</p>
-                  {product.barcode && <p className="text-slate-400 text-sm">Barcode: {product.barcode}</p>}
-                  {product.moq && product.moq > 1 && (
+                  <p className="text-slate-400 text-sm">SKU: {currentProd.sku || 'N/A'}</p>
+                  {currentProd.barcode && <p className="text-slate-400 text-sm">Barcode: {currentProd.barcode}</p>}
+                  {currentProd.moq && currentProd.moq > 1 && (
                     <span className="text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
-                      Min. order: {product.moq}
+                      Min. order: {currentProd.moq}
                     </span>
                   )}
                 </div>
+
+                {/* Variant Selector */}
+                {variants.length > 1 && (
+                  <div className="mb-6 pb-6 border-b border-slate-200">
+                    <p className="text-slate-600 text-xs font-bold uppercase tracking-wider mb-2.5">Available Sizes / Options:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {variants.map((v) => {
+                        const isSelected = currentProd.id === v.id;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedVariant(v);
+                              window.history.replaceState(null, '', `/product/${v.id}`);
+                            }}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                              isSelected
+                                ? 'bg-red-600 text-white border border-red-600'
+                                : 'border border-slate-200 text-slate-700 hover:border-red-400 bg-white hover:bg-red-50/10'
+                            }`}
+                          >
+                            {v.variant_label || v.name}
+                            {isSelected && <span className="ml-1 text-[10px]">✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Price */}
                 <div className="mb-8 pb-8 border-b border-slate-200">
                   {isAuthenticated ? (
                     <div>
                       <p className="text-slate-600 text-sm font-semibold mb-2">Price</p>
-                      <p className="text-4xl font-bold text-red-600">₹{product.price?.toLocaleString()}</p>
-                      <p className="text-slate-500 text-sm mt-2">Per {product.quantity_in_unit} {product.unit_of_measure}</p>
+                      <p className="text-4xl font-bold text-red-600">₹{currentProd.price?.toLocaleString()}</p>
+                      <p className="text-slate-500 text-sm mt-2">Per {currentProd.quantity_in_unit} {currentProd.unit_of_measure}</p>
                     </div>
                   ) : (
                     <div className="bg-slate-100 border border-slate-200 rounded-lg p-4 text-center">
@@ -309,11 +364,11 @@ export default function ProductDetail() {
                 </div>
 
                 {/* Specifications */}
-                {product.specifications && Object.keys(product.specifications).length > 0 && (
+                {currentProd.specifications && Object.keys(currentProd.specifications).length > 0 && (
                   <div className="mb-8 pb-8 border-b border-slate-200">
                     <h3 className="font-bold text-slate-900 mb-4">Specifications</h3>
                     <div className="space-y-3">
-                      {Object.entries(product.specifications).map(([key, value]) => (
+                      {Object.entries(currentProd.specifications).map(([key, value]) => (
                         <div key={key} className="flex justify-between">
                           <span className="text-slate-600 capitalize">{key}:</span>
                           <span className="font-semibold text-slate-900">{String(value)}</span>
@@ -324,10 +379,10 @@ export default function ProductDetail() {
                 )}
 
                 {/* Description */}
-                {product.description && (
+                {currentProd.description && (
                   <div className="mb-8 pb-8 border-b border-slate-200">
                     <h3 className="font-bold text-slate-900 mb-3">Description</h3>
-                    <p className="text-slate-600 leading-relaxed">{product.description}</p>
+                    <p className="text-slate-600 leading-relaxed">{currentProd.description}</p>
                   </div>
                 )}
 
@@ -344,8 +399,8 @@ export default function ProductDetail() {
                 {/* Actions */}
                 <div className="space-y-3">
                   {/* Add to Cart (only when authenticated + price available) */}
-                  {isAuthenticated && product.price && (
-                    <AddToCartButton product={product} />
+                  {isAuthenticated && currentProd.price && (
+                    <AddToCartButton product={currentProd} />
                   )}
 
                   <button

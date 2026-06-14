@@ -34,7 +34,7 @@ export interface Product {
   moq?: number;
   brand?: string;
   discount_percent?: number;
-  image_url?: string;
+  image_url?: string | null;
   image_alt_text?: string;
   image_description?: string;
   specifications?: Record<string, any>;
@@ -46,6 +46,31 @@ export interface Product {
   display_order: number;
   created_at: string;
   updated_at: string;
+  master_id?: string | null;
+  variant_label?: string | null;
+}
+
+export interface ProductMaster {
+  id: string;
+  name: string;
+  slug: string;
+  category_id: string;
+  brand?: string | null;
+  description?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductMasterImage {
+  id: string;
+  master_id: string;
+  image_url: string;
+  is_primary: boolean;
+  display_order: number;
+  created_at: string;
 }
 
 export interface ProductImage {

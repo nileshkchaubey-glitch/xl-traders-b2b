@@ -16,6 +16,8 @@ import Auth from "./pages/Auth";
 // it — keeps the initial bundle lean for the customers who actually matter.
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminProductEditor = lazy(() => import("./pages/AdminProductEditor"));
+import AdminMasters from '@/components/admin/AdminMasters';
+
 
 function AdminFallback() {
   return (
@@ -45,6 +47,7 @@ function Router() {
           <AdminProductEditor />
         </Suspense>
       </Route>
+      <Route path={"/admin/masters"} component={AdminMasters} />
       <Route path={"/admin"}>
         <Suspense fallback={<AdminFallback />}>
           <AdminDashboard />
