@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 import { supabase } from './supabase';
 
 export interface ImportRow {
+  master_name?: string;
+  variant_label?: string;
   name: string;
   category: string;
   group?: string;
@@ -109,6 +111,8 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
     throw new Error('Invalid quantity_in_unit — must be a positive number');
   }
   return {
+    master_name: row.master_name ? String(row.master_name).trim() : undefined,
+    variant_label: row.variant_label ? String(row.variant_label).trim() : undefined,
     name: row.name.trim(),
     category: row.category.trim(),
     group: row.group ? row.group.trim() : undefined,
@@ -130,22 +134,14 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
   };
 }
 
-// Collect the up-to-5 image URLs from a parsed row (skips empty strings).
 function collectImageUrls(row: ImportRow): string[] {
   return [row.image_url_1, row.image_url_2, row.image_url_3, row.image_url_4, row.image_url_5]
     .filter((u): u is string => !!u);
 }
 
-/**
- * Write image URLs to product_images (display_order 1-5).
- * Clears all existing product_images rows for this product first so a
- * re-import with fewer images doesn't leave stale entries.
- * Also sets products.image_url to the first URL (primary image).
- */
 async function saveProductImages(productId: string, imageUrls: string[], productName: string): Promise<void> {
   if (!imageUrls.length) return;
 
-  // Remove existing images for this product then re-insert
   await supabase.from('product_images').delete().eq('product_id', productId);
 
   const imageRows = imageUrls.map((url, i) => ({
@@ -158,7 +154,6 @@ async function saveProductImages(productId: string, imageUrls: string[], product
   const { error } = await supabase.from('product_images').insert(imageRows);
   if (error) console.warn('Failed to save product images:', error.message);
 
-  // First image becomes the product's primary image_url
   await supabase.from('products').update({ image_url: imageUrls[0] }).eq('id', productId);
 }
 
@@ -184,24 +179,16 @@ async function getOrCreateCategory(categoryName: string): Promise<string | null>
   }
 }
 
-/** Generate a unique SKU if the row doesn't have one */
 function generateSku(): string {
   return `IMP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 }
 
-/**
- * Bulk import/update products.
- * Matching priority: SKU first → name fallback.
- * Writes results to import_logs table.
- */
 export async function bulkImportProducts(
   rows: ImportRow[],
   source: string = 'csv',
   onProgress?: (done: number, total: number) => void,
 ): Promise<ImportResult> {
   const result: ImportResult = { added: 0, updated: 0, skipped: 0, errors: [], summary: '' };
-
-  // Track SKUs seen in this batch to catch duplicates within the sheet
   const seenSkus = new Set<string>();
 
   for (let i = 0; i < rows.length; i++) {
@@ -215,91 +202,218 @@ export async function bulkImportProducts(
         continue;
       }
 
-      let existing: { id: string } | null = null;
-
-      // 1. Match by SKU first (if provided)
-      if (row.sku) {
-        if (seenSkus.has(row.sku)) {
-          result.skipped++;
-          result.errors.push({ row: rowNumber, error: `Duplicate SKU in sheet: ${row.sku}` });
-          continue;
-        }
-        seenSkus.add(row.sku);
-
-        const { data } = await supabase
-          .from('products')
-          .select('id')
-          .eq('sku', row.sku)
-          .maybeSingle();
-        existing = data;
-      }
-
-      // 2. Fall back to name match
-      if (!existing) {
-        const { data } = await supabase
-          .from('products')
-          .select('id')
-          .ilike('name', row.name)
-          .maybeSingle();
-        existing = data;
-      }
-
       const imageUrls = collectImageUrls(row);
 
-      if (existing) {
-        // UPDATE
-        const { error } = await supabase
-          .from('products')
-          .update({
-            category_id: categoryId,
-            price: row.price,
-            mrp: row.mrp,
-            unit_of_measure: row.unit,
-            quantity_in_unit: row.quantity_in_unit,
-            description: row.description,
-            brand: row.brand,
-            barcode: row.barcode,
-            moq: row.moq ?? 1,
-            is_featured: row.is_featured || false,
-            ...(row.sku ? { sku: row.sku } : {}),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existing.id);
+      // Check if it is a variant
+      if (row.master_name && row.master_name.trim() !== '') {
+        const masterName = row.master_name.trim();
+        
+        // 1. Find or create master
+        const { data: existingMaster } = await supabase
+          .from('product_masters')
+          .select('id')
+          .eq('name', masterName)
+          .maybeSingle();
 
-        if (error) {
-          result.errors.push({ row: rowNumber, error: `Update failed: ${error.message}` });
+        let masterId = existingMaster?.id;
+
+        if (!masterId) {
+          const masterSlug = masterName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+          const { data: newMaster, error: masterErr } = await supabase
+            .from('product_masters')
+            .insert({
+              name: masterName,
+              slug: masterSlug,
+              category_id: categoryId,
+              brand: row.brand || null,
+              description: row.description || null,
+              is_active: true,
+            })
+            .select('id')
+            .single();
+          
+          if (masterErr) {
+            result.errors.push({ row: rowNumber, error: `Failed to create master "${masterName}": ${masterErr.message}` });
+            continue;
+          }
+          masterId = newMaster.id;
+        }
+
+        // 2. Resolve variant details
+        const variantLabel = row.variant_label || '';
+        const name = `${masterName} ${variantLabel}`.trim();
+        
+        let existingVariant: { id: string } | null = null;
+        if (row.sku) {
+          if (seenSkus.has(row.sku)) {
+            result.skipped++;
+            result.errors.push({ row: rowNumber, error: `Duplicate SKU in sheet: ${row.sku}` });
+            continue;
+          }
+          seenSkus.add(row.sku);
+
+          const { data } = await supabase
+            .from('products')
+            .select('id')
+            .eq('sku', row.sku)
+            .maybeSingle();
+          existingVariant = data;
+        }
+
+        if (!existingVariant) {
+          const { data } = await supabase
+            .from('products')
+            .select('id')
+            .ilike('name', name)
+            .maybeSingle();
+          existingVariant = data;
+        }
+
+        if (existingVariant) {
+          // UPDATE VARIANT
+          const { error } = await supabase
+            .from('products')
+            .update({
+              master_id: masterId,
+              variant_label: variantLabel,
+              name,
+              category_id: categoryId,
+              price: row.price,
+              mrp: row.mrp,
+              unit_of_measure: row.unit,
+              quantity_in_unit: row.quantity_in_unit,
+              description: row.description,
+              brand: row.brand,
+              barcode: row.barcode,
+              moq: row.moq ?? 1,
+              is_featured: row.is_featured || false,
+              ...(row.sku ? { sku: row.sku } : {}),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingVariant.id);
+
+          if (error) {
+            result.errors.push({ row: rowNumber, error: `Update failed: ${error.message}` });
+          } else {
+            result.updated++;
+            await saveProductImages(existingVariant.id, imageUrls, name);
+          }
         } else {
-          result.updated++;
-          await saveProductImages(existing.id, imageUrls, row.name);
+          // INSERT VARIANT
+          const sku = row.sku || `${masterName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${variantLabel.replace(/\s+/g, '-').toUpperCase()}`;
+          const { data: inserted, error } = await supabase
+            .from('products')
+            .insert({
+              master_id: masterId,
+              variant_label: variantLabel,
+              name,
+              category_id: categoryId,
+              sku,
+              barcode: row.barcode,
+              moq: row.moq ?? 1,
+              price: row.price,
+              mrp: row.mrp,
+              unit_of_measure: row.unit,
+              quantity_in_unit: row.quantity_in_unit,
+              description: row.description,
+              brand: row.brand,
+              is_featured: row.is_featured || false,
+              is_active: true,
+            })
+            .select('id')
+            .single();
+
+          if (error) {
+            result.errors.push({ row: rowNumber, error: `Insert failed: ${error.message}` });
+          } else {
+            result.added++;
+            if (inserted?.id) await saveProductImages(inserted.id, imageUrls, name);
+          }
         }
       } else {
-        // INSERT
-        const sku = row.sku || generateSku();
-        const { data: inserted, error } = await supabase
-          .from('products')
-          .insert({
-            name: row.name,
-            category_id: categoryId,
-            sku,
-            barcode: row.barcode,
-            moq: row.moq ?? 1,
-            price: row.price,
-            mrp: row.mrp,
-            unit_of_measure: row.unit,
-            quantity_in_unit: row.quantity_in_unit,
-            description: row.description,
-            brand: row.brand,
-            is_featured: row.is_featured || false,
-            is_active: true,
-          })
-          .select('id')
-          .single();
+        // STANDALONE product (existing logic)
+        let existing: { id: string } | null = null;
 
-        if (error) {
-          result.errors.push({ row: rowNumber, error: `Insert failed: ${error.message}` });
+        if (row.sku) {
+          if (seenSkus.has(row.sku)) {
+            result.skipped++;
+            result.errors.push({ row: rowNumber, error: `Duplicate SKU in sheet: ${row.sku}` });
+            continue;
+          }
+          seenSkus.add(row.sku);
+
+          const { data } = await supabase
+            .from('products')
+            .select('id')
+            .eq('sku', row.sku)
+            .maybeSingle();
+          existing = data;
+        }
+
+        if (!existing) {
+          const { data } = await supabase
+            .from('products')
+            .select('id')
+            .ilike('name', row.name)
+            .maybeSingle();
+          existing = data;
+        }
+
+        if (existing) {
+          // UPDATE
+          const { error } = await supabase
+            .from('products')
+            .update({
+              category_id: categoryId,
+              price: row.price,
+              mrp: row.mrp,
+              unit_of_measure: row.unit,
+              quantity_in_unit: row.quantity_in_unit,
+              description: row.description,
+              brand: row.brand,
+              barcode: row.barcode,
+              moq: row.moq ?? 1,
+              is_featured: row.is_featured || false,
+              ...(row.sku ? { sku: row.sku } : {}),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+
+          if (error) {
+            result.errors.push({ row: rowNumber, error: `Update failed: ${error.message}` });
+          } else {
+            result.updated++;
+            await saveProductImages(existing.id, imageUrls, row.name);
+          }
         } else {
-          result.added++;
-          if (inserted?.id) await saveProductImages(inserted.id, imageUrls, row.name);
+          // INSERT
+          const sku = row.sku || generateSku();
+          const { data: inserted, error } = await supabase
+            .from('products')
+            .insert({
+              name: row.name,
+              category_id: categoryId,
+              sku,
+              barcode: row.barcode,
+              moq: row.moq ?? 1,
+              price: row.price,
+              mrp: row.mrp,
+              unit_of_measure: row.unit,
+              quantity_in_unit: row.quantity_in_unit,
+              description: row.description,
+              brand: row.brand,
+              is_featured: row.is_featured || false,
+              is_active: true,
+            })
+            .select('id')
+            .single();
+
+          if (error) {
+            result.errors.push({ row: rowNumber, error: `Insert failed: ${error.message}` });
+          } else {
+            result.added++;
+            if (inserted?.id) await saveProductImages(inserted.id, imageUrls, row.name);
+          }
         }
       }
     } catch (error) {
@@ -311,7 +425,6 @@ export async function bulkImportProducts(
 
   result.summary = `✅ Added: ${result.added} | 🔄 Updated: ${result.updated} | ⏭ Skipped: ${result.skipped} | ❌ Errors: ${result.errors.length}`;
 
-  // Write import log
   try {
     await supabase.from('import_logs').insert({
       source,
@@ -332,13 +445,15 @@ export async function exportProductsAsCSV(): Promise<void> {
   try {
     const { data: products, error } = await supabase
       .from('products')
-      .select('name, categories(name), sku, barcode, moq, price, mrp, unit_of_measure, quantity_in_unit, description, brand, is_featured')
+      .select('name, categories(name), sku, barcode, moq, price, mrp, unit_of_measure, quantity_in_unit, description, brand, is_featured, product_masters(name), variant_label')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
     if (!products) throw new Error('No products found');
 
     const csvData = products.map((p: any) => ({
+      master_name: p.product_masters?.name || '',
+      variant_label: p.variant_label || '',
       name: p.name,
       category: p.categories?.name || '',
       sku: p.sku || '',
@@ -372,20 +487,40 @@ export async function exportProductsAsCSV(): Promise<void> {
 export function generateCSVTemplate(): void {
   const template = [
     {
-      name: 'Product Name',
-      category: 'Category Name',
-      sku: 'CAT-0001',
+      master_name: 'Hinged Box',
+      variant_label: '250ml',
+      name: 'Hinged Box 250ml',
+      category: 'Aluminum Containers',
+      sku: 'HNG-250ML',
       barcode: '',
-      moq: '1',
+      moq: '100',
       price: '100.00',
       mrp: '150.00',
-      unit: 'piece',
+      unit: 'pcs',
       quantity_in_unit: '100',
-      description: 'Product description',
-      brand: 'Brand Name',
+      description: 'Premium hinged packaging box',
+      brand: 'XL Traders',
       is_featured: 'false',
     },
     {
+      master_name: 'Hinged Box',
+      variant_label: '500ml',
+      name: 'Hinged Box 500ml',
+      category: 'Aluminum Containers',
+      sku: 'HNG-500ML',
+      barcode: '',
+      moq: '100',
+      price: '150.00',
+      mrp: '200.00',
+      unit: 'pcs',
+      quantity_in_unit: '100',
+      description: 'Premium hinged packaging box',
+      brand: 'XL Traders',
+      is_featured: 'true',
+    },
+    {
+      master_name: '',
+      variant_label: '',
       name: '5 Ply Corrugated Box - 12x10x8',
       category: 'Corrugated Boxes',
       sku: 'BOX-0001',

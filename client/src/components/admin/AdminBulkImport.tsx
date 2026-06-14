@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Upload, Download, AlertCircle, CheckCircle, Loader2, FileSpreadsheet } from 'lucide-react';
+import { Upload, Download, AlertCircle, CheckCircle, Loader2, FileSpreadsheet, Layers } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -152,6 +152,20 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
               <Download className="w-4 h-4" />
               Download (.xlsx)
             </Button>
+          </div>
+
+          {/* Variant Import Info Banner */}
+          <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 flex gap-4 items-start">
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Layers className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-blue-900">📦 Variant Import (NEW):</p>
+              <p className="text-sm text-blue-700 mt-1 leading-relaxed">
+                Fill <strong className="font-semibold text-blue-900">"master_name"</strong> + <strong className="font-semibold text-blue-900">"variant_label"</strong> to create size/pack variants.<br />
+                Leave <strong className="font-semibold text-blue-900">master_name</strong> empty for standalone products (existing behavior).
+              </p>
+            </div>
           </div>
 
           {/* Drop zone */}
