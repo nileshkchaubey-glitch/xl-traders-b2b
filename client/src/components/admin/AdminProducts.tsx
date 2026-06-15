@@ -14,7 +14,8 @@ import { supabase } from '@/lib/supabase';
 import { productService, categoryService } from '@/lib/productService';
 import { normalizeImageUrl } from '@/lib/imageUtils';
 import { Product, Category } from '@/lib/supabase';
-import { productCompleteness, completenessColor, AttentionFilter, ATTENTION_LABELS } from '@/lib/catalogHealth';
+import { productCompleteness, completenessColor, AttentionFilter, ATTENTION_LABELS, ATTENTION_FIELD, MISSING_FILTERS } from '@/lib/catalogHealth';
+import { healthService } from '@/lib/healthService';
 import AdminImageGallery from '@/components/admin/AdminImageGallery';
 import CategoryCombobox from '@/components/admin/CategoryCombobox';
 import AISmartPasteDialog from '@/components/admin/AISmartPasteDialog';
@@ -55,9 +56,14 @@ async function adminGetAllProducts(
   else if (status === 'featured') query = query.eq('is_featured', true);
   else if (status === 'draft') query = query.eq('status', 'draft');
   else if (status === 'published') query = query.eq('status', 'published');
-  if (attention === 'no-image') query = query.or('image_url.is.null,image_url.eq.');
-  else if (attention === 'no-price') query = query.or('price.is.null,price.eq.0');
-  else if (attention === 'no-slug') query = query.or('slug.is.null,slug.eq.');
+  // Missing-data filter: pull the matching ids from v_product_health (the
+  // single source of truth for "what is missing") and intersect — this ANDs
+  // cleanly with the search/category/status filters already applied above.
+  if (attention) {
+    const ids = await healthService.getIdsMissing(ATTENTION_FIELD[attention]);
+    if (!ids.length) return { data: [], count: 0 };
+    query = query.in('id', ids);
+  }
   query = query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   const { data, error, count } = await query;
   if (error) throw error;
@@ -712,14 +718,32 @@ export default function AdminProducts({
             <SelectItem value="featured">Featured ⭐</SelectItem>
           </SelectContent>
         </Select>
+        {/* Missing-data filter — sourced from v_product_health; ANDs with the
+            search/category/status filters above. */}
+        <Select
+          value={attentionFilter ?? 'none'}
+          onValueChange={(v) => { onAttentionChange?.(v === 'none' ? null : (v as AttentionFilter)); setPage(1); }}
+        >
+          <SelectTrigger className={`w-44 h-9 border-slate-200 text-sm ${attentionFilter ? 'bg-amber-50 border-amber-200 text-amber-800 font-semibold' : 'bg-slate-50'}`}>
+            <SelectValue placeholder="Missing…" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Missing… (all)</SelectItem>
+            {MISSING_FILTERS.map((f) => (
+              <SelectItem key={f} value={f}>{ATTENTION_LABELS[f]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {attentionFilter && (
-          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 h-9 text-sm font-semibold">
+          <button
+            onClick={() => { onAttentionChange?.(null); setPage(1); }}
+            className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 h-9 text-sm font-semibold hover:bg-amber-100"
+            title="Clear missing-data filter"
+          >
             <span className="text-amber-500">●</span>
             {ATTENTION_LABELS[attentionFilter]}
-            <button onClick={() => onAttentionChange?.(null)} className="ml-1 p-0.5 hover:bg-amber-100 rounded">
-              <X className="w-3 h-3" />
-            </button>
-          </div>
+            <X className="w-3 h-3" />
+          </button>
         )}
       </div>
 

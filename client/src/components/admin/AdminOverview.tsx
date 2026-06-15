@@ -1,20 +1,27 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'wouter';
 import {
   Package, Grid3x3, MessageSquare, Star, CheckCircle, XCircle, Clock,
-  ImageOff, IndianRupee, Link2, ArrowRight, Zap, TrendingUp, AlertTriangle,
+  ImageOff, IndianRupee, ArrowRight, Zap, TrendingUp, AlertTriangle,
+  Tag, FileText, Globe, ListChecks, Hash,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { AttentionFilter } from '@/lib/catalogHealth';
+import { MISSING_FILTERS, ATTENTION_LABELS, ATTENTION_FIELD, MissingFilter } from '@/lib/catalogHealth';
+import { healthService, MissingCounts } from '@/lib/healthService';
 import AdminDailyImprovementsWidget from './AdminDailyImprovementsWidget';
 
+// Icon + accent colour per missing-data dimension (keyed by filter).
+const MISSING_CHIP_META: Record<MissingFilter, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  'no-price':       { icon: IndianRupee, color: 'text-red-600 bg-red-50 border-red-200' },
+  'no-category':    { icon: Grid3x3,     color: 'text-purple-600 bg-purple-50 border-purple-200' },
+  'no-moq':         { icon: Hash,        color: 'text-cyan-600 bg-cyan-50 border-cyan-200' },
+  'no-brand':       { icon: Tag,         color: 'text-pink-600 bg-pink-50 border-pink-200' },
+  'no-image':       { icon: ImageOff,    color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  'no-specs':       { icon: ListChecks,  color: 'text-teal-600 bg-teal-50 border-teal-200' },
+  'no-description': { icon: FileText,    color: 'text-amber-600 bg-amber-50 border-amber-200' },
+  'no-seo':         { icon: Globe,       color: 'text-blue-600 bg-blue-50 border-blue-200' },
+};
 
-interface HealthCounts {
-  image: number;
-  price: number;
-  category: number;
-  slug: number;
-  meta: number;
-}
 
 interface Stats {
   totalProducts: number;
@@ -24,11 +31,9 @@ interface Stats {
   totalCategories: number;
   totalEnquiries: number;
   newEnquiries: number;
-  health: HealthCounts;
+  missing: MissingCounts;
   recentProducts: Array<{ id: string; name: string; created_at: string; is_active: boolean; category_name: string; image_url?: string }>;
 }
-
-const countOrZero = (r: { count: number | null; error: any }) => (r.error ? 0 : r.count ?? 0);
 
 async function fetchStats(): Promise<Stats> {
   const [
@@ -39,7 +44,7 @@ async function fetchStats(): Promise<Stats> {
     { count: totalCategories },
     { count: totalEnquiries },
     { count: newEnquiries },
-    hasImage, hasPrice, hasCategory, hasSlug, hasMeta,
+    missing,
     { data: recentRaw },
   ] = await Promise.all([
     supabase.from('products').select('*', { count: 'exact', head: true }),
@@ -49,11 +54,8 @@ async function fetchStats(): Promise<Stats> {
     supabase.from('categories').select('*', { count: 'exact', head: true }),
     supabase.from('enquiries').select('*', { count: 'exact', head: true }),
     supabase.from('enquiries').select('*', { count: 'exact', head: true }).eq('status', 'new'),
-    supabase.from('products').select('*', { count: 'exact', head: true }).not('image_url', 'is', null).neq('image_url', ''),
-    supabase.from('products').select('*', { count: 'exact', head: true }).gt('price', 0),
-    supabase.from('products').select('*', { count: 'exact', head: true }).not('category_id', 'is', null),
-    supabase.from('products').select('*', { count: 'exact', head: true }).not('slug', 'is', null).neq('slug', ''),
-    supabase.from('products').select('*', { count: 'exact', head: true }).not('meta_title', 'is', null).neq('meta_title', ''),
+    // Single grouped read of the v_product_health view (8 dimensions at once).
+    healthService.getMissingCounts(),
     supabase.from('products').select('id,name,created_at,is_active,image_url,categories(name)').order('created_at', { ascending: false }).limit(6),
   ]);
 
@@ -68,10 +70,7 @@ async function fetchStats(): Promise<Stats> {
     inactiveProducts: inactiveProducts ?? 0, featuredProducts: featuredProducts ?? 0,
     totalCategories: totalCategories ?? 0, totalEnquiries: totalEnquiries ?? 0,
     newEnquiries: newEnquiries ?? 0,
-    health: {
-      image: countOrZero(hasImage), price: countOrZero(hasPrice),
-      category: countOrZero(hasCategory), slug: countOrZero(hasSlug), meta: countOrZero(hasMeta),
-    },
+    missing,
     recentProducts,
   };
 }
@@ -91,10 +90,11 @@ function healthColor(pct: number) {
   return { bar: 'bg-red-500', text: 'text-red-600', bg: 'bg-red-50' };
 }
 
-function catalogueScore(health: HealthCounts, total: number): number {
+function catalogueScore(missing: MissingCounts, total: number): number {
   if (!total) return 0;
-  const weights = [health.image, health.price, health.category, health.slug, health.meta];
-  return Math.round(weights.reduce((a, b) => a + b, 0) / (weights.length * total) * 100);
+  const dims = Object.values(missing);
+  const totalMissing = dims.reduce((a, b) => a + b, 0);
+  return Math.round((1 - totalMissing / (dims.length * total)) * 100);
 }
 
 interface KpiCardProps {
@@ -141,10 +141,9 @@ function HealthRow({ label, count, total }: { label: string; count: number; tota
 
 interface AdminOverviewProps {
   onTabChange?: (tab: string) => void;
-  onNeedsAttention?: (filter: Exclude<AttentionFilter, null>) => void;
 }
 
-export default function AdminOverview({ onTabChange, onNeedsAttention }: AdminOverviewProps) {
+export default function AdminOverview({ onTabChange }: AdminOverviewProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -172,15 +171,20 @@ export default function AdminOverview({ onTabChange, onNeedsAttention }: AdminOv
   if (!stats) return null;
 
   const activePercent = stats.totalProducts ? Math.round((stats.activeProducts / stats.totalProducts) * 100) : 0;
-  const score = catalogueScore(stats.health, stats.totalProducts);
+  const score = catalogueScore(stats.missing, stats.totalProducts);
   const scoreColor = score >= 80 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-red-600';
-  const scoreBg = score >= 80 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-400' : 'bg-red-500';
 
-  const attentionItems = [
-    { label: 'No image', icon: ImageOff, count: stats.totalProducts - stats.health.image, filter: 'no-image' as const, color: 'text-orange-600 bg-orange-50 border-orange-200' },
-    { label: 'No price', icon: IndianRupee, count: stats.totalProducts - stats.health.price, filter: 'no-price' as const, color: 'text-red-600 bg-red-50 border-red-200' },
-    { label: 'No URL slug', icon: Link2, count: stats.totalProducts - stats.health.slug, filter: 'no-slug' as const, color: 'text-blue-600 bg-blue-50 border-blue-200' },
-  ];
+  // 8 missing-data chips, sourced from v_product_health via getMissingCounts().
+  const attentionItems = MISSING_FILTERS.map((filter) => {
+    const meta = MISSING_CHIP_META[filter];
+    return {
+      filter,
+      label: ATTENTION_LABELS[filter],
+      icon: meta.icon,
+      color: meta.color,
+      count: stats.missing[ATTENTION_FIELD[filter]],
+    };
+  });
 
   const totalIssues = attentionItems.reduce((a, i) => a + i.count, 0);
 
@@ -248,50 +252,63 @@ export default function AdminOverview({ onTabChange, onNeedsAttention }: AdminOv
             <TrendingUp className="w-4 h-4 text-slate-400" />
           </div>
           <div className="divide-y divide-slate-50">
-            <HealthRow label="Images"    count={stats.health.image}    total={stats.totalProducts} />
-            <HealthRow label="Prices"    count={stats.health.price}    total={stats.totalProducts} />
-            <HealthRow label="Category"  count={stats.health.category} total={stats.totalProducts} />
-            <HealthRow label="URL Slug"  count={stats.health.slug}     total={stats.totalProducts} />
-            <HealthRow label="SEO Meta"  count={stats.health.meta}     total={stats.totalProducts} />
+            <HealthRow label="Images"      count={stats.totalProducts - stats.missing.image}          total={stats.totalProducts} />
+            <HealthRow label="Prices"      count={stats.totalProducts - stats.missing.price}          total={stats.totalProducts} />
+            <HealthRow label="Category"    count={stats.totalProducts - stats.missing.category}       total={stats.totalProducts} />
+            <HealthRow label="Brand"       count={stats.totalProducts - stats.missing.brand}          total={stats.totalProducts} />
+            <HealthRow label="Description" count={stats.totalProducts - stats.missing.description}    total={stats.totalProducts} />
+            <HealthRow label="SEO"         count={stats.totalProducts - stats.missing.seo}            total={stats.totalProducts} />
           </div>
         </div>
 
-        {/* Needs Attention */}
+        {/* Missing data — each chip deep-links to the pre-filtered Products tab */}
         <div className="bg-white rounded-xl border border-slate-200/80 p-5">
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle className={`w-4 h-4 ${totalIssues > 0 ? 'text-amber-500' : 'text-emerald-500'}`} />
-            <h3 className="text-sm font-bold text-slate-800">Needs Attention</h3>
+            <h3 className="text-sm font-bold text-slate-800">Missing Data</h3>
             {totalIssues > 0 && (
               <span className="ml-auto bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
                 {totalIssues}
               </span>
             )}
           </div>
-          <div className="space-y-2">
-            {attentionItems.map((item) => (
-              <button
-                key={item.filter}
-                onClick={() => item.count > 0 && onNeedsAttention?.(item.filter)}
-                disabled={item.count === 0}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm transition-all
-                  ${item.count === 0
-                    ? 'bg-slate-50 border-slate-100 cursor-default'
-                    : `${item.color} hover:shadow-sm hover:-translate-y-0.5 cursor-pointer`
-                  }`}
-              >
-                <span className="flex items-center gap-2 font-medium">
-                  <item.icon className="w-3.5 h-3.5" />
-                  {item.label}
-                </span>
-                {item.count === 0 ? (
-                  <span className="text-xs text-emerald-600 font-bold">✓ All done</span>
-                ) : (
-                  <span className="flex items-center gap-1 font-bold text-xs">
-                    {item.count} <ArrowRight className="w-3 h-3" />
+          <div className="grid grid-cols-2 gap-2">
+            {attentionItems.map((item) => {
+              const content = (
+                <>
+                  <span className="flex items-center gap-1.5 font-medium truncate">
+                    <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
                   </span>
-                )}
-              </button>
-            ))}
+                  {item.count === 0 ? (
+                    <span className="text-xs text-emerald-600 font-bold flex-shrink-0">✓</span>
+                  ) : (
+                    <span className="flex items-center gap-0.5 font-bold text-xs flex-shrink-0">
+                      {item.count} <ArrowRight className="w-3 h-3" />
+                    </span>
+                  )}
+                </>
+              );
+              if (item.count === 0) {
+                return (
+                  <div
+                    key={item.filter}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm bg-slate-50 border-slate-100 cursor-default text-slate-400"
+                  >
+                    {content}
+                  </div>
+                );
+              }
+              return (
+                <Link
+                  key={item.filter}
+                  to={`/admin?tab=products&missing=${item.filter}`}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm transition-all hover:shadow-sm hover:-translate-y-0.5 cursor-pointer ${item.color}`}
+                >
+                  {content}
+                </Link>
+              );
+            })}
           </div>
 
           {/* Quick actions */}

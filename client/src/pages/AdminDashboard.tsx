@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation, Link } from 'wouter';
+import { useLocation, Link, useSearch } from 'wouter';
 import { useAuthStore } from '@/lib/authStore';
 import {
   LogOut, Package, Grid3x3, MessageSquare, Settings, Upload,
@@ -18,7 +18,7 @@ import AdminGoogleSheets from '@/components/admin/AdminGoogleSheets';
 import AdminOrders from '@/components/admin/AdminOrders';
 import AdminSEO from '@/components/admin/AdminSEO';
 import AdminImageLibrary from '@/components/admin/AdminImageLibrary';
-import { AttentionFilter } from '@/lib/catalogHealth';
+import { AttentionFilter, isMissingFilter } from '@/lib/catalogHealth';
 import { categoryService } from '@/lib/productService';
 import { Category } from '@/lib/supabase';
 
@@ -91,6 +91,22 @@ export default function AdminDashboard() {
   }, [activeTab]);
 
   const [productsAttention, setProductsAttention] = useState<AttentionFilter>(null);
+
+  // Deep-link support: dashboard chips link to /admin?tab=products&missing=<key>.
+  // Apply the tab + missing-data filter whenever those query params change.
+  const search = useSearch();
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const tab = params.get('tab');
+    const missing = params.get('missing');
+    if (tab) {
+      setActiveTab(tab);
+      sessionStorage.setItem('admin-active-tab', tab);
+    }
+    if (isMissingFilter(missing)) {
+      setProductsAttention(missing);
+    }
+  }, [search]);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -288,10 +304,7 @@ export default function AdminDashboard() {
           <div className="max-w-screen-xl mx-auto px-6 py-6">
 
             {activeTab === 'overview' && (
-              <AdminOverview
-                onTabChange={setActiveTab}
-                onNeedsAttention={(filter) => { setProductsAttention(filter); setActiveTab('products'); }}
-              />
+              <AdminOverview onTabChange={setActiveTab} />
             )}
 
             <div className={activeTab !== 'products' ? 'hidden' : ''}>
