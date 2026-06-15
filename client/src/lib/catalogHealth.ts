@@ -55,11 +55,55 @@ export function metaDescriptionFor(name: string, categoryName?: string, descript
   return base.slice(0, 155);
 }
 
-// "Needs Attention" quick filters, applied to the Products tab query.
-export type AttentionFilter = 'no-image' | 'no-price' | 'no-slug' | null;
+// "Missing…" quick filters for the Products tab. The truth for what counts as
+// "missing" lives in the v_product_health DB view (and healthService) — these
+// keys only name the dimension and map to that view's boolean columns. Never
+// re-implement the missing-logic in TS.
+export type MissingFilter =
+  | 'no-price'
+  | 'no-category'
+  | 'no-moq'
+  | 'no-brand'
+  | 'no-image'
+  | 'no-specs'
+  | 'no-description'
+  | 'no-seo';
 
-export const ATTENTION_LABELS: Record<Exclude<AttentionFilter, null>, string> = {
-  'no-image': 'No image',
+export type AttentionFilter = MissingFilter | null;
+
+export const MISSING_FILTERS: MissingFilter[] = [
+  'no-price', 'no-category', 'no-moq', 'no-brand',
+  'no-image', 'no-specs', 'no-description', 'no-seo',
+];
+
+export const ATTENTION_LABELS: Record<MissingFilter, string> = {
   'no-price': 'No price',
-  'no-slug': 'No slug',
+  'no-category': 'No category',
+  'no-moq': 'No MOQ',
+  'no-brand': 'No brand',
+  'no-image': 'No image',
+  'no-specs': 'No specs',
+  'no-description': 'No description',
+  'no-seo': 'No SEO',
 };
+
+// Maps a filter key to the healthService MissingCounts key (== the
+// v_product_health column suffix, e.g. 'specifications' → missing_specifications).
+export type MissingField =
+  | 'price' | 'category' | 'moq' | 'brand'
+  | 'image' | 'specifications' | 'description' | 'seo';
+
+export const ATTENTION_FIELD: Record<MissingFilter, MissingField> = {
+  'no-price': 'price',
+  'no-category': 'category',
+  'no-moq': 'moq',
+  'no-brand': 'brand',
+  'no-image': 'image',
+  'no-specs': 'specifications',
+  'no-description': 'description',
+  'no-seo': 'seo',
+};
+
+export function isMissingFilter(value: string | null | undefined): value is MissingFilter {
+  return !!value && (MISSING_FILTERS as string[]).includes(value);
+}

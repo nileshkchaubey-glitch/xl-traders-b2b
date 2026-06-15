@@ -49,6 +49,20 @@ export const healthService = {
     };
   },
 
+  // Returns the ids of every product missing the given field, straight from
+  // the v_product_health view. Callers (AdminProducts) intersect this with the
+  // products table via `.in('id', ids)` so the missing-logic stays in the view.
+  async getIdsMissing(field: keyof MissingCounts): Promise<string[]> {
+    const col = `missing_${field}`;
+    const { data, error } = await supabase
+      .from('v_product_health')
+      .select('id')
+      .eq(col, true);
+
+    if (error) throw error;
+    return (data ?? []).map((r: { id: string }) => r.id);
+  },
+
   async productHealth(id: string): Promise<ProductHealthRow | null> {
     const { data, error } = await supabase
       .from('v_product_health')
