@@ -18,7 +18,11 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
   // Rewrite Google Drive share links (and pass other URLs through) so images
   // actually render instead of showing the broken-image placeholder.
-  const imageUrl = normalizeImageUrl(product.image_url);
+  // Request a thumbnail sized for the slot it renders into instead of the full
+  // 1000px default — grid cards are ~170px wide and the list thumb is 96px, so
+  // pulling 1000px images wastes bandwidth and slows the grid on mobile. The
+  // smaller widths still cover retina (2x) and the detail page keeps full size.
+  const imageUrl = normalizeImageUrl(product.image_url, view === 'list' ? 200 : 400);
 
   // CSS-only broken-image fallback — no React state, so a page full of broken
   // images can't trigger a cascade of re-renders. onError hides the <img> and
