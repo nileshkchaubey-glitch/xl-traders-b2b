@@ -50,8 +50,9 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
   const fadeInClass = 'opacity-0';
 
   const handleEnquire = () => {
+    const priceStr = product.price != null ? `Price: ₹${product.price}. ` : '';
     const message = isAuthenticated
-      ? `Hi, I'm interested in: ${product.name}. Price: ₹${product.price}. Please provide more details.`
+      ? `Hi, I'm interested in: ${product.name}. ${priceStr}Please provide more details.`
       : `Hi, I'm interested in: ${product.name}. Could you please share the price and more details?`;
 
     // Open WhatsApp immediately — stays in synchronous click context.
@@ -125,7 +126,9 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
           {/* Price & Actions */}
           <div className="flex-shrink-0 text-right space-y-2">
             {isAuthenticated ? (
-              <p className="font-bold text-red-600 text-sm">₹{product.price?.toLocaleString()}</p>
+              product.price != null
+                ? <p className="font-bold text-red-600 text-sm">₹{product.price.toLocaleString()}</p>
+                : <p className="text-xs text-slate-500 font-semibold italic">Price on enquiry</p>
             ) : (
               <p className="text-xs text-slate-500 font-semibold">Login to see price</p>
             )}
@@ -198,7 +201,9 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
         {/* Price */}
         <div className="mb-1.5">
           {isAuthenticated ? (
-            <p className="font-bold text-red-600 text-sm leading-none">₹{product.price?.toLocaleString()}</p>
+            product.price != null
+              ? <p className="font-bold text-red-600 text-sm leading-none">₹{product.price.toLocaleString()}</p>
+              : <p className="text-[10px] text-slate-500 font-semibold italic">Price on enquiry</p>
           ) : (
             <p className="text-[10px] text-slate-500 font-semibold">Sign in for price</p>
           )}

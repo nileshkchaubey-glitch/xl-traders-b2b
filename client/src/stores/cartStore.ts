@@ -6,6 +6,7 @@ export interface CartItem {
   sku: string;
   name: string;
   price: number;
+  priceOnEnquiry?: boolean;
   quantity: number;
   unit: string;
   imageUrl?: string;

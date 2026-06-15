@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { productService } from '@/lib/productService';
+import { productService, categoryService } from '@/lib/productService';
 import { normalizeImageUrl } from '@/lib/imageUtils';
 import { Product, Category } from '@/lib/supabase';
 import { productCompleteness, completenessColor, AttentionFilter, ATTENTION_LABELS } from '@/lib/catalogHealth';
@@ -36,7 +36,7 @@ import {
 const PAGE_SIZE = 50;
 const UNITS = ['pcs', 'box', 'pack', 'roll', 'kg', 'litre', 'set'];
 
-type StatusFilter = 'all' | 'active' | 'inactive' | 'featured';
+type StatusFilter = 'all' | 'active' | 'inactive' | 'featured' | 'draft' | 'published';
 
 interface AdminGetAllResult { data: Product[]; count: number; }
 
@@ -53,6 +53,8 @@ async function adminGetAllProducts(
   if (status === 'active') query = query.eq('is_active', true);
   else if (status === 'inactive') query = query.eq('is_active', false);
   else if (status === 'featured') query = query.eq('is_featured', true);
+  else if (status === 'draft') query = query.eq('status', 'draft');
+  else if (status === 'published') query = query.eq('status', 'published');
   if (attention === 'no-image') query = query.or('image_url.is.null,image_url.eq.');
   else if (attention === 'no-price') query = query.or('price.is.null,price.eq.0');
   else if (attention === 'no-slug') query = query.or('slug.is.null,slug.eq.');
@@ -249,6 +251,16 @@ export default function AdminProducts({
     } catch { toast.error('Bulk update failed'); }
   };
 
+  const bulkPublish = async () => {
+    const ids = Array.from(selected);
+    try {
+      await productService.publishProducts(ids);
+      setProducts((prev) => prev.map((p) => selected.has(p.id) ? { ...p, status: 'published' } : p));
+      setSelected(new Set());
+      toast.success(`${ids.length} product${ids.length > 1 ? 's' : ''} published`);
+    } catch { toast.error('Bulk publish failed'); }
+  };
+
   const bulkDelete = async () => {
     const ids = Array.from(selected);
     if (!confirm(`Delete ${ids.length} products? This cannot be undone.`)) return;
@@ -362,21 +374,27 @@ export default function AdminProducts({
   const handleQuickAdd = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!quickAdd.name.trim()) { toast.error('Product name is required'); return; }
-    if (!quickAdd.category_id) { toast.error('Please select a category'); return; }
-    if (!quickAdd.price || isNaN(parseFloat(quickAdd.price))) { toast.error('Please enter a valid price'); return; }
     setQuickAdding(true);
     try {
+      // Fall back to Uncategorized when no category selected (self-healing —
+      // looks it up / creates it instead of trusting the active-only list).
+      let categoryId = quickAdd.category_id;
+      if (!categoryId) {
+        categoryId = (await categoryService.getOrCreateUncategorized()) ?? '';
+        if (!categoryId) { toast.error('Could not assign the Uncategorized category'); return; }
+      }
       const sku = `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
       const created = await productService.create({
         name: quickAdd.name.trim(),
-        category_id: quickAdd.category_id,
-        price: parseFloat(quickAdd.price),
+        category_id: categoryId,
+        price: quickAdd.price && !isNaN(parseFloat(quickAdd.price)) ? parseFloat(quickAdd.price) : null,
         mrp: quickAdd.mrp ? parseFloat(quickAdd.mrp) : undefined,
         unit_of_measure: quickAdd.unit_of_measure,
         quantity_in_unit: quickAdd.quantity_in_unit ? parseInt(quickAdd.quantity_in_unit) : undefined,
         brand: quickAdd.brand.trim() || undefined,
         is_active: true,
         is_featured: false,
+        status: 'draft',
         sku,
       } as any);
       toast.success(`"${quickAdd.name.trim()}" added`);
@@ -441,10 +459,18 @@ export default function AdminProducts({
     } catch { toast.error('Failed to update'); }
   };
 
+  const handlePublish = async (id: string) => {
+    try {
+      await productService.publishProducts([id]);
+      setProducts((prev) => prev.map((p) => p.id === id ? { ...p, status: 'published' } : p));
+      toast.success('Published to website');
+    } catch { toast.error('Failed to publish'); }
+  };
+
   const handleDuplicate = async (product: Product) => {
     try {
       const { id, created_at, updated_at, sku, ...fields } = product;
-      await productService.create({ ...fields, name: `${product.name} (Copy)`, sku: undefined, is_active: false } as any);
+      await productService.create({ ...fields, name: `${product.name} (Copy)`, sku: undefined, is_active: false, status: 'draft' } as any);
       toast.success('Product duplicated');
       loadProducts();
     } catch { toast.error('Failed to duplicate'); }
@@ -679,6 +705,8 @@ export default function AdminProducts({
           <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All status</SelectItem>
+            <SelectItem value="published">Published</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
             <SelectItem value="featured">Featured ⭐</SelectItem>
@@ -700,6 +728,7 @@ export default function AdminProducts({
         <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
           <span className="text-sm font-semibold text-red-700">{selected.size} selected</span>
           <div className="flex-1" />
+          <Button size="sm" onClick={bulkPublish} className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white">Publish selected</Button>
           <Button size="sm" variant="outline" onClick={() => bulkActivate(true)} className="h-7 text-xs">Activate</Button>
           <Button size="sm" variant="outline" onClick={() => bulkActivate(false)} className="h-7 text-xs">Deactivate</Button>
           <Button size="sm" variant="destructive" onClick={bulkDelete} className="h-7 text-xs">Delete</Button>
@@ -838,9 +867,9 @@ export default function AdminProducts({
                   <td className="px-2 py-2" />
                   {/* Score placeholder */}
                   <td className="px-2 py-2" />
-                  {/* Status placeholder */}
+                  {/* Status placeholder — quick-add creates drafts */}
                   <td className="px-2 py-2">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Active</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700" title="New products start as drafts — publish them when ready">Draft</span>
                   </td>
                   {/* Save + cancel */}
                   <td className="px-2 py-2">
@@ -988,24 +1017,45 @@ export default function AdminProducts({
                             );
                           })()}
                         </td>
-                        {/* Status toggle */}
+                        {/* Status: publish state badge + active toggle */}
                         <td className="px-2 py-2">
-                          <button
-                            onClick={() => handleToggleActive(product.id, product.is_active)}
-                            title="Click to toggle"
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap border ${
-                              product.is_active
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${product.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                            {product.is_active ? 'Active' : 'Inactive'}
-                          </button>
+                          <div className="flex flex-col items-start gap-1">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap border ${
+                                product.status === 'published'
+                                  ? 'bg-green-50 text-green-700 border-green-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}
+                              title={product.status === 'published' ? 'Live on the storefront' : 'Hidden — not on the storefront'}
+                            >
+                              {product.status === 'published' ? 'Published' : 'Draft'}
+                            </span>
+                            <button
+                              onClick={() => handleToggleActive(product.id, product.is_active)}
+                              title="Click to toggle active"
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap border ${
+                                product.is_active
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${product.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                              {product.is_active ? 'Active' : 'Inactive'}
+                            </button>
+                          </div>
                         </td>
                         {/* Actions */}
                         <td className="px-2 py-2">
                           <div className="flex items-center gap-0.5">
+                            {product.status !== 'published' && (
+                              <button
+                                onClick={() => handlePublish(product.id)}
+                                title="Publish to website"
+                                className="p-1.5 rounded hover:bg-green-50 text-green-600"
+                              >
+                                <Power className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleToggleFeatured(product.id, product.is_featured)}
                               title={product.is_featured ? 'Unfeature' : 'Feature'}
@@ -1062,6 +1112,12 @@ export default function AdminProducts({
                         <span>View Live Page</span>
                       </ContextMenuItem>
                       <ContextMenuSeparator />
+                      {product.status !== 'published' && (
+                        <ContextMenuItem onClick={() => handlePublish(product.id)} className="gap-2 text-green-700 focus:text-green-800 focus:bg-green-50">
+                          <Power className="w-4 h-4 text-green-600" />
+                          <span>Publish to website</span>
+                        </ContextMenuItem>
+                      )}
                       <ContextMenuItem onClick={() => handleToggleActive(product.id, product.is_active)} className="gap-2">
                         <Power className="w-4 h-4 text-slate-500" />
                         <span>{product.is_active ? 'Set as Inactive' : 'Set as Active'}</span>

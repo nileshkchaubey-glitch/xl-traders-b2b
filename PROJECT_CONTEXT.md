@@ -32,7 +32,8 @@ Yeh website ek **product catalog + enquiry platform** hai:
 | CSV/Excel | papaparse, xlsx (for bulk import) |
 
 **Repo:** https://github.com/nileshkchaubey-glitch/xl-traders-b2b
-**Live:** https://animated-cuchufli-dd5a16.netlify.app
+**Live:** https://xl-traders-b2b.pages.dev
+**Admin:** https://xl-traders-b2b.pages.dev/admin
 
 ---
 
@@ -57,13 +58,24 @@ VITE_WHATSAPP_NUMBER = 919773239442
 
 ## 4. Data
 
-- **132 products** across **21 categories** (Round Container, Rectangle
+- **~140 products** across **50+ categories** (Round Container, Rectangle
   Container, Hinged Container, Aluminum Containers, Paper Box, Pizza Box,
   Meal Tray, Ripple Cup, Paper Cup, Tissue & Napkin, Foil, etc.)
-- Source: Google Sheet → imported via SQL
-- **Images:** Google Drive thumbnail URLs
-  (format: `https://drive.google.com/thumbnail?id=FILE_ID&sz=w800`)
-  — Drive folder must be "Anyone with link" for these to load.
+  Goal: 1000 products via Supplier Catalog Center.
+- Masters & Variants system (June 2026): `product_masters` + `product_master_images` tables.
+  A product with `master_id = NULL` is standalone; with `master_id` set it is a variant.
+- Source: Google Sheet → imported via CSV bulk import (supports `master_name` + `variant_label` columns).
+- **Images:** Supabase Storage (`product-images` bucket, public) — preferred.
+  Google Drive thumbnails still supported: `https://drive.google.com/thumbnail?id=FILE_ID&sz=w800`
+  (`uc?export=view` broke Jan 2024 — do not use).
+
+### Shipped Features (summary — full detail in CLAUDE.md)
+- Customer: catalog browse, category/search filters, price security (anon hidden), WhatsApp inquiry,
+  cart (Zustand + localStorage), **variant selector** (size/pack buttons, no reload)
+- Admin PIM: Shopify dark sidebar, quick-add sticky row, inline edit, SKU auto-gen,
+  route-based editor (`/admin/products/:id`), AI Smart Paste, Image Library,
+  right-click context menu, Masters UI (`/admin/masters`), Daily Improvement widget,
+  Orders/SEO/Enquiries tabs, bulk CSV import with variant support
 
 ---
 
@@ -73,13 +85,14 @@ VITE_WHATSAPP_NUMBER = 919773239442
 Build command:     npm install && npm run build
 Publish directory: dist/public
 ```
-Netlify auto-deploys on every push to `main`. SPA redirect + security
-headers are in `netlify.toml`.
+**Cloudflare Pages** auto-deploys on every push to `main` (~2–3 min).
+SPA redirect rules are in `_redirects` or via Cloudflare Pages settings.
 
-**IMPORTANT — yeh packages/plugins HATAYE gaye the (Netlify pe fail karte the):**
+**IMPORTANT — yeh packages/plugins HATAYE gaye the (build fail karte the):**
 - `vite-plugin-manus-runtime` (Manus-only)
 - `@builder.io/vite-plugin-jsx-loc` (vite 7 ke saath conflict)
 - `@netlify/plugin-nextjs` (yeh Vite app hai, Next.js nahi)
+- `pnpm-lock.yaml` must NOT exist — Cloudflare build fails if present.
 DO NOT re-add these.
 
 ---

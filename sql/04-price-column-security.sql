@@ -42,11 +42,15 @@ GRANT SELECT (
 -- Step 3: Conditionally grant columns added by untracked migrations.
 --         These are safe to expose (not price-related) but may not exist
 --         in all DB instances, so we check information_schema first.
+--         NOTE: `status` (draft/published) MUST be granted here — the storefront
+--         queries filter on status='published', and a WHERE on a column the anon
+--         role can't SELECT raises "permission denied". Re-run this file after
+--         adding the status column so guests can browse published products.
 DO $$
 DECLARE
   col TEXT;
 BEGIN
-  FOREACH col IN ARRAY ARRAY['stock_status', 'tags', 'min_order_qty'] LOOP
+  FOREACH col IN ARRAY ARRAY['stock_status', 'tags', 'min_order_qty', 'status'] LOOP
     IF EXISTS (
       SELECT 1 FROM information_schema.columns
       WHERE table_schema = 'public'

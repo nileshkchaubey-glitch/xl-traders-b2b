@@ -43,12 +43,17 @@ export const orderService = {
   },
 
   buildWhatsAppMessage(items: CartItem[], customer: CustomerInfo): string {
-    const lines = items.map(
-      (i) =>
-        `${i.quantity} x ${i.name} — ₹${(i.price * i.quantity).toLocaleString()}`,
+    const lines = items.map((i) =>
+      i.priceOnEnquiry
+        ? `${i.quantity} x ${i.name} — price on enquiry`
+        : `${i.quantity} x ${i.name} — ₹${(i.price * i.quantity).toLocaleString()}`,
     );
-    const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
+    const total = items.reduce((s, i) => s + (i.priceOnEnquiry ? 0 : i.price * i.quantity), 0);
     const itemCount = items.reduce((s, i) => s + i.quantity, 0);
+    // When every line is price-on-enquiry there is no meaningful rupee total —
+    // show "Price on enquiry" instead of a misleading ₹0.
+    const allEnquiry = items.length > 0 && items.every((i) => i.priceOnEnquiry);
+    const totalLine = allEnquiry ? 'Total: Price on enquiry' : `Total: ₹${total.toLocaleString()}`;
 
     return [
       '🛒 New Order from XL Traders',
@@ -57,7 +62,7 @@ export const orderService = {
       '──────────',
       ...lines,
       '──────────',
-      `Total: ₹${total.toLocaleString()}`,
+      totalLine,
       `Items: ${itemCount}`,
     ].join('\n');
   },

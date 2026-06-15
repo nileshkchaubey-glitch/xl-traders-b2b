@@ -61,10 +61,14 @@ function FeaturedProductCard({ product, whatsappNumber }: FeaturedProductCardPro
         {/* Price / enquire */}
         <div className="mt-3 flex items-center justify-between">
           {isAuthenticated ? (
-            <p className="text-base font-bold text-red-600">
-              ₹{product.price?.toLocaleString()}
-              <span className="text-xs text-slate-500 font-normal ml-1">/{product.unit_of_measure || 'pcs'}</span>
-            </p>
+            product.price != null ? (
+              <p className="text-base font-bold text-red-600">
+                ₹{product.price.toLocaleString()}
+                <span className="text-xs text-slate-500 font-normal ml-1">/{product.unit_of_measure || 'pcs'}</span>
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500 italic">Price on enquiry</p>
+            )
           ) : (
             <Link href="/auth" className="text-xs text-slate-500 hover:text-red-600 transition">
               Sign in for price

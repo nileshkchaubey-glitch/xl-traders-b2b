@@ -25,6 +25,7 @@ export default function AddToCartButton({ product, compact = false }: Props) {
       sku: product.sku ?? product.id,
       name: product.name,
       price: product.price ?? 0,
+      priceOnEnquiry: product.price == null ? true : undefined,
       unit: product.unit_of_measure ?? 'pcs',
       imageUrl: product.image_url,
       moq,
