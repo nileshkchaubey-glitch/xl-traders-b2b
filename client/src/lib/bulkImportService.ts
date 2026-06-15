@@ -10,8 +10,8 @@ export interface ImportRow {
   group?: string;
   sku?: string;
   barcode?: string;
-  moq?: number;
-  price: number;
+  moq?: number | null;
+  price: number | null;
   mrp?: number;
   unit: string;
   quantity_in_unit: number;
@@ -96,30 +96,34 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
   if (!row.name || typeof row.name !== 'string' || !row.name.trim()) {
     throw new Error('Missing or invalid product name');
   }
-  if (!row.category || typeof row.category !== 'string' || !row.category.trim()) {
-    throw new Error('Missing or invalid category');
-  }
   if (!row.unit || typeof row.unit !== 'string' || !row.unit.trim()) {
     throw new Error('Missing or invalid unit');
   }
-  const price = parseFloat(row.price);
-  if (isNaN(price) || price < 0) {
-    throw new Error('Invalid price — must be a positive number');
+  // Price is optional — blank/missing rows import with null price
+  const rawPrice = row.price !== undefined && row.price !== null && String(row.price).trim() !== ''
+    ? parseFloat(row.price)
+    : null;
+  if (rawPrice !== null && (isNaN(rawPrice) || rawPrice < 0)) {
+    throw new Error('Invalid price — must be a positive number or left blank');
   }
   const quantity = parseFloat(row.quantity_in_unit);
   if (isNaN(quantity) || quantity <= 0) {
     throw new Error('Invalid quantity_in_unit — must be a positive number');
   }
+  // Category: blank/missing rows map to 'uncategorized' (resolved at import time)
+  const category = (row.category && typeof row.category === 'string' && row.category.trim())
+    ? row.category.trim()
+    : 'uncategorized';
   return {
     master_name: row.master_name ? String(row.master_name).trim() : undefined,
     variant_label: row.variant_label ? String(row.variant_label).trim() : undefined,
     name: row.name.trim(),
-    category: row.category.trim(),
+    category,
     group: row.group ? row.group.trim() : undefined,
     sku: row.sku ? row.sku.trim() : undefined,
     barcode: row.barcode ? row.barcode.trim() : undefined,
-    moq: row.moq ? parseInt(row.moq) : undefined,
-    price,
+    moq: row.moq ? parseInt(row.moq) : null,
+    price: rawPrice,
     mrp: row.mrp ? parseFloat(row.mrp) : undefined,
     unit: row.unit.trim(),
     quantity_in_unit: quantity,
@@ -158,17 +162,42 @@ async function saveProductImages(productId: string, imageUrls: string[], product
 }
 
 async function getOrCreateCategory(categoryName: string): Promise<string | null> {
+  const name = categoryName.trim();
+  // Blank or explicit 'uncategorized' → resolve the Uncategorized category,
+  // self-healing if it is missing so blank-category rows never fail. Looked up
+  // by slug with no is_active filter (it may be inactive).
+  if (!name || name.toLowerCase() === 'uncategorized') {
+    const { data } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('slug', 'uncategorized')
+      .maybeSingle();
+    if (data?.id) return data.id;
+    const { data: created, error } = await supabase
+      .from('categories')
+      .insert({
+        name: 'Uncategorized',
+        slug: 'uncategorized',
+        description: 'Products without a category',
+        display_order: 999,
+        is_active: true,
+      })
+      .select('id')
+      .single();
+    if (error) { console.error('Error creating Uncategorized category:', error); return null; }
+    return created?.id ?? null;
+  }
   try {
     const { data: existing } = await supabase
       .from('categories')
       .select('id')
-      .ilike('name', categoryName)
-      .single();
+      .ilike('name', name)
+      .maybeSingle();
     if (existing) return existing.id;
-    const slug = categoryName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+    const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
     const { data: created, error } = await supabase
       .from('categories')
-      .insert({ name: categoryName, slug, description: `${categoryName} products`, display_order: 999 })
+      .insert({ name, slug, description: `${name} products`, display_order: 999 })
       .select('id')
       .single();
     if (error) { console.error('Error creating category:', error); return null; }
@@ -285,7 +314,7 @@ export async function bulkImportProducts(
               description: row.description,
               brand: row.brand,
               barcode: row.barcode,
-              moq: row.moq ?? 1,
+              moq: row.moq ?? null,
               is_featured: row.is_featured || false,
               ...(row.sku ? { sku: row.sku } : {}),
               updated_at: new Date().toISOString(),
@@ -310,7 +339,7 @@ export async function bulkImportProducts(
               category_id: categoryId,
               sku,
               barcode: row.barcode,
-              moq: row.moq ?? 1,
+              moq: row.moq ?? null,
               price: row.price,
               mrp: row.mrp,
               unit_of_measure: row.unit,
@@ -319,6 +348,7 @@ export async function bulkImportProducts(
               brand: row.brand,
               is_featured: row.is_featured || false,
               is_active: true,
+              status: 'draft',
             })
             .select('id')
             .single();
@@ -372,7 +402,7 @@ export async function bulkImportProducts(
               description: row.description,
               brand: row.brand,
               barcode: row.barcode,
-              moq: row.moq ?? 1,
+              moq: row.moq ?? null,
               is_featured: row.is_featured || false,
               ...(row.sku ? { sku: row.sku } : {}),
               updated_at: new Date().toISOString(),
@@ -395,7 +425,7 @@ export async function bulkImportProducts(
               category_id: categoryId,
               sku,
               barcode: row.barcode,
-              moq: row.moq ?? 1,
+              moq: row.moq ?? null,
               price: row.price,
               mrp: row.mrp,
               unit_of_measure: row.unit,
@@ -404,6 +434,7 @@ export async function bulkImportProducts(
               brand: row.brand,
               is_featured: row.is_featured || false,
               is_active: true,
+              status: 'draft',
             })
             .select('id')
             .single();

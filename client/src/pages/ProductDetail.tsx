@@ -57,8 +57,10 @@ function MiniProductCard({ product, isAuthenticated }: { product: Product; isAut
             {product.name}
           </p>
           {isAuthenticated && (
-            <p className="text-sm font-bold text-red-600 mb-1.5">
-              ₹{product.price?.toLocaleString()}
+            <p className="text-sm font-bold mb-1.5">
+              {product.price != null
+                ? <span className="text-red-600">₹{product.price.toLocaleString()}</span>
+                : <span className="text-slate-500 italic text-xs">Price on enquiry</span>}
             </p>
           )}
           <span className="block w-full text-center text-xs font-semibold py-1 bg-slate-100 text-slate-700 rounded group-hover:bg-red-600 group-hover:text-white transition">
@@ -168,9 +170,14 @@ export default function ProductDetail() {
 
   const handleEnquire = () => {
     if (!currentProd) return;
+    const priceStr = currentProd.price != null ? `\nPrice: ₹${currentProd.price}` : '\nPrice: On enquiry';
+    // Omit the quantity line entirely when pack size is missing — never print "null".
+    const quantityStr = currentProd.quantity_in_unit != null
+      ? `\nQuantity: ${currentProd.quantity_in_unit} ${currentProd.unit_of_measure}`
+      : '';
     const message = isAuthenticated
-      ? `Hi, I'm interested in: ${currentProd.name}\n\nPrice: ₹${currentProd.price}\nQuantity: ${currentProd.quantity_in_unit} ${currentProd.unit_of_measure}\n\nPlease provide more details and availability.`
-      : `Hi, I'm interested in: ${currentProd.name}\n\nQuantity: ${currentProd.quantity_in_unit} ${currentProd.unit_of_measure}\n\nCould you please share the price and availability?`;
+      ? `Hi, I'm interested in: ${currentProd.name}${priceStr}${quantityStr}\n\nPlease provide more details and availability.`
+      : `Hi, I'm interested in: ${currentProd.name}${quantityStr}\n\nCould you please share the price and availability?`;
 
     // Open WhatsApp immediately (must stay in synchronous click-handler
     // context so browsers don't treat it as a popup).
@@ -350,7 +357,9 @@ export default function ProductDetail() {
                   {isAuthenticated ? (
                     <div>
                       <p className="text-slate-600 text-sm font-semibold mb-2">Price</p>
-                      <p className="text-4xl font-bold text-red-600">₹{currentProd.price?.toLocaleString()}</p>
+                      {currentProd.price != null
+                        ? <p className="text-4xl font-bold text-red-600">₹{currentProd.price.toLocaleString()}</p>
+                        : <p className="text-xl font-semibold text-slate-500 italic">Price on enquiry</p>}
                       <p className="text-slate-500 text-sm mt-2">Per {currentProd.quantity_in_unit} {currentProd.unit_of_measure}</p>
                     </div>
                   ) : (
@@ -398,8 +407,8 @@ export default function ProductDetail() {
 
                 {/* Actions */}
                 <div className="space-y-3">
-                  {/* Add to Cart (only when authenticated + price available) */}
-                  {isAuthenticated && currentProd.price && (
+                  {/* Add to Cart (authenticated users — null-price items enter as enquiry lines) */}
+                  {isAuthenticated && (
                     <AddToCartButton product={currentProd} />
                   )}
 

@@ -20,10 +20,15 @@ export interface Category {
   updated_at: string;
 }
 
+// Publish gate — a product is only visible on the storefront when
+// status === 'published' AND is_active === true. New products default to draft.
+export type ProductStatus = 'draft' | 'published';
+
 export interface Product {
   id: string;
   name: string;
   category_id: string;
+  status?: ProductStatus;
   description?: string;
   price?: number;
   mrp?: number;

@@ -96,11 +96,14 @@ export const masterService = {
     return true;
   },
 
+  // Public storefront call — only published variants are returned so a draft
+  // variant never shows in the product page variant selector.
   async getVariantsByMasterId(masterId: string) {
     const { data, error } = await supabase
       .from('products')
       .select('*')
       .eq('master_id', masterId)
+      .eq('status', 'published')
       .order('price', { ascending: true });
 
     if (error) {
@@ -113,9 +116,9 @@ export const masterService = {
   async addVariant(variant: {
     master_id: string;
     variant_label: string;
-    price: number;
-    mrp: number;
-    moq: number;
+    price: number | null;
+    mrp: number | null;
+    moq: number | null;
     unit_of_measure: string;
     sku?: string;
   }) {
@@ -142,14 +145,15 @@ export const masterService = {
         category_id: master.category_id,
         brand: master.brand || null,
         description: master.description || null,
-        price: variant.price,
-        mrp: variant.mrp,
-        moq: variant.moq,
+        price: variant.price ?? null,
+        mrp: variant.mrp ?? null,
+        moq: variant.moq ?? null,
         unit_of_measure: variant.unit_of_measure,
         sku: sku,
         image_url: image_url || null,
         is_active: true,
         is_featured: false,
+        status: 'draft',
       })
       .select()
       .single();

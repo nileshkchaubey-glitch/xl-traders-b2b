@@ -16,6 +16,7 @@ export default function HeroCategoryPreview() {
         const { data: products } = await supabase
           .from('products')
           .select('category_id')
+          .eq('status', 'published')
           .eq('is_active', true);
 
         const { data: categories } = await supabase

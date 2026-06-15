@@ -21,6 +21,10 @@ export default function CartDrawer({ open, onClose }: Props) {
 
   const total = getTotal();
   const count = getItemCount();
+  // When every line is price-on-enquiry the rupee total is ₹0, which reads as
+  // "free" — show "Price on enquiry" instead. Mixed carts still sum the priced
+  // items (enquiry lines contribute 0).
+  const allEnquiry = items.length > 0 && items.every((i) => i.priceOnEnquiry);
 
   const handlePlaceOrder = async () => {
     if (items.length === 0) { toast.error('Your cart is empty'); return; }
@@ -88,10 +92,14 @@ export default function CartDrawer({ open, onClose }: Props) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-tight">{item.name}</p>
                   <p className="text-xs text-slate-400 mt-0.5">{item.sku} · {item.unit}</p>
-                  <p className="text-sm font-bold text-red-600 mt-1">
-                    ₹{(item.price * item.quantity).toLocaleString()}
-                    <span className="text-xs text-slate-400 font-normal ml-1">(₹{item.price.toLocaleString()} × {item.quantity})</span>
-                  </p>
+                  {item.priceOnEnquiry ? (
+                    <p className="text-sm font-semibold text-slate-500 italic mt-1">Price on enquiry</p>
+                  ) : (
+                    <p className="text-sm font-bold text-red-600 mt-1">
+                      ₹{(item.price * item.quantity).toLocaleString()}
+                      <span className="text-xs text-slate-400 font-normal ml-1">(₹{item.price.toLocaleString()} × {item.quantity})</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Controls */}
@@ -132,7 +140,11 @@ export default function CartDrawer({ open, onClose }: Props) {
             {/* Total */}
             <div className="flex items-center justify-between">
               <span className="text-slate-600 font-semibold">Total ({count} items)</span>
-              <span className="text-2xl font-bold text-red-600">₹{total.toLocaleString()}</span>
+              {allEnquiry ? (
+                <span className="text-lg font-bold text-slate-500 italic">Price on enquiry</span>
+              ) : (
+                <span className="text-2xl font-bold text-red-600">₹{total.toLocaleString()}</span>
+              )}
             </div>
 
             {/* Customer info */}

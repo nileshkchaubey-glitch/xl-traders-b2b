@@ -1,4 +1,4 @@
-import { supabase, Product, Category, ProductImage, Enquiry, Inquiry } from './supabase';
+import { supabase, Product, Category, ProductImage, Enquiry, Inquiry, ProductStatus } from './supabase';
 import { demoProducts, demoCategories } from './demoData';
 
 // Demo mode is opt-in only (VITE_DEMO_MODE=true). The supabase client now
@@ -14,7 +14,7 @@ const isDemo = import.meta.env.VITE_DEMO_MODE === 'true';
 const GUEST_PRODUCT_COLS =
   'id,name,category_id,description,sku,unit_of_measure,quantity_in_unit,' +
   'image_url,image_alt_text,image_description,specifications,' +
-  'is_active,is_featured,display_order,brand,created_at,updated_at';
+  'is_active,is_featured,status,display_order,brand,created_at,updated_at';
 
 // SECURITY-SENSITIVE CACHE: productSelectCols() gates the price/mrp/discount
 // columns (guests must never see them). supabase.auth.getSession() does
@@ -110,6 +110,41 @@ export const categoryService = {
     if (error) throw error;
   },
 
+  // Resolves the Uncategorized category id, self-healing if it is missing.
+  // Looks up by slug with NO is_active filter (the category may have been
+  // deactivated but still needs to catch products saved without a category).
+  // If no row exists, it creates one so a blank-category save never fails.
+  async getOrCreateUncategorized(): Promise<string | null> {
+    try {
+      const { data: existing } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('slug', 'uncategorized')
+        .maybeSingle();
+      if (existing?.id) return existing.id;
+
+      const { data: created, error } = await supabase
+        .from('categories')
+        .insert({
+          name: 'Uncategorized',
+          slug: 'uncategorized',
+          description: 'Products without a category',
+          display_order: 999,
+          is_active: true,
+        })
+        .select('id')
+        .single();
+      if (error) {
+        console.error('Error creating Uncategorized category:', error);
+        return null;
+      }
+      return created?.id ?? null;
+    } catch (error) {
+      console.error('Error resolving Uncategorized category:', error);
+      return null;
+    }
+  },
+
   // Returns categories bucketed by group_name, sorted by group_order.
   // Returns [] when no category has a group_name yet (caller falls back to flat list).
   async getCategoriesGroupedByGroup(): Promise<CategoryGroup[]> {
@@ -155,9 +190,11 @@ export const productService = {
 
     try {
       const cols = await productSelectCols();
+      // Public visibility = published AND active. Drafts never appear publicly.
       let query = supabase
         .from('products')
         .select(cols)
+        .eq('status', 'published')
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
@@ -199,6 +236,7 @@ export const productService = {
       const { data, error } = await supabase
         .from('products')
         .select('brand')
+        .eq('status', 'published')
         .eq('is_active', true)
         .not('brand', 'is', null);
       if (error) throw error;
@@ -211,18 +249,21 @@ export const productService = {
     }
   },
 
-  async getById(id: string) {
+  // Public callers (ProductDetail) get published products only. Admin callers
+  // pass { includeUnpublished: true } so the editor can load drafts.
+  async getById(id: string, opts?: { includeUnpublished?: boolean }) {
     if (isDemo) {
       return demoProducts.find(p => p.id === id) || null;
     }
-    
+
     try {
       const cols = await productSelectCols();
-      const { data, error } = await supabase
+      let query = supabase
         .from('products')
         .select(cols)
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+      if (!opts?.includeUnpublished) query = query.eq('status', 'published');
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data as Product;
@@ -248,6 +289,7 @@ export const productService = {
       const { data, error } = await supabase
         .from('products')
         .select(cols)
+        .eq('status', 'published')
         .eq('is_active', true)
         .eq('is_featured', true)
         .order('display_order', { ascending: true })
@@ -275,6 +317,7 @@ export const productService = {
       const { data, error } = await supabase
         .from('products')
         .select(cols)
+        .eq('status', 'published')
         .eq('is_active', true)
         .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
         .limit(limit);
@@ -288,9 +331,12 @@ export const productService = {
   },
 
   async create(product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) {
+    // New products are drafts unless a status is explicitly provided, so nothing
+    // reaches the storefront until it is published.
+    const payload = { ...product, status: product.status ?? 'draft' };
     const { data, error } = await supabase
       .from('products')
-      .insert(product)
+      .insert(payload)
       .select()
       .single();
 
@@ -316,6 +362,16 @@ export const productService = {
       .delete()
       .eq('id', id);
 
+    if (error) throw error;
+  },
+
+  // Publish one or more products (storefront-visible once active too).
+  async publishProducts(ids: string[]) {
+    if (!ids.length) return;
+    const { error } = await supabase
+      .from('products')
+      .update({ status: 'published' as ProductStatus })
+      .in('id', ids);
     if (error) throw error;
   },
 

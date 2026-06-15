@@ -1,6 +1,9 @@
 // Catalogue completeness scoring shared by AdminProducts, AdminOverview and
 // the SEO tab. Five equally-weighted dimensions; 20 points each.
 // Ported from Catalog Studio (xl-catalog-studio.html).
+// NOTE: v_product_health (Supabase view) is now the authoritative source of
+// missing-field data. These local TS checks will be retired in a later step
+// once the dashboard and filters are wired to healthService.getMissingCounts().
 
 export interface CompletenessInput {
   image_url?: string | null;

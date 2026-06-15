@@ -15,7 +15,7 @@ import { useAuthStore } from '@/lib/authStore';
 import { generateDescription } from '@/lib/aiService';
 import { batchAutoResize, formatBytes, normalizeImageUrl } from '@/lib/imageUtils';
 import { categoryService, productImageService, productService, storageService } from '@/lib/productService';
-import { Category, Product } from '@/lib/supabase';
+import { Category, Product, ProductStatus } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AISmartPasteDialog from '@/components/admin/AISmartPasteDialog';
 import AdminImageLibrary from '@/components/admin/AdminImageLibrary';
@@ -26,7 +26,8 @@ const EMPTY_FORM = {
   name: '', category_id: '', description: '', price: '', mrp: '',
   unit_of_measure: 'pcs', quantity_in_unit: '', discount_percent: '0',
   brand: '', is_active: true, is_featured: false,
-  sku: '', barcode: '', moq: '1', image_url: '',
+  sku: '', barcode: '', moq: '', image_url: '',
+  status: 'draft' as ProductStatus,
 };
 
 type ProductForm = typeof EMPTY_FORM;
@@ -101,20 +102,33 @@ export default function AdminProductEditor() {
     setLocation('/admin');
   }, [dirty, draftKey, setLocation]);
 
-  const save = useCallback(async (addAnother: boolean) => {
+  const save = useCallback(async (addAnother: boolean, statusOverride?: ProductStatus) => {
     if (isSaving) return;
-    if (!formData.name.trim() || !formData.category_id || !formData.price) {
-      toast.error('Name, category and price are required');
+    if (!formData.name.trim()) {
+      toast.error('Product name is required');
       return;
     }
 
     setIsSaving(true);
     try {
+      // Resolve category — fall back to 'Uncategorized' if none selected.
+      // Look it up (self-healing) rather than relying on the in-memory list,
+      // which is filtered to active categories and may not contain it.
+      let categoryId = formData.category_id;
+      if (!categoryId) {
+        categoryId = (await categoryService.getOrCreateUncategorized()) ?? '';
+        if (!categoryId) {
+          toast.error('Could not assign the Uncategorized category');
+          setIsSaving(false);
+          return;
+        }
+      }
+
       const productData: any = {
         name: formData.name.trim(),
-        category_id: formData.category_id,
+        category_id: categoryId,
         description: formData.description,
-        price: parseFloat(formData.price),
+        price: formData.price ? parseFloat(formData.price) : null,
         mrp: formData.mrp ? parseFloat(formData.mrp) : undefined,
         unit_of_measure: formData.unit_of_measure,
         quantity_in_unit: formData.quantity_in_unit ? parseInt(formData.quantity_in_unit) : undefined,
@@ -124,7 +138,8 @@ export default function AdminProductEditor() {
         is_featured: formData.is_featured,
         sku: formData.sku.trim() || undefined,
         barcode: formData.barcode.trim() || undefined,
-        moq: formData.moq ? parseInt(formData.moq) : 1,
+        moq: formData.moq ? parseInt(formData.moq) : null,
+        status: statusOverride ?? formData.status,
         image_alt_text: imageMetadata[0]?.altText || formData.name.trim(),
         image_description: imageMetadata[0]?.description || '',
       };
@@ -163,7 +178,7 @@ export default function AdminProductEditor() {
       }
 
       sessionStorage.removeItem(draftKey);
-      toast.success(isEditing ? 'Product updated' : 'Product created');
+      toast.success(statusOverride === 'published' ? 'Published to website' : isEditing ? 'Product updated' : 'Product created');
 
       if (addAnother) {
         const retained = {
@@ -246,7 +261,7 @@ export default function AdminProductEditor() {
         }
       }
       if (productId) {
-        const product = await productService.getById(productId);
+        const product = await productService.getById(productId, { includeUnpublished: true });
         if (!product) {
           toast.error('Product not found');
           setLocation('/admin');
@@ -256,7 +271,7 @@ export default function AdminProductEditor() {
           name: product.name,
           category_id: product.category_id,
           description: product.description || '',
-          price: (product.price ?? 0).toString(),
+          price: product.price != null ? product.price.toString() : '',
           mrp: product.mrp?.toString() || '',
           unit_of_measure: product.unit_of_measure || 'pcs',
           quantity_in_unit: product.quantity_in_unit?.toString() || '',
@@ -266,8 +281,9 @@ export default function AdminProductEditor() {
           is_featured: product.is_featured || false,
           sku: product.sku || '',
           barcode: product.barcode || '',
-          moq: (product.moq ?? 1).toString(),
+          moq: product.moq != null ? product.moq.toString() : '',
           image_url: product.image_url || '',
+          status: (product.status ?? 'draft') as ProductStatus,
         };
         if (!cancelled) setExistingImageUrl(product.image_url || null);
       }
@@ -402,11 +418,11 @@ export default function AdminProductEditor() {
               <Input ref={nameRef} id="product-name" value={formData.name} onChange={(event) => updateForm('name', event.target.value)} placeholder="e.g., 50ml Attach Lid Container" />
             </div>
             <div className="space-y-1.5">
-              <Label>Category *</Label>
+              <Label>Category <span className="text-slate-400 font-normal text-xs">(auto-assigns Uncategorized if blank)</span></Label>
               <CategoryCombobox categories={categories} value={formData.category_id} onChange={(value) => updateForm('category_id', value)} placeholder="Select category" />
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-1.5"><Label>Price (₹) *</Label><Input type="number" min="0" step="0.01" value={formData.price} onChange={(event) => updateForm('price', event.target.value)} /></div>
+              <div className="space-y-1.5"><Label>Price (₹)</Label><Input type="number" min="0" step="0.01" placeholder="Leave blank = price on enquiry" value={formData.price} onChange={(event) => updateForm('price', event.target.value)} /></div>
               <div className="space-y-1.5"><Label>MRP (₹)</Label><Input type="number" min="0" step="0.01" value={formData.mrp} onChange={(event) => updateForm('mrp', event.target.value)} /></div>
               <div className="space-y-1.5"><Label>Discount %</Label><Input type="number" min="0" max="100" value={formData.discount_percent} onChange={(event) => updateForm('discount_percent', event.target.value)} /></div>
             </div>
@@ -509,7 +525,18 @@ export default function AdminProductEditor() {
             ))}
           </section>
 
-          <section className="flex flex-wrap gap-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="flex flex-wrap items-center gap-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={formData.status} onValueChange={(value) => updateForm('status', value as ProductStatus)}>
+                <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft (hidden)</SelectItem>
+                  <SelectItem value="published">Published (live)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-400">Drafts never appear on the storefront.</p>
+            </div>
             <div className="flex items-center gap-3"><Switch checked={formData.is_active} onCheckedChange={(value) => updateForm('is_active', value)} /><Label>Active</Label></div>
             <div className="flex items-center gap-3"><Switch checked={formData.is_featured} onCheckedChange={(value) => updateForm('is_featured', value)} /><Label>Featured</Label></div>
           </section>
@@ -517,10 +544,16 @@ export default function AdminProductEditor() {
           <div className="sticky bottom-0 flex flex-wrap justify-end gap-3 border-t border-slate-200 bg-[#f4f6f9]/95 py-4 backdrop-blur">
             <Button type="button" variant="outline" onClick={goBack} disabled={isSaving}>Cancel</Button>
             <Button type="button" variant="outline" onClick={() => save(true)} disabled={isSaving}>Save & Add Another</Button>
-            <Button type="submit" disabled={isSaving} className="bg-red-600 text-white hover:bg-red-700">
+            <Button type="submit" disabled={isSaving} className="bg-slate-700 text-white hover:bg-slate-800">
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? 'Update Product' : 'Create Product'}
+              {isEditing ? 'Save changes' : 'Save as Draft'}
             </Button>
+            {formData.status !== 'published' && (
+              <Button type="button" onClick={() => save(false, 'published')} disabled={isSaving} className="bg-green-600 text-white hover:bg-green-700">
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Publish to website
+              </Button>
+            )}
           </div>
         </form>
       </main>
