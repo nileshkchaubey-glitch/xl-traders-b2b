@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Plus, Edit2, Trash2, Search, X, Star, Copy, Loader2,
@@ -965,7 +964,7 @@ export default function AdminProducts({
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80">
                 <th className="w-10 px-3 py-3">
-                  <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
+                  <Checkbox checked={allPageSelected} onCheckedChange={toggleAll} aria-label="Select all" />
                 </th>
                 <th className="w-14 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Img</th>
                 <th className="px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Name</th>
@@ -1440,6 +1439,54 @@ export default function AdminProducts({
       />
 
       <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+
+      {/* ── Bulk "Not applicable" dialog ──────────────────────────────────────── */}
+      {/* Marks the picked field(s) as N/A across the selected products so
+          v_product_health stops counting them as missing (and the storefront
+          treats a blank brand/specs/etc. as intentional, not incomplete). */}
+      <Dialog open={naDialogOpen} onOpenChange={(open) => { if (!open) { setNaDialogOpen(false); setNaSelected([]); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark fields “Not applicable”</DialogTitle>
+            <DialogDescription>
+              Pick which fields don’t apply to {selectionCount.toLocaleString()} selected product{selectionCount === 1 ? '' : 's'}.
+              Marking N/A stops these from showing as “missing data”.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            {NA_FIELDS.map((f) => {
+              const checked = naSelected.includes(f.key);
+              return (
+                <label
+                  key={f.key}
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() =>
+                      setNaSelected((prev) =>
+                        prev.includes(f.key) ? prev.filter((k) => k !== f.key) : [...prev, f.key]
+                      )
+                    }
+                  />
+                  <span className="text-sm text-slate-700">{f.label}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" disabled={bulkBusy} onClick={() => { setNaDialogOpen(false); setNaSelected([]); }}>
+              Cancel
+            </Button>
+            <Button variant="outline" size="sm" disabled={bulkBusy || !naSelected.length} onClick={() => doSetNA(false)}>
+              Clear N/A
+            </Button>
+            <Button size="sm" className="bg-slate-800 hover:bg-slate-900 text-white gap-1" disabled={bulkBusy || !naSelected.length} onClick={() => doSetNA(true)}>
+              <Ban className="w-3.5 h-3.5" /> Mark N/A
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
