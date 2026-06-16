@@ -28,6 +28,9 @@ export const TEMPLATE_COLUMNS = [
   { key: 'image_url_5',      label: 'image_url_5',      required: false, width: 72 },
   { key: 'is_featured',      label: 'is_featured',      required: false, width: 13 },
   { key: 'group',            label: 'group',            required: false, width: 22 },
+  { key: 'status',           label: 'status',           required: false, width: 12 },
+  { key: 'tags',             label: 'tags',             required: false, width: 30 },
+  { key: 'na_fields',        label: 'na_fields',        required: false, width: 30 },
 ];
 
 // ── Sample product rows ─────────────────────────────────────────────────────
@@ -47,6 +50,9 @@ const SAMPLE_ROWS = [
     image_url_1: '', image_url_2: '', image_url_3: '', image_url_4: '', image_url_5: '',
     is_featured: 'true',
     group: 'Food Containers',
+    status: 'draft',
+    tags: 'restaurant,cloud-kitchen',
+    na_fields: '',
   },
   {
     name: '1000ml Rectangle PP Container (50 pcs)',
@@ -63,6 +69,9 @@ const SAMPLE_ROWS = [
     image_url_1: '', image_url_2: '', image_url_3: '', image_url_4: '', image_url_5: '',
     is_featured: 'false',
     group: 'Food Containers',
+    status: 'draft',
+    tags: '',
+    na_fields: '',
   },
   {
     name: '750ml Hinged Clamshell Box (200 pcs)',
@@ -79,6 +88,9 @@ const SAMPLE_ROWS = [
     image_url_1: '', image_url_2: '', image_url_3: '', image_url_4: '', image_url_5: '',
     is_featured: 'true',
     group: 'Food Containers',
+    status: 'published',
+    tags: 'restaurant,caterer',
+    na_fields: '',
   },
   {
     name: '250ml Aluminum Foil Container (100 pcs)',
@@ -95,6 +107,9 @@ const SAMPLE_ROWS = [
     image_url_1: '', image_url_2: '', image_url_3: '', image_url_4: '', image_url_5: '',
     is_featured: 'false',
     group: 'Aluminum Products',
+    status: 'draft',
+    tags: '',
+    na_fields: '',
   },
   {
     name: 'Stretch Cling Film 30cm × 300m Roll',
@@ -111,6 +126,9 @@ const SAMPLE_ROWS = [
     image_url_1: '', image_url_2: '', image_url_3: '', image_url_4: '', image_url_5: '',
     is_featured: 'false',
     group: 'Packaging Materials',
+    status: 'draft',
+    tags: '',
+    na_fields: 'brand,image',
   },
 ];
 
@@ -131,6 +149,9 @@ const INSTRUCTIONS_ROWS = [
   ['image_url_1 … image_url_5', 'No', 'Paste Google Drive thumbnail URLs. Format: https://drive.google.com/thumbnail?id=FILE_ID&sz=w800  —  Get FILE_ID from your Drive share link. image_url_1 becomes the primary product image.', 'https://drive.google.com/thumbnail?id=1abc123XYZ&sz=w800'],
   ['is_featured',       'No',        'true  or  false  (lowercase). Featured products appear on the homepage.', 'true'],
   ['group',             'No',        'Category group / section heading for navigation.',  'Food Containers'],
+  ['status',            'No',        'draft  or  published  (lowercase). Defaults to draft — drafts stay hidden from the website until you publish them.', 'draft'],
+  ['tags',              'No',        'Comma-separated business types this product suits.', 'restaurant,cloud-kitchen,caterer'],
+  ['na_fields',         'No',        'Comma-separated fields that are not applicable for this product (suppresses "missing data" warnings).', 'brand,image,specifications'],
   [],
   ['IMPORTANT NOTES', '', '', ''],
   ['• Row 1 must always be the header row (column names exactly as shown above).'],
@@ -157,6 +178,24 @@ export function downloadProductTemplate() {
 
   // Set column widths
   wsProducts['!cols'] = TEMPLATE_COLUMNS.map((c) => ({ wch: c.width }));
+
+  // Data-validation dropdown for the `status` column (draft / published).
+  // Header + legend occupy rows 1–2, so validate from the first data row down.
+  // NOTE: best-effort — the community `xlsx` build does not always emit data
+  // validations, so the Instructions sheet + sample row are the real guardrail.
+  const statusIdx = TEMPLATE_COLUMNS.findIndex((c) => c.key === 'status');
+  if (statusIdx >= 0) {
+    const statusCol = XLSX.utils.encode_col(statusIdx);
+    (wsProducts as any)['!dataValidation'] = [
+      {
+        sqref: `${statusCol}3:${statusCol}1000`,
+        type: 'list',
+        formula1: '"draft,published"',
+        allowBlank: true,
+        showDropDown: true,
+      },
+    ];
+  }
 
   // Freeze first two rows (header + legend)
   wsProducts['!freeze'] = { xSplit: 0, ySplit: 2 };
