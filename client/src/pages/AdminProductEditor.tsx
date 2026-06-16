@@ -28,6 +28,7 @@ const EMPTY_FORM = {
   brand: '', is_active: true, is_featured: false,
   sku: '', barcode: '', moq: '', image_url: '',
   status: 'draft' as ProductStatus,
+  na_fields: [] as string[],
 };
 
 type ProductForm = typeof EMPTY_FORM;
@@ -94,6 +95,31 @@ export default function AdminProductEditor() {
     setFormData((current) => ({ ...current, [key]: value }));
   };
 
+  // "Not applicable" toggles — add/remove a field from na_fields so it stops
+  // counting as missing in v_product_health (no fake data entered).
+  const isNA = (field: string) => formData.na_fields.includes(field);
+  const toggleNA = (field: string) => {
+    setFormData((current) => {
+      const set = new Set(current.na_fields);
+      set.has(field) ? set.delete(field) : set.add(field);
+      return { ...current, na_fields: [...set] };
+    });
+  };
+  const NaToggle = ({ field }: { field: string }) => (
+    <button
+      type="button"
+      onClick={() => toggleNA(field)}
+      className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+        isNA(field)
+          ? 'bg-slate-700 text-white border-slate-700'
+          : 'border-slate-300 text-slate-400 hover:text-slate-600 hover:border-slate-400'
+      }`}
+      title={isNA(field) ? 'Marked N/A — not counted as missing data' : 'Mark as N/A (not applicable)'}
+    >
+      N/A
+    </button>
+  );
+
   const goBack = useCallback(() => {
     if (dirty && !window.confirm('Discard your unsaved product changes?')) return;
     sessionStorage.removeItem(draftKey);
@@ -140,6 +166,7 @@ export default function AdminProductEditor() {
         barcode: formData.barcode.trim() || undefined,
         moq: formData.moq ? parseInt(formData.moq) : null,
         status: statusOverride ?? formData.status,
+        na_fields: formData.na_fields,
         image_alt_text: imageMetadata[0]?.altText || formData.name.trim(),
         image_description: imageMetadata[0]?.description || '',
       };
@@ -284,6 +311,7 @@ export default function AdminProductEditor() {
           moq: product.moq != null ? product.moq.toString() : '',
           image_url: product.image_url || '',
           status: (product.status ?? 'draft') as ProductStatus,
+          na_fields: product.na_fields ?? [],
         };
         if (!cancelled) setExistingImageUrl(product.image_url || null);
       }
@@ -436,7 +464,13 @@ export default function AdminProductEditor() {
               </div>
               <div className="space-y-1.5"><Label>Pack Size</Label><Input type="number" min="1" value={formData.quantity_in_unit} onChange={(event) => updateForm('quantity_in_unit', event.target.value)} /></div>
             </div>
-            <div className="space-y-1.5"><Label>Brand</Label><Input value={formData.brand} onChange={(event) => updateForm('brand', event.target.value)} placeholder="e.g. Oshine, Biopack" /></div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Brand</Label>
+                <div className="flex items-center gap-1.5"><span className="text-[10px] text-slate-400">Not applicable?</span><NaToggle field="brand" /></div>
+              </div>
+              <Input value={formData.brand} onChange={(event) => updateForm('brand', event.target.value)} placeholder="e.g. Oshine, Biopack" disabled={isNA('brand')} />
+            </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5"><Label>SKU</Label><Input value={formData.sku} onChange={(event) => updateForm('sku', event.target.value)} className="font-mono text-sm" /></div>
               <div className="space-y-1.5"><Label>Barcode</Label><Input value={formData.barcode} onChange={(event) => updateForm('barcode', event.target.value)} className="font-mono text-sm" /></div>
@@ -444,7 +478,10 @@ export default function AdminProductEditor() {
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label>Description</Label>
+                <div className="flex items-center gap-2">
+                  <Label>Description</Label>
+                  <NaToggle field="description" />
+                </div>
                 <button type="button" disabled={isGenerating || !formData.name} onClick={async () => {
                   setIsGenerating(true);
                   try {
@@ -469,7 +506,10 @@ export default function AdminProductEditor() {
             onDragOver={(event) => event.preventDefault()}
             onDrop={async (event) => { event.preventDefault(); setDropHighlight(false); await handleImageFiles(Array.from(event.dataTransfer.files)); }}>
             <div className="flex items-center justify-between">
-              <Label>Images <span className="font-normal text-slate-400">(up to 5)</span></Label>
+              <div className="flex items-center gap-2">
+                <Label>Images <span className="font-normal text-slate-400">(up to 5)</span></Label>
+                <NaToggle field="image" />
+              </div>
               <button type="button" onClick={() => setAutoResize((value) => !value)} className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold ${autoResize ? 'border-green-200 bg-green-50 text-green-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
                 <Zap className="w-3 h-3" />Auto-resize {autoResize ? 'ON' : 'OFF'}
               </button>
@@ -539,6 +579,7 @@ export default function AdminProductEditor() {
             </div>
             <div className="flex items-center gap-3"><Switch checked={formData.is_active} onCheckedChange={(value) => updateForm('is_active', value)} /><Label>Active</Label></div>
             <div className="flex items-center gap-3"><Switch checked={formData.is_featured} onCheckedChange={(value) => updateForm('is_featured', value)} /><Label>Featured</Label></div>
+            <div className="flex items-center gap-2"><Label className="text-slate-600">Specifications</Label><NaToggle field="specifications" /><span className="text-[10px] text-slate-400">mark N/A if none</span></div>
           </section>
 
           <div className="sticky bottom-0 flex flex-wrap justify-end gap-3 border-t border-slate-200 bg-[#f4f6f9]/95 py-4 backdrop-blur">

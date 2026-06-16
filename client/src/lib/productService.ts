@@ -170,6 +170,22 @@ export const categoryService = {
 // PRODUCTS
 // ============================================================================
 
+// Bulk writes go out in chunks so a "select all 1000 matching" action stays a
+// handful of `UPDATE … WHERE id IN (…)` statements (never one write per row)
+// and the id list never blows past the request URL limit.
+const BULK_CHUNK = 300;
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+// Fields the operator may set in bulk. price/mrp/discount_percent are
+// deliberately excluded — bulk price edits stay out for now (price security).
+export type BulkEditableField = 'brand' | 'moq' | 'unit_of_measure' | 'category_id' | 'is_active';
+const BULK_EDITABLE_FIELDS: BulkEditableField[] = ['brand', 'moq', 'unit_of_measure', 'category_id', 'is_active'];
+
 export const productService = {
   async getAll(filters?: { categoryId?: string; categoryIds?: string[]; search?: string; featured?: boolean; brand?: string }) {
     if (isDemo) {
@@ -373,6 +389,87 @@ export const productService = {
       .update({ status: 'published' as ProductStatus })
       .in('id', ids);
     if (error) throw error;
+  },
+
+  // ── Bulk edits ─────────────────────────────────────────────────────────────
+  // Set a single whitelisted field to one value across many products in one
+  // UPDATE per chunk. Returns the number of ids targeted.
+  async bulkUpdateField(
+    ids: string[],
+    field: BulkEditableField,
+    value: string | number | boolean | null,
+  ): Promise<number> {
+    if (!ids.length) return 0;
+    if (!BULK_EDITABLE_FIELDS.includes(field)) {
+      throw new Error(`Field "${field}" is not allowed in bulk edit`);
+    }
+    for (const part of chunk(ids, BULK_CHUNK)) {
+      const { error } = await supabase
+        .from('products')
+        .update({ [field]: value })
+        .in('id', part);
+      if (error) throw error;
+    }
+    return ids.length;
+  },
+
+  async bulkSetStatus(ids: string[], status: ProductStatus): Promise<number> {
+    if (!ids.length) return 0;
+    for (const part of chunk(ids, BULK_CHUNK)) {
+      const { error } = await supabase.from('products').update({ status }).in('id', part);
+      if (error) throw error;
+    }
+    return ids.length;
+  },
+
+  async bulkDelete(ids: string[]): Promise<number> {
+    if (!ids.length) return 0;
+    for (const part of chunk(ids, BULK_CHUNK)) {
+      const { error } = await supabase.from('products').delete().in('id', part);
+      if (error) throw error;
+    }
+    return ids.length;
+  },
+
+  // Add/remove fields from each product's na_fields ("not applicable") array.
+  // Each row's array differs, so we read current values, compute the new array
+  // per row, then group rows that end up identical into a single UPDATE — the
+  // number of writes is bounded by distinct results, never one per row.
+  async bulkSetNA(ids: string[], fields: string[], on: boolean): Promise<number> {
+    if (!ids.length || !fields.length) return 0;
+
+    const rows: { id: string; na_fields: string[] | null }[] = [];
+    for (const part of chunk(ids, BULK_CHUNK)) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id,na_fields')
+        .in('id', part);
+      if (error) throw error;
+      rows.push(...((data ?? []) as { id: string; na_fields: string[] | null }[]));
+    }
+
+    const groups = new Map<string, { value: string[]; ids: string[] }>();
+    for (const row of rows) {
+      const set = new Set(row.na_fields ?? []);
+      if (on) fields.forEach((f) => set.add(f));
+      else fields.forEach((f) => set.delete(f));
+      const value = [...set].sort();
+      const key = JSON.stringify(value);
+      const group = groups.get(key) ?? { value, ids: [] };
+      group.ids.push(row.id);
+      groups.set(key, group);
+    }
+
+    for (const { value, ids: groupIds } of groups.values()) {
+      for (const part of chunk(groupIds, BULK_CHUNK)) {
+        const { error } = await supabase
+          .from('products')
+          .update({ na_fields: value })
+          .in('id', part);
+        if (error) throw error;
+      }
+    }
+    return rows.length;
   },
 
   async toggleActive(id: string, isActive: boolean) {

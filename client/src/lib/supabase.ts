@@ -53,6 +53,10 @@ export interface Product {
   updated_at: string;
   master_id?: string | null;
   variant_label?: string | null;
+  // Fields the operator has explicitly marked "not applicable" so they stop
+  // counting as missing in v_product_health (e.g. 'brand','specifications',
+  // 'image','description','moq'). No fake data is entered.
+  na_fields?: string[] | null;
 }
 
 export interface ProductMaster {
