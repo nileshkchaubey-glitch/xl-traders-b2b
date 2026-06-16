@@ -15,6 +15,32 @@ import { toast } from 'sonner';
 
 type ImportStep = 'upload' | 'preview' | 'importing' | 'complete';
 
+// Column chips — required (green ✱), optional (white), new/advanced (blue outline).
+type ChipKind = 'required' | 'optional' | 'new';
+const COLUMN_CHIPS: { label: string; kind: ChipKind }[] = [
+  { label: 'name', kind: 'required' },
+  { label: 'unit', kind: 'required' },
+  { label: 'price', kind: 'optional' },
+  { label: 'category', kind: 'optional' },
+  { label: 'sku', kind: 'optional' },
+  { label: 'barcode', kind: 'optional' },
+  { label: 'moq', kind: 'optional' },
+  { label: 'mrp', kind: 'optional' },
+  { label: 'quantity_in_unit', kind: 'optional' },
+  { label: 'brand', kind: 'optional' },
+  { label: 'description', kind: 'optional' },
+  { label: 'is_featured', kind: 'optional' },
+  { label: 'status', kind: 'new' },
+  { label: 'tags', kind: 'new' },
+  { label: 'na_fields', kind: 'new' },
+];
+
+const CHIP_CLASS: Record<ChipKind, string> = {
+  required: 'bg-green-200 border-green-300 text-green-900',
+  optional: 'bg-white border-green-200 text-green-800',
+  new: 'bg-blue-50 border-blue-400 text-blue-700',
+};
+
 interface Props {
   onGoToProducts?: () => void;
 }
@@ -136,10 +162,14 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
                 Download the ready-made XLSX template. It includes sample data, an Instructions sheet, and
                 all supported columns (SKU, barcode, MOQ, brand…). Fill it in, then upload below.
               </p>
-              <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-green-800 font-medium">
-                {['name ✱', 'category ✱', 'price ✱', 'unit ✱', 'sku', 'barcode', 'moq', 'mrp', 'quantity_in_unit', 'brand', 'description', 'is_featured'].map((col) => (
-                  <span key={col} className={`px-2 py-0.5 rounded-full border ${col.includes('✱') ? 'bg-green-200 border-green-300' : 'bg-white border-green-200'}`}>
-                    {col}
+              <p className="text-sm text-green-700 mt-1.5">
+                <strong>Required:</strong> name, unit. <strong>Optional:</strong> everything else
+                including price (blank price = "Price on enquiry" on the website).
+              </p>
+              <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-medium">
+                {COLUMN_CHIPS.map(({ label, kind }) => (
+                  <span key={label} className={`px-2 py-0.5 rounded-full border ${CHIP_CLASS[kind]}`}>
+                    {kind === 'required' ? `${label} ✱` : label}
                   </span>
                 ))}
               </div>
@@ -164,6 +194,21 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
               <p className="text-sm text-blue-700 mt-1 leading-relaxed">
                 Fill <strong className="font-semibold text-blue-900">"master_name"</strong> + <strong className="font-semibold text-blue-900">"variant_label"</strong> to create size/pack variants.<br />
                 Leave <strong className="font-semibold text-blue-900">master_name</strong> empty for standalone products (existing behavior).
+              </p>
+            </div>
+          </div>
+
+          {/* New optional columns info banner */}
+          <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 flex gap-4 items-start">
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <FileSpreadsheet className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-blue-900">📋 New optional columns:</p>
+              <p className="text-sm text-blue-700 mt-1 leading-relaxed">
+                <strong className="font-semibold text-blue-900">status</strong> (draft/published, default=draft),{' '}
+                <strong className="font-semibold text-blue-900">tags</strong> (business types: restaurant,cloud-kitchen…),{' '}
+                <strong className="font-semibold text-blue-900">na_fields</strong> (mark fields not applicable: brand,image,specifications)
               </p>
             </div>
           </div>
@@ -231,7 +276,9 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
                     <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="px-4 py-2 text-slate-900 max-w-[200px] truncate">{row.name}</td>
                       <td className="px-4 py-2 text-slate-600">{row.category}</td>
-                      <td className="px-4 py-2 font-semibold">₹{row.price.toLocaleString()}</td>
+                      <td className="px-4 py-2 font-semibold">
+                        {row.price != null ? `₹${row.price.toLocaleString()}` : <span className="text-slate-400 font-normal">On enquiry</span>}
+                      </td>
                       <td className="px-4 py-2 text-slate-500">{row.mrp ? `₹${row.mrp.toLocaleString()}` : '—'}</td>
                       <td className="px-4 py-2 text-slate-600">{row.unit}</td>
                       <td className="px-4 py-2 text-slate-600">{row.quantity_in_unit}</td>

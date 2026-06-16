@@ -47,23 +47,28 @@ const DEFAULT_MAP: ColMap = {
 
 function mapRow(raw: Record<string, string>, map: ColMap): ImportRow | null {
   const name = raw[map.name]?.trim();
-  const category = raw[map.category]?.trim();
+  const category = map.category ? raw[map.category]?.trim() : '';
   const unit = raw[map.unit]?.trim() || 'pcs';
-  const price = parseFloat(raw[map.price]);
+  // Price is optional now (PR #46) — blank imports as null = "Price on enquiry".
+  const rawPrice = map.price ? raw[map.price] : '';
+  const hasPrice = rawPrice !== undefined && rawPrice !== null && String(rawPrice).trim() !== '';
+  const price = hasPrice ? parseFloat(rawPrice) : null;
   const qty = parseFloat(raw[map.quantity_in_unit] || '1');
 
-  if (!name || !category) return null;
-  if (isNaN(price) || price < 0) return null;
+  // Only name is truly required. Blank category falls back to Uncategorized at
+  // import time; blank/invalid price is dropped to null rather than rejecting the row.
+  if (!name) return null;
+  if (price !== null && (isNaN(price) || price < 0)) return null;
 
   return {
     master_name: map.master_name ? raw[map.master_name]?.trim() : undefined,
     variant_label: map.variant_label ? raw[map.variant_label]?.trim() : undefined,
     name,
-    category,
+    category: category || 'uncategorized',
     sku: map.sku ? raw[map.sku]?.trim() : undefined,
     barcode: map.barcode ? raw[map.barcode]?.trim() : undefined,
     moq: map.moq && raw[map.moq] ? parseInt(raw[map.moq]) : undefined,
-    price: isNaN(price) ? 0 : price,
+    price,
     mrp: map.mrp ? parseFloat(raw[map.mrp]) || undefined : undefined,
     unit: unit || 'pcs',
     quantity_in_unit: isNaN(qty) ? 1 : qty,
@@ -73,6 +78,35 @@ function mapRow(raw: Record<string, string>, map: ColMap): ImportRow | null {
       raw[map.is_featured]?.toLowerCase() === 'true' || raw[map.is_featured] === '1',
   };
 }
+
+// Column chips shown in the template banner — required (green ✱),
+// optional (white), and new/advanced (blue outline).
+type ChipKind = 'required' | 'optional' | 'new';
+const COLUMN_CHIPS: { label: string; kind: ChipKind }[] = [
+  { label: 'name', kind: 'required' },
+  { label: 'unit', kind: 'required' },
+  { label: 'price', kind: 'optional' },
+  { label: 'category', kind: 'optional' },
+  { label: 'sku', kind: 'optional' },
+  { label: 'barcode', kind: 'optional' },
+  { label: 'moq', kind: 'optional' },
+  { label: 'mrp', kind: 'optional' },
+  { label: 'quantity_in_unit', kind: 'optional' },
+  { label: 'brand', kind: 'optional' },
+  { label: 'description', kind: 'optional' },
+  { label: 'is_featured', kind: 'optional' },
+  { label: 'status', kind: 'new' },
+  { label: 'tags', kind: 'new' },
+  { label: 'na_fields', kind: 'new' },
+  { label: 'master_name', kind: 'new' },
+  { label: 'variant_label', kind: 'new' },
+];
+
+const CHIP_CLASS: Record<ChipKind, string> = {
+  required: 'bg-green-200 border-green-300 text-green-900',
+  optional: 'bg-white border-green-200 text-green-800',
+  new: 'bg-blue-50 border-blue-400 text-blue-700',
+};
 
 export default function AdminGoogleSheets() {
   const [step, setStep] = useState<Step>('input');
@@ -163,8 +197,8 @@ export default function AdminGoogleSheets() {
     setColMap({ ...DEFAULT_MAP });
   };
 
-  const REQUIRED_FIELDS: (keyof ColMap)[] = ['name', 'category', 'price', 'unit'];
-  const OPTIONAL_FIELDS: (keyof ColMap)[] = ['sku', 'barcode', 'moq', 'mrp', 'quantity_in_unit', 'brand', 'description', 'is_featured'];
+  const REQUIRED_FIELDS: (keyof ColMap)[] = ['name', 'unit'];
+  const OPTIONAL_FIELDS: (keyof ColMap)[] = ['master_name', 'variant_label', 'category', 'price', 'sku', 'barcode', 'moq', 'mrp', 'quantity_in_unit', 'brand', 'description', 'is_featured'];
 
   return (
     <div className="space-y-6">
@@ -199,10 +233,16 @@ export default function AdminGoogleSheets() {
                 Download the XLSX template → fill in your products → upload to Google Drive → import below.
                 Includes sample data, instructions sheet, and all supported columns.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-green-800 font-medium">
-                {['name ✱', 'category ✱', 'price ✱', 'unit ✱', 'sku', 'barcode', 'moq', 'mrp', 'quantity_in_unit', 'brand', 'description', 'is_featured'].map((col) => (
-                  <span key={col} className={`px-2 py-0.5 rounded-full border ${col.includes('✱') ? 'bg-green-200 border-green-300' : 'bg-white border-green-200'}`}>
-                    {col}
+              <p className="text-sm text-green-700 mt-1.5">
+                <strong>Required:</strong> name, unit. <strong>Optional:</strong> everything else
+                including price (blank price = "Price on enquiry" on the website).{' '}
+                <strong>New:</strong> status (draft/published), master_name + variant_label
+                (for size variants), tags (business types), na_fields.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
+                {COLUMN_CHIPS.map(({ label, kind }) => (
+                  <span key={label} className={`px-2 py-0.5 rounded-full border ${CHIP_CLASS[kind]}`}>
+                    {kind === 'required' ? `${label} ✱` : label}
                   </span>
                 ))}
               </div>
@@ -347,7 +387,9 @@ export default function AdminGoogleSheets() {
                       <td className="px-4 py-2 text-slate-900 max-w-[200px] truncate">{row.name}</td>
                       <td className="px-4 py-2 text-slate-600">{row.category}</td>
                       <td className="px-4 py-2 font-mono text-xs text-slate-500">{row.sku || '—'}</td>
-                      <td className="px-4 py-2 font-semibold text-slate-900">₹{row.price.toLocaleString()}</td>
+                      <td className="px-4 py-2 font-semibold text-slate-900">
+                        {row.price != null ? `₹${row.price.toLocaleString()}` : <span className="text-slate-400 font-normal">On enquiry</span>}
+                      </td>
                       <td className="px-4 py-2 text-slate-600">{row.unit}</td>
                       <td className="px-4 py-2 text-slate-600">{row.quantity_in_unit}</td>
                       <td className="px-4 py-2 text-slate-600">{row.brand || '—'}</td>
