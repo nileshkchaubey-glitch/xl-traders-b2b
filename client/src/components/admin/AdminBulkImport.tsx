@@ -41,6 +41,8 @@ const COLUMN_CHIPS: { label: string; kind: ChipKind }[] = [
   { label: "status", kind: "new" },
   { label: "tags", kind: "new" },
   { label: "na_fields", kind: "new" },
+  { label: "master_name", kind: "new" },
+  { label: "variant_label", kind: "new" },
 ];
 
 const CHIP_CLASS: Record<ChipKind, string> = {
@@ -150,19 +152,23 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
             name
           </p>
         </div>
+        {/* Secondary action — exports the EXISTING catalogue as CSV. Deliberately
+            styled as a small outline button so it is never confused with the
+            primary green "Download Template (.xlsx)" CTA inside the card below. */}
         <Button
           variant="outline"
           size="sm"
-          className="gap-1.5 text-sm"
+          className="gap-1.5 text-sm border-gray-300 text-gray-600"
           onClick={handleExport}
           disabled={exporting}
+          title="Export your current catalogue as a CSV file"
         >
           {exporting ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
           ) : (
             <Download className="w-3.5 h-3.5" />
           )}
-          Export CSV
+          Export my catalogue
         </Button>
       </div>
 
@@ -212,7 +218,7 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
               size="sm"
             >
               <Download className="w-4 h-4" />
-              Download (.xlsx)
+              Download Template (.xlsx)
             </Button>
           </div>
 
