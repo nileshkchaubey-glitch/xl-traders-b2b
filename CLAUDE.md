@@ -23,14 +23,14 @@ Owner: Nilesh (nileshk.chaubey@gmail.com) — **solo operator, no staff.**
 - **Frontend:** React 19 + Vite + TypeScript + Tailwind + Wouter + Zustand + shadcn/ui
 - **Backend:** Supabase (ref `danoeaftaazhbldeeuxj`, Tokyo, FREE plan)
 - **Storage:** `product-images` bucket (Supabase)
-- **Deploy:** Cloudflare Pages — **auto-deploys from `main` on merge**
+- **Deploy:** Netlify — **auto-deploys from `main` on merge**. Build: `pnpm install --no-frozen-lockfile && pnpm run build`; publish dir `dist/public`; `NODE_VERSION=20` (see `netlify.toml`). SPA redirect + security/cache headers are configured there. *(Migrated off Cloudflare Pages — the project now uses `pnpm`, so `pnpm-lock.yaml` MUST be committed.)*
 - **Repo:** `nileshkchaubey-glitch/xl-traders-b2b` (default branch: `main`)
 - **Admin panel:** `/admin` (authenticated). Dark Shopify-style sidebar (`bg-[#1a1d27]`, 220px).
 - **Architecture rule:** All DB logic lives in `client/src/lib/*Service.ts` files. Components call service functions; they never query Supabase directly. (This is what makes the future mobile app a reuse, not a rewrite.)
 
 ### Live URLs
-- Site: https://xl-traders-b2b.pages.dev
-- Admin: https://xl-traders-b2b.pages.dev/admin
+- Site: https://animated-cuchufli-dd5a16.netlify.app
+- Admin: https://animated-cuchufli-dd5a16.netlify.app/admin
 - GitHub: https://github.com/nileshkchaubey-glitch/xl-traders-b2b
 - Supabase: supabase.com/dashboard/project/danoeaftaazhbldeeuxj
 
@@ -103,7 +103,7 @@ Owner: Nilesh (nileshk.chaubey@gmail.com) — **solo operator, no staff.**
 
 ## ⚠️ Critical Rules (NEVER break)
 1. **Price security:** `productSelectCols()` gates price columns. Session cache MUST invalidate on every auth change. Never expose price to anon users.
-2. **`pnpm-lock.yaml` must NOT exist** — Cloudflare build fails if present.
+2. **`pnpm-lock.yaml` MUST be committed** — Netlify builds with `pnpm install`; deleting the lockfile breaks the deploy. *(This rule was inverted in the Cloudflare era — do NOT delete the lockfile.)*
 3. **SQL migrations** run manually in Supabase SQL Editor only — never via an agent.
 4. **`CREATE POLICY IF NOT EXISTS` is INVALID Postgres** — use plain `CREATE POLICY`.
 5. **Wouter `<Link>`** for all internal nav — `<a href>` causes a full reload.
@@ -120,10 +120,10 @@ Owner: Nilesh (nileshk.chaubey@gmail.com) — **solo operator, no staff.**
 ```
 1. PLAN      →  Claude Chat (this is where you think, get prompts, review)
 2. BUILD     →  Antigravity (primary builder)  OR  VS Code Claude Code (hands-on)
-3. CHECK     →  npm run build  +  test on localhost
+3. CHECK     →  pnpm run build  +  test on localhost
 4. PUSH      →  new branch → push → open PR on GitHub
 5. VERIFY    →  GitHub: "no conflicts" + "checks passed" → Merge
-6. DEPLOY    →  Cloudflare auto-deploys from main (~2-3 min)
+6. DEPLOY    →  Netlify auto-deploys from main (~2-3 min)
 7. SMOKE     →  open live site, test the new feature
 8. UPDATE    →  edit this doc's "Shipped" + "Roadmap" sections (2 min)
 ```
