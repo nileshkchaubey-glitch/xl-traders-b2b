@@ -4,16 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Plus, Edit2, Trash2, Search, X, Star, Copy, Loader2,
   ChevronLeft, ChevronRight, ImageIcon, Zap, Images, Check, RefreshCw, Sparkles,
-  ExternalLink, Power,
+  ExternalLink, Power, Ban,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { productService, categoryService } from '@/lib/productService';
 import { normalizeImageUrl } from '@/lib/imageUtils';
-import { Product, Category } from '@/lib/supabase';
+import { Product, Category, ProductStatus } from '@/lib/supabase';
 import { productCompleteness, completenessColor, AttentionFilter, ATTENTION_LABELS, ATTENTION_FIELD, MISSING_FILTERS } from '@/lib/catalogHealth';
 import { healthService } from '@/lib/healthService';
 import AdminImageGallery from '@/components/admin/AdminImageGallery';
@@ -37,18 +38,25 @@ import {
 const PAGE_SIZE = 50;
 const UNITS = ['pcs', 'box', 'pack', 'roll', 'kg', 'litre', 'set'];
 
+// Fields that can be marked "not applicable" (must match the na_fields values
+// v_product_health checks). Label → stored key.
+const NA_FIELDS: Array<{ key: string; label: string }> = [
+  { key: 'brand', label: 'Brand' },
+  { key: 'specifications', label: 'Specs' },
+  { key: 'description', label: 'Description' },
+  { key: 'image', label: 'Image' },
+];
+const NA_FIELD_LABELS: Record<string, string> = Object.fromEntries(NA_FIELDS.map((f) => [f.key, f.label]));
+
 type StatusFilter = 'all' | 'active' | 'inactive' | 'featured' | 'draft' | 'published';
 
 interface AdminGetAllResult { data: Product[]; count: number; }
 
-async function adminGetAllProducts(
-  page: number, search: string, categoryId: string, status: StatusFilter,
-  attention: AttentionFilter = null,
-): Promise<AdminGetAllResult> {
-  let query = supabase
-    .from('products')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false });
+// Applies the scalar (search/category/status) filters shared by the paginated
+// list and the "select all matching" id resolver, so the two never drift.
+function applyScalarFilters(
+  query: any, search: string, categoryId: string, status: StatusFilter,
+): any {
   if (search.trim()) query = query.ilike('name', `%${search.trim()}%`);
   if (categoryId !== 'all') query = query.eq('category_id', categoryId);
   if (status === 'active') query = query.eq('is_active', true);
@@ -56,6 +64,17 @@ async function adminGetAllProducts(
   else if (status === 'featured') query = query.eq('is_featured', true);
   else if (status === 'draft') query = query.eq('status', 'draft');
   else if (status === 'published') query = query.eq('status', 'published');
+  return query;
+}
+
+async function adminGetAllProducts(
+  page: number, search: string, categoryId: string, status: StatusFilter,
+  attention: AttentionFilter = null,
+): Promise<AdminGetAllResult> {
+  let query = applyScalarFilters(
+    supabase.from('products').select('*', { count: 'exact' }).order('created_at', { ascending: false }),
+    search, categoryId, status,
+  );
   // Missing-data filter: pull the matching ids from v_product_health (the
   // single source of truth for "what is missing") and intersect — this ANDs
   // cleanly with the search/category/status filters already applied above.
@@ -68,6 +87,39 @@ async function adminGetAllProducts(
   const { data, error, count } = await query;
   if (error) throw error;
   return { data: (data as Product[]) ?? [], count: count ?? 0 };
+}
+
+// Resolves EVERY product id matching the active filters (no pagination) — the
+// backing set for "select all N matching". Same filters as the list above.
+async function getMatchingIds(
+  search: string, categoryId: string, status: StatusFilter, attention: AttentionFilter,
+): Promise<string[]> {
+  let query = applyScalarFilters(supabase.from('products').select('id'), search, categoryId, status);
+  if (attention) {
+    const missingIds = await healthService.getIdsMissing(ATTENTION_FIELD[attention]);
+    if (!missingIds.length) return [];
+    query = query.in('id', missingIds);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return ((data ?? []) as { id: string }[]).map((r) => r.id);
+}
+
+// Of the given ids, returns the set that are variants (master_id not null) so
+// a bulk category change can skip them — a variant inherits its master.
+async function getVariantIds(ids: string[]): Promise<Set<string>> {
+  const variants = new Set<string>();
+  for (let i = 0; i < ids.length; i += 300) {
+    const part = ids.slice(i, i + 300);
+    const { data, error } = await supabase
+      .from('products')
+      .select('id')
+      .not('master_id', 'is', null)
+      .in('id', part);
+    if (error) throw error;
+    ((data ?? []) as { id: string }[]).forEach((r) => variants.add(r.id));
+  }
+  return variants;
 }
 
 // ── Inline cell editor ────────────────────────────────────────────────────────
@@ -121,8 +173,16 @@ export default function AdminProducts({
   const [status, setStatus] = useState<StatusFilter>('all');
   const [page, setPage] = useState(1);
 
-  // Bulk selection
+  // Bulk selection. `selected` holds explicitly checked ids (always the current
+  // page when in select-all mode). `selectAllMatching` widens the scope to
+  // EVERY product matching the active filters, not just the visible page.
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectAllMatching, setSelectAllMatching] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkBrand, setBulkBrand] = useState('');
+  const [bulkMoq, setBulkMoq] = useState('');
+  const [naDialogOpen, setNaDialogOpen] = useState(false);
+  const [naSelected, setNaSelected] = useState<string[]>([]);
 
   // Inline cell editing
   const [cellEdit, setCellEdit] = useState<CellEditState | null>(null);
@@ -189,6 +249,7 @@ export default function AdminProducts({
     try {
       setLoading(true);
       setSelected(new Set());
+      setSelectAllMatching(false);
       const result = await adminGetAllProducts(page, debouncedSearch, selectedCategory, status, attentionFilter);
       setProducts(result.data);
       setTotalCount(result.count);
@@ -238,43 +299,132 @@ export default function AdminProducts({
   }, [showQuickAdd]);
 
   // ── Selection ───────────────────────────────────────────────────────────────
-  const allSelected = products.length > 0 && products.every((p) => selected.has(p.id));
-  const someSelected = selected.size > 0;
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(products.map((p) => p.id)));
-  const toggleOne = (id: string) => setSelected((prev) => {
-    const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
-    return next;
-  });
+  const allPageSelected = products.length > 0 && products.every((p) => selected.has(p.id));
+  // Effective selection size: the whole matching set when in select-all mode.
+  const selectionCount = selectAllMatching ? totalCount : selected.size;
+  const hasSelection = selectionCount > 0;
+  // Offer "select all matching" once the visible page is fully checked and there
+  // are more rows behind the filter than fit on the page.
+  const canSelectAllMatching = allPageSelected && !selectAllMatching && totalCount > products.length;
+
+  const clearSelection = () => { setSelected(new Set()); setSelectAllMatching(false); };
+
+  const toggleAll = () => {
+    if (allPageSelected) { clearSelection(); }
+    else setSelected(new Set(products.map((p) => p.id)));
+  };
+  const toggleOne = (id: string) => {
+    // Unchecking a row while in select-all mode drops back to explicit ids.
+    if (selectAllMatching) setSelectAllMatching(false);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   // ── Bulk actions ────────────────────────────────────────────────────────────
-  const bulkActivate = async (activate: boolean) => {
-    const ids = Array.from(selected);
-    try {
-      await Promise.all(ids.map((id) => productService.update(id, { is_active: activate })));
-      toast.success(`${ids.length} products ${activate ? 'activated' : 'deactivated'}`);
-      loadProducts();
-    } catch { toast.error('Bulk update failed'); }
+  // Resolve the ids the action will target: every matching id in select-all
+  // mode, otherwise just the explicitly checked rows.
+  const resolveTargetIds = async (): Promise<string[]> => {
+    if (selectAllMatching) {
+      return getMatchingIds(debouncedSearch, selectedCategory, status, attentionFilter);
+    }
+    return Array.from(selected);
   };
 
-  const bulkPublish = async () => {
-    const ids = Array.from(selected);
+  // Shared flow: resolve ids → optional transform (e.g. skip variants) →
+  // confirm with the EXACT final count → run one chunked UPDATE → refresh.
+  const runBulk = async (
+    confirmLabel: (n: number) => string,
+    run: (ids: string[]) => Promise<number>,
+    transform?: (ids: string[]) => Promise<{ ids: string[]; note?: string }>,
+  ) => {
+    if (bulkBusy) return;
+    setBulkBusy(true);
     try {
-      await productService.publishProducts(ids);
-      setProducts((prev) => prev.map((p) => selected.has(p.id) ? { ...p, status: 'published' } : p));
-      setSelected(new Set());
-      toast.success(`${ids.length} product${ids.length > 1 ? 's' : ''} published`);
-    } catch { toast.error('Bulk publish failed'); }
+      let ids = await resolveTargetIds();
+      let note = '';
+      if (transform) { const t = await transform(ids); ids = t.ids; note = t.note ?? ''; }
+      if (!ids.length) { toast.error('No matching products'); return; }
+      if (!window.confirm(confirmLabel(ids.length) + (note ? `\n\n${note}` : ''))) return;
+      const n = await run(ids);
+      toast.success(`Updated ${n} products`);
+      clearSelection();
+      loadProducts();
+    } catch (err) {
+      console.error(err);
+      toast.error('Bulk action failed');
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
-  const bulkDelete = async () => {
-    const ids = Array.from(selected);
-    if (!confirm(`Delete ${ids.length} products? This cannot be undone.`)) return;
-    try {
-      await Promise.all(ids.map((id) => productService.delete(id)));
-      toast.success(`${ids.length} products deleted`);
-      loadProducts();
-    } catch { toast.error('Bulk delete failed'); }
+  const doSetBrand = async () => {
+    const value = bulkBrand.trim();
+    if (!value) { toast.error('Enter a brand first'); return; }
+    await runBulk(
+      (n) => `Set brand to "${value}" for ${n} products?`,
+      (ids) => productService.bulkUpdateField(ids, 'brand', value),
+    );
+    setBulkBrand('');
+  };
+
+  const doSetMoq = async () => {
+    const n = parseInt(bulkMoq);
+    if (isNaN(n) || n < 1) { toast.error('Enter a valid MOQ'); return; }
+    await runBulk(
+      (c) => `Set MOQ to ${n} for ${c} products?`,
+      (ids) => productService.bulkUpdateField(ids, 'moq', n),
+    );
+    setBulkMoq('');
+  };
+
+  const doSetUnit = (unit: string) => runBulk(
+    (c) => `Set unit to "${unit}" for ${c} products?`,
+    (ids) => productService.bulkUpdateField(ids, 'unit_of_measure', unit),
+  );
+
+  const doSetCategory = (categoryId: string) => {
+    const catName = categories.find((c) => c.id === categoryId)?.name ?? 'category';
+    return runBulk(
+      (c) => `Set category to "${catName}" for ${c} products?`,
+      (ids) => productService.bulkUpdateField(ids, 'category_id', categoryId),
+      async (ids) => {
+        const variants = await getVariantIds(ids);
+        const standalone = ids.filter((id) => !variants.has(id));
+        const skipped = ids.length - standalone.length;
+        return {
+          ids: standalone,
+          note: skipped ? `${skipped} variant${skipped > 1 ? 's' : ''} skipped — variants inherit their master's category.` : '',
+        };
+      },
+    );
+  };
+
+  const doSetStatus = (status: ProductStatus) => runBulk(
+    (c) => `${status === 'published' ? 'Publish' : 'Unpublish'} ${c} products?`,
+    (ids) => productService.bulkSetStatus(ids, status),
+  );
+
+  const doSetActive = (activate: boolean) => runBulk(
+    (c) => `${activate ? 'Activate' : 'Deactivate'} ${c} products?`,
+    (ids) => productService.bulkUpdateField(ids, 'is_active', activate),
+  );
+
+  const doDelete = () => runBulk(
+    (c) => `Delete ${c} products? This cannot be undone.`,
+    (ids) => productService.bulkDelete(ids),
+  );
+
+  const doSetNA = (on: boolean) => {
+    if (!naSelected.length) { toast.error('Pick at least one field'); return; }
+    const labels = naSelected.map((f) => NA_FIELD_LABELS[f] ?? f).join(', ');
+    setNaDialogOpen(false);
+    runBulk(
+      (c) => `${on ? 'Mark' : 'Clear'} N/A (${labels}) for ${c} products?`,
+      (ids) => productService.bulkSetNA(ids, naSelected, on),
+    ).finally(() => setNaSelected([]));
   };
 
   // ── Inline cell save ────────────────────────────────────────────────────────
@@ -747,18 +897,63 @@ export default function AdminProducts({
         )}
       </div>
 
-      {/* ── Bulk action bar ───────────────────────────────────────────────────── */}
-      {someSelected && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
-          <span className="text-sm font-semibold text-red-700">{selected.size} selected</span>
-          <div className="flex-1" />
-          <Button size="sm" onClick={bulkPublish} className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white">Publish selected</Button>
-          <Button size="sm" variant="outline" onClick={() => bulkActivate(true)} className="h-7 text-xs">Activate</Button>
-          <Button size="sm" variant="outline" onClick={() => bulkActivate(false)} className="h-7 text-xs">Deactivate</Button>
-          <Button size="sm" variant="destructive" onClick={bulkDelete} className="h-7 text-xs">Delete</Button>
-          <button onClick={() => setSelected(new Set())} className="p-1 hover:bg-red-100 rounded text-red-500">
-            <X className="w-3.5 h-3.5" />
-          </button>
+      {/* ── Bulk action toolbar ───────────────────────────────────────────────── */}
+      {hasSelection && (
+        <div className="bg-white border border-slate-300 rounded-xl px-4 py-3 shadow-sm space-y-3">
+          {/* Selection scope banner (Gmail/Shopify pattern) */}
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            {selectAllMatching ? (
+              <span className="font-semibold text-slate-800">
+                All <span className="text-red-600">{totalCount.toLocaleString()}</span> matching products selected
+              </span>
+            ) : (
+              <span className="font-semibold text-slate-800">
+                {selected.size} selected{canSelectAllMatching ? ` on this page` : ''}
+              </span>
+            )}
+            {canSelectAllMatching && (
+              <>
+                <span className="text-slate-300">·</span>
+                <button onClick={() => setSelectAllMatching(true)} className="font-semibold text-red-600 hover:text-red-700 underline underline-offset-2">
+                  Select all {totalCount.toLocaleString()} matching the filter
+                </button>
+              </>
+            )}
+            <div className="flex-1" />
+            {bulkBusy && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+            <button onClick={clearSelection} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800">
+              <X className="w-3.5 h-3.5" /> Clear
+            </button>
+          </div>
+
+          {/* Actions — each confirms with the exact target count before writing */}
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+            <div className="flex items-center gap-1">
+              <Input value={bulkBrand} onChange={(e) => setBulkBrand(e.target.value)} placeholder="Brand…" className="h-8 w-28 text-sm" disabled={bulkBusy} />
+              <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={doSetBrand}>Set</Button>
+            </div>
+            <div className="flex items-center gap-1">
+              <Input type="number" min="1" value={bulkMoq} onChange={(e) => setBulkMoq(e.target.value)} placeholder="MOQ…" className="h-8 w-20 text-sm" disabled={bulkBusy} />
+              <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={doSetMoq}>Set</Button>
+            </div>
+            <Select onValueChange={(v) => doSetUnit(v)} disabled={bulkBusy}>
+              <SelectTrigger className="h-8 w-28 text-sm bg-slate-50"><SelectValue placeholder="Set unit…" /></SelectTrigger>
+              <SelectContent>{UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+            </Select>
+            <div className="w-44">
+              <CategoryCombobox categories={categories} value="" onChange={(id) => { if (id) doSetCategory(id); }} placeholder="Set category…" className="h-8 text-sm" />
+            </div>
+            <span className="w-px h-6 bg-slate-200" />
+            <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white" disabled={bulkBusy} onClick={() => doSetStatus('published')}>Publish</Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={() => doSetStatus('draft')}>Unpublish</Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1" disabled={bulkBusy} onClick={() => { setNaSelected([]); setNaDialogOpen(true); }}>
+              <Ban className="w-3.5 h-3.5" /> N/A
+            </Button>
+            <span className="w-px h-6 bg-slate-200" />
+            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={() => doSetActive(true)}>Activate</Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={() => doSetActive(false)}>Deactivate</Button>
+            <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={bulkBusy} onClick={doDelete}>Delete</Button>
+          </div>
         </div>
       )}
 
@@ -769,7 +964,7 @@ export default function AdminProducts({
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80">
                 <th className="w-10 px-3 py-3">
-                  <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
+                  <Checkbox checked={allPageSelected} onCheckedChange={toggleAll} aria-label="Select all" />
                 </th>
                 <th className="w-14 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Img</th>
                 <th className="px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Name</th>
@@ -1244,6 +1439,54 @@ export default function AdminProducts({
       />
 
       <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+
+      {/* ── Bulk "Not applicable" dialog ──────────────────────────────────────── */}
+      {/* Marks the picked field(s) as N/A across the selected products so
+          v_product_health stops counting them as missing (and the storefront
+          treats a blank brand/specs/etc. as intentional, not incomplete). */}
+      <Dialog open={naDialogOpen} onOpenChange={(open) => { if (!open) { setNaDialogOpen(false); setNaSelected([]); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark fields “Not applicable”</DialogTitle>
+            <DialogDescription>
+              Pick which fields don’t apply to {selectionCount.toLocaleString()} selected product{selectionCount === 1 ? '' : 's'}.
+              Marking N/A stops these from showing as “missing data”.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            {NA_FIELDS.map((f) => {
+              const checked = naSelected.includes(f.key);
+              return (
+                <label
+                  key={f.key}
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() =>
+                      setNaSelected((prev) =>
+                        prev.includes(f.key) ? prev.filter((k) => k !== f.key) : [...prev, f.key]
+                      )
+                    }
+                  />
+                  <span className="text-sm text-slate-700">{f.label}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" disabled={bulkBusy} onClick={() => { setNaDialogOpen(false); setNaSelected([]); }}>
+              Cancel
+            </Button>
+            <Button variant="outline" size="sm" disabled={bulkBusy || !naSelected.length} onClick={() => doSetNA(false)}>
+              Clear N/A
+            </Button>
+            <Button size="sm" className="bg-slate-800 hover:bg-slate-900 text-white gap-1" disabled={bulkBusy || !naSelected.length} onClick={() => doSetNA(true)}>
+              <Ban className="w-3.5 h-3.5" /> Mark N/A
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
