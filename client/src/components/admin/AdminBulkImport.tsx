@@ -91,7 +91,7 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
     setStep('importing');
     setProgress(0);
     try {
-      const result = await bulkImportProducts(parsedRows, (done, total) => {
+      const result = await bulkImportProducts(parsedRows, 'csv', (done, total) => {
         setProgress(Math.round((done / total) * 100));
       });
       setImportResult(result);

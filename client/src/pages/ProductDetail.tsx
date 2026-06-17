@@ -256,6 +256,11 @@ export default function ProductDetail() {
     displayImages.length > 0 ? displayImages[selectedImageIndex]?.image_url : (currentProd?.image_url || ''),
   );
 
+  // Both guards above (loading, !product) have passed, so `product` is set and
+  // therefore currentProd (selected variant or base product) is non-null too.
+  // This narrows the type for the JSX below and guards against a null render.
+  if (!currentProd) return null;
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
