@@ -5,6 +5,7 @@ import { MessageCircle, ArrowRight, Star, TrendingUp, Sparkles } from 'lucide-re
 import { productService } from '@/lib/productService';
 import { Product } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/authStore';
+import { normalizeImageUrl } from '@/lib/imageUtils';
 
 const TABS = [
   { id: 'bestsellers', label: 'Best Sellers', icon: Star },
@@ -24,19 +25,38 @@ function FeaturedProductCard({ product, whatsappNumber }: FeaturedProductCardPro
   const message = encodeURIComponent(
     `Hi XL Traders, I'm interested in "${product.name}". Can you share bulk pricing?`
   );
+  // Rewrite Google Drive share links to renderable thumbnails (sized for the
+  // ~300px card slot) — raw Drive links return an HTML viewer page and show up
+  // broken, same fix the catalog cards already use.
+  const imageUrl = normalizeImageUrl(product.image_url, 600);
+
+  // CSS-only broken-image fallback: hide the <img> and reveal its sibling
+  // placeholder, so a dead URL doesn't leave an empty box.
+  const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    img.style.display = 'none';
+    (img.nextElementSibling as HTMLElement | null)?.classList.remove('hidden');
+  };
 
   return (
     <article className="group bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-red-200 transition-all duration-300 flex flex-col">
       {/* Product image */}
       <Link href={`/product/${product.id}`}>
         <div className="aspect-[4/3] bg-slate-100 overflow-hidden relative">
-          {product.image_url ? (
-            <img
-              src={product.image_url}
-              alt={product.image_alt_text || product.name}
-              className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
-              loading="lazy"
-            />
+          {imageUrl ? (
+            <>
+              <img
+                src={imageUrl}
+                alt={product.image_alt_text || product.name}
+                className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                loading="lazy"
+                decoding="async"
+                onError={handleImgError}
+              />
+              <div className="hidden w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+                <span className="text-4xl opacity-20">📦</span>
+              </div>
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
               <span className="text-4xl opacity-20">📦</span>
