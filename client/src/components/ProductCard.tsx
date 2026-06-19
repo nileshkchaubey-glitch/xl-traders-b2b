@@ -5,7 +5,7 @@ import { useAuthStore } from '@/lib/authStore';
 import { enquiryService, inquiriesService } from '@/lib/productService';
 import { ImagePlaceholder } from './ImagePlaceholder';
 import AddToCartButton from './cart/AddToCartButton';
-import { normalizeImageUrl } from '@/lib/imageUtils';
+import { normalizeImageUrl, buildThumbnailSrcSet } from '@/lib/imageUtils';
 
 interface ProductCardProps {
   product: Product;
@@ -23,6 +23,10 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
   // pulling 1000px images wastes bandwidth and slows the grid on mobile. The
   // smaller widths still cover retina (2x) and the detail page keeps full size.
   const imageUrl = normalizeImageUrl(product.image_url, view === 'list' ? 200 : 400);
+  // Retina-aware srcset (Drive thumbnails only — see buildThumbnailSrcSet). The
+  // browser picks 1x/2x based on DPR + slot width, so high-DPI screens render
+  // crisp without forcing big downloads on small phones.
+  const imageSrcSet = buildThumbnailSrcSet(product.image_url, view === 'list' ? 96 : 400);
 
   // CSS-only broken-image fallback — no React state, so a page full of broken
   // images can't trigger a cascade of re-renders. onError hides the <img> and
@@ -93,6 +97,8 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
             <>
               <img
                 src={imageUrl}
+                srcSet={imageSrcSet || undefined}
+                sizes="96px"
                 alt={product.image_alt_text || product.name}
                 width={96}
                 height={96}
@@ -161,6 +167,8 @@ export default function ProductCard({ product, view = 'grid', onEnquire }: Produ
               <img
                 ref={revealIfComplete}
                 src={imageUrl}
+                srcSet={imageSrcSet || undefined}
+                sizes="(min-width: 1536px) 16vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
                 alt={product.image_alt_text || product.name}
                 width={400}
                 height={400}

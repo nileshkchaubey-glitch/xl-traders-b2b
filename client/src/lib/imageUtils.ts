@@ -135,6 +135,27 @@ export function normalizeImageUrl(url?: string | null, size = 1000): string {
   return `https://drive.google.com/thumbnail?id=${id}&sz=w${size}`;
 }
 
+/**
+ * Build a `srcset` for high-DPI (retina) displays so grid/list thumbnails stay
+ * crisp without over-fetching on small screens.
+ *
+ * Only Google Drive thumbnails support on-the-fly resizing (via the `sz=w` param
+ * we control), so we emit 1x/2x width-descriptor variants for those. Non-Drive
+ * URLs (Supabase Storage, direct images) have no resize endpoint — a srcset
+ * would just repeat the same file — so we return '' and let plain `src` handle
+ * it. Pair the result with a `sizes` attribute on the <img>.
+ */
+export function buildThumbnailSrcSet(url?: string | null, baseWidth = 400): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  const isDrive = /drive\.google\.com|googleusercontent\.com\/d\//.test(trimmed);
+  const id = isDrive ? extractDriveFileId(trimmed) : null;
+  if (!id) return '';
+  const at = (w: number) => `https://drive.google.com/thumbnail?id=${id}&sz=w${w} ${w}w`;
+  return `${at(baseWidth)}, ${at(baseWidth * 2)}`;
+}
+
 /** Pull the Drive file id out of any common Drive link shape. */
 export function extractDriveFileId(url: string): string | null {
   const patterns = [

@@ -24,13 +24,13 @@ Owner: Nilesh — solo operator, no staff.
 - **Frontend:** React 19 + Vite + TypeScript + Tailwind + Wouter + Zustand + shadcn/ui
 - **Backend:** Supabase (ref `danoeaftaazhbldeeuxj`, Tokyo, FREE plan)
 - **Storage:** `product-images` bucket (Supabase)
-- **Deploy:** Cloudflare Pages — auto-deploys from `main` (~2-3 min)
+- **Deploy:** Netlify — auto-deploys from `main` (~2-3 min). Build: `pnpm install --no-frozen-lockfile && pnpm run build`; publish dir `dist/public`; `NODE_VERSION=20` (see `netlify.toml`). *(Migrated off Cloudflare Pages — uses `pnpm`, so `pnpm-lock.yaml` MUST be committed.)*
 - **Repo:** `nileshkchaubey-glitch/xl-traders-b2b` (default branch: `main`)
 - **Admin:** `/admin` (authenticated). Dark sidebar `bg-[#1a1d27]`, 220px.
 
 ### Live URLs
-- Site: https://xl-traders-b2b.pages.dev
-- Admin: https://xl-traders-b2b.pages.dev/admin
+- Site: https://animated-cuchufli-dd5a16.netlify.app
+- Admin: https://animated-cuchufli-dd5a16.netlify.app/admin
 - GitHub: https://github.com/nileshkchaubey-glitch/xl-traders-b2b
 - Supabase: supabase.com/dashboard/project/danoeaftaazhbldeeuxj
 
@@ -143,14 +143,15 @@ inquiries, orders, order_items, import_logs, business_settings
 ## 🔴 Known Issues
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
-- `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
-- Import UI shows price as required (*) — stale after nullable migration (fix in next PR)
+- Both `pnpm-lock.yaml` and `package-lock.json` are committed — Netlify uses pnpm; the npm lockfile is redundant and can drift (low priority cleanup)
+- ✅ FIXED: `business_settings` now uses `.maybeSingle()` (AdminSettings.tsx)
+- ✅ FIXED: Import UI price/MOQ now optional (PR #51)
 
 ---
 
 ## ⚠️ Critical Rules
 1. **Price security** — `productSelectCols()` gates price. Cache invalidates on auth change. Null price not public.
-2. **`pnpm-lock.yaml` must NOT exist** — Cloudflare build fails.
+2. **`pnpm-lock.yaml` MUST be committed** — Netlify builds with `pnpm install`; deleting the lockfile breaks the deploy. *(This rule was inverted in the Cloudflare era — do NOT delete the lockfile.)*
 3. **SQL migrations** — Supabase SQL Editor only. Never via agent.
 4. **`CREATE POLICY IF NOT EXISTS` invalid Postgres** — use `CREATE POLICY`.
 5. **Wouter `<Link>`** — never `<a href>` for internal nav.
@@ -171,7 +172,7 @@ inquiries, orders, order_items, import_logs, business_settings
 3. CHECK  → npm run build (0 errors) + localhost:5000 smoke test
 4. PUSH   → new branch → git push
 5. PR     → GitHub: no conflicts + checks passed → Merge
-6. DEPLOY → Cloudflare auto-deploys (~2-3 min)
+6. DEPLOY → Netlify auto-deploys (~2-3 min)
 7. SMOKE  → live site (logged in + logged out)
 8. UPDATE → agent updates CLAUDE.md Shipped + Roadmap in same PR
 ```
