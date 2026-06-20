@@ -1,4 +1,4 @@
-import { supabase, Product, Category } from './supabase';
+import { supabase, Product, Category } from "./supabase";
 
 export interface ProductMaster {
   id: string;
@@ -25,17 +25,17 @@ export interface ProductMasterImage {
   created_at: string;
 }
 
-const isDemo = import.meta.env.VITE_DEMO_MODE === 'true';
+const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
 
 export const masterService = {
   async getMasters() {
     const { data, error } = await supabase
-      .from('product_masters')
-      .select('*, categories(name), product_master_images(*)')
-      .order('created_at', { ascending: false });
+      .from("product_masters")
+      .select("*, categories(name), product_master_images(*)")
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error('Error fetching masters:', error);
+      console.error("Error fetching masters:", error);
       return [];
     }
     return data as ProductMaster[];
@@ -43,9 +43,9 @@ export const masterService = {
 
   async getMasterById(id: string) {
     const { data, error } = await supabase
-      .from('product_masters')
-      .select('*, categories(name)')
-      .eq('id', id)
+      .from("product_masters")
+      .select("*, categories(name)")
+      .eq("id", id)
       .single();
 
     if (error) throw error;
@@ -54,18 +54,20 @@ export const masterService = {
 
   async findMasterByName(name: string) {
     const { data, error } = await supabase
-      .from('product_masters')
-      .select('*')
-      .eq('name', name)
+      .from("product_masters")
+      .select("*")
+      .eq("name", name)
       .maybeSingle();
 
     if (error) throw error;
     return data as ProductMaster | null;
   },
 
-  async createMaster(formData: Omit<ProductMaster, 'id' | 'created_at' | 'updated_at'>) {
+  async createMaster(
+    formData: Omit<ProductMaster, "id" | "created_at" | "updated_at">
+  ) {
     const { data, error } = await supabase
-      .from('product_masters')
+      .from("product_masters")
       .insert(formData)
       .select()
       .single();
@@ -76,9 +78,9 @@ export const masterService = {
 
   async updateMaster(id: string, updates: Partial<ProductMaster>) {
     const { data, error } = await supabase
-      .from('product_masters')
+      .from("product_masters")
       .update(updates)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -88,9 +90,9 @@ export const masterService = {
 
   async deleteMaster(id: string) {
     const { error } = await supabase
-      .from('product_masters')
+      .from("product_masters")
       .delete()
-      .eq('id', id);
+      .eq("id", id);
 
     if (error) throw error;
     return true;
@@ -100,14 +102,14 @@ export const masterService = {
   // variant never shows in the product page variant selector.
   async getVariantsByMasterId(masterId: string) {
     const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('master_id', masterId)
-      .eq('status', 'published')
-      .order('price', { ascending: true });
+      .from("products")
+      .select("*")
+      .eq("master_id", masterId)
+      .eq("status", "published")
+      .order("price", { ascending: true });
 
     if (error) {
-      console.error('Error fetching variants:', error);
+      console.error("Error fetching variants:", error);
       return [];
     }
     return data as Product[];
@@ -126,18 +128,21 @@ export const masterService = {
     const master = await this.getMasterById(variant.master_id);
 
     // Auto-generate SKU if not provided
-    const sku = variant.sku || `${master.slug.toUpperCase()}-${variant.variant_label.replace(/\s+/g, '-').toUpperCase()}`;
+    const sku =
+      variant.sku ||
+      `${master.slug.toUpperCase()}-${variant.variant_label.replace(/\s+/g, "-").toUpperCase()}`;
 
     // Concatenate name for listing
     const name = `${master.name} ${variant.variant_label}`;
 
     // Get any primary image of the master to set as default image_url for variant product row
     const masterImages = await this.getMasterImages(variant.master_id);
-    const primaryImg = masterImages.find(img => img.is_primary) || masterImages[0];
+    const primaryImg =
+      masterImages.find(img => img.is_primary) || masterImages[0];
     const image_url = primaryImg ? primaryImg.image_url : undefined;
 
     const { data, error } = await supabase
-      .from('products')
+      .from("products")
       .insert({
         master_id: variant.master_id,
         variant_label: variant.variant_label,
@@ -153,7 +158,7 @@ export const masterService = {
         image_url: image_url || null,
         is_active: true,
         is_featured: false,
-        status: 'draft',
+        status: "draft",
       })
       .select()
       .single();
@@ -163,10 +168,7 @@ export const masterService = {
   },
 
   async deleteVariant(id: string) {
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from("products").delete().eq("id", id);
 
     if (error) throw error;
     return true;
@@ -174,44 +176,53 @@ export const masterService = {
 
   async getMasterImages(masterId: string) {
     const { data, error } = await supabase
-      .from('product_master_images')
-      .select('*')
-      .eq('master_id', masterId)
-      .order('display_order', { ascending: true });
+      .from("product_master_images")
+      .select("*")
+      .eq("master_id", masterId)
+      .order("display_order", { ascending: true });
 
     if (error) {
-      console.error('Error fetching master images:', error);
+      console.error("Error fetching master images:", error);
       return [];
     }
     return data as ProductMasterImage[];
   },
 
-  async uploadMasterImage(masterId: string, file: File, isPrimary: boolean = false) {
+  async uploadMasterImage(
+    masterId: string,
+    file: File,
+    isPrimary: boolean = false
+  ) {
     if (isDemo) {
-      console.warn('Demo mode: Image not uploaded');
-      return { id: 'demo', master_id: masterId, image_url: 'demo', is_primary: isPrimary };
+      console.warn("Demo mode: Image not uploaded");
+      return {
+        id: "demo",
+        master_id: masterId,
+        image_url: "demo",
+        is_primary: isPrimary,
+      };
     }
 
     try {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `${masterId}-${Date.now()}.${fileExt}`;
       const filePath = `masters/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('product-images')
+        .from("product-images")
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage
-        .from('product-images')
+        .from("product-images")
         .getPublicUrl(filePath);
 
       const publicUrl = data.publicUrl;
 
       // Insert database reference
       const { data: dbData, error: dbError } = await supabase
-        .from('product_master_images')
+        .from("product_master_images")
         .insert({
           master_id: masterId,
           image_url: publicUrl,
@@ -225,42 +236,42 @@ export const masterService = {
       // If we just uploaded the primary image, update any variants without image_url
       if (isPrimary) {
         await supabase
-          .from('products')
+          .from("products")
           .update({ image_url: publicUrl })
-          .eq('master_id', masterId)
-          .is('image_url', null);
+          .eq("master_id", masterId)
+          .is("image_url", null);
       }
 
       return dbData as ProductMasterImage;
     } catch (error) {
-      console.error('Error uploading master image:', error);
+      console.error("Error uploading master image:", error);
       throw error;
     }
   },
 
   async deleteMasterImage(id: string) {
     const { data: img, error: fetchError } = await supabase
-      .from('product_master_images')
-      .select('image_url, master_id, is_primary')
-      .eq('id', id)
+      .from("product_master_images")
+      .select("image_url, master_id, is_primary")
+      .eq("id", id)
       .single();
 
     if (!fetchError && img) {
       try {
-        const parts = img.image_url.split('/product-images/');
+        const parts = img.image_url.split("/product-images/");
         if (parts.length > 1) {
           const filePath = parts[1];
-          await supabase.storage.from('product-images').remove([filePath]);
+          await supabase.storage.from("product-images").remove([filePath]);
         }
       } catch (e) {
-        console.error('Error deleting file from storage:', e);
+        console.error("Error deleting file from storage:", e);
       }
     }
 
     const { error } = await supabase
-      .from('product_master_images')
+      .from("product_master_images")
       .delete()
-      .eq('id', id);
+      .eq("id", id);
 
     if (error) throw error;
 
@@ -278,15 +289,15 @@ export const masterService = {
   async setMasterPrimaryImage(masterId: string, imageId: string) {
     // Reset all to false first
     await supabase
-      .from('product_master_images')
+      .from("product_master_images")
       .update({ is_primary: false })
-      .eq('master_id', masterId);
+      .eq("master_id", masterId);
 
     // Set selected to true
     const { data: selected, error } = await supabase
-      .from('product_master_images')
+      .from("product_master_images")
       .update({ is_primary: true })
-      .eq('id', imageId)
+      .eq("id", imageId)
       .select()
       .single();
 
@@ -294,10 +305,10 @@ export const masterService = {
 
     // Update the image_url of all products (variants) belonging to this master to match the new primary
     await supabase
-      .from('products')
+      .from("products")
       .update({ image_url: selected.image_url })
-      .eq('master_id', masterId);
+      .eq("master_id", masterId);
 
     return selected as ProductMasterImage;
-  }
+  },
 };

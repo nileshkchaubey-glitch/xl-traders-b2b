@@ -3,6 +3,7 @@
 ## Overview
 
 The Bulk Import feature in the Admin Panel allows you to efficiently manage 500+ products by:
+
 - **Importing** new products from CSV/Excel files
 - **Updating** existing products (smart upsert logic)
 - **Exporting** all products for bulk editing
@@ -21,17 +22,17 @@ The Bulk Import feature in the Admin Panel allows you to efficiently manage 500+
 
 ### Required Columns
 
-| Column | Type | Required | Example |
-|--------|------|----------|---------|
-| `name` | Text | ✅ Yes | "5 Ply Corrugated Box - 12x10x8" |
-| `category` | Text | ✅ Yes | "Corrugated Boxes" |
-| `group` | Text | ❌ Optional | "Boxes" |
-| `price` | Number | ✅ Yes | 3187.00 |
-| `mrp` | Number | ❌ Optional | 3500.00 |
-| `unit` | Text | ✅ Yes | "box", "piece", "roll", "pack" |
-| `quantity_in_unit` | Number | ✅ Yes | 100 |
-| `description` | Text | ❌ Optional | "Premium quality boxes..." |
-| `is_featured` | Boolean | ❌ Optional | "true" or "false" |
+| Column             | Type    | Required    | Example                          |
+| ------------------ | ------- | ----------- | -------------------------------- |
+| `name`             | Text    | ✅ Yes      | "5 Ply Corrugated Box - 12x10x8" |
+| `category`         | Text    | ✅ Yes      | "Corrugated Boxes"               |
+| `group`            | Text    | ❌ Optional | "Boxes"                          |
+| `price`            | Number  | ✅ Yes      | 3187.00                          |
+| `mrp`              | Number  | ❌ Optional | 3500.00                          |
+| `unit`             | Text    | ✅ Yes      | "box", "piece", "roll", "pack"   |
+| `quantity_in_unit` | Number  | ✅ Yes      | 100                              |
+| `description`      | Text    | ❌ Optional | "Premium quality boxes..."       |
+| `is_featured`      | Boolean | ❌ Optional | "true" or "false"                |
 
 ### Example CSV Content
 
@@ -53,17 +54,20 @@ Kraft Paper Bag - Medium,Paper Bags,Bags,1500.00,1800.00,pack,1000,Eco-friendly 
 ### Step 2: Prepare Your Data
 
 **Option A: From Google Sheets**
+
 1. Open your Google Sheet with product data
 2. Go to **File → Download → CSV**
 3. Save the file
 4. Open in Excel and ensure columns match the required format
 
 **Option B: From Excel**
+
 1. Create/open your Excel file
 2. Ensure columns match the required format
 3. Save as `.xlsx` or `.csv`
 
 **Option C: Export & Edit**
+
 1. Click **"Export All Products"** button
 2. Opens your current products as CSV
 3. Edit prices, descriptions, etc. in Excel
@@ -79,6 +83,7 @@ Kraft Paper Bag - Medium,Paper Bags,Bags,1500.00,1800.00,pack,1000,Eco-friendly 
 ### Step 4: Review Preview
 
 Before importing, you'll see:
+
 - ✅ **Valid rows** - Ready to import
 - ⚠️ **Parse errors** - Rows with issues (displayed at top)
 - **Preview table** - First 10 rows shown
@@ -95,6 +100,7 @@ Before importing, you'll see:
 ### Step 6: View Results
 
 After import, you'll see:
+
 - 🟢 **Added**: Number of new products created
 - 🔵 **Updated**: Number of existing products updated
 - 🔴 **Errors**: Number of rows that failed
@@ -187,13 +193,13 @@ For each row in your CSV:
 
 ### Common Errors & Solutions
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| "Missing product name" | Name column empty | Add product name in CSV |
-| "Invalid price" | Price not a number | Use format: 100.00 (not ₹100) |
-| "Invalid quantity_in_unit" | Quantity is 0 or negative | Use positive numbers only |
-| "Missing category" | Category column empty | Add category name |
-| "Invalid unit" | Unit field empty | Specify: piece, box, roll, pack, etc. |
+| Error                      | Cause                     | Solution                              |
+| -------------------------- | ------------------------- | ------------------------------------- |
+| "Missing product name"     | Name column empty         | Add product name in CSV               |
+| "Invalid price"            | Price not a number        | Use format: 100.00 (not ₹100)         |
+| "Invalid quantity_in_unit" | Quantity is 0 or negative | Use positive numbers only             |
+| "Missing category"         | Category column empty     | Add category name                     |
+| "Invalid unit"             | Unit field empty          | Specify: piece, box, roll, pack, etc. |
 
 ### Validation Rules
 
@@ -215,6 +221,7 @@ For each row in your CSV:
 ### Before Importing
 
 ✅ **Do:**
+
 - Validate data in Excel before upload
 - Check for duplicate product names
 - Ensure prices are numeric
@@ -222,6 +229,7 @@ For each row in your CSV:
 - Test with small batch first (10-20 products)
 
 ❌ **Don't:**
+
 - Include currency symbols (₹, $, etc.)
 - Use special characters in product names
 - Leave required columns empty
@@ -321,6 +329,7 @@ interface ImportResult {
 ## Support
 
 For issues or questions:
+
 1. Check this guide's troubleshooting section
 2. Review error messages in import summary
 3. Contact admin support with error details

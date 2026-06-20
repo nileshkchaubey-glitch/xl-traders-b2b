@@ -1,10 +1,10 @@
-import { create } from 'zustand';
-import { supabase, UserProfile } from './supabase';
-import { invalidateSessionCache } from './productService';
+import { create } from "zustand";
+import { supabase, UserProfile } from "./supabase";
+import { invalidateSessionCache } from "./productService";
 
 const ADMIN_EMAILS = new Set(
-  (import.meta.env.VITE_ADMIN_EMAILS || 'nileshk.chaubey@gmail.com')
-    .split(',')
+  (import.meta.env.VITE_ADMIN_EMAILS || "nileshk.chaubey@gmail.com")
+    .split(",")
     .map((email: string) => email.trim().toLowerCase())
     .filter(Boolean)
 );
@@ -20,13 +20,13 @@ function resolveIsAdmin(
 
 async function fetchUserProfile(user: { id: string; email?: string | null }) {
   const { data: profile, error } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('id', user.id)
+    .from("user_profiles")
+    .select("*")
+    .eq("id", user.id)
     .maybeSingle();
 
   if (error) {
-    console.error('Failed to fetch user profile:', error.message);
+    console.error("Failed to fetch user profile:", error.message);
   }
 
   return profile;
@@ -38,14 +38,14 @@ async function buildAuthState(user: { id: string; email?: string | null }) {
   if (!profile && user.email) {
     const isKnownAdmin = ADMIN_EMAILS.has(user.email.toLowerCase());
     const { data: created, error } = await supabase
-      .from('user_profiles')
+      .from("user_profiles")
       .insert({
         id: user.id,
         email: user.email,
         is_active: true,
         is_admin: isKnownAdmin,
       })
-      .select('*')
+      .select("*")
       .maybeSingle();
 
     if (!error && created) {
@@ -72,10 +72,16 @@ interface AuthState {
 
   initialize: () => Promise<void>;
   refreshProfile: () => Promise<boolean>;
-  signUp: (email: string, password: string, company: string) => Promise<{ error: any | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    company: string
+  ) => Promise<{ error: any | null }>;
   signIn: (email: string, password: string) => Promise<{ error: any | null }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any | null }>;
+  updateProfile: (
+    updates: Partial<UserProfile>
+  ) => Promise<{ error: any | null }>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -88,7 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     try {
       if (!supabase.auth?.getSession) {
-        console.warn('Supabase auth not available (demo mode)');
+        console.warn("Supabase auth not available (demo mode)");
         set({ isLoading: false });
         return;
       }
@@ -101,7 +107,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // stale cache can never show prices to anon users after logout.
           invalidateSessionCache();
 
-          if (event === 'TOKEN_REFRESHED') {
+          if (event === "TOKEN_REFRESHED") {
             // Silently update stored user so the refreshed JWT stays in sync.
             // No isLoading flip, no profile refetch — avoids a global re-render
             // on every tab focus / ~55-min token rotation.
@@ -109,7 +115,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return;
           }
 
-          if (event === 'SIGNED_IN') {
+          if (event === "SIGNED_IN") {
             const currentUser = get().user;
             if (currentUser && session?.user?.id === currentUser.id) {
               // supabase-js re-emits SIGNED_IN on every tab refocus when a
@@ -125,7 +131,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return;
           }
 
-          if (event === 'SIGNED_OUT') {
+          if (event === "SIGNED_OUT") {
             set({
               user: null,
               profile: null,
@@ -164,7 +170,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false });
       }
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      console.error("Auth initialization error:", error);
       set({ isLoading: false });
     }
   },
@@ -192,12 +198,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (signUpError) return { error: signUpError };
 
       if (user) {
-        const { error: profileError } = await supabase.from('user_profiles').insert({
-          id: user.id,
-          email,
-          company_name: company,
-          is_active: true,
-        });
+        const { error: profileError } = await supabase
+          .from("user_profiles")
+          .insert({
+            id: user.id,
+            email,
+            company_name: company,
+            is_active: true,
+          });
 
         if (profileError) return { error: profileError };
 
@@ -270,16 +278,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return { error: 'Not authenticated' };
+      if (!user) return { error: "Not authenticated" };
 
       const { error } = await supabase
-        .from('user_profiles')
+        .from("user_profiles")
         .update(updates)
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       if (error) return { error };
 
-      set((state) => {
+      set(state => {
         const profile = state.profile ? { ...state.profile, ...updates } : null;
         return {
           profile,

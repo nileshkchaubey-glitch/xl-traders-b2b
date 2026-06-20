@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'wouter';
-import { motion } from 'framer-motion';
-import { Tag } from 'lucide-react';
-import { productService } from '@/lib/productService';
+import { useEffect, useState } from "react";
+import { Link } from "wouter";
+import { motion } from "framer-motion";
+import { Tag } from "lucide-react";
+import { productService } from "@/lib/productService";
 
 export default function HomeBrandSection() {
   const [brands, setBrands] = useState<string[]>([]);
 
   useEffect(() => {
-    productService.getBrands().then(setBrands).catch(() => setBrands([]));
+    productService
+      .getBrands()
+      .then(setBrands)
+      .catch(() => setBrands([]));
   }, []);
 
   if (!brands.length) return null;

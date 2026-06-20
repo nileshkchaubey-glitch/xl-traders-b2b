@@ -86,6 +86,7 @@ This installs all required packages (takes 2-3 minutes).
 ### 2.3 Create .env.local File
 
 1. Copy `.env.example` to `.env.local`:
+
    ```bash
    cp .env.example .env.local
    ```
@@ -93,6 +94,7 @@ This installs all required packages (takes 2-3 minutes).
 2. Open `.env.local` in a text editor
 
 3. Fill in your Supabase credentials:
+
    ```env
    VITE_SUPABASE_URL=https://your-project.supabase.co
    VITE_SUPABASE_ANON_KEY=eyJhbGc...
@@ -150,6 +152,7 @@ npm run preview
 ### 4.2 Connect GitHub (Recommended)
 
 1. Push your code to GitHub:
+
    ```bash
    git init
    git add .
@@ -224,6 +227,7 @@ python3 scripts/import_products.py
 ```
 
 This will:
+
 - Fetch 133 products from Google Sheet
 - Download images from Google Drive
 - Upload to Supabase Storage
@@ -247,9 +251,10 @@ This will:
 1. Go to Supabase dashboard
 2. Click **SQL Editor**
 3. Run this query:
+
    ```sql
-   UPDATE user_profiles 
-   SET is_admin = true 
+   UPDATE user_profiles
+   SET is_admin = true
    WHERE email = 'your-email@example.com';
    ```
 
@@ -294,6 +299,7 @@ This will:
 **Error**: `Cannot find module '@supabase/supabase-js'`
 
 **Solution**:
+
 ```bash
 rm -rf node_modules package-lock.json
 npm install
@@ -304,6 +310,7 @@ npm install
 **Error**: Site shows blank page
 
 **Solution**:
+
 1. Check environment variables are set
 2. Check Supabase URL and key are correct
 3. Check browser console for errors (F12)
@@ -314,6 +321,7 @@ npm install
 **Error**: Catalog page is empty
 
 **Solution**:
+
 1. Check SQL migration ran successfully
 2. Check products are marked `is_active = true`
 3. Check Supabase connection in `.env.local`
@@ -324,6 +332,7 @@ npm install
 **Error**: Product images show broken image icon
 
 **Solution**:
+
 1. Check `product-images` bucket exists in Supabase Storage
 2. Check bucket is set to **Public**
 3. Check images uploaded successfully
@@ -334,6 +343,7 @@ npm install
 **Error**: Redirected to login when visiting `/admin`
 
 **Solution**:
+
 1. Sign in first
 2. Check your account has `is_admin = true` in database
 3. Run SQL: `UPDATE user_profiles SET is_admin = true WHERE email = '...'`
@@ -343,6 +353,7 @@ npm install
 **Error**: WhatsApp button doesn't work
 
 **Solution**:
+
 1. Check WhatsApp number includes country code (91 for India)
 2. Format should be: `919773239442` (not `+91-9773-239442`)
 3. Update in Settings tab
@@ -511,9 +522,9 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | May 2026 | Initial release |
+| Version | Date     | Changes         |
+| ------- | -------- | --------------- |
+| 1.0     | May 2026 | Initial release |
 
 ---
 

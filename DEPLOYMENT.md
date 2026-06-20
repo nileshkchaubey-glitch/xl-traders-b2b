@@ -9,6 +9,7 @@ This guide covers deploying the XL Traders B2B website to production.
 **Easiest option with automatic deployments from Git**
 
 1. **Push code to GitHub**
+
    ```bash
    git init
    git add .
@@ -179,17 +180,17 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
         with:
-          node-version: '22'
-          cache: 'pnpm'
-      
+          node-version: "22"
+          cache: "pnpm"
+
       - run: pnpm install
       - run: pnpm build
-      - run: pnpm run test  # if you add tests
-      
+      - run: pnpm run test # if you add tests
+
       # Deploy to Netlify
       - uses: nwtgck/actions-netlify@v2
         with:
-          publish-dir: './dist'
+          publish-dir: "./dist"
           production-branch: main
           github-token: ${{ secrets.GITHUB_TOKEN }}
           deploy-message: "Deploy from GitHub Actions"
@@ -218,6 +219,7 @@ jobs:
 ### Build Fails
 
 Check build logs in deployment platform:
+
 - Verify Node version (22.13.0+)
 - Check environment variables are set
 - Verify all dependencies are installed
@@ -244,18 +246,18 @@ Check build logs in deployment platform:
 
 ## 📝 Environment Variables Reference
 
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `VITE_SUPABASE_URL` | Supabase project URL | `https://xxx.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key | `eyJhbGc...` |
-| `VITE_BUSINESS_NAME` | Company name | `XL Traders` |
-| `VITE_BUSINESS_CITY` | City | `Surat` |
-| `VITE_BUSINESS_STATE` | State | `Gujarat` |
-| `VITE_BUSINESS_COUNTRY` | Country | `India` |
-| `VITE_WHATSAPP_NUMBER` | WhatsApp number | `919773239442` |
-| `VITE_PHONE_1` | Primary phone | `9773239442` |
-| `VITE_PHONE_2` | Secondary phone | `7778052990` |
-| `VITE_EMAIL` | Business email | `xltraders990@gmail.com` |
+| Variable                 | Purpose              | Example                   |
+| ------------------------ | -------------------- | ------------------------- |
+| `VITE_SUPABASE_URL`      | Supabase project URL | `https://xxx.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key    | `eyJhbGc...`              |
+| `VITE_BUSINESS_NAME`     | Company name         | `XL Traders`              |
+| `VITE_BUSINESS_CITY`     | City                 | `Surat`                   |
+| `VITE_BUSINESS_STATE`    | State                | `Gujarat`                 |
+| `VITE_BUSINESS_COUNTRY`  | Country              | `India`                   |
+| `VITE_WHATSAPP_NUMBER`   | WhatsApp number      | `919773239442`            |
+| `VITE_PHONE_1`           | Primary phone        | `9773239442`              |
+| `VITE_PHONE_2`           | Secondary phone      | `7778052990`              |
+| `VITE_EMAIL`             | Business email       | `xltraders990@gmail.com`  |
 
 ## 🚀 Post-Deployment
 
@@ -286,6 +288,7 @@ After deployment:
 ## 📞 Support
 
 For deployment issues:
+
 - Check deployment platform documentation
 - Review Supabase docs
 - Contact support via WhatsApp: 919773239442

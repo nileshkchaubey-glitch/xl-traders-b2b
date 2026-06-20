@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useSearch } from 'wouter';
-import { Grid3x3, List, ChevronDown, Package } from 'lucide-react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import ProductCard from '@/components/ProductCard';
-import { categoryService, productService, CategoryGroup } from '@/lib/productService';
-import { Category, Product } from '@/lib/supabase';
+import { useEffect, useState } from "react";
+import { useLocation, useSearch } from "wouter";
+import { Grid3x3, List, ChevronDown, Package } from "lucide-react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import ProductCard from "@/components/ProductCard";
+import {
+  categoryService,
+  productService,
+  CategoryGroup,
+} from "@/lib/productService";
+import { Category, Product } from "@/lib/supabase";
 
 // Icon shown next to each category in the 2-level sidebar
 function CategoryIcon({ cat }: { cat: Category }) {
@@ -19,7 +23,11 @@ function CategoryIcon({ cat }: { cat: Category }) {
     );
   }
   if (cat.icon_emoji) {
-    return <span className="text-base leading-none flex-shrink-0">{cat.icon_emoji}</span>;
+    return (
+      <span className="text-base leading-none flex-shrink-0">
+        {cat.icon_emoji}
+      </span>
+    );
   }
   return <Package size={14} className="flex-shrink-0 text-slate-400" />;
 }
@@ -34,19 +42,19 @@ export default function Catalog() {
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState('newest');
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [sortBy, setSortBy] = useState("newest");
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
-    params.get('category') || null
+    params.get("category") || null
   );
   const [selectedGroup, setSelectedGroup] = useState<string | null>(
-    params.get('group') || null
+    params.get("group") || null
   );
   const [selectedBrand, setSelectedBrand] = useState<string | null>(
-    params.get('brand') || null
+    params.get("brand") || null
   );
-  const [searchQuery, setSearchQuery] = useState(params.get('search') || '');
+  const [searchQuery, setSearchQuery] = useState(params.get("search") || "");
 
   // Load categories, groups, brands
   useEffect(() => {
@@ -61,7 +69,7 @@ export default function Catalog() {
         setBrands(brnds);
         setCategoryGroups(groups);
       } catch (error) {
-        console.error('Error loading categories/brands:', error);
+        console.error("Error loading categories/brands:", error);
       }
     };
     loadMeta();
@@ -80,86 +88,102 @@ export default function Catalog() {
           result = await productService.getAll({ brand: selectedBrand });
         } else if (selectedGroup) {
           const ids = categories
-            .filter((c) => c.group_name === selectedGroup)
-            .map((c) => c.id);
+            .filter(c => c.group_name === selectedGroup)
+            .map(c => c.id);
           result = ids.length
             ? await productService.getAll({ categoryIds: ids })
             : await productService.getAll();
         } else if (selectedCategory) {
-          const cat = categories.find((c) => c.slug === selectedCategory);
+          const cat = categories.find(c => c.slug === selectedCategory);
           if (cat) result = await productService.getAll({ categoryId: cat.id });
         } else {
           result = await productService.getAll();
         }
 
         switch (sortBy) {
-          case 'price-low':
+          case "price-low":
             result.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
             break;
-          case 'price-high':
+          case "price-high":
             result.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
             break;
-          case 'name':
+          case "name":
             result.sort((a, b) => a.name.localeCompare(b.name));
             break;
-          case 'newest':
+          case "newest":
           default:
             result.sort(
               (a, b) =>
-                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
             );
         }
 
         setProducts(result);
       } catch (error) {
-        console.error('Error loading products:', error);
+        console.error("Error loading products:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProducts();
-  }, [selectedCategory, selectedGroup, selectedBrand, searchQuery, sortBy, categories]);
+  }, [
+    selectedCategory,
+    selectedGroup,
+    selectedBrand,
+    searchQuery,
+    sortBy,
+    categories,
+  ]);
 
   const handleCategoryChange = (slug: string | null) => {
     setSelectedCategory(slug);
     setSelectedGroup(null);
     setSelectedBrand(null);
-    setLocation(slug ? `/catalog?category=${slug}` : '/catalog');
+    setLocation(slug ? `/catalog?category=${slug}` : "/catalog");
   };
 
   const handleGroupChange = (groupName: string | null) => {
     setSelectedGroup(groupName);
     setSelectedCategory(null);
     setSelectedBrand(null);
-    setLocation(groupName ? `/catalog?group=${encodeURIComponent(groupName)}` : '/catalog');
+    setLocation(
+      groupName ? `/catalog?group=${encodeURIComponent(groupName)}` : "/catalog"
+    );
   };
 
   const handleBrandChange = (brand: string | null) => {
     setSelectedBrand(brand);
     setSelectedCategory(null);
     setSelectedGroup(null);
-    setLocation(brand ? `/catalog?brand=${encodeURIComponent(brand)}` : '/catalog');
+    setLocation(
+      brand ? `/catalog?brand=${encodeURIComponent(brand)}` : "/catalog"
+    );
   };
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    setLocation(query ? `/catalog?search=${encodeURIComponent(query)}` : '/catalog');
+    setLocation(
+      query ? `/catalog?search=${encodeURIComponent(query)}` : "/catalog"
+    );
   };
 
-  const isNothingSelected = !selectedCategory && !selectedGroup && !selectedBrand && !searchQuery;
+  const isNothingSelected =
+    !selectedCategory && !selectedGroup && !selectedBrand && !searchQuery;
 
   // Readable label for the active filter
   const activeFilterLabel =
     selectedGroup ||
-    categories.find((c) => c.slug === selectedCategory)?.name ||
+    categories.find(c => c.slug === selectedCategory)?.name ||
     selectedBrand ||
     null;
 
   // Mobile: categories filtered by selected group (or all)
   const mobileCategoryOptions =
     selectedGroup && categoryGroups.length > 0
-      ? categoryGroups.find((g) => g.group_name === selectedGroup)?.categories ?? categories
+      ? (categoryGroups.find(g => g.group_name === selectedGroup)?.categories ??
+        categories)
       : categories;
 
   return (
@@ -174,7 +198,8 @@ export default function Catalog() {
               Product Catalog
             </h1>
             <p className="text-slate-600">
-              {products.length} products{activeFilterLabel ? ` in ${activeFilterLabel}` : ' available'}
+              {products.length} products
+              {activeFilterLabel ? ` in ${activeFilterLabel}` : " available"}
             </p>
           </div>
         </div>
@@ -190,104 +215,113 @@ export default function Catalog() {
                     type="text"
                     placeholder="Search products..."
                     value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onChange={e => handleSearchChange(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
                   />
                 </div>
 
                 {/* Categories — 2-level grouped or flat fallback */}
                 <div className="p-4 overflow-y-auto max-h-[60vh]">
-                  <h3 className="font-bold text-sm text-slate-900 mb-3">Categories</h3>
+                  <h3 className="font-bold text-sm text-slate-900 mb-3">
+                    Categories
+                  </h3>
                   <div className="space-y-0.5">
                     {/* All Products */}
                     <button
                       onClick={() => handleCategoryChange(null)}
                       className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                         isNothingSelected
-                          ? 'bg-red-100 text-red-600 font-semibold'
-                          : 'text-slate-600 hover:bg-slate-100'
+                          ? "bg-red-100 text-red-600 font-semibold"
+                          : "text-slate-600 hover:bg-slate-100"
                       }`}
                     >
                       All Products
                     </button>
 
-                    {categoryGroups.length > 0 ? (
-                      // ── 2-level grouped view ──
-                      categoryGroups.map((group) => {
-                        const isGroupActive = selectedGroup === group.group_name;
-                        const hasActiveCatInGroup = group.categories.some(
-                          (c) => c.slug === selectedCategory
-                        );
-                        return (
-                          <div key={group.group_name} className="mt-3">
-                            {/* Group header */}
-                            <button
-                              onClick={() => handleGroupChange(group.group_name)}
-                              className={`w-full text-left px-3 py-2 rounded text-xs font-bold uppercase tracking-wider transition ${
-                                isGroupActive
-                                  ? 'bg-red-600 text-white'
-                                  : hasActiveCatInGroup
-                                  ? 'text-red-600'
-                                  : 'text-slate-500 hover:bg-slate-100'
-                              }`}
-                            >
-                              {group.group_name}
-                            </button>
-                            {/* Category items */}
-                            <div className="ml-1 mt-0.5 space-y-0.5">
-                              {group.categories.map((cat) => (
-                                <button
-                                  key={cat.id}
-                                  onClick={() => handleCategoryChange(cat.slug)}
-                                  className={`w-full text-left px-3 py-1.5 rounded text-sm transition flex items-center gap-2 ${
-                                    selectedCategory === cat.slug
-                                      ? 'bg-red-100 text-red-600 font-semibold'
-                                      : 'text-slate-600 hover:bg-slate-100'
-                                  }`}
-                                >
-                                  <CategoryIcon cat={cat} />
-                                  <span className="truncate">{cat.name}</span>
-                                </button>
-                              ))}
+                    {categoryGroups.length > 0
+                      ? // ── 2-level grouped view ──
+                        categoryGroups.map(group => {
+                          const isGroupActive =
+                            selectedGroup === group.group_name;
+                          const hasActiveCatInGroup = group.categories.some(
+                            c => c.slug === selectedCategory
+                          );
+                          return (
+                            <div key={group.group_name} className="mt-3">
+                              {/* Group header */}
+                              <button
+                                onClick={() =>
+                                  handleGroupChange(group.group_name)
+                                }
+                                className={`w-full text-left px-3 py-2 rounded text-xs font-bold uppercase tracking-wider transition ${
+                                  isGroupActive
+                                    ? "bg-red-600 text-white"
+                                    : hasActiveCatInGroup
+                                      ? "text-red-600"
+                                      : "text-slate-500 hover:bg-slate-100"
+                                }`}
+                              >
+                                {group.group_name}
+                              </button>
+                              {/* Category items */}
+                              <div className="ml-1 mt-0.5 space-y-0.5">
+                                {group.categories.map(cat => (
+                                  <button
+                                    key={cat.id}
+                                    onClick={() =>
+                                      handleCategoryChange(cat.slug)
+                                    }
+                                    className={`w-full text-left px-3 py-1.5 rounded text-sm transition flex items-center gap-2 ${
+                                      selectedCategory === cat.slug
+                                        ? "bg-red-100 text-red-600 font-semibold"
+                                        : "text-slate-600 hover:bg-slate-100"
+                                    }`}
+                                  >
+                                    <CategoryIcon cat={cat} />
+                                    <span className="truncate">{cat.name}</span>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      // ── Flat fallback (no groups yet) ──
-                      categories.map((cat) => (
-                        <button
-                          key={cat.id}
-                          onClick={() => handleCategoryChange(cat.slug)}
-                          className={`w-full text-left px-3 py-2 rounded text-sm transition flex items-center gap-2 ${
-                            selectedCategory === cat.slug
-                              ? 'bg-red-100 text-red-600 font-semibold'
-                              : 'text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          <CategoryIcon cat={cat} />
-                          <span>{cat.name}</span>
-                        </button>
-                      ))
-                    )}
+                          );
+                        })
+                      : // ── Flat fallback (no groups yet) ──
+                        categories.map(cat => (
+                          <button
+                            key={cat.id}
+                            onClick={() => handleCategoryChange(cat.slug)}
+                            className={`w-full text-left px-3 py-2 rounded text-sm transition flex items-center gap-2 ${
+                              selectedCategory === cat.slug
+                                ? "bg-red-100 text-red-600 font-semibold"
+                                : "text-slate-600 hover:bg-slate-100"
+                            }`}
+                          >
+                            <CategoryIcon cat={cat} />
+                            <span>{cat.name}</span>
+                          </button>
+                        ))}
                   </div>
                 </div>
 
                 {/* Brands */}
                 {brands.length > 0 && (
                   <div className="p-4 border-t border-slate-200">
-                    <h3 className="font-bold text-sm text-slate-900 mb-3">Brands</h3>
+                    <h3 className="font-bold text-sm text-slate-900 mb-3">
+                      Brands
+                    </h3>
                     <div className="space-y-0.5">
-                      {brands.map((brand) => (
+                      {brands.map(brand => (
                         <button
                           key={brand}
                           onClick={() =>
-                            handleBrandChange(selectedBrand === brand ? null : brand)
+                            handleBrandChange(
+                              selectedBrand === brand ? null : brand
+                            )
                           }
                           className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                             selectedBrand === brand
-                              ? 'bg-red-100 text-red-600 font-semibold'
-                              : 'text-slate-600 hover:bg-slate-100'
+                              ? "bg-red-100 text-red-600 font-semibold"
+                              : "text-slate-600 hover:bg-slate-100"
                           }`}
                         >
                           {brand}
@@ -305,23 +339,23 @@ export default function Catalog() {
               <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setViewMode('grid')}
+                    onClick={() => setViewMode("grid")}
                     aria-label="Grid view"
                     className={`p-2 rounded transition ${
-                      viewMode === 'grid'
-                        ? 'bg-red-100 text-red-600'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      viewMode === "grid"
+                        ? "bg-red-100 text-red-600"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
                     <Grid3x3 size={20} />
                   </button>
                   <button
-                    onClick={() => setViewMode('list')}
+                    onClick={() => setViewMode("list")}
                     aria-label="List view"
                     className={`p-2 rounded transition ${
-                      viewMode === 'list'
-                        ? 'bg-red-100 text-red-600'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      viewMode === "list"
+                        ? "bg-red-100 text-red-600"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
                     <List size={20} />
@@ -329,11 +363,13 @@ export default function Catalog() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-semibold text-slate-600">Sort:</label>
+                  <label className="text-sm font-semibold text-slate-600">
+                    Sort:
+                  </label>
                   <div className="relative">
                     <select
                       value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
+                      onChange={e => setSortBy(e.target.value)}
                       className="appearance-none px-3 py-2 pr-8 border border-slate-300 rounded text-sm bg-white cursor-pointer focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
                     >
                       <option value="newest">Newest</option>
@@ -359,20 +395,20 @@ export default function Catalog() {
                         onClick={() => handleGroupChange(null)}
                         className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
                           !selectedGroup && !selectedCategory
-                            ? 'bg-red-600 text-white border-red-600'
-                            : 'bg-white text-slate-600 border-slate-300 hover:border-red-400'
+                            ? "bg-red-600 text-white border-red-600"
+                            : "bg-white text-slate-600 border-slate-300 hover:border-red-400"
                         }`}
                       >
                         All
                       </button>
-                      {categoryGroups.map((group) => (
+                      {categoryGroups.map(group => (
                         <button
                           key={group.group_name}
                           onClick={() => handleGroupChange(group.group_name)}
                           className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
                             selectedGroup === group.group_name
-                              ? 'bg-red-600 text-white border-red-600'
-                              : 'bg-white text-slate-600 border-slate-300 hover:border-red-400'
+                              ? "bg-red-600 text-white border-red-600"
+                              : "bg-white text-slate-600 border-slate-300 hover:border-red-400"
                           }`}
                         >
                           {group.group_name}
@@ -382,12 +418,14 @@ export default function Catalog() {
                     {/* Category dropdown (filtered by selected group) */}
                     <div className="relative">
                       <select
-                        value={selectedCategory || ''}
-                        onChange={(e) => handleCategoryChange(e.target.value || null)}
+                        value={selectedCategory || ""}
+                        onChange={e =>
+                          handleCategoryChange(e.target.value || null)
+                        }
                         className="w-full appearance-none px-4 py-2 pr-8 border border-slate-300 rounded bg-white cursor-pointer focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
                       >
                         <option value="">All Categories</option>
-                        {mobileCategoryOptions.map((cat) => (
+                        {mobileCategoryOptions.map(cat => (
                           <option key={cat.id} value={cat.slug}>
                             {cat.name}
                           </option>
@@ -403,12 +441,14 @@ export default function Catalog() {
                   // Flat fallback
                   <div className="relative">
                     <select
-                      value={selectedCategory || ''}
-                      onChange={(e) => handleCategoryChange(e.target.value || null)}
+                      value={selectedCategory || ""}
+                      onChange={e =>
+                        handleCategoryChange(e.target.value || null)
+                      }
                       className="w-full appearance-none px-4 py-2 pr-8 border border-slate-300 rounded bg-white cursor-pointer focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
                     >
                       <option value="">All Categories</option>
-                      {categories.map((cat) => (
+                      {categories.map(cat => (
                         <option key={cat.id} value={cat.slug}>
                           {cat.name}
                         </option>
@@ -428,20 +468,20 @@ export default function Catalog() {
                       onClick={() => handleBrandChange(null)}
                       className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
                         !selectedBrand
-                          ? 'bg-red-600 text-white border-red-600'
-                          : 'bg-white text-slate-600 border-slate-300 hover:border-red-400'
+                          ? "bg-red-600 text-white border-red-600"
+                          : "bg-white text-slate-600 border-slate-300 hover:border-red-400"
                       }`}
                     >
                       All Brands
                     </button>
-                    {brands.map((brand) => (
+                    {brands.map(brand => (
                       <button
                         key={brand}
                         onClick={() => handleBrandChange(brand)}
                         className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
                           selectedBrand === brand
-                            ? 'bg-red-600 text-white border-red-600'
-                            : 'bg-white text-slate-600 border-slate-300 hover:border-red-400'
+                            ? "bg-red-600 text-white border-red-600"
+                            : "bg-white text-slate-600 border-slate-300 hover:border-red-400"
                         }`}
                       >
                         {brand}
@@ -466,13 +506,17 @@ export default function Catalog() {
               ) : (
                 <div
                   className={
-                    viewMode === 'grid'
-                      ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4'
-                      : 'space-y-4'
+                    viewMode === "grid"
+                      ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
+                      : "space-y-4"
                   }
                 >
-                  {products.map((product) => (
-                    <ProductCard key={product.id} product={product} view={viewMode} />
+                  {products.map(product => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      view={viewMode}
+                    />
                   ))}
                 </div>
               )}

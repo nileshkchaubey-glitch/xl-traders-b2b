@@ -9,14 +9,14 @@ WhatsApp; the owner manages products, images, and imports through an admin panel
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Frontend | React 19, Vite, TypeScript, Tailwind CSS 4, shadcn/ui |
-| Routing / state | Wouter, Zustand |
-| Backend | Supabase (PostgreSQL + Auth + Storage) |
-| Image storage | Supabase `product-images` bucket |
-| Hosting | Netlify (auto-deploys from `main`) |
-| Package manager | pnpm |
+| Layer           | Choice                                                |
+| --------------- | ----------------------------------------------------- |
+| Frontend        | React 19, Vite, TypeScript, Tailwind CSS 4, shadcn/ui |
+| Routing / state | Wouter, Zustand                                       |
+| Backend         | Supabase (PostgreSQL + Auth + Storage)                |
+| Image storage   | Supabase `product-images` bucket                      |
+| Hosting         | Netlify (auto-deploys from `main`)                    |
+| Package manager | pnpm                                                  |
 
 ## Getting started
 
@@ -67,13 +67,13 @@ VITE_ANTHROPIC_API_KEY=<key>
 
 ### Scripts
 
-| Command | Purpose |
-|---|---|
-| `pnpm dev` | Vite dev server on port 5000 |
-| `pnpm build` | Production build to `dist/public` |
-| `pnpm preview` | Preview the production build |
-| `pnpm check` | TypeScript type-check (`tsc --noEmit`) |
-| `pnpm format` | Prettier write across the repo |
+| Command        | Purpose                                |
+| -------------- | -------------------------------------- |
+| `pnpm dev`     | Vite dev server on port 5000           |
+| `pnpm build`   | Production build to `dist/public`      |
+| `pnpm preview` | Preview the production build           |
+| `pnpm check`   | TypeScript type-check (`tsc --noEmit`) |
+| `pnpm format`  | Prettier write across the repo         |
 
 ## Architecture
 

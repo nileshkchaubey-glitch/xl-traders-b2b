@@ -7,8 +7,8 @@
 Run this in Supabase SQL Editor:
 
 ```sql
-UPDATE user_profiles 
-SET is_admin = true 
+UPDATE user_profiles
+SET is_admin = true
 WHERE email = 'your-email@example.com';
 ```
 
@@ -28,6 +28,7 @@ WHERE email = 'your-email@example.com';
 ## 📊 What You Can Do
 
 ### Products Tab
+
 - ✅ Add new products (name, price, images, category)
 - ✅ Edit product details
 - ✅ Click price to edit inline
@@ -37,12 +38,14 @@ WHERE email = 'your-email@example.com';
 - ✅ Upload up to 5 images per product
 
 ### Categories Tab
+
 - ✅ Add new categories
 - ✅ Edit category details
 - ✅ Delete categories
 - ✅ Drag to reorder
 
 ### Enquiries Tab
+
 - ✅ View all customer enquiries
 - ✅ Filter by status (new/contacted/quoted/closed)
 - ✅ Update enquiry status
@@ -50,6 +53,7 @@ WHERE email = 'your-email@example.com';
 - ✅ View full enquiry details
 
 ### Settings Tab
+
 - ✅ Update WhatsApp number
 - ✅ Update phone numbers
 - ✅ Update email
@@ -106,38 +110,42 @@ WHERE email = 'your-email@example.com';
 
 ## 🔑 Key Features
 
-| Feature | Location | How |
-|---------|----------|-----|
-| Add Product | Products tab | Click "Add Product" button |
-| Edit Product | Products tab | Click Edit icon |
-| Delete Product | Products tab | Click Delete icon |
-| Search | Products tab | Type in search box |
-| Filter | Products tab | Select category |
-| Reorder Categories | Categories tab | Drag and drop |
-| View Enquiry | Enquiries tab | Click Eye icon |
-| Send WhatsApp | Enquiries tab | Click WhatsApp icon |
-| Update Settings | Settings tab | Edit and Save |
+| Feature            | Location       | How                        |
+| ------------------ | -------------- | -------------------------- |
+| Add Product        | Products tab   | Click "Add Product" button |
+| Edit Product       | Products tab   | Click Edit icon            |
+| Delete Product     | Products tab   | Click Delete icon          |
+| Search             | Products tab   | Type in search box         |
+| Filter             | Products tab   | Select category            |
+| Reorder Categories | Categories tab | Drag and drop              |
+| View Enquiry       | Enquiries tab  | Click Eye icon             |
+| Send WhatsApp      | Enquiries tab  | Click WhatsApp icon        |
+| Update Settings    | Settings tab   | Edit and Save              |
 
 ---
 
 ## 💡 Pro Tips
 
 ### Product Images
+
 - Upload up to 5 images per product
 - First image is the main product image
 - Add alt text for SEO: "[Product] wholesale - XL Traders Surat"
 
 ### Pricing
+
 - Click price directly to edit inline
 - No need to open edit dialog
 - Changes save immediately
 
 ### Enquiries
+
 - Check "new" enquiries daily
 - Update status as you progress
 - Use WhatsApp to reply quickly
 
 ### Categories
+
 - Add emoji icons (🥤, 📦, etc.)
 - Drag to reorder display order
 - Slug auto-generates from name
@@ -147,20 +155,24 @@ WHERE email = 'your-email@example.com';
 ## ⚠️ Important Notes
 
 ### Before Deleting
+
 - ✅ Deleting product removes it from catalog
 - ✅ Deleting category doesn't delete products
 - ❌ Deletion is permanent (no undo)
 
 ### Price Format
+
 - Enter prices as numbers (3187, not ₹3,187)
 - System converts to decimal (3187.00)
 
 ### Images
+
 - Max 5 per product
 - Formats: JPG, PNG, WebP
 - Max size: 5MB each
 
 ### WhatsApp
+
 - Include country code (91 for India)
 - Format: 919773239442 (not +91-9773-239442)
 
@@ -168,13 +180,13 @@ WHERE email = 'your-email@example.com';
 
 ## 🆘 Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| Can't access admin | Check if `is_admin = true` in database |
-| Product not showing | Verify `is_active = true` |
-| Image won't upload | Check file size (< 5MB) and format |
-| Settings not saving | Check Supabase connection |
-| Can't send WhatsApp | Verify phone number format |
+| Issue               | Solution                               |
+| ------------------- | -------------------------------------- |
+| Can't access admin  | Check if `is_admin = true` in database |
+| Product not showing | Verify `is_active = true`              |
+| Image won't upload  | Check file size (< 5MB) and format     |
+| Settings not saving | Check Supabase connection              |
+| Can't send WhatsApp | Verify phone number format             |
 
 ---
 
@@ -199,6 +211,7 @@ WHERE email = 'your-email@example.com';
 ## 📚 Full Documentation
 
 See `ADMIN_PANEL.md` for complete documentation with:
+
 - Detailed feature explanations
 - Database schema
 - API reference

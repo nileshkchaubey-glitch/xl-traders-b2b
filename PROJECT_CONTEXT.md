@@ -9,6 +9,7 @@
 
 **XL Traders** — Surat (India) ka B2B wholesale packaging supplier.
 Yeh website ek **product catalog + enquiry platform** hai:
+
 - Customers products browse karte hain (containers, cups, boxes, etc.)
 - Prices sirf logged-in users ko dikhte hain (B2B price protection)
 - "Enquire on WhatsApp" se order/price poochte hain
@@ -20,16 +21,16 @@ Yeh website ek **product catalog + enquiry platform** hai:
 
 ## 2. Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 19 + Vite 7 + TypeScript |
-| Styling | Tailwind CSS 4 + shadcn/ui |
-| State | Zustand |
-| Routing | Wouter |
-| Backend | Supabase (Postgres + Auth + Storage) |
-| Hosting | Netlify (auto-deploy from GitHub) |
-| Animation | Framer Motion |
-| CSV/Excel | papaparse, xlsx (for bulk import) |
+| Layer     | Technology                           |
+| --------- | ------------------------------------ |
+| Frontend  | React 19 + Vite 7 + TypeScript       |
+| Styling   | Tailwind CSS 4 + shadcn/ui           |
+| State     | Zustand                              |
+| Routing   | Wouter                               |
+| Backend   | Supabase (Postgres + Auth + Storage) |
+| Hosting   | Netlify (auto-deploy from GitHub)    |
+| Animation | Framer Motion                        |
+| CSV/Excel | papaparse, xlsx (for bulk import)    |
 
 **Repo:** https://github.com/nileshkchaubey-glitch/xl-traders-b2b
 **Live:** https://animated-cuchufli-dd5a16.netlify.app
@@ -42,12 +43,13 @@ Yeh website ek **product catalog + enquiry platform** hai:
 - **Project ID:** danoeaftaazhbldeeuxj
 - **URL:** https://danoeaftaazhbldeeuxj.supabase.co
 - **Region:** Tokyo (ap-northeast-1)
-- **Auth key:** publishable key (sb_publishable_...) — frontend env var
+- **Auth key:** publishable key (sb*publishable*...) — frontend env var
 - **Storage bucket:** product-images (public)
 
 **Tables:** user_profiles, categories, products, product_images, enquiries
 
 **Env vars (Netlify):**
+
 ```
 VITE_SUPABASE_URL = https://danoeaftaazhbldeeuxj.supabase.co
 VITE_SUPABASE_ANON_KEY = sb_publishable_... (frontend-safe)
@@ -70,6 +72,7 @@ VITE_WHATSAPP_NUMBER = 919773239442
   (`uc?export=view` broke Jan 2024 — do not use).
 
 ### Shipped Features (summary — full detail in CLAUDE.md)
+
 - Customer: catalog browse, category/search filters, price security (anon hidden), WhatsApp inquiry,
   cart (Zustand + localStorage), **variant selector** (size/pack buttons, no reload)
 - Admin PIM: Shopify dark sidebar, quick-add sticky row, inline edit, SKU auto-gen,
@@ -86,14 +89,16 @@ Build command:     pnpm install --no-frozen-lockfile && pnpm run build
 Publish directory: dist/public
 Node version:      20
 ```
+
 **Netlify** auto-deploys on every push to `main` (~2–3 min).
 SPA redirect rules + security headers are in `netlify.toml`.
 
 **IMPORTANT — yeh packages/plugins HATAYE gaye the (build fail karte the):**
+
 - a vendor-specific Vite runtime plugin (scaffold-only)
 - `@builder.io/vite-plugin-jsx-loc` (vite 7 ke saath conflict)
 - `@netlify/plugin-nextjs` (yeh Vite app hai, Next.js nahi)
-DO NOT re-add these.
+  DO NOT re-add these.
 
 **`pnpm-lock.yaml` MUST be committed** — Netlify build uses pnpm. (Purana
 "must NOT exist" rule Cloudflare-era artifact tha; correct in CLAUDE.md rule #2.)
@@ -155,10 +160,12 @@ If you see demo products ("Corrugated Boxes" etc.), the real query is failing.
 ## 9. Admin Access
 
 To make a user admin (after they sign up):
+
 ```sql
 UPDATE public.user_profiles SET is_admin = TRUE
 WHERE email = 'nileshk.chaubey@gmail.com';
 ```
+
 Then `/admin` route is accessible.
 
 ---

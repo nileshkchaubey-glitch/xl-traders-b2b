@@ -1,10 +1,12 @@
 # XL Traders B2B — Master Project Blueprint
+
 **Single source of truth. Lives as `CLAUDE.md` at repo root AND in the Claude Project.**
 **Last updated: June 16, 2026** · Update after every merged PR (Shipped + Roadmap only).
 
 ---
 
 ## 🎯 How To Use This Document
+
 - **Claude Code (VS Code):** Named `CLAUDE.md` at repo root → auto-read every session.
 - **Claude Chat:** Upload to Claude Project → every new chat knows the full website.
 - **Update ritual:** After each merged PR → update Shipped + Roadmap. Agent does this in the PR.
@@ -12,6 +14,7 @@
 ---
 
 ## Business
+
 **XL Traders** — B2B wholesale distributor, Surat, Gujarat. Tagline: "You Order, We Deliver."
 Products: Food Packaging, Biodegradable, Cleaning Supplies, Kirana Bio Plastic Bags, Catering, Decoration & Party.
 Top customers: Cloud kitchens, restaurants, hotels, caterers, cafés, bakeries, grocery/kirana.
@@ -21,6 +24,7 @@ Owner: Nilesh — solo operator, no staff.
 ---
 
 ## Tech Stack
+
 - **Frontend:** React 19 + Vite + TypeScript + Tailwind + Wouter + Zustand + shadcn/ui
 - **Backend:** Supabase (ref `danoeaftaazhbldeeuxj`, Tokyo, FREE plan)
 - **Storage:** `product-images` bucket (Supabase)
@@ -29,6 +33,7 @@ Owner: Nilesh — solo operator, no staff.
 - **Admin:** `/admin` (authenticated). Dark sidebar `bg-[#1a1d27]`, 220px.
 
 ### Live URLs
+
 - Site: https://xl-traders-b2b.pages.dev
 - Admin: https://xl-traders-b2b.pages.dev/admin
 - GitHub: https://github.com/nileshkchaubey-glitch/xl-traders-b2b
@@ -39,6 +44,7 @@ Owner: Nilesh — solo operator, no staff.
 ## Database Schema (current)
 
 ### products table
+
 ```
 id, name, slug, category_id (NOT NULL FK),
 price (nullable — NULL=enquiry, 0=free), mrp (nullable),
@@ -53,12 +59,14 @@ specifications JSONB (nullable — not yet populated)
 ```
 
 ### categories
+
 ```
 id, name, slug (UNIQUE), group_name, group_order, display_order, is_active
 SENTINEL: slug='uncategorized', is_active=false — NEVER DELETE
 ```
 
 ### Masters & Variants
+
 ```
 product_masters: id, name, slug, category_id, brand, description, meta_title, meta_description, is_active
 product_master_images: master_id, image_url, display_order, is_primary
@@ -66,6 +74,7 @@ master_id=NULL → standalone. master_id=<uuid> → variant.
 ```
 
 ### v_product_health (VIEW — single source of truth)
+
 ```
 id, name, master_id, category_id,
 missing_price, missing_category, missing_moq, missing_brand,
@@ -75,6 +84,7 @@ Rule: na_fields entries excluded from missing checks.
 ```
 
 ### Sales & Ops
+
 ```
 inquiries, orders, order_items, import_logs, business_settings
 ```
@@ -84,6 +94,7 @@ inquiries, orders, order_items, import_logs, business_settings
 ---
 
 ## Architecture Rules (NEVER break)
+
 1. **All DB logic in `client/src/lib/*Service.ts`** — components never call Supabase directly.
 2. **`v_product_health` is the ONLY missing-logic source** — never re-implement checks in TS.
 3. **Price security:** `productSelectCols()` gates price columns. Null price ≠ public price.
@@ -94,6 +105,7 @@ inquiries, orders, order_items, import_logs, business_settings
 ## ✅ Shipped Features (live on production)
 
 ### Customer Storefront
+
 - Product catalog, category browsing, search & filters
 - B2B price gate (prices hidden from anonymous users)
 - **Null-price safety:** "Price on enquiry" shown everywhere (cards, detail, cart, WhatsApp) — never ₹0
@@ -102,6 +114,7 @@ inquiries, orders, order_items, import_logs, business_settings
 - **Variant selector:** size buttons (250ml/500ml/1000ml) update price/SKU/MOQ/URL without reload
 
 ### Admin Panel (PIM)
+
 - Shopify-style dark sidebar; CATALOGUE / SALES / CONTENT & IMPORT / SYSTEM
 - Products list: quick-add row (Tab nav), inline editing, SKU auto-gen, completeness badges
 - **Route-based editor** (`/admin/products/new`, `/admin/products/:id`): Save & Add Another, draft persistence
@@ -121,6 +134,7 @@ inquiries, orders, order_items, import_logs, business_settings
 - Tab persistence, optimistic updates, auto-resize images to 800px
 
 ### Health System
+
 - `v_product_health` PostgreSQL view — single source of truth
 - `healthService.ts` — thin service, queries view only
 - `catalogHealth.ts` — colors/labels only (no logic)
@@ -141,14 +155,16 @@ inquiries, orders, order_items, import_logs, business_settings
 ---
 
 ## 🔴 Known Issues
+
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
-- Import UI shows price as required (*) — stale after nullable migration (fix in next PR)
+- Import UI shows price as required (\*) — stale after nullable migration (fix in next PR)
 
 ---
 
 ## ⚠️ Critical Rules
+
 1. **Price security** — `productSelectCols()` gates price. Cache invalidates on auth change. Null price not public.
 2. **`pnpm-lock.yaml` must NOT exist** — Cloudflare build fails.
 3. **SQL migrations** — Supabase SQL Editor only. Never via agent.
@@ -165,6 +181,7 @@ inquiries, orders, order_items, import_logs, business_settings
 ---
 
 ## 🛠️ Workflow
+
 ```
 1. PLAN   → Claude Chat (this Project)
 2. BUILD  → Claude Code in VS Code (reads CLAUDE.md automatically)
@@ -177,10 +194,12 @@ inquiries, orders, order_items, import_logs, business_settings
 ```
 
 ### Tools
+
 - **Claude Chat** → planning, task briefs, review
 - **Claude Code (VS Code)** → code execution (reads live repo + CLAUDE.md)
 
 ### Key Merged PRs
+
 - #44 AI Smart Paste + Image Library + Daily Widget
 - #45 Masters & Variants + route-based editor
 - #46 Incomplete-data foundation (nullable fields + v_product_health + null-price safety + publish gate)
@@ -192,22 +211,22 @@ inquiries, orders, order_items, import_logs, business_settings
 
 ## 📋 Import Template Columns (v3 — current)
 
-| Column | Required | Notes |
-|---|---|---|
-| name | ✅ | Full name including size for variants |
-| category | ✅ | Must match Categories tab exactly |
-| unit | ✅ | pcs/box/kg/set/roll/meter/litre/packet |
-| price | ⬜ | Blank = "Price on enquiry" |
-| mrp | ⬜ | Optional |
-| moq | ⬜ | Blank = unknown |
-| brand | ⬜ | Blank = unknown |
-| description | ⬜ | Short B2B description |
-| sku | ⬜ | Blank = auto-generated |
-| quantity_in_unit | ⬜ | Pack size e.g. 100 |
-| is_featured | ⬜ | Yes/No |
-| status | ⬜ | draft (default) or published |
-| master_name | ⬜ | Variants only — e.g. "Hinged Box" |
-| variant_label | ⬜ | Variants only — e.g. "250ml" |
-| tags | ⬜ | restaurant,cloud-kitchen,hotel… |
-| na_fields | ⬜ | brand,specifications,image |
-| image_url | ⬜ | drive.google.com/thumbnail?id=FILE_ID&sz=w800 |
+| Column           | Required | Notes                                         |
+| ---------------- | -------- | --------------------------------------------- |
+| name             | ✅       | Full name including size for variants         |
+| category         | ✅       | Must match Categories tab exactly             |
+| unit             | ✅       | pcs/box/kg/set/roll/meter/litre/packet        |
+| price            | ⬜       | Blank = "Price on enquiry"                    |
+| mrp              | ⬜       | Optional                                      |
+| moq              | ⬜       | Blank = unknown                               |
+| brand            | ⬜       | Blank = unknown                               |
+| description      | ⬜       | Short B2B description                         |
+| sku              | ⬜       | Blank = auto-generated                        |
+| quantity_in_unit | ⬜       | Pack size e.g. 100                            |
+| is_featured      | ⬜       | Yes/No                                        |
+| status           | ⬜       | draft (default) or published                  |
+| master_name      | ⬜       | Variants only — e.g. "Hinged Box"             |
+| variant_label    | ⬜       | Variants only — e.g. "250ml"                  |
+| tags             | ⬜       | restaurant,cloud-kitchen,hotel…               |
+| na_fields        | ⬜       | brand,specifications,image                    |
+| image_url        | ⬜       | drive.google.com/thumbnail?id=FILE_ID&sz=w800 |

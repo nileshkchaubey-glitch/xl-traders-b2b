@@ -131,17 +131,17 @@ Each monitor run should report:
 
 ## Current priority backlog
 
-| Priority | Update | Why it matters | Suggested next step |
-| --- | --- | --- | --- |
-| P0 | Fix TypeScript checks | Prevents hidden regressions and makes CI trustworthy | Add missing types/deps and adjust TS target/downlevel iteration |
-| P0 | Make analytics script conditional | Avoids unresolved production placeholders and build warnings | Render analytics only when endpoint and website ID exist |
-| P1 | Improve product grid images | Better buyer confidence and mobile catalog browsing | Use `object-contain`, aspect ratio, responsive dimensions, and image status checks |
-| P1 | Streamline add-product flow | Reduces admin time for similar packaging SKUs | Add duplicate product, templates, validation, and category defaults |
-| P1 | Code-split heavy routes | Improves initial page load and catalog responsiveness | Dynamic import admin, auth, detail, and bulk import pages |
-| P1 | Add admin pagination/bulk actions | Keeps admin usable as catalog grows beyond 500 products | Implement server-backed pagination and batch operations |
-| P2 | Migrate Google Drive images | Improves reliability, cacheability, and image control | Batch import images into Supabase Storage and rewrite product URLs |
-| P2 | Add inquiry tracking | Improves sales follow-up | Build enquiry dashboard with status, source, and product context |
-| P2 | Custom domain | Improves brand trust | Configure `xltraders.in` after core stability checks pass |
+| Priority | Update                            | Why it matters                                               | Suggested next step                                                                |
+| -------- | --------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| P0       | Fix TypeScript checks             | Prevents hidden regressions and makes CI trustworthy         | Add missing types/deps and adjust TS target/downlevel iteration                    |
+| P0       | Make analytics script conditional | Avoids unresolved production placeholders and build warnings | Render analytics only when endpoint and website ID exist                           |
+| P1       | Improve product grid images       | Better buyer confidence and mobile catalog browsing          | Use `object-contain`, aspect ratio, responsive dimensions, and image status checks |
+| P1       | Streamline add-product flow       | Reduces admin time for similar packaging SKUs                | Add duplicate product, templates, validation, and category defaults                |
+| P1       | Code-split heavy routes           | Improves initial page load and catalog responsiveness        | Dynamic import admin, auth, detail, and bulk import pages                          |
+| P1       | Add admin pagination/bulk actions | Keeps admin usable as catalog grows beyond 500 products      | Implement server-backed pagination and batch operations                            |
+| P2       | Migrate Google Drive images       | Improves reliability, cacheability, and image control        | Batch import images into Supabase Storage and rewrite product URLs                 |
+| P2       | Add inquiry tracking              | Improves sales follow-up                                     | Build enquiry dashboard with status, source, and product context                   |
+| P2       | Custom domain                     | Improves brand trust                                         | Configure `xltraders.in` after core stability checks pass                          |
 
 ## Monitor prompt draft
 

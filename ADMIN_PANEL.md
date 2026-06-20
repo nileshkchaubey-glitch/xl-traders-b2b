@@ -28,8 +28,8 @@ UPDATE user_profiles SET is_admin = true WHERE email = 'admin@xltraders.com';
 2. In Supabase SQL Editor, run:
 
 ```sql
-UPDATE user_profiles 
-SET is_admin = true 
+UPDATE user_profiles
+SET is_admin = true
 WHERE email = 'your-email@example.com';
 ```
 
@@ -58,6 +58,7 @@ The admin panel has 4 main sections accessible via tabs:
 Manage all products in your catalog with full CRUD operations.
 
 **Features:**
+
 - ✅ Add new products
 - ✅ Edit existing products
 - ✅ Delete products
@@ -69,31 +70,31 @@ Manage all products in your catalog with full CRUD operations.
 
 ### Product Table Columns
 
-| Column | Description |
-|--------|-------------|
-| Image | Product thumbnail |
-| Name | Product name |
-| Category | Product category |
-| Price | Wholesale price (clickable to edit) |
-| Status | Active/Inactive badge |
-| Actions | Edit and Delete buttons |
+| Column   | Description                         |
+| -------- | ----------------------------------- |
+| Image    | Product thumbnail                   |
+| Name     | Product name                        |
+| Category | Product category                    |
+| Price    | Wholesale price (clickable to edit) |
+| Status   | Active/Inactive badge               |
+| Actions  | Edit and Delete buttons             |
 
 ### Add Product
 
 1. Click **"Add Product"** button
 2. Fill in the form:
 
-| Field | Required | Notes |
-|-------|----------|-------|
-| Product Name | ✓ | e.g., "50ml Attach Lid Container" |
-| Category | ✓ | Select from dropdown |
-| Price | ✓ | Wholesale price in ₹ |
-| MRP | ✗ | Maximum retail price |
-| Unit | ✓ | Per Piece / Per Box / Per Pack / Per Roll |
-| Discount % | ✗ | 0-100 |
-| Description | ✗ | Product details |
-| Images | ✗ | Up to 5 images |
-| Active | ✓ | Toggle to activate/deactivate |
+| Field        | Required | Notes                                     |
+| ------------ | -------- | ----------------------------------------- |
+| Product Name | ✓        | e.g., "50ml Attach Lid Container"         |
+| Category     | ✓        | Select from dropdown                      |
+| Price        | ✓        | Wholesale price in ₹                      |
+| MRP          | ✗        | Maximum retail price                      |
+| Unit         | ✓        | Per Piece / Per Box / Per Pack / Per Roll |
+| Discount %   | ✗        | 0-100                                     |
+| Description  | ✗        | Product details                           |
+| Images       | ✗        | Up to 5 images                            |
+| Active       | ✓        | Toggle to activate/deactivate             |
 
 3. For each image:
    - Add **Alt Text** (for SEO): "50ml Attach Lid Container wholesale - XL Traders Surat"
@@ -130,14 +131,17 @@ Manage all products in your catalog with full CRUD operations.
 ### Search & Filter
 
 **Search by name:**
+
 - Type in search box
 - Results filter in real-time
 
 **Filter by category:**
+
 - Select category from dropdown
 - Shows only products in that category
 
 **Combine filters:**
+
 - Use both search and category filter together
 
 ---
@@ -149,6 +153,7 @@ Manage all products in your catalog with full CRUD operations.
 Manage product categories with drag-to-reorder functionality.
 
 **Features:**
+
 - ✅ Add new categories
 - ✅ Edit category details
 - ✅ Delete categories
@@ -160,12 +165,12 @@ Manage product categories with drag-to-reorder functionality.
 1. Click **"Add Category"** button
 2. Fill in:
 
-| Field | Required | Notes |
-|-------|----------|-------|
-| Category Name | ✓ | e.g., "Round Container" |
-| Slug | ✓ | Auto-generated, URL-friendly |
-| Icon Emoji | ✗ | e.g., "🥤" |
-| Description | ✗ | Category description |
+| Field         | Required | Notes                        |
+| ------------- | -------- | ---------------------------- |
+| Category Name | ✓        | e.g., "Round Container"      |
+| Slug          | ✓        | Auto-generated, URL-friendly |
+| Icon Emoji    | ✗        | e.g., "🥤"                   |
+| Description   | ✗        | Category description         |
 
 3. Click **"Create"**
 
@@ -220,6 +225,7 @@ Manage product categories with drag-to-reorder functionality.
 Track all customer enquiries submitted through the website.
 
 **Features:**
+
 - ✅ View all enquiries
 - ✅ Filter by status
 - ✅ Update enquiry status
@@ -228,23 +234,23 @@ Track all customer enquiries submitted through the website.
 
 ### Enquiry Table Columns
 
-| Column | Description |
-|--------|-------------|
-| Customer | Customer name and phone |
-| Product | Company name (if provided) |
-| Quantity | Requested quantity |
-| Status | new / contacted / quoted / closed |
-| Date | Enquiry submission date |
-| Actions | View details / Send WhatsApp |
+| Column   | Description                       |
+| -------- | --------------------------------- |
+| Customer | Customer name and phone           |
+| Product  | Company name (if provided)        |
+| Quantity | Requested quantity                |
+| Status   | new / contacted / quoted / closed |
+| Date     | Enquiry submission date           |
+| Actions  | View details / Send WhatsApp      |
 
 ### Enquiry Status
 
-| Status | Meaning |
-|--------|---------|
-| **new** | Just received, not contacted |
-| **contacted** | Reached out to customer |
-| **quoted** | Sent price quote |
-| **closed** | Order placed or no longer interested |
+| Status        | Meaning                              |
+| ------------- | ------------------------------------ |
+| **new**       | Just received, not contacted         |
+| **contacted** | Reached out to customer              |
+| **quoted**    | Sent price quote                     |
+| **closed**    | Order placed or no longer interested |
 
 ### Update Status
 
@@ -284,24 +290,24 @@ Manage business information and contact details displayed throughout the site.
 
 #### Business Information
 
-| Field | Usage |
-|-------|-------|
-| Company Name | Header and invoices |
-| GST Number | Invoice generation |
-| Address | Footer and contact page |
-| City | Contact information |
-| State | Contact information |
-| Pincode | Shipping and contact |
-| Description | About company section |
+| Field        | Usage                   |
+| ------------ | ----------------------- |
+| Company Name | Header and invoices     |
+| GST Number   | Invoice generation      |
+| Address      | Footer and contact page |
+| City         | Contact information     |
+| State        | Contact information     |
+| Pincode      | Shipping and contact    |
+| Description  | About company section   |
 
 #### Contact Information
 
-| Field | Usage |
-|-------|-------|
+| Field           | Usage                               |
+| --------------- | ----------------------------------- |
 | WhatsApp Number | Enquiry buttons (with country code) |
-| Phone 1 | Header and footer |
-| Phone 2 | Header and footer |
-| Email | Header and footer |
+| Phone 1         | Header and footer                   |
+| Phone 2         | Header and footer                   |
+| Email           | Header and footer                   |
 
 ### Update Settings
 
@@ -312,6 +318,7 @@ Manage business information and contact details displayed throughout the site.
 ### Preview
 
 At the bottom, see how settings appear on the website:
+
 - Company name
 - Full address
 - WhatsApp number
@@ -336,6 +343,7 @@ python3 scripts/import_products.py
 ```
 
 This will:
+
 - ✅ Fetch 133 products from Google Sheet
 - ✅ Download images from Google Drive
 - ✅ Upload to Supabase Storage
@@ -345,6 +353,7 @@ This will:
 ### Manual Bulk Upload
 
 For multiple products:
+
 1. Use import script (faster)
 2. Or add one by one via admin panel
 
@@ -355,31 +364,35 @@ For multiple products:
 ### Supabase Tables
 
 **Products Table:**
+
 ```sql
-id, name, category_id, description, price, mrp, 
-unit_of_measure, discount_percent, image_url, 
-image_alt_text, image_description, is_active, 
+id, name, category_id, description, price, mrp,
+unit_of_measure, discount_percent, image_url,
+image_alt_text, image_description, is_active,
 is_featured, display_order, created_at, updated_at
 ```
 
 **Categories Table:**
+
 ```sql
-id, name, slug, description, icon_emoji, 
+id, name, slug, description, icon_emoji,
 display_order, is_active, created_at, updated_at
 ```
 
 **Enquiries Table:**
+
 ```sql
-id, user_id, product_id, customer_name, 
-customer_email, customer_phone, customer_company, 
-quantity_requested, message, enquiry_source, 
+id, user_id, product_id, customer_name,
+customer_email, customer_phone, customer_company,
+quantity_requested, message, enquiry_source,
 status, created_at, updated_at
 ```
 
 **User Profiles Table:**
+
 ```sql
-id, email, company_name, contact_person, phone, 
-address, city, state, pincode, gst_number, 
+id, email, company_name, contact_person, phone,
+address, city, state, pincode, gst_number,
 is_admin, is_active, created_at, updated_at
 ```
 
@@ -394,11 +407,11 @@ is_admin, is_active, created_at, updated_at
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Tab` | Navigate between fields |
-| `Enter` | Submit form / Save inline edit |
-| `Esc` | Close dialog |
+| Shortcut | Action                          |
+| -------- | ------------------------------- |
+| `Tab`    | Navigate between fields         |
+| `Enter`  | Submit form / Save inline edit  |
+| `Esc`    | Close dialog                    |
 | `Ctrl+S` | Save settings (on Settings tab) |
 
 ---
@@ -408,6 +421,7 @@ is_admin, is_active, created_at, updated_at
 ### Product Management
 
 ✅ **Do:**
+
 - Use clear, descriptive product names
 - Add all 5 images for better visibility
 - Write detailed descriptions for SEO
@@ -416,6 +430,7 @@ is_admin, is_active, created_at, updated_at
 - Add emoji icons to categories
 
 ❌ **Don't:**
+
 - Leave prices at 0
 - Use vague product names
 - Upload low-quality images
@@ -425,14 +440,16 @@ is_admin, is_active, created_at, updated_at
 ### SEO Optimization
 
 **Alt Text Format:**
+
 ```
 [Product Name] wholesale - XL Traders Surat
 ```
 
 **Description Format:**
+
 ```
-High-quality [category] - [product name]. 
-Wholesale packaging solutions from XL Traders, Surat. 
+High-quality [category] - [product name].
+Wholesale packaging solutions from XL Traders, Surat.
 Fast delivery, GST invoicing available.
 ```
 
@@ -450,12 +467,14 @@ Fast delivery, GST invoicing available.
 ### Can't Access Admin Panel
 
 **Problem:** Redirected to login page
-**Solution:** 
+**Solution:**
+
 - Ensure you're logged in with admin account
 - Check `is_admin = true` in database
 
 **Problem:** "Admin access required" message
 **Solution:**
+
 - Your account is not admin
 - Ask another admin to promote you
 - Run SQL: `UPDATE user_profiles SET is_admin = true WHERE email = '...'`
@@ -464,6 +483,7 @@ Fast delivery, GST invoicing available.
 
 **Problem:** Added product but can't see it
 **Solution:**
+
 - Check `is_active = true`
 - Verify category exists
 - Refresh page
@@ -472,6 +492,7 @@ Fast delivery, GST invoicing available.
 
 **Problem:** "Failed to upload image" error
 **Solution:**
+
 - Check file size (< 5MB)
 - Check file format (JPG, PNG, WebP)
 - Verify Supabase Storage bucket exists
@@ -481,6 +502,7 @@ Fast delivery, GST invoicing available.
 
 **Problem:** Settings revert after refresh
 **Solution:**
+
 - Check Supabase connection
 - Settings save to localStorage as fallback
 - Try again in a few seconds
@@ -576,9 +598,9 @@ For issues or questions:
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | May 2026 | Initial release |
+| Version | Date     | Changes         |
+| ------- | -------- | --------------- |
+| 1.0     | May 2026 | Initial release |
 
 ---
 

@@ -15,9 +15,11 @@ deployed on Cloudflare Pages). Your job: find the ROOT CAUSE of a functional pro
 fix it with the smallest safe change, via a PR the owner reviews and merges.
 
 ## Read first
+
 - `CLAUDE.md` and `PROJECT_CONTEXT.md` for full context.
 
 ## Diagnostic method (root-cause first, never guess)
+
 1. Reproduce from the code: read the relevant page/component; for data issues check
    `productService.ts` + `supabase.ts`.
 2. Verify the build: `npm install && npm run build` — capture any errors.
@@ -28,6 +30,7 @@ fix it with the smallest safe change, via a PR the owner reviews and merges.
 4. State the single root cause plainly before changing anything.
 
 ## Rules
+
 - Smallest safe fix. No rewrites, no unrelated changes, no design-only changes.
 - Never push to `main`. Work on a branch, open a PR, and list: what changed, why,
   and exact steps to verify.
@@ -38,6 +41,7 @@ fix it with the smallest safe change, via a PR the owner reviews and merges.
 - If a fix needs SQL, provide it for the owner to run in Supabase; don't assume DB access.
 
 ## Current known task
+
 - The **category navigation menu is unresponsive** — diagnose (broken onClick handler?
   data/group_name not loading? routing? state?) and fix with a minimal PR.
 
