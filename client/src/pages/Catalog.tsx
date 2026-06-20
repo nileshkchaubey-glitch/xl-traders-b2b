@@ -4,6 +4,7 @@ import { Grid3x3, List, ChevronDown, Package } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
+import ProductCardSkeleton from '@/components/ProductCardSkeleton';
 import { categoryService, productService, CategoryGroup } from '@/lib/productService';
 import { Category, Product } from '@/lib/supabase';
 
@@ -161,6 +162,13 @@ export default function Catalog() {
     selectedGroup && categoryGroups.length > 0
       ? categoryGroups.find((g) => g.group_name === selectedGroup)?.categories ?? categories
       : categories;
+
+  // Shared by the real product grid and the loading skeletons so both lay out
+  // identically — keeps the grid's shape stable while products load.
+  const gridLayoutClass =
+    viewMode === 'grid'
+      ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4'
+      : 'space-y-4';
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -453,8 +461,10 @@ export default function Catalog() {
 
               {/* Products Grid/List */}
               {isLoading ? (
-                <div className="text-center py-12">
-                  <p className="text-slate-500">Loading products...</p>
+                <div className={gridLayoutClass}>
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <ProductCardSkeleton key={i} view={viewMode} />
+                  ))}
                 </div>
               ) : products.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
@@ -464,13 +474,7 @@ export default function Catalog() {
                   </p>
                 </div>
               ) : (
-                <div
-                  className={
-                    viewMode === 'grid'
-                      ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4'
-                      : 'space-y-4'
-                  }
-                >
+                <div className={gridLayoutClass}>
                   {products.map((product) => (
                     <ProductCard key={product.id} product={product} view={viewMode} />
                   ))}

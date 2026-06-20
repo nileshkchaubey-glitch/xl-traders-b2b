@@ -100,6 +100,7 @@ inquiries, orders, order_items, import_logs, business_settings
 - Cart → Place Order via WhatsApp (null-price items included as enquiry lines)
 - **Publish gate:** only status='published' AND is_active=true appear publicly
 - **Variant selector:** size buttons (250ml/500ml/1000ml) update price/SKU/MOQ/URL without reload
+- **Skeleton loaders:** catalog grid/list shows card-shaped skeletons while loading (no layout shift, no plain "Loading…" text)
 
 ### Admin Panel (PIM)
 - Shopify-style dark sidebar; CATALOGUE / SALES / CONTENT & IMPORT / SYSTEM
