@@ -1,7 +1,7 @@
 # XL Traders B2B — Master Project Blueprint
 
 **Single source of truth. Lives as `CLAUDE.md` at repo root AND in the Claude Project.**
-**Last updated: June 16, 2026** · Update after every merged PR (Shipped + Roadmap only).
+**Last updated: June 20, 2026** · Update after every merged PR (Shipped + Roadmap only).
 
 ---
 
@@ -139,6 +139,15 @@ inquiries, orders, order_items, import_logs, business_settings
 - `healthService.ts` — thin service, queries view only
 - `catalogHealth.ts` — colors/labels only (no logic)
 
+### Repo Hygiene (Phase 0)
+
+- README rewritten (accurate Netlify stack, env vars, setup, architecture summary)
+- Removed stale scaffold/other-tool artifacts (`.replit`, unused `ManusDialog`,
+  `__manus__/`, `attached_assets/`, `*.clean.*`, `template.json`, stray `package-lock.json`)
+- Scrubbed other-AI-tool references from docs; corrected stale Cloudflare→Netlify notes
+- One-time Prettier format pass committed separately
+- Conventional commits (`feat`/`fix`/`chore`/`docs`/`style`) adopted going forward
+
 ---
 
 ## 🗺️ Roadmap (next, in order)
@@ -160,6 +169,11 @@ inquiries, orders, order_items, import_logs, business_settings
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
 - Import UI shows price as required (\*) — stale after nullable migration (fix in next PR)
+- **`enquiries` vs `inquiries` are NOT duplicate tables — do NOT merge them.**
+  `enquiries` = real B2B leads (admin views via `enquiryService` / AdminEnquiries).
+  `inquiries` = lightweight WhatsApp-click log for all users (`inquiriesService`,
+  `productService.ts`). They are distinct by design; an earlier audit misread them as
+  duplicates. Merging would destroy the lead-vs-click distinction.
 
 ---
 
