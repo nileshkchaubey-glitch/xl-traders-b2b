@@ -179,8 +179,6 @@ inquiries, orders, order_items, import_logs, business_settings
 ### Tools
 - **Claude Chat** → planning, task briefs, review
 - **Claude Code (VS Code)** → code execution (reads live repo + CLAUDE.md)
-- **Antigravity** → only when explicitly requested
-- **Skip:** VS Code desktop Code tab (org error), Codex (usage-limited)
 
 ### Key Merged PRs
 - #44 AI Smart Paste + Image Library + Daily Widget

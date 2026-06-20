@@ -109,7 +109,6 @@ Current roadmap items:
 - Admin pagination, inline edit, and bulk actions for larger catalogs.
 - Image migration from Google Drive thumbnails to Supabase Storage.
 - Custom domain setup.
-- Cleanup of leftover Manus files.
 
 Recommended roadmap order:
 
@@ -117,7 +116,7 @@ Recommended roadmap order:
 2. **Catalog trust foundation:** image migration, responsive image variants, alt text completeness, broken-image reporting.
 3. **Buyer conversion:** enquiry tracking dashboard, WhatsApp enquiry attribution, product-detail enquiry history.
 4. **Operations:** supplier management, supplier-product linking, stock/availability notes.
-5. **Production polish:** custom domain, analytics configuration, stale Manus file cleanup, CI checks.
+5. **Production polish:** custom domain, analytics configuration, CI checks.
 
 ## Suggested automation report format
 

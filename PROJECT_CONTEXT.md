@@ -1,7 +1,7 @@
 # XL Traders B2B — Project Context
 
-> Yeh document project ka complete context hai. Cursor, Claude Code,
-> ya kisi bhi AI tool ko yeh do — wo project turant samajh jayega.
+> Yeh document project ka complete context hai. Claude Code session ko
+> yeh do — wo project turant samajh jayega.
 
 ---
 
@@ -32,8 +32,8 @@ Yeh website ek **product catalog + enquiry platform** hai:
 | CSV/Excel | papaparse, xlsx (for bulk import) |
 
 **Repo:** https://github.com/nileshkchaubey-glitch/xl-traders-b2b
-**Live:** https://xl-traders-b2b.pages.dev
-**Admin:** https://xl-traders-b2b.pages.dev/admin
+**Live:** https://animated-cuchufli-dd5a16.netlify.app
+**Admin:** https://animated-cuchufli-dd5a16.netlify.app/admin
 
 ---
 
@@ -82,24 +82,27 @@ VITE_WHATSAPP_NUMBER = 919773239442
 ## 5. Build & Deploy
 
 ```
-Build command:     npm install && npm run build
+Build command:     pnpm install --no-frozen-lockfile && pnpm run build
 Publish directory: dist/public
+Node version:      20
 ```
-**Cloudflare Pages** auto-deploys on every push to `main` (~2–3 min).
-SPA redirect rules are in `_redirects` or via Cloudflare Pages settings.
+**Netlify** auto-deploys on every push to `main` (~2–3 min).
+SPA redirect rules + security headers are in `netlify.toml`.
 
 **IMPORTANT — yeh packages/plugins HATAYE gaye the (build fail karte the):**
-- `vite-plugin-manus-runtime` (Manus-only)
+- a vendor-specific Vite runtime plugin (scaffold-only)
 - `@builder.io/vite-plugin-jsx-loc` (vite 7 ke saath conflict)
 - `@netlify/plugin-nextjs` (yeh Vite app hai, Next.js nahi)
-- `pnpm-lock.yaml` must NOT exist — Cloudflare build fails if present.
 DO NOT re-add these.
+
+**`pnpm-lock.yaml` MUST be committed** — Netlify build uses pnpm. (Purana
+"must NOT exist" rule Cloudflare-era artifact tha; correct in CLAUDE.md rule #2.)
 
 ---
 
 ## 6. Fixes Already Applied (DON'T re-break)
 
-1. **Deploy config:** netlify.toml uses npm (not pnpm), publish=dist/public,
+1. **Deploy config:** netlify.toml uses pnpm, publish=dist/public,
    no Next.js plugin.
 2. **Missing deps added:** tw-animate-css, papaparse, xlsx.
 3. **RLS infinite recursion fixed:** Created `public.is_admin()` SECURITY
@@ -146,7 +149,6 @@ If you see demo products ("Corrugated Boxes" etc.), the real query is failing.
 - [ ] Admin panel improvements (pagination, inline edit, bulk actions for 500+ products)
 - [ ] Migrate images from Drive thumbnails → Supabase Storage (more reliable)
 - [ ] Custom domain (xltraders.in)
-- [ ] Remove any leftover Manus files (ManusDialog.tsx, public/__manus__/)
 
 ---
 
@@ -165,5 +167,4 @@ Then `/admin` route is accessible.
 
 Owner: **Nilesh** (Surat). Learning AI-augmented development.
 Prefers: simple Hinglish explanations, step-by-step, understanding WHY.
-This project was built using Manus (initial) + Claude (fixes/SQL) +
-manual GitHub commits + Netlify auto-deploy.
+Workflow: Claude Code for changes → PR review → manual merge → Netlify auto-deploy.
