@@ -29,15 +29,6 @@ import ProductMediaSection from "@/components/admin/products/ProductMediaSection
 
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
 
-// Fields that can be marked N/A (match the v_product_health keys).
-const NA_FIELDS: Array<{ key: string; label: string }> = [
-  { key: "brand", label: "Brand" },
-  { key: "description", label: "Description" },
-  { key: "image", label: "Image" },
-  { key: "specifications", label: "Specs" },
-  { key: "moq", label: "MOQ" },
-];
-
 interface ProductDrawerProps {
   product: Product | null;
   open: boolean;
