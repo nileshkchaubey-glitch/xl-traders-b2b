@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
+import { saveProductForm } from "@/lib/productForm";
 
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
 const RETAINED_VALUES_KEY = "admin-product-retained-values";
@@ -187,50 +188,17 @@ export default function AdminProductEditor() {
 
       setIsSaving(true);
       try {
-        // Resolve category — fall back to 'Uncategorized' if none selected.
-        // Look it up (self-healing) rather than relying on the in-memory list,
-        // which is filtered to active categories and may not contain it.
-        let categoryId = formData.category_id;
-        if (!categoryId) {
-          categoryId = (await categoryService.getOrCreateUncategorized()) ?? "";
-          if (!categoryId) {
-            toast.error("Could not assign the Uncategorized category");
-            setIsSaving(false);
-            return;
-          }
-        }
-
-        const productData: any = {
-          name: formData.name.trim(),
-          category_id: categoryId,
-          description: formData.description,
-          price: formData.price ? parseFloat(formData.price) : null,
-          mrp: formData.mrp ? parseFloat(formData.mrp) : undefined,
-          unit_of_measure: formData.unit_of_measure,
-          quantity_in_unit: formData.quantity_in_unit
-            ? parseInt(formData.quantity_in_unit)
-            : undefined,
-          discount_percent: parseInt(formData.discount_percent) || 0,
-          brand: formData.brand.trim() || undefined,
-          is_active: formData.is_active,
-          is_featured: formData.is_featured,
-          sku: formData.sku.trim() || undefined,
-          barcode: formData.barcode.trim() || undefined,
-          moq: formData.moq ? parseInt(formData.moq) : null,
-          status: statusOverride ?? formData.status,
-          na_fields: formData.na_fields,
-          image_alt_text: imageMetadata[0]?.altText || formData.name.trim(),
-          image_description: imageMetadata[0]?.description || "",
-        };
-        const pastedUrl = normalizeImageUrl(formData.image_url);
-        if (pastedUrl) productData.image_url = pastedUrl;
-        if (!isEditing && !productData.sku) {
-          productData.sku = `SKU-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        }
-
-        let product: Product = isEditing
-          ? await productService.update(productId!, productData)
-          : await productService.create(productData);
+        // Core create/update is shared with the detail drawer via
+        // saveProductForm() so the two never fork. Image-FILE uploads and
+        // navigation below stay route-specific.
+        let product = await saveProductForm(formData, {
+          productId,
+          statusOverride,
+          imageMeta: {
+            altText: imageMetadata[0]?.altText,
+            description: imageMetadata[0]?.description,
+          },
+        });
 
         if (images.length) {
           const uploaded = await Promise.all(

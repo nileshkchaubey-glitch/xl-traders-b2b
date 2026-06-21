@@ -57,6 +57,7 @@ import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
 import ProductsTable from "@/components/admin/products/ProductsTable";
+import ProductDrawer from "@/components/admin/products/ProductDrawer";
 import { ParsedProduct } from "@/lib/aiService";
 import KeyboardShortcutsDialog from "@/components/admin/KeyboardShortcutsDialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -275,6 +276,16 @@ export default function AdminProducts({
 
   // Image gallery
   const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
+
+  // Detail drawer — holds an index into the current filtered `products` so
+  // "Save & next" can advance through the visible list.
+  const [drawerIndex, setDrawerIndex] = useState<number | null>(null);
+  const drawerProduct =
+    drawerIndex != null ? (products[drawerIndex] ?? null) : null;
+  const openDrawer = (product: Product) => {
+    const idx = products.findIndex(p => p.id === product.id);
+    setDrawerIndex(idx >= 0 ? idx : null);
+  };
 
   // AI Smart Paste states
   const [smartPasteOpen, setSmartPasteOpen] = useState(false);
@@ -1480,7 +1491,7 @@ export default function AdminProducts({
         onToggleRow={toggleOne}
         onToggleAll={toggleAll}
         allPageSelected={allPageSelected}
-        onRowOpen={handleOpenFullEdit}
+        onRowOpen={openDrawer}
         onEdit={handleOpenFullEdit}
         onManageImages={setGalleryProduct}
         onDuplicate={handleDuplicate}
@@ -1525,6 +1536,21 @@ export default function AdminProducts({
           </div>
         </div>
       )}
+
+      {/* Detail drawer — quick edit; shares saveProductForm with the route editor */}
+      <ProductDrawer
+        product={drawerProduct}
+        open={drawerIndex != null}
+        categories={categories}
+        hasNext={drawerIndex != null && drawerIndex < products.length - 1}
+        onClose={() => setDrawerIndex(null)}
+        onSaved={updated =>
+          setProducts(prev =>
+            prev.map(p => (p.id === updated.id ? { ...p, ...updated } : p))
+          )
+        }
+        onSaveAndNext={() => setDrawerIndex(i => (i != null ? i + 1 : i))}
+      />
 
       {/* Image Gallery */}
       <AdminImageGallery
