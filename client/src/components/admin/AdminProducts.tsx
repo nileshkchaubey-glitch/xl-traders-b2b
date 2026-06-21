@@ -56,6 +56,7 @@ import AdminImageGallery from "@/components/admin/AdminImageGallery";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
+import ProductsTable from "@/components/admin/products/ProductsTable";
 import { ParsedProduct } from "@/lib/aiService";
 import KeyboardShortcutsDialog from "@/components/admin/KeyboardShortcutsDialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -1369,689 +1370,161 @@ export default function AdminProducts({
         </div>
       )}
 
-      {/* ── Table ────────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[900px]">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80">
-                <th className="w-10 px-3 py-3">
-                  <Checkbox
-                    checked={allPageSelected}
-                    onCheckedChange={toggleAll}
-                    aria-label="Select all"
-                  />
-                </th>
-                <th className="w-14 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Img
-                </th>
-                <th className="px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Name
-                </th>
-                <th className="w-36 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Category
-                </th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Price ₹
-                </th>
-                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  MRP ₹
-                </th>
-                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Unit
-                </th>
-                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Qty
-                </th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Brand
-                </th>
-                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  SKU
-                </th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Group
-                </th>
-                <th
-                  className="w-18 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest"
-                  title="Completeness: image, price, category, slug, meta title"
-                >
-                  Score
-                </th>
-                <th className="w-22 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Status
-                </th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-
+      {/* ── Quick-add (interim — full RapidEntryRow lands in step 6) ───────── */}
+      {showQuickAdd && (
+        <div className="bg-white rounded-xl border border-green-200 shadow-sm overflow-x-auto">
+          <table className="w-full text-sm">
             <tbody>
-              {/* ── Quick-add row ─────────────────────────────────────────── */}
-              {showQuickAdd && (
-                <tr className="bg-green-50 border-b-2 border-green-200">
-                  <td className="px-3 py-2">
-                    {quickAdding ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-green-600" />
-                    ) : (
-                      <Check className="w-4 h-4 text-green-400" />
-                    )}
-                  </td>
-                  {/* Image placeholder */}
-                  <td className="px-2 py-2">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <Plus className="w-4 h-4 text-green-400" />
-                    </div>
-                  </td>
-                  {/* Name */}
-                  <td className="px-2 py-2">
-                    <Input
-                      ref={quickNameRef}
-                      value={quickAdd.name}
-                      onChange={e =>
-                        setQuickAdd({ ...quickAdd, name: e.target.value })
-                      }
-                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
-                      placeholder="Product name *"
-                      className="h-8 text-sm border-green-300 focus:border-green-500"
+              <tr className="bg-green-50">
+                <td className="px-3 py-2 w-10">
+                  {quickAdding ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+                  ) : (
+                    <Check className="w-4 h-4 text-green-400" />
+                  )}
+                </td>
+                <td className="px-2 py-2">
+                  <Input
+                    ref={quickNameRef}
+                    value={quickAdd.name}
+                    onChange={e =>
+                      setQuickAdd({ ...quickAdd, name: e.target.value })
+                    }
+                    onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
+                    placeholder="Product name *"
+                    className="h-8 text-sm border-green-300 focus:border-green-500"
+                    disabled={quickAdding}
+                  />
+                </td>
+                <td className="px-2 py-2 w-44">
+                  <CategoryCombobox
+                    categories={categories}
+                    value={quickAdd.category_id}
+                    onChange={v => setQuickAdd({ ...quickAdd, category_id: v })}
+                    placeholder="Category"
+                    className="h-8 text-sm border-green-300"
+                  />
+                </td>
+                <td className="px-2 py-2 w-28">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={quickAdd.price}
+                    onChange={e =>
+                      setQuickAdd({ ...quickAdd, price: e.target.value })
+                    }
+                    onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
+                    placeholder="Price"
+                    className="h-8 text-sm border-green-300"
+                    disabled={quickAdding}
+                  />
+                </td>
+                <td className="px-2 py-2 w-24">
+                  <Select
+                    value={quickAdd.unit_of_measure}
+                    onValueChange={v =>
+                      setQuickAdd({ ...quickAdd, unit_of_measure: v })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-sm border-green-300">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {UNITS.map(u => (
+                        <SelectItem key={u} value={u}>
+                          {u}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </td>
+                <td className="px-2 py-2 w-32">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      onClick={() => handleQuickAdd()}
                       disabled={quickAdding}
-                    />
-                  </td>
-                  {/* Category — searchable combobox */}
-                  <td className="px-2 py-2">
-                    <CategoryCombobox
-                      categories={categories}
-                      value={quickAdd.category_id}
-                      onChange={v =>
-                        setQuickAdd({ ...quickAdd, category_id: v })
-                      }
-                      placeholder="Category *"
-                      className="h-8 text-sm border-green-300"
-                    />
-                  </td>
-                  {/* Price */}
-                  <td className="px-2 py-2">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={quickAdd.price}
-                      onChange={e =>
-                        setQuickAdd({ ...quickAdd, price: e.target.value })
-                      }
-                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
-                      placeholder="0.00 *"
-                      className="h-8 text-sm border-green-300 w-24"
-                      disabled={quickAdding}
-                    />
-                  </td>
-                  {/* MRP */}
-                  <td className="px-2 py-2">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={quickAdd.mrp}
-                      onChange={e =>
-                        setQuickAdd({ ...quickAdd, mrp: e.target.value })
-                      }
-                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
-                      placeholder="MRP"
-                      className="h-8 text-sm border-green-300 w-24"
-                      disabled={quickAdding}
-                    />
-                  </td>
-                  {/* Unit */}
-                  <td className="px-2 py-2">
-                    <Select
-                      value={quickAdd.unit_of_measure}
-                      onValueChange={v =>
-                        setQuickAdd({ ...quickAdd, unit_of_measure: v })
-                      }
+                      className="h-8 px-3 bg-green-600 hover:bg-green-700 gap-1"
                     >
-                      <SelectTrigger className="h-8 text-sm border-green-300 w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {UNITS.map(u => (
-                          <SelectItem key={u} value={u}>
-                            {u}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  {/* Qty */}
-                  <td className="px-2 py-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={quickAdd.quantity_in_unit}
-                      onChange={e =>
-                        setQuickAdd({
-                          ...quickAdd,
-                          quantity_in_unit: e.target.value,
-                        })
-                      }
-                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
-                      placeholder="Qty"
-                      className="h-8 text-sm border-green-300 w-16"
-                      disabled={quickAdding}
-                    />
-                  </td>
-                  {/* Brand */}
-                  <td className="px-2 py-2">
-                    <Input
-                      value={quickAdd.brand}
-                      onChange={e =>
-                        setQuickAdd({ ...quickAdd, brand: e.target.value })
-                      }
-                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
-                      placeholder="Brand"
-                      className="h-8 text-sm border-green-300 w-24"
-                      disabled={quickAdding}
-                    />
-                  </td>
-                  {/* SKU placeholder — auto-generated on save */}
-                  <td className="px-2 py-2">
-                    <span className="text-xs text-slate-400 italic">auto</span>
-                  </td>
-                  {/* Group placeholder */}
-                  <td className="px-2 py-2" />
-                  {/* Score placeholder */}
-                  <td className="px-2 py-2" />
-                  {/* Status placeholder — quick-add creates drafts */}
-                  <td className="px-2 py-2">
-                    <span
-                      className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"
-                      title="New products start as drafts — publish them when ready"
+                      {quickAdding ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Check className="w-3 h-3" />
+                      )}
+                      Add
+                    </Button>
+                    <button
+                      onClick={() => {
+                        setShowQuickAdd(false);
+                        setQuickAdd(QUICK_ADD_DEFAULTS);
+                      }}
+                      className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
                     >
-                      Draft
-                    </span>
-                  </td>
-                  {/* Save + cancel */}
-                  <td className="px-2 py-2">
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        onClick={() => handleQuickAdd()}
-                        disabled={quickAdding}
-                        className="h-8 px-3 bg-green-600 hover:bg-green-700 gap-1"
-                      >
-                        {quickAdding ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Check className="w-3 h-3" />
-                        )}
-                        Add
-                      </Button>
-                      <button
-                        onClick={() => {
-                          setShowQuickAdd(false);
-                          setQuickAdd(QUICK_ADD_DEFAULTS);
-                        }}
-                        className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-
-              {/* ── Products ──────────────────────────────────────────────── */}
-              {loading ? (
-                <tr>
-                  <td colSpan={14} className="text-center py-12 text-slate-500">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                    Loading products…
-                  </td>
-                </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan={14} className="text-center py-12 text-slate-400">
-                    No products found
-                  </td>
-                </tr>
-              ) : (
-                products.map(product => {
-                  const isMenuOpen = menuOpenProductId === product.id;
-                  return (
-                    <ContextMenu
-                      key={product.id}
-                      onOpenChange={open =>
-                        setMenuOpenProductId(open ? product.id : null)
-                      }
-                    >
-                      <ContextMenuTrigger asChild>
-                        <tr
-                          className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${selected.has(product.id) ? "bg-red-50 hover:bg-red-50" : ""} ${isMenuOpen ? "bg-red-50/40 ring-1 ring-red-200" : ""}`}
-                        >
-                          <td className="px-3 py-2">
-                            <Checkbox
-                              checked={selected.has(product.id)}
-                              onCheckedChange={() => toggleOne(product.id)}
-                            />
-                          </td>
-                          {/* Image — click to open gallery */}
-                          <td className="px-2 py-2">
-                            <button
-                              onClick={() => setGalleryProduct(product)}
-                              title="Manage images"
-                              className="block"
-                            >
-                              {product.image_url ? (
-                                <img
-                                  src={normalizeImageUrl(product.image_url)}
-                                  alt={product.image_alt_text || product.name}
-                                  className="w-11 h-11 object-cover rounded-lg border hover:ring-2 ring-red-400 transition-all"
-                                />
-                              ) : (
-                                <div className="w-11 h-11 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300 hover:border-red-400 hover:bg-red-50 transition-colors">
-                                  <ImageIcon className="w-4 h-4 text-slate-300" />
-                                </div>
-                              )}
-                            </button>
-                          </td>
-                          {/* Name */}
-                          <td className="px-2 py-2 max-w-[240px]">
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex-1 min-w-[120px]">
-                                {renderTextCell(product, "name", "Enter name")}
-                              </div>
-                              {product.master_id && (
-                                <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-200 select-none flex-shrink-0">
-                                  variant
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          {/* Category */}
-                          <td className="px-2 py-2">
-                            {renderCategoryCell(product)}
-                          </td>
-                          {/* Price */}
-                          <td className="px-2 py-2">
-                            {renderNumberCell(product, "price", "₹")}
-                          </td>
-                          {/* MRP */}
-                          <td className="px-2 py-2">
-                            {renderNumberCell(product, "mrp", "₹", "—")}
-                          </td>
-                          {/* Unit */}
-                          <td className="px-2 py-2">
-                            {renderUnitCell(product)}
-                          </td>
-                          {/* Qty */}
-                          <td className="px-2 py-2">
-                            {isEditing(product.id, "quantity_in_unit") ? (
-                              <div className="flex items-center gap-1">
-                                <Input
-                                  ref={cellInputRef}
-                                  type="number"
-                                  min="1"
-                                  value={cellEdit!.value}
-                                  onChange={e =>
-                                    setCellEdit({
-                                      ...cellEdit!,
-                                      value: e.target.value,
-                                    })
-                                  }
-                                  onKeyDown={handleCellKey}
-                                  onBlur={saveCellEdit}
-                                  className="h-8 text-sm w-16"
-                                  disabled={cellSaving}
-                                />
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() =>
-                                  startCellEdit(
-                                    product.id,
-                                    "quantity_in_unit",
-                                    product.quantity_in_unit
-                                  )
-                                }
-                                className="text-left hover:bg-slate-100 rounded px-1.5 py-0.5 text-sm transition-colors group text-slate-600"
-                              >
-                                {product.quantity_in_unit || (
-                                  <span className="text-slate-300 italic">
-                                    —
-                                  </span>
-                                )}
-                                <span className="ml-1 opacity-0 group-hover:opacity-40 text-xs">
-                                  ✎
-                                </span>
-                              </button>
-                            )}
-                          </td>
-                          {/* Brand */}
-                          <td className="px-2 py-2 max-w-[110px]">
-                            {renderTextCell(product, "brand", "Brand")}
-                          </td>
-                          {/* SKU — read-only in table */}
-                          <td className="px-2 py-2">
-                            <span className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                              {product.sku || (
-                                <span className="text-slate-300 italic font-sans">
-                                  —
-                                </span>
-                              )}
-                            </span>
-                          </td>
-                          {/* Group */}
-                          <td className="px-2 py-2">
-                            <span className="text-xs text-slate-500">
-                              {getCategoryGroup(product.category_id) ?? (
-                                <span className="text-slate-300">—</span>
-                              )}
-                            </span>
-                          </td>
-                          {/* Completeness score */}
-                          <td className="px-2 py-2">
-                            {(() => {
-                              const { score, missing } =
-                                productCompleteness(product);
-                              return (
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${completenessColor(score)}`}
-                                  title={
-                                    missing.length
-                                      ? `Missing: ${missing.join(", ")}`
-                                      : "Complete"
-                                  }
-                                >
-                                  {score}%
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          {/* Status: publish state badge + active toggle */}
-                          <td className="px-2 py-2">
-                            <div className="flex flex-col items-start gap-1">
-                              <span
-                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap border ${
-                                  product.status === "published"
-                                    ? "bg-green-50 text-green-700 border-green-200"
-                                    : "bg-amber-50 text-amber-700 border-amber-200"
-                                }`}
-                                title={
-                                  product.status === "published"
-                                    ? "Live on the storefront"
-                                    : "Hidden — not on the storefront"
-                                }
-                              >
-                                {product.status === "published"
-                                  ? "Published"
-                                  : "Draft"}
-                              </span>
-                              <button
-                                onClick={() =>
-                                  handleToggleActive(
-                                    product.id,
-                                    product.is_active
-                                  )
-                                }
-                                title="Click to toggle active"
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap border ${
-                                  product.is_active
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
-                                }`}
-                              >
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${product.is_active ? "bg-emerald-500" : "bg-slate-400"}`}
-                                />
-                                {product.is_active ? "Active" : "Inactive"}
-                              </button>
-                            </div>
-                          </td>
-                          {/* Actions */}
-                          <td className="px-2 py-2">
-                            <div className="flex items-center gap-0.5">
-                              {product.status !== "published" && (
-                                <button
-                                  onClick={() => handlePublish(product.id)}
-                                  title="Publish to website"
-                                  className="p-1.5 rounded hover:bg-green-50 text-green-600"
-                                >
-                                  <Power className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() =>
-                                  handleToggleFeatured(
-                                    product.id,
-                                    product.is_featured
-                                  )
-                                }
-                                title={
-                                  product.is_featured ? "Unfeature" : "Feature"
-                                }
-                                className={`p-1.5 rounded hover:bg-slate-100 transition-colors ${product.is_featured ? "text-amber-500" : "text-slate-300 hover:text-slate-500"}`}
-                              >
-                                <Star
-                                  className="w-3.5 h-3.5"
-                                  fill={
-                                    product.is_featured
-                                      ? "currentColor"
-                                      : "none"
-                                  }
-                                />
-                              </button>
-                              <button
-                                onClick={() => handleOpenFullEdit(product)}
-                                title="Full edit (description, images)"
-                                className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => setGalleryProduct(product)}
-                                title="Manage images"
-                                className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
-                              >
-                                <Images className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDuplicate(product)}
-                                title="Duplicate"
-                                className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(product.id)}
-                                className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent className="w-56">
-                        <ContextMenuItem
-                          onClick={() => handleOpenFullEdit(product)}
-                          className="gap-2"
-                        >
-                          <Edit2 className="w-4 h-4 text-slate-500" />
-                          <span>Edit Details</span>
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() => setGalleryProduct(product)}
-                          className="gap-2"
-                        >
-                          <Images className="w-4 h-4 text-slate-500" />
-                          <span>Manage Images</span>
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() => handleDuplicate(product)}
-                          className="gap-2"
-                        >
-                          <Copy className="w-4 h-4 text-slate-500" />
-                          <span>Duplicate</span>
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() =>
-                            window.open(`/product/${product.id}`, "_blank")
-                          }
-                          className="gap-2"
-                        >
-                          <ExternalLink className="w-4 h-4 text-slate-500" />
-                          <span>View Live Page</span>
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        {product.status !== "published" && (
-                          <ContextMenuItem
-                            onClick={() => handlePublish(product.id)}
-                            className="gap-2 text-green-700 focus:text-green-800 focus:bg-green-50"
-                          >
-                            <Power className="w-4 h-4 text-green-600" />
-                            <span>Publish to website</span>
-                          </ContextMenuItem>
-                        )}
-                        <ContextMenuItem
-                          onClick={() =>
-                            handleToggleActive(product.id, product.is_active)
-                          }
-                          className="gap-2"
-                        >
-                          <Power className="w-4 h-4 text-slate-500" />
-                          <span>
-                            {product.is_active
-                              ? "Set as Inactive"
-                              : "Set as Active"}
-                          </span>
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() =>
-                            handleToggleFeatured(
-                              product.id,
-                              product.is_featured
-                            )
-                          }
-                          className="gap-2"
-                        >
-                          <Star
-                            className="w-4 h-4 text-slate-500"
-                            fill={product.is_featured ? "currentColor" : "none"}
-                          />
-                          <span>
-                            {product.is_featured
-                              ? "Remove Featured"
-                              : "Mark as Featured"}
-                          </span>
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuSub>
-                          <ContextMenuSubTrigger className="gap-2">
-                            <Copy className="w-4 h-4 text-slate-500" />
-                            <span>Copy Info</span>
-                          </ContextMenuSubTrigger>
-                          <ContextMenuSubContent className="w-48">
-                            <ContextMenuItem
-                              onClick={() => {
-                                if (product.sku) {
-                                  navigator.clipboard.writeText(product.sku);
-                                  toast.success("SKU copied!");
-                                } else {
-                                  toast.error("No SKU available");
-                                }
-                              }}
-                            >
-                              Copy SKU
-                            </ContextMenuItem>
-                            <ContextMenuItem
-                              onClick={() => {
-                                navigator.clipboard.writeText(product.name);
-                                toast.success("Product name copied!");
-                              }}
-                            >
-                              Copy Name
-                            </ContextMenuItem>
-                            <ContextMenuItem
-                              onClick={() => {
-                                if (product.price != null) {
-                                  navigator.clipboard.writeText(
-                                    product.price.toString()
-                                  );
-                                  toast.success("Price copied!");
-                                }
-                              }}
-                            >
-                              Copy Price (₹)
-                            </ContextMenuItem>
-                            <ContextMenuItem
-                              onClick={() => {
-                                if (product.image_url) {
-                                  navigator.clipboard.writeText(
-                                    product.image_url
-                                  );
-                                  toast.success("Image URL copied!");
-                                } else {
-                                  toast.error("No image URL available");
-                                }
-                              }}
-                            >
-                              Copy Image URL
-                            </ContextMenuItem>
-                          </ContextMenuSubContent>
-                        </ContextMenuSub>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onClick={() => handleDelete(product.id)}
-                          className="gap-2 text-red-600 focus:text-red-700 focus:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                          <span>Delete Product</span>
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  );
-                })
-              )}
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
+      )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50">
-            <p className="text-sm text-slate-500">
-              Showing {(page - 1) * PAGE_SIZE + 1}–
-              {Math.min(page * PAGE_SIZE, totalCount)} of{" "}
-              {totalCount.toLocaleString()}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="gap-1"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Prev
-              </Button>
-              <span className="text-sm font-medium text-slate-700 px-2">
-                {page} / {totalPages}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="gap-1"
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
+      {/* ── Products list (compact, virtualized) ───────────────────────────── */}
+      <ProductsTable
+        products={products}
+        loading={loading}
+        getCategoryName={getCategoryName}
+        selected={selected}
+        onToggleRow={toggleOne}
+        onToggleAll={toggleAll}
+        allPageSelected={allPageSelected}
+        onRowOpen={handleOpenFullEdit}
+        onEdit={handleOpenFullEdit}
+        onManageImages={setGalleryProduct}
+        onDuplicate={handleDuplicate}
+        onDelete={handleDelete}
+        onTogglePublish={p => handlePublish(p.id)}
+        onToggleFeatured={handleToggleFeatured}
+        onViewLive={p => window.open(`/product/${p.id}`, "_blank")}
+      />
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-sm text-slate-500">
+            Showing {(page - 1) * PAGE_SIZE + 1}–
+            {Math.min(page * PAGE_SIZE, totalCount)} of{" "}
+            {totalCount.toLocaleString()}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="gap-1"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Prev
+            </Button>
+            <span className="text-sm font-medium text-slate-700 px-2">
+              {page} / {totalPages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="gap-1"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Image Gallery */}
       <AdminImageGallery
