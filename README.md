@@ -4,26 +4,26 @@ B2B wholesale storefront and admin PIM for **XL Traders**, a packaging & supplie
 distributor in Surat, Gujarat. Customers browse the catalogue and place orders over
 WhatsApp; the owner manages products, images, and imports through an admin panel.
 
-- **Live site:** https://animated-cuchufli-dd5a16.netlify.app
-- **Admin:** https://animated-cuchufli-dd5a16.netlify.app/admin
+- **Live site:** https://xl-traders-b2b.pages.dev
+- **Admin:** https://xl-traders-b2b.pages.dev/admin
 
 ## Tech stack
 
-| Layer           | Choice                                                |
-| --------------- | ----------------------------------------------------- |
-| Frontend        | React 19, Vite, TypeScript, Tailwind CSS 4, shadcn/ui |
-| Routing / state | Wouter, Zustand                                       |
-| Backend         | Supabase (PostgreSQL + Auth + Storage)                |
-| Image storage   | Supabase `product-images` bucket                      |
-| Hosting         | Netlify (auto-deploys from `main`)                    |
-| Package manager | pnpm                                                  |
+| Layer | Choice |
+|---|---|
+| Frontend | React 19, Vite, TypeScript, Tailwind CSS 4, shadcn/ui |
+| Routing / state | Wouter, Zustand |
+| Backend | Supabase (PostgreSQL + Auth + Storage) |
+| Image storage | Supabase `product-images` bucket |
+| Hosting | Cloudflare Pages (auto-deploys from `main`) |
+| Package manager | npm (`package-lock.json`) |
 
 ## Getting started
 
 ### Prerequisites
 
 - Node.js 20
-- pnpm 10+
+- npm
 - A Supabase project (free tier is fine)
 
 ### Setup
@@ -31,9 +31,9 @@ WhatsApp; the owner manages products, images, and imports through an admin panel
 ```bash
 git clone <repo-url>
 cd xl-traders-b2b
-pnpm install
+npm install
 cp .env.example .env   # then fill in the values below
-pnpm dev               # serves on http://localhost:5000
+npm run dev            # serves on http://localhost:5000
 ```
 
 ### Environment variables
@@ -67,13 +67,13 @@ VITE_ANTHROPIC_API_KEY=<key>
 
 ### Scripts
 
-| Command        | Purpose                                |
-| -------------- | -------------------------------------- |
-| `pnpm dev`     | Vite dev server on port 5000           |
-| `pnpm build`   | Production build to `dist/public`      |
-| `pnpm preview` | Preview the production build           |
-| `pnpm check`   | TypeScript type-check (`tsc --noEmit`) |
-| `pnpm format`  | Prettier write across the repo         |
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Vite dev server on port 5000 |
+| `npm run build` | Production build to `dist/public` |
+| `npm run preview` | Preview the production build |
+| `npm run check` | TypeScript type-check (`tsc --noEmit`) |
+| `npm run format` | Prettier write across the repo |
 
 ## Architecture
 
@@ -98,21 +98,23 @@ client/
     components/   UI + admin panel (PIM, importer, masters, bulk tools)
     pages/        storefront + admin routes
     lib/          *Service.ts (all Supabase logic), stores, helpers
+  public/         static assets + Cloudflare _redirects / _headers
 sql/, migrations/ database schema & migrations (applied via Supabase SQL Editor)
 scripts/          local maintenance/import helpers
-netlify.toml      build + headers + SPA redirects
 ```
 
 ## Deployment
 
-Netlify auto-deploys on every merge to `main`:
+Cloudflare Pages auto-deploys on every merge to `main`:
 
-- **Build command:** `pnpm install --no-frozen-lockfile && pnpm run build`
-- **Publish directory:** `dist/public`
+- **Build command:** `npm install && npm run build`
+- **Build output directory:** `dist/public`
 - **Node version:** 20
 
 Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and the business/contact variables in
-the Netlify dashboard. `pnpm-lock.yaml` is committed and required for reproducible builds.
+the Cloudflare Pages project settings. SPA routing and security headers ship from
+`client/public/_redirects` and `client/public/_headers`. Only `package-lock.json` is
+committed — `pnpm-lock.yaml` must not exist, or the Cloudflare build fails.
 
 Database migrations are applied manually through the Supabase SQL Editor (not from CI).
 

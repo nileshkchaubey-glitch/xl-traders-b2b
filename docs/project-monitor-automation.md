@@ -1,7 +1,7 @@
 # XL Traders B2B Project Monitor Automation
 
 Review date: 2026-05-31  
-Live site: https://animated-cuchufli-dd5a16.netlify.app/  
+Live site: https://xl-traders-b2b.pages.dev/  
 Repository: https://github.com/nileshkchaubey-glitch/xl-traders-b2b
 
 ## Automation objective
@@ -11,7 +11,7 @@ Monitor the XL Traders B2B catalog and admin platform for changes that affect pr
 ## Recommended check-in schedule
 
 - **Weekly roadmap review:** Monday morning before business planning.
-- **Deployment review:** After each production deploy from GitHub to Netlify.
+- **Deployment review:** After each production deploy from GitHub to Cloudflare Pages.
 - **Incident review:** Immediately when product data, image loading, authentication, admin access, or WhatsApp enquiry flows appear degraded.
 
 ## What the monitor should watch
@@ -86,7 +86,7 @@ Monitor for:
 - Bundle size increases after roadmap feature work.
 - Homepage and catalog loading delays on mobile networks.
 - Supabase query failures silently falling back to demo data.
-- Missing or misconfigured Netlify environment variables.
+- Missing or misconfigured Cloudflare Pages environment variables.
 - TypeScript checks failing before deploy.
 - Dependency vulnerabilities once audit access is available in CI.
 
@@ -147,4 +147,4 @@ Each monitor run should report:
 
 Use this prompt when creating the Project monitor automation:
 
-> Review the XL Traders B2B live site and repository. Focus on admin product-addition efficiency, product grid image quality/responsiveness, roadmap progress, build/type-check health, performance risks, Supabase/catalog reliability, and buyer UX. Prioritize issues as P0/P1/P2, explain business impact, and recommend the smallest practical next changes. Check weekly on Monday morning, after each Netlify production deploy, and immediately if product data, images, authentication, admin access, or WhatsApp enquiries appear degraded.
+> Review the XL Traders B2B live site and repository. Focus on admin product-addition efficiency, product grid image quality/responsiveness, roadmap progress, build/type-check health, performance risks, Supabase/catalog reliability, and buyer UX. Prioritize issues as P0/P1/P2, explain business impact, and recommend the smallest practical next changes. Check weekly on Monday morning, after each Cloudflare Pages production deploy, and immediately if product data, images, authentication, admin access, or WhatsApp enquiries appear degraded.

@@ -141,10 +141,12 @@ inquiries, orders, order_items, import_logs, business_settings
 
 ### Repo Hygiene (Phase 0)
 
-- README rewritten (accurate Netlify stack, env vars, setup, architecture summary)
+- README rewritten (accurate Cloudflare Pages stack, env vars, setup, architecture summary)
 - Removed stale scaffold/other-tool artifacts (`.replit`, unused `ManusDialog`,
-  `__manus__/`, `attached_assets/`, `*.clean.*`, `template.json`, stray `package-lock.json`)
-- Scrubbed other-AI-tool references from docs; corrected stale Cloudflare→Netlify notes
+  `__manus__/`, `attached_assets/`, `*.clean.*`, `template.json`, stray `pnpm-lock.yaml`)
+- Confirmed Cloudflare Pages as sole deploy target; removed stale Netlify references
+  (`package-lock.json` is the lockfile / npm; `pnpm-lock.yaml` must NOT exist — rule #2)
+- Scrubbed other-AI-tool references from docs
 - One-time Prettier format pass committed separately
 - Conventional commits (`feat`/`fix`/`chore`/`docs`/`style`) adopted going forward
 

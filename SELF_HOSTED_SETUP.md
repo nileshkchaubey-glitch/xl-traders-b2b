@@ -1,13 +1,13 @@
 # XL Traders B2B - Self-Hosted Setup Guide
 
-Complete step-by-step guide to deploy XL Traders website on Netlify + Supabase.
+Complete step-by-step guide to deploy XL Traders website on Cloudflare Pages + Supabase.
 
 ## Prerequisites
 
 - Node.js 18+ installed
 - npm or pnpm package manager
 - Git account (for version control)
-- Netlify account (free tier available)
+- Cloudflare account (free tier available)
 - Supabase account (free tier available)
 
 ---
@@ -141,68 +141,48 @@ npm run preview
 
 ---
 
-## Step 4: Deploy to Netlify
+## Step 4: Deploy to Cloudflare Pages
 
-### 4.1 Create Netlify Account
+Production hosting is Cloudflare Pages, auto-deploying from `main`. Full details
+(build settings, env vars, SPA config, troubleshooting) live in
+[`DEPLOYMENT.md`](./DEPLOYMENT.md). Short version:
 
-1. Go to [netlify.com](https://netlify.com)
-2. Sign up (free tier available)
-3. Verify email
+### 4.1 Push to GitHub
 
-### 4.2 Connect GitHub (Recommended)
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/YOUR_USERNAME/xl-traders-b2b.git
+git branch -M main
+git push -u origin main
+```
 
-1. Push your code to GitHub:
+### 4.2 Create the Pages project
 
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/YOUR_USERNAME/xl-traders-b2b.git
-   git branch -M main
-   git push -u origin main
-   ```
+1. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git**.
+2. Select the `xl-traders-b2b` repository.
+3. Build settings:
+   - **Build command**: `npm install && npm run build`
+   - **Build output directory**: `dist/public`
+   - **Node version**: 20
 
-2. In Netlify dashboard:
-   - Click **"Add new site"**
-   - Select **"Import an existing project"**
-   - Choose **GitHub**
-   - Select your `xl-traders-b2b` repository
+### 4.3 Add environment variables
 
-3. Configure build settings:
-   - **Build command**: `npm run build`
-   - **Publish directory**: `dist/public`
-   - Click **Deploy**
+Under **Settings → Environment variables**, add (for Production and Preview):
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_ADMIN_EMAILS`, and the
+business/contact vars. Then trigger a deploy.
 
-### 4.3 Add Environment Variables
+### 4.4 Live URL
 
-1. In Netlify dashboard, go to **Site settings**
-2. Click **"Environment variables"**
-3. Add your Supabase credentials:
-   - **Key**: `VITE_SUPABASE_URL`
-   - **Value**: `https://your-project.supabase.co`
-   - Click **Save**
-
-4. Add second variable:
-   - **Key**: `VITE_SUPABASE_ANON_KEY`
-   - **Value**: `eyJhbGc...`
-   - Click **Save**
-
-5. Redeploy:
-   - Go to **Deploys**
-   - Click **"Trigger deploy"** → **"Deploy site"**
-
-### 4.4 Get Your Live URL
-
-- Netlify generates a URL like: `https://xl-traders-abc123.netlify.app`
-- Your site is now live! 🎉
+The site goes live at `https://<project>.pages.dev`. SPA routing + headers ship
+from `client/public/_redirects` and `client/public/_headers` — no dashboard
+redirect config needed.
 
 ### 4.5 (Optional) Custom Domain
 
-1. In Netlify, go to **Domain settings**
-2. Click **"Add custom domain"**
-3. Enter your domain (e.g., `xltraders.com`)
-4. Follow DNS setup instructions
-5. Wait for DNS propagation (5-30 minutes)
+In the Pages project: **Custom domains → Set up a domain**, enter your domain
+(e.g. `xltraders.in`), follow the DNS instructions, and wait for propagation.
 
 ---
 
@@ -305,7 +285,7 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
-### Blank Page on Netlify
+### Blank Page After Deploy
 
 **Error**: Site shows blank page
 
@@ -314,7 +294,7 @@ npm install
 1. Check environment variables are set
 2. Check Supabase URL and key are correct
 3. Check browser console for errors (F12)
-4. Redeploy: Netlify → Deploys → Trigger deploy
+4. Redeploy: Cloudflare Pages → Deployments → Retry deployment
 
 ### Products Not Showing
 
@@ -381,7 +361,8 @@ xl-traders-b2b/
 ├── vite.config.ts              # Vite configuration
 ├── tsconfig.json               # TypeScript configuration
 ├── tailwind.config.ts          # Tailwind CSS configuration
-├── netlify.toml                # Netlify deployment config
+├── client/public/_redirects    # Cloudflare Pages SPA routing
+├── client/public/_headers      # Cloudflare Pages security headers
 ├── .env.example                # Environment variables template
 ├── supabase-migration-with-products.sql  # Database schema
 └── README.md                   # Documentation
@@ -449,7 +430,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 1. **Images**: Compress before uploading
 2. **Categories**: Don't create too many (keep < 50)
 3. **Products**: Index by category for faster queries
-4. **Cache**: Netlify caches static files automatically
+4. **Cache**: Cloudflare's CDN caches static files automatically
 
 ---
 
@@ -478,12 +459,12 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 
 1. **Review enquiries** daily
 2. **Update products** as needed
-3. **Monitor performance** (Netlify Analytics)
+3. **Monitor performance** (Cloudflare Web Analytics)
 4. **Backup database** (Supabase auto-backups)
 
 ### Monitoring
 
-- **Netlify**: Site settings → Analytics
+- **Cloudflare**: Pages project → Analytics
 - **Supabase**: Logs → API requests
 - **Browser**: DevTools → Network tab
 
@@ -494,7 +475,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 ### Documentation
 
 - [Supabase Docs](https://supabase.com/docs)
-- [Netlify Docs](https://docs.netlify.com)
+- [Cloudflare Pages Docs](https://developers.cloudflare.com/pages/)
 - [React Docs](https://react.dev)
 - [Vite Docs](https://vitejs.dev)
 
@@ -511,7 +492,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 1. ✅ Create Supabase project
 2. ✅ Run SQL migration
 3. ✅ Set up local environment
-4. ✅ Deploy to Netlify
+4. ✅ Deploy to Cloudflare Pages
 5. ✅ Import products
 6. ✅ Create admin account
 7. ✅ Configure business settings
