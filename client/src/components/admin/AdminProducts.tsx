@@ -56,7 +56,9 @@ import AdminImageGallery from "@/components/admin/AdminImageGallery";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
-import ProductsTable from "@/components/admin/products/ProductsTable";
+import ProductsTable, {
+  ProductPatch,
+} from "@/components/admin/products/ProductsTable";
 import ProductDrawer from "@/components/admin/products/ProductDrawer";
 import { ParsedProduct } from "@/lib/aiService";
 import KeyboardShortcutsDialog from "@/components/admin/KeyboardShortcutsDialog";
@@ -285,6 +287,22 @@ export default function AdminProducts({
   const openDrawer = (product: Product) => {
     const idx = products.findIndex(p => p.id === product.id);
     setDrawerIndex(idx >= 0 ? idx : null);
+  };
+
+  // Inline (optimistic) edit from the list — update the row immediately, then
+  // persist via productService; reload to revert on failure.
+  const handleInlineUpdate = async (id: string, patch: ProductPatch) => {
+    setProducts(prev =>
+      prev.map(p =>
+        p.id === id ? { ...p, ...(patch as Partial<Product>) } : p
+      )
+    );
+    try {
+      await productService.update(id, patch as Partial<Product>);
+    } catch {
+      toast.error("Update failed");
+      loadProducts();
+    }
   };
 
   // AI Smart Paste states
@@ -1492,6 +1510,7 @@ export default function AdminProducts({
         onToggleAll={toggleAll}
         allPageSelected={allPageSelected}
         onRowOpen={openDrawer}
+        onInlineUpdate={handleInlineUpdate}
         onEdit={handleOpenFullEdit}
         onManageImages={setGalleryProduct}
         onDuplicate={handleDuplicate}

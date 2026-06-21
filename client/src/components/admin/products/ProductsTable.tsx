@@ -32,9 +32,10 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Product } from "@/lib/supabase";
+import { Product, ProductStatus } from "@/lib/supabase";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { productCompleteness, completenessColor } from "@/lib/catalogHealth";
+import EditableCell from "@/components/admin/products/EditableCell";
 
 // Row height for the virtualizer. Keep in sync with the row's rendered height.
 const ROW_HEIGHT = 60;
@@ -64,7 +65,15 @@ interface ProductsTableProps extends ProductRowActions {
   allPageSelected: boolean;
   // opening the detail drawer / full editor for a row
   onRowOpen: (product: Product) => void;
+  // inline (optimistic) field edits — parent persists via productService
+  onInlineUpdate: (id: string, patch: ProductPatch) => void;
 }
+
+// price can be set to null (= "Price on enquiry"), which Partial<Product> alone
+// (price?: number) does not express.
+export type ProductPatch = Omit<Partial<Product>, "price"> & {
+  price?: number | null;
+};
 
 function formatPrice(price: number): string {
   if (price === 0) return "Free";
@@ -80,6 +89,7 @@ export default function ProductsTable({
   onToggleAll,
   allPageSelected,
   onRowOpen,
+  onInlineUpdate,
   ...actions
 }: ProductsTableProps) {
   const columnHelper = createColumnHelper<Product>();
@@ -219,28 +229,56 @@ export default function ProductsTable({
                         </div>
                       </div>
 
-                      {/* price */}
+                      {/* price — inline editable */}
                       <div className="text-sm tabular-nums text-slate-700">
-                        {product.price == null ? (
-                          <span className="text-slate-400 italic">Enquiry</span>
-                        ) : (
-                          formatPrice(product.price)
-                        )}
+                        <EditableCell
+                          type="number"
+                          value={
+                            product.price == null ? "" : String(product.price)
+                          }
+                          placeholder="Enquiry"
+                          display={
+                            product.price == null ? (
+                              <span className="text-slate-400 italic">
+                                Enquiry
+                              </span>
+                            ) : (
+                              formatPrice(product.price)
+                            )
+                          }
+                          onCommit={raw => {
+                            const trimmed = raw.trim();
+                            const price =
+                              trimmed === "" ? null : Number(trimmed);
+                            if (price !== null && Number.isNaN(price)) return;
+                            onInlineUpdate(product.id, { price });
+                          }}
+                        />
                       </div>
 
-                      {/* status */}
+                      {/* status — click to toggle draft/published */}
                       <div className="flex items-center gap-1.5">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            onInlineUpdate(product.id, {
+                              status: (product.status === "published"
+                                ? "draft"
+                                : "published") as ProductStatus,
+                            });
+                          }}
+                          title="Click to toggle published / draft"
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold transition-colors ${
                             product.status === "published"
-                              ? "bg-green-50 text-green-700 border-green-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
+                              ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                              : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
                           }`}
                         >
                           {product.status === "published"
                             ? "Published"
                             : "Draft"}
-                        </span>
+                        </button>
                         <span
                           title={product.is_active ? "Active" : "Inactive"}
                           className={`w-1.5 h-1.5 rounded-full ${
