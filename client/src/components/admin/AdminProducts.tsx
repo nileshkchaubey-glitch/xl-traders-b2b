@@ -60,6 +60,7 @@ import ProductsTable, {
   ProductPatch,
 } from "@/components/admin/products/ProductsTable";
 import ProductDrawer from "@/components/admin/products/ProductDrawer";
+import RapidEntryRow from "@/components/admin/products/RapidEntryRow";
 import { ParsedProduct } from "@/lib/aiService";
 import KeyboardShortcutsDialog from "@/components/admin/KeyboardShortcutsDialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -1399,105 +1400,20 @@ export default function AdminProducts({
         </div>
       )}
 
-      {/* ── Quick-add (interim — full RapidEntryRow lands in step 6) ───────── */}
+      {/* ── Rapid entry (single-line fast add) ─────────────────────────────── */}
       {showQuickAdd && (
-        <div className="bg-white rounded-xl border border-green-200 shadow-sm overflow-x-auto">
-          <table className="w-full text-sm">
-            <tbody>
-              <tr className="bg-green-50">
-                <td className="px-3 py-2 w-10">
-                  {quickAdding ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-green-600" />
-                  ) : (
-                    <Check className="w-4 h-4 text-green-400" />
-                  )}
-                </td>
-                <td className="px-2 py-2">
-                  <Input
-                    ref={quickNameRef}
-                    value={quickAdd.name}
-                    onChange={e =>
-                      setQuickAdd({ ...quickAdd, name: e.target.value })
-                    }
-                    onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
-                    placeholder="Product name *"
-                    className="h-8 text-sm border-green-300 focus:border-green-500"
-                    disabled={quickAdding}
-                  />
-                </td>
-                <td className="px-2 py-2 w-44">
-                  <CategoryCombobox
-                    categories={categories}
-                    value={quickAdd.category_id}
-                    onChange={v => setQuickAdd({ ...quickAdd, category_id: v })}
-                    placeholder="Category"
-                    className="h-8 text-sm border-green-300"
-                  />
-                </td>
-                <td className="px-2 py-2 w-28">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={quickAdd.price}
-                    onChange={e =>
-                      setQuickAdd({ ...quickAdd, price: e.target.value })
-                    }
-                    onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
-                    placeholder="Price"
-                    className="h-8 text-sm border-green-300"
-                    disabled={quickAdding}
-                  />
-                </td>
-                <td className="px-2 py-2 w-24">
-                  <Select
-                    value={quickAdd.unit_of_measure}
-                    onValueChange={v =>
-                      setQuickAdd({ ...quickAdd, unit_of_measure: v })
-                    }
-                  >
-                    <SelectTrigger className="h-8 text-sm border-green-300">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {UNITS.map(u => (
-                        <SelectItem key={u} value={u}>
-                          {u}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="px-2 py-2 w-32">
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      onClick={() => handleQuickAdd()}
-                      disabled={quickAdding}
-                      className="h-8 px-3 bg-green-600 hover:bg-green-700 gap-1"
-                    >
-                      {quickAdding ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Check className="w-3 h-3" />
-                      )}
-                      Add
-                    </Button>
-                    <button
-                      onClick={() => {
-                        setShowQuickAdd(false);
-                        setQuickAdd(QUICK_ADD_DEFAULTS);
-                      }}
-                      className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <RapidEntryRow
+          values={quickAdd}
+          adding={quickAdding}
+          categories={categories}
+          nameRef={quickNameRef}
+          onChange={patch => setQuickAdd(prev => ({ ...prev, ...patch }))}
+          onSubmit={() => handleQuickAdd()}
+          onClose={() => {
+            setShowQuickAdd(false);
+            setQuickAdd(QUICK_ADD_DEFAULTS);
+          }}
+        />
       )}
 
       {/* ── Products list (compact, virtualized) ───────────────────────────── */}
