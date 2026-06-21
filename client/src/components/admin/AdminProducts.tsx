@@ -1,29 +1,64 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation } from 'wouter';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  Plus, Edit2, Trash2, Search, X, Star, Copy, Loader2,
-  ChevronLeft, ChevronRight, ImageIcon, Zap, Images, Check, RefreshCw, Sparkles,
-  ExternalLink, Power, Ban,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
-import { productService, categoryService } from '@/lib/productService';
-import { normalizeImageUrl } from '@/lib/imageUtils';
-import { Product, Category, ProductStatus } from '@/lib/supabase';
-import { productCompleteness, completenessColor, AttentionFilter, ATTENTION_LABELS, ATTENTION_FIELD, MISSING_FILTERS } from '@/lib/catalogHealth';
-import { healthService } from '@/lib/healthService';
-import AdminImageGallery from '@/components/admin/AdminImageGallery';
-import CategoryCombobox from '@/components/admin/CategoryCombobox';
-import AISmartPasteDialog from '@/components/admin/AISmartPasteDialog';
-import AdminImageLibrary from '@/components/admin/AdminImageLibrary';
-import { ParsedProduct } from '@/lib/aiService';
-import KeyboardShortcutsDialog from '@/components/admin/KeyboardShortcutsDialog';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Search,
+  X,
+  Star,
+  Copy,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ImageIcon,
+  Zap,
+  Images,
+  Check,
+  RefreshCw,
+  Sparkles,
+  ExternalLink,
+  Power,
+  Ban,
+} from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { productService, categoryService } from "@/lib/productService";
+import { normalizeImageUrl } from "@/lib/imageUtils";
+import { Product, Category, ProductStatus } from "@/lib/supabase";
+import {
+  productCompleteness,
+  completenessColor,
+  AttentionFilter,
+  ATTENTION_LABELS,
+  ATTENTION_FIELD,
+  MISSING_FILTERS,
+} from "@/lib/catalogHealth";
+import { healthService } from "@/lib/healthService";
+import AdminImageGallery from "@/components/admin/AdminImageGallery";
+import CategoryCombobox from "@/components/admin/CategoryCombobox";
+import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
+import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
+import { ParsedProduct } from "@/lib/aiService";
+import KeyboardShortcutsDialog from "@/components/admin/KeyboardShortcutsDialog";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -33,47 +68,69 @@ import {
   ContextMenuSub,
   ContextMenuSubContent,
   ContextMenuSubTrigger,
-} from '@/components/ui/context-menu';
+} from "@/components/ui/context-menu";
 
 const PAGE_SIZE = 50;
-const UNITS = ['pcs', 'box', 'pack', 'roll', 'kg', 'litre', 'set'];
+const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
 
 // Fields that can be marked "not applicable" (must match the na_fields values
 // v_product_health checks). Label → stored key.
 const NA_FIELDS: Array<{ key: string; label: string }> = [
-  { key: 'brand', label: 'Brand' },
-  { key: 'specifications', label: 'Specs' },
-  { key: 'description', label: 'Description' },
-  { key: 'image', label: 'Image' },
+  { key: "brand", label: "Brand" },
+  { key: "specifications", label: "Specs" },
+  { key: "description", label: "Description" },
+  { key: "image", label: "Image" },
 ];
-const NA_FIELD_LABELS: Record<string, string> = Object.fromEntries(NA_FIELDS.map((f) => [f.key, f.label]));
+const NA_FIELD_LABELS: Record<string, string> = Object.fromEntries(
+  NA_FIELDS.map(f => [f.key, f.label])
+);
 
-type StatusFilter = 'all' | 'active' | 'inactive' | 'featured' | 'draft' | 'published';
+type StatusFilter =
+  | "all"
+  | "active"
+  | "inactive"
+  | "featured"
+  | "draft"
+  | "published";
 
-interface AdminGetAllResult { data: Product[]; count: number; }
+interface AdminGetAllResult {
+  data: Product[];
+  count: number;
+}
 
 // Applies the scalar (search/category/status) filters shared by the paginated
 // list and the "select all matching" id resolver, so the two never drift.
 function applyScalarFilters(
-  query: any, search: string, categoryId: string, status: StatusFilter,
+  query: any,
+  search: string,
+  categoryId: string,
+  status: StatusFilter
 ): any {
-  if (search.trim()) query = query.ilike('name', `%${search.trim()}%`);
-  if (categoryId !== 'all') query = query.eq('category_id', categoryId);
-  if (status === 'active') query = query.eq('is_active', true);
-  else if (status === 'inactive') query = query.eq('is_active', false);
-  else if (status === 'featured') query = query.eq('is_featured', true);
-  else if (status === 'draft') query = query.eq('status', 'draft');
-  else if (status === 'published') query = query.eq('status', 'published');
+  if (search.trim()) query = query.ilike("name", `%${search.trim()}%`);
+  if (categoryId !== "all") query = query.eq("category_id", categoryId);
+  if (status === "active") query = query.eq("is_active", true);
+  else if (status === "inactive") query = query.eq("is_active", false);
+  else if (status === "featured") query = query.eq("is_featured", true);
+  else if (status === "draft") query = query.eq("status", "draft");
+  else if (status === "published") query = query.eq("status", "published");
   return query;
 }
 
 async function adminGetAllProducts(
-  page: number, search: string, categoryId: string, status: StatusFilter,
-  attention: AttentionFilter = null,
+  page: number,
+  search: string,
+  categoryId: string,
+  status: StatusFilter,
+  attention: AttentionFilter = null
 ): Promise<AdminGetAllResult> {
   let query = applyScalarFilters(
-    supabase.from('products').select('*', { count: 'exact' }).order('created_at', { ascending: false }),
-    search, categoryId, status,
+    supabase
+      .from("products")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false }),
+    search,
+    categoryId,
+    status
   );
   // Missing-data filter: pull the matching ids from v_product_health (the
   // single source of truth for "what is missing") and intersect — this ANDs
@@ -81,7 +138,7 @@ async function adminGetAllProducts(
   if (attention) {
     const ids = await healthService.getIdsMissing(ATTENTION_FIELD[attention]);
     if (!ids.length) return { data: [], count: 0 };
-    query = query.in('id', ids);
+    query = query.in("id", ids);
   }
   query = query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   const { data, error, count } = await query;
@@ -92,17 +149,27 @@ async function adminGetAllProducts(
 // Resolves EVERY product id matching the active filters (no pagination) — the
 // backing set for "select all N matching". Same filters as the list above.
 async function getMatchingIds(
-  search: string, categoryId: string, status: StatusFilter, attention: AttentionFilter,
+  search: string,
+  categoryId: string,
+  status: StatusFilter,
+  attention: AttentionFilter
 ): Promise<string[]> {
-  let query = applyScalarFilters(supabase.from('products').select('id'), search, categoryId, status);
+  let query = applyScalarFilters(
+    supabase.from("products").select("id"),
+    search,
+    categoryId,
+    status
+  );
   if (attention) {
-    const missingIds = await healthService.getIdsMissing(ATTENTION_FIELD[attention]);
+    const missingIds = await healthService.getIdsMissing(
+      ATTENTION_FIELD[attention]
+    );
     if (!missingIds.length) return [];
-    query = query.in('id', missingIds);
+    query = query.in("id", missingIds);
   }
   const { data, error } = await query;
   if (error) throw error;
-  return ((data ?? []) as { id: string }[]).map((r) => r.id);
+  return ((data ?? []) as { id: string }[]).map(r => r.id);
 }
 
 // Of the given ids, returns the set that are variants (master_id not null) so
@@ -112,12 +179,12 @@ async function getVariantIds(ids: string[]): Promise<Set<string>> {
   for (let i = 0; i < ids.length; i += 300) {
     const part = ids.slice(i, i + 300);
     const { data, error } = await supabase
-      .from('products')
-      .select('id')
-      .not('master_id', 'is', null)
-      .in('id', part);
+      .from("products")
+      .select("id")
+      .not("master_id", "is", null)
+      .in("id", part);
     if (error) throw error;
-    ((data ?? []) as { id: string }[]).forEach((r) => variants.add(r.id));
+    ((data ?? []) as { id: string }[]).forEach(r => variants.add(r.id));
   }
   return variants;
 }
@@ -141,7 +208,13 @@ interface QuickAdd {
 }
 
 const QUICK_ADD_DEFAULTS: QuickAdd = {
-  name: '', category_id: '', price: '', mrp: '', unit_of_measure: 'pcs', quantity_in_unit: '', brand: '',
+  name: "",
+  category_id: "",
+  price: "",
+  mrp: "",
+  unit_of_measure: "pcs",
+  quantity_in_unit: "",
+  brand: "",
 };
 
 interface AdminProductsProps {
@@ -164,13 +237,15 @@ export default function AdminProducts({
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [menuOpenProductId, setMenuOpenProductId] = useState<string | null>(null);
+  const [menuOpenProductId, setMenuOpenProductId] = useState<string | null>(
+    null
+  );
 
   // Filters + pagination
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [status, setStatus] = useState<StatusFilter>('all');
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
 
   // Bulk selection. `selected` holds explicitly checked ids (always the current
@@ -179,8 +254,8 @@ export default function AdminProducts({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectAllMatching, setSelectAllMatching] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkBrand, setBulkBrand] = useState('');
-  const [bulkMoq, setBulkMoq] = useState('');
+  const [bulkBrand, setBulkBrand] = useState("");
+  const [bulkMoq, setBulkMoq] = useState("");
   const [naDialogOpen, setNaDialogOpen] = useState(false);
   const [naSelected, setNaSelected] = useState<string[]>([]);
 
@@ -205,10 +280,10 @@ export default function AdminProducts({
 
   // Autofill handler for AI Smart Paste
   const handleAutofill = (parsedData: ParsedProduct) => {
-    let categoryId = '';
+    let categoryId = "";
     if (parsedData.category_name) {
       const match = categories.find(
-        (c) => c.name.toLowerCase() === parsedData.category_name!.toLowerCase()
+        c => c.name.toLowerCase() === parsedData.category_name!.toLowerCase()
       );
       if (match) {
         categoryId = match.id;
@@ -216,32 +291,38 @@ export default function AdminProducts({
     }
 
     const draft = {
-      name: parsedData.name || '',
-      category_id: categoryId || '',
-      description: parsedData.description || '',
-      price: parsedData.price != null ? parsedData.price.toString() : '',
-      mrp: parsedData.mrp != null ? parsedData.mrp.toString() : '',
-      unit_of_measure: parsedData.unit_of_measure || 'pcs',
-      quantity_in_unit: parsedData.quantity_in_unit != null ? parsedData.quantity_in_unit.toString() : '',
-      discount_percent: '0',
-      brand: parsedData.brand || '',
+      name: parsedData.name || "",
+      category_id: categoryId || "",
+      description: parsedData.description || "",
+      price: parsedData.price != null ? parsedData.price.toString() : "",
+      mrp: parsedData.mrp != null ? parsedData.mrp.toString() : "",
+      unit_of_measure: parsedData.unit_of_measure || "pcs",
+      quantity_in_unit:
+        parsedData.quantity_in_unit != null
+          ? parsedData.quantity_in_unit.toString()
+          : "",
+      discount_percent: "0",
+      brand: parsedData.brand || "",
       is_active: true,
       is_featured: false,
-      sku: '',
-      barcode: '',
-      moq: '1',
-      image_url: '',
+      sku: "",
+      barcode: "",
+      moq: "1",
+      image_url: "",
     };
 
-    sessionStorage.setItem('admin-product-draft:new', JSON.stringify(draft));
-    setLocation('/admin/products/new');
+    sessionStorage.setItem("admin-product-draft:new", JSON.stringify(draft));
+    setLocation("/admin/products/new");
   };
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 350);
+    const t = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 350);
     return () => clearTimeout(t);
   }, [search]);
 
@@ -250,11 +331,17 @@ export default function AdminProducts({
       setLoading(true);
       setSelected(new Set());
       setSelectAllMatching(false);
-      const result = await adminGetAllProducts(page, debouncedSearch, selectedCategory, status, attentionFilter);
+      const result = await adminGetAllProducts(
+        page,
+        debouncedSearch,
+        selectedCategory,
+        status,
+        attentionFilter
+      );
       setProducts(result.data);
       setTotalCount(result.count);
     } catch {
-      toast.error('Failed to load products');
+      toast.error("Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -277,12 +364,18 @@ export default function AdminProducts({
   const skipFilterEffect = useRef(true);
   const prevAttention = useRef(attentionFilter);
   useEffect(() => {
-    if (skipFilterEffect.current) { skipFilterEffect.current = false; return; }
+    if (skipFilterEffect.current) {
+      skipFilterEffect.current = false;
+      return;
+    }
     if (prevAttention.current !== attentionFilter) {
       prevAttention.current = attentionFilter;
       // Jump back to page 1 on attention change; the page update re-runs this
       // effect, which then fetches.
-      if (page !== 1) { setPage(1); return; }
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
     }
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -299,24 +392,30 @@ export default function AdminProducts({
   }, [showQuickAdd]);
 
   // ── Selection ───────────────────────────────────────────────────────────────
-  const allPageSelected = products.length > 0 && products.every((p) => selected.has(p.id));
+  const allPageSelected =
+    products.length > 0 && products.every(p => selected.has(p.id));
   // Effective selection size: the whole matching set when in select-all mode.
   const selectionCount = selectAllMatching ? totalCount : selected.size;
   const hasSelection = selectionCount > 0;
   // Offer "select all matching" once the visible page is fully checked and there
   // are more rows behind the filter than fit on the page.
-  const canSelectAllMatching = allPageSelected && !selectAllMatching && totalCount > products.length;
+  const canSelectAllMatching =
+    allPageSelected && !selectAllMatching && totalCount > products.length;
 
-  const clearSelection = () => { setSelected(new Set()); setSelectAllMatching(false); };
+  const clearSelection = () => {
+    setSelected(new Set());
+    setSelectAllMatching(false);
+  };
 
   const toggleAll = () => {
-    if (allPageSelected) { clearSelection(); }
-    else setSelected(new Set(products.map((p) => p.id)));
+    if (allPageSelected) {
+      clearSelection();
+    } else setSelected(new Set(products.map(p => p.id)));
   };
   const toggleOne = (id: string) => {
     // Unchecking a row while in select-all mode drops back to explicit ids.
     if (selectAllMatching) setSelectAllMatching(false);
-    setSelected((prev) => {
+    setSelected(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -328,7 +427,12 @@ export default function AdminProducts({
   // mode, otherwise just the explicitly checked rows.
   const resolveTargetIds = async (): Promise<string[]> => {
     if (selectAllMatching) {
-      return getMatchingIds(debouncedSearch, selectedCategory, status, attentionFilter);
+      return getMatchingIds(
+        debouncedSearch,
+        selectedCategory,
+        status,
+        attentionFilter
+      );
     }
     return Array.from(selected);
   };
@@ -338,23 +442,33 @@ export default function AdminProducts({
   const runBulk = async (
     confirmLabel: (n: number) => string,
     run: (ids: string[]) => Promise<number>,
-    transform?: (ids: string[]) => Promise<{ ids: string[]; note?: string }>,
+    transform?: (ids: string[]) => Promise<{ ids: string[]; note?: string }>
   ) => {
     if (bulkBusy) return;
     setBulkBusy(true);
     try {
       let ids = await resolveTargetIds();
-      let note = '';
-      if (transform) { const t = await transform(ids); ids = t.ids; note = t.note ?? ''; }
-      if (!ids.length) { toast.error('No matching products'); return; }
-      if (!window.confirm(confirmLabel(ids.length) + (note ? `\n\n${note}` : ''))) return;
+      let note = "";
+      if (transform) {
+        const t = await transform(ids);
+        ids = t.ids;
+        note = t.note ?? "";
+      }
+      if (!ids.length) {
+        toast.error("No matching products");
+        return;
+      }
+      if (
+        !window.confirm(confirmLabel(ids.length) + (note ? `\n\n${note}` : ""))
+      )
+        return;
       const n = await run(ids);
       toast.success(`Updated ${n} products`);
       clearSelection();
       loadProducts();
     } catch (err) {
       console.error(err);
-      toast.error('Bulk action failed');
+      toast.error("Bulk action failed");
     } finally {
       setBulkBusy(false);
     }
@@ -362,68 +476,84 @@ export default function AdminProducts({
 
   const doSetBrand = async () => {
     const value = bulkBrand.trim();
-    if (!value) { toast.error('Enter a brand first'); return; }
+    if (!value) {
+      toast.error("Enter a brand first");
+      return;
+    }
     await runBulk(
-      (n) => `Set brand to "${value}" for ${n} products?`,
-      (ids) => productService.bulkUpdateField(ids, 'brand', value),
+      n => `Set brand to "${value}" for ${n} products?`,
+      ids => productService.bulkUpdateField(ids, "brand", value)
     );
-    setBulkBrand('');
+    setBulkBrand("");
   };
 
   const doSetMoq = async () => {
     const n = parseInt(bulkMoq);
-    if (isNaN(n) || n < 1) { toast.error('Enter a valid MOQ'); return; }
+    if (isNaN(n) || n < 1) {
+      toast.error("Enter a valid MOQ");
+      return;
+    }
     await runBulk(
-      (c) => `Set MOQ to ${n} for ${c} products?`,
-      (ids) => productService.bulkUpdateField(ids, 'moq', n),
+      c => `Set MOQ to ${n} for ${c} products?`,
+      ids => productService.bulkUpdateField(ids, "moq", n)
     );
-    setBulkMoq('');
+    setBulkMoq("");
   };
 
-  const doSetUnit = (unit: string) => runBulk(
-    (c) => `Set unit to "${unit}" for ${c} products?`,
-    (ids) => productService.bulkUpdateField(ids, 'unit_of_measure', unit),
-  );
+  const doSetUnit = (unit: string) =>
+    runBulk(
+      c => `Set unit to "${unit}" for ${c} products?`,
+      ids => productService.bulkUpdateField(ids, "unit_of_measure", unit)
+    );
 
   const doSetCategory = (categoryId: string) => {
-    const catName = categories.find((c) => c.id === categoryId)?.name ?? 'category';
+    const catName =
+      categories.find(c => c.id === categoryId)?.name ?? "category";
     return runBulk(
-      (c) => `Set category to "${catName}" for ${c} products?`,
-      (ids) => productService.bulkUpdateField(ids, 'category_id', categoryId),
-      async (ids) => {
+      c => `Set category to "${catName}" for ${c} products?`,
+      ids => productService.bulkUpdateField(ids, "category_id", categoryId),
+      async ids => {
         const variants = await getVariantIds(ids);
-        const standalone = ids.filter((id) => !variants.has(id));
+        const standalone = ids.filter(id => !variants.has(id));
         const skipped = ids.length - standalone.length;
         return {
           ids: standalone,
-          note: skipped ? `${skipped} variant${skipped > 1 ? 's' : ''} skipped — variants inherit their master's category.` : '',
+          note: skipped
+            ? `${skipped} variant${skipped > 1 ? "s" : ""} skipped — variants inherit their master's category.`
+            : "",
         };
-      },
+      }
     );
   };
 
-  const doSetStatus = (status: ProductStatus) => runBulk(
-    (c) => `${status === 'published' ? 'Publish' : 'Unpublish'} ${c} products?`,
-    (ids) => productService.bulkSetStatus(ids, status),
-  );
+  const doSetStatus = (status: ProductStatus) =>
+    runBulk(
+      c => `${status === "published" ? "Publish" : "Unpublish"} ${c} products?`,
+      ids => productService.bulkSetStatus(ids, status)
+    );
 
-  const doSetActive = (activate: boolean) => runBulk(
-    (c) => `${activate ? 'Activate' : 'Deactivate'} ${c} products?`,
-    (ids) => productService.bulkUpdateField(ids, 'is_active', activate),
-  );
+  const doSetActive = (activate: boolean) =>
+    runBulk(
+      c => `${activate ? "Activate" : "Deactivate"} ${c} products?`,
+      ids => productService.bulkUpdateField(ids, "is_active", activate)
+    );
 
-  const doDelete = () => runBulk(
-    (c) => `Delete ${c} products? This cannot be undone.`,
-    (ids) => productService.bulkDelete(ids),
-  );
+  const doDelete = () =>
+    runBulk(
+      c => `Delete ${c} products? This cannot be undone.`,
+      ids => productService.bulkDelete(ids)
+    );
 
   const doSetNA = (on: boolean) => {
-    if (!naSelected.length) { toast.error('Pick at least one field'); return; }
-    const labels = naSelected.map((f) => NA_FIELD_LABELS[f] ?? f).join(', ');
+    if (!naSelected.length) {
+      toast.error("Pick at least one field");
+      return;
+    }
+    const labels = naSelected.map(f => NA_FIELD_LABELS[f] ?? f).join(", ");
     setNaDialogOpen(false);
     runBulk(
-      (c) => `${on ? 'Mark' : 'Clear'} N/A (${labels}) for ${c} products?`,
-      (ids) => productService.bulkSetNA(ids, naSelected, on),
+      c => `${on ? "Mark" : "Clear"} N/A (${labels}) for ${c} products?`,
+      ids => productService.bulkSetNA(ids, naSelected, on)
     ).finally(() => setNaSelected([]));
   };
 
@@ -433,69 +563,116 @@ export default function AdminProducts({
   const saveCellEdit = async (): Promise<boolean> => {
     if (!cellEdit || cellSaving) return true;
     const { productId, field, value } = cellEdit;
-    const product = products.find((p) => p.id === productId);
+    const product = products.find(p => p.id === productId);
     if (!product) return true;
 
     // Validate
-    if (field === 'price') {
+    if (field === "price") {
       const n = parseFloat(value);
-      if (isNaN(n) || n < 0) { toast.error('Invalid price'); return false; }
+      if (isNaN(n) || n < 0) {
+        toast.error("Invalid price");
+        return false;
+      }
     }
-    if (field === 'mrp') {
-      if (value && isNaN(parseFloat(value))) { toast.error('Invalid MRP'); return false; }
+    if (field === "mrp") {
+      if (value && isNaN(parseFloat(value))) {
+        toast.error("Invalid MRP");
+        return false;
+      }
     }
-    if (field === 'quantity_in_unit') {
-      if (value && (isNaN(parseInt(value)) || parseInt(value) <= 0)) { toast.error('Invalid quantity'); return false; }
+    if (field === "quantity_in_unit") {
+      if (value && (isNaN(parseInt(value)) || parseInt(value) <= 0)) {
+        toast.error("Invalid quantity");
+        return false;
+      }
     }
 
     // No change?
-    const currentVal = String((product as any)[field] ?? '');
-    if (value.trim() === currentVal.trim()) { setCellEdit(null); return true; }
+    const currentVal = String((product as any)[field] ?? "");
+    if (value.trim() === currentVal.trim()) {
+      setCellEdit(null);
+      return true;
+    }
 
     setCellSaving(true);
     try {
       const update: Record<string, any> = {};
-      if (field === 'price') update.price = parseFloat(value);
-      else if (field === 'mrp') update.mrp = value ? parseFloat(value) : null;
-      else if (field === 'quantity_in_unit') update.quantity_in_unit = value ? parseInt(value) : null;
+      if (field === "price") update.price = parseFloat(value);
+      else if (field === "mrp") update.mrp = value ? parseFloat(value) : null;
+      else if (field === "quantity_in_unit")
+        update.quantity_in_unit = value ? parseInt(value) : null;
       else update[field] = value || null;
 
       await productService.update(productId, update);
-      setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, ...update } : p));
+      setProducts(prev =>
+        prev.map(p => (p.id === productId ? { ...p, ...update } : p))
+      );
       setCellEdit(null);
       return true;
-    } catch { toast.error('Failed to save'); return false; }
-    finally { setCellSaving(false); }
+    } catch {
+      toast.error("Failed to save");
+      return false;
+    } finally {
+      setCellSaving(false);
+    }
   };
 
-  const startCellEdit = (productId: string, field: string, value: string | number | null | undefined) => {
-    setCellEdit({ productId, field, value: String(value ?? '') });
+  const startCellEdit = (
+    productId: string,
+    field: string,
+    value: string | number | null | undefined
+  ) => {
+    setCellEdit({ productId, field, value: String(value ?? "") });
   };
 
   const cancelCellEdit = () => setCellEdit(null);
 
   // Spreadsheet-style Tab navigation across inline-editable cells.
-  const CELL_FIELDS = ['name', 'category_id', 'price', 'mrp', 'unit_of_measure', 'quantity_in_unit', 'brand'];
+  const CELL_FIELDS = [
+    "name",
+    "category_id",
+    "price",
+    "mrp",
+    "unit_of_measure",
+    "quantity_in_unit",
+    "brand",
+  ];
 
   const getAdjacentCell = (backward: boolean) => {
     if (!cellEdit) return null;
     const fieldIdx = CELL_FIELDS.indexOf(cellEdit.field);
-    const rowIdx = products.findIndex((p) => p.id === cellEdit.productId);
+    const rowIdx = products.findIndex(p => p.id === cellEdit.productId);
     if (fieldIdx === -1 || rowIdx === -1) return null;
     let nextField = fieldIdx + (backward ? -1 : 1);
     let nextRow = rowIdx;
-    if (nextField >= CELL_FIELDS.length) { nextField = 0; nextRow++; }
-    if (nextField < 0) { nextField = CELL_FIELDS.length - 1; nextRow--; }
+    if (nextField >= CELL_FIELDS.length) {
+      nextField = 0;
+      nextRow++;
+    }
+    if (nextField < 0) {
+      nextField = CELL_FIELDS.length - 1;
+      nextRow--;
+    }
     if (nextRow < 0 || nextRow >= products.length) return null;
     const target = products[nextRow];
     const field = CELL_FIELDS[nextField];
-    return { productId: target.id, field, value: (target as any)[field] as string | number | null | undefined };
+    return {
+      productId: target.id,
+      field,
+      value: (target as any)[field] as string | number | null | undefined,
+    };
   };
 
   const handleCellKey = async (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { saveCellEdit(); return; }
-    if (e.key === 'Escape') { cancelCellEdit(); return; }
-    if (e.key === 'Tab') {
+    if (e.key === "Enter") {
+      saveCellEdit();
+      return;
+    }
+    if (e.key === "Escape") {
+      cancelCellEdit();
+      return;
+    }
+    if (e.key === "Tab") {
       e.preventDefault();
       // Resolve the target before saving — saveCellEdit clears cellEdit.
       const next = getAdjacentCell(e.shiftKey);
@@ -509,10 +686,17 @@ export default function AdminProducts({
     setCellSaving(true);
     try {
       await productService.update(productId, { category_id: newCategoryId });
-      setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, category_id: newCategoryId } : p));
+      setProducts(prev =>
+        prev.map(p =>
+          p.id === productId ? { ...p, category_id: newCategoryId } : p
+        )
+      );
       setCellEdit(null);
-    } catch { toast.error('Failed to save category'); }
-    finally { setCellSaving(false); }
+    } catch {
+      toast.error("Failed to save category");
+    } finally {
+      setCellSaving(false);
+    }
   };
 
   // Unit inline select
@@ -520,60 +704,84 @@ export default function AdminProducts({
     setCellSaving(true);
     try {
       await productService.update(productId, { unit_of_measure: newUnit });
-      setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, unit_of_measure: newUnit } : p));
+      setProducts(prev =>
+        prev.map(p =>
+          p.id === productId ? { ...p, unit_of_measure: newUnit } : p
+        )
+      );
       setCellEdit(null);
-    } catch { toast.error('Failed to save unit'); }
-    finally { setCellSaving(false); }
+    } catch {
+      toast.error("Failed to save unit");
+    } finally {
+      setCellSaving(false);
+    }
   };
 
   // ── Quick-add ───────────────────────────────────────────────────────────────
   const handleQuickAdd = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!quickAdd.name.trim()) { toast.error('Product name is required'); return; }
+    if (!quickAdd.name.trim()) {
+      toast.error("Product name is required");
+      return;
+    }
     setQuickAdding(true);
     try {
       // Fall back to Uncategorized when no category selected (self-healing —
       // looks it up / creates it instead of trusting the active-only list).
       let categoryId = quickAdd.category_id;
       if (!categoryId) {
-        categoryId = (await categoryService.getOrCreateUncategorized()) ?? '';
-        if (!categoryId) { toast.error('Could not assign the Uncategorized category'); return; }
+        categoryId = (await categoryService.getOrCreateUncategorized()) ?? "";
+        if (!categoryId) {
+          toast.error("Could not assign the Uncategorized category");
+          return;
+        }
       }
       const sku = `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
       const created = await productService.create({
         name: quickAdd.name.trim(),
         category_id: categoryId,
-        price: quickAdd.price && !isNaN(parseFloat(quickAdd.price)) ? parseFloat(quickAdd.price) : null,
+        price:
+          quickAdd.price && !isNaN(parseFloat(quickAdd.price))
+            ? parseFloat(quickAdd.price)
+            : null,
         mrp: quickAdd.mrp ? parseFloat(quickAdd.mrp) : undefined,
         unit_of_measure: quickAdd.unit_of_measure,
-        quantity_in_unit: quickAdd.quantity_in_unit ? parseInt(quickAdd.quantity_in_unit) : undefined,
+        quantity_in_unit: quickAdd.quantity_in_unit
+          ? parseInt(quickAdd.quantity_in_unit)
+          : undefined,
         brand: quickAdd.brand.trim() || undefined,
         is_active: true,
         is_featured: false,
-        status: 'draft',
+        status: "draft",
         sku,
       } as any);
       toast.success(`"${quickAdd.name.trim()}" added`);
       // Keep category, unit, qty and brand for the next entry — bulk entry is
       // usually many products in the same category/brand. Reset the rest.
-      setQuickAdd((q) => ({ ...q, name: '', price: '', mrp: '' }));
+      setQuickAdd(q => ({ ...q, name: "", price: "", mrp: "" }));
       // Optimistic insert instead of a full refetch: the new product sorts to
       // the top (created_at desc), so on page 1 with no active filters we can
       // just prepend it. Keeps rapid bulk entry flicker-free. Otherwise the
       // filtered view might not include it, so fall back to a refetch.
       const onCleanFirstPage =
-        page === 1 && !debouncedSearch.trim() && selectedCategory === 'all'
-        && status === 'all' && !attentionFilter;
+        page === 1 &&
+        !debouncedSearch.trim() &&
+        selectedCategory === "all" &&
+        status === "all" &&
+        !attentionFilter;
       if (created && onCleanFirstPage) {
-        setProducts((prev) => [created, ...prev].slice(0, PAGE_SIZE));
-        setTotalCount((c) => c + 1);
+        setProducts(prev => [created, ...prev].slice(0, PAGE_SIZE));
+        setTotalCount(c => c + 1);
       } else {
         loadProducts();
       }
       // Re-focus name for the next entry (after the disabled state clears)
       setTimeout(() => quickNameRef.current?.focus(), 50);
-    } catch { toast.error('Failed to add product'); }
-    finally { setQuickAdding(false); }
+    } catch {
+      toast.error("Failed to add product");
+    } finally {
+      setQuickAdding(false);
+    }
   };
 
   useKeyboardShortcuts({
@@ -589,11 +797,18 @@ export default function AdminProducts({
         setShortcutsOpen(false);
         return;
       }
-      const hasQuickAddValues = Object.entries(quickAdd).some(([key, value]) => {
-        if (key === 'unit_of_measure') return value !== QUICK_ADD_DEFAULTS.unit_of_measure;
-        return value !== '';
-      });
-      if (hasQuickAddValues && !window.confirm('Discard the current quick-add entry?')) return;
+      const hasQuickAddValues = Object.entries(quickAdd).some(
+        ([key, value]) => {
+          if (key === "unit_of_measure")
+            return value !== QUICK_ADD_DEFAULTS.unit_of_measure;
+          return value !== "";
+        }
+      );
+      if (
+        hasQuickAddValues &&
+        !window.confirm("Discard the current quick-add entry?")
+      )
+        return;
       setQuickAdd(QUICK_ADD_DEFAULTS);
       quickNameRef.current?.blur();
     },
@@ -604,75 +819,106 @@ export default function AdminProducts({
   const handleToggleActive = async (id: string, isActive: boolean) => {
     try {
       await productService.toggleActive(id, !isActive);
-      setProducts((prev) => prev.map((p) => p.id === id ? { ...p, is_active: !isActive } : p));
-    } catch { toast.error('Failed to update'); }
+      setProducts(prev =>
+        prev.map(p => (p.id === id ? { ...p, is_active: !isActive } : p))
+      );
+    } catch {
+      toast.error("Failed to update");
+    }
   };
 
   const handleToggleFeatured = async (id: string, isFeatured: boolean) => {
     try {
       await productService.toggleFeatured(id, !isFeatured);
-      setProducts((prev) => prev.map((p) => p.id === id ? { ...p, is_featured: !isFeatured } : p));
-    } catch { toast.error('Failed to update'); }
+      setProducts(prev =>
+        prev.map(p => (p.id === id ? { ...p, is_featured: !isFeatured } : p))
+      );
+    } catch {
+      toast.error("Failed to update");
+    }
   };
 
   const handlePublish = async (id: string) => {
     try {
       await productService.publishProducts([id]);
-      setProducts((prev) => prev.map((p) => p.id === id ? { ...p, status: 'published' } : p));
-      toast.success('Published to website');
-    } catch { toast.error('Failed to publish'); }
+      setProducts(prev =>
+        prev.map(p => (p.id === id ? { ...p, status: "published" } : p))
+      );
+      toast.success("Published to website");
+    } catch {
+      toast.error("Failed to publish");
+    }
   };
 
   const handleDuplicate = async (product: Product) => {
     try {
       const { id, created_at, updated_at, sku, ...fields } = product;
-      await productService.create({ ...fields, name: `${product.name} (Copy)`, sku: undefined, is_active: false, status: 'draft' } as any);
-      toast.success('Product duplicated');
+      await productService.create({
+        ...fields,
+        name: `${product.name} (Copy)`,
+        sku: undefined,
+        is_active: false,
+        status: "draft",
+      } as any);
+      toast.success("Product duplicated");
       loadProducts();
-    } catch { toast.error('Failed to duplicate'); }
+    } catch {
+      toast.error("Failed to duplicate");
+    }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this product?')) return;
+    if (!confirm("Delete this product?")) return;
     try {
       await productService.delete(id);
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      setTotalCount((c) => c - 1);
-      toast.success('Product deleted');
-    } catch { toast.error('Failed to delete'); }
+      setProducts(prev => prev.filter(p => p.id !== id));
+      setTotalCount(c => c - 1);
+      toast.success("Product deleted");
+    } catch {
+      toast.error("Failed to delete");
+    }
   };
 
   // Open the route editor for products that need images, descriptions, or
   // fields beyond the sticky quick-add row.
   const handleOpenFullAdd = () => {
-    setLocation('/admin/products/new');
+    setLocation("/admin/products/new");
   };
 
   const handleOpenFullEdit = (product: Product) => {
     setLocation(`/admin/products/${product.id}`);
   };
 
-  const getCategoryName = (id: string) => categories.find((c) => c.id === id)?.name || '—';
-  const getCategoryGroup = (id: string) => categories.find((c) => c.id === id)?.group_name || null;
+  const getCategoryName = (id: string) =>
+    categories.find(c => c.id === id)?.name || "—";
+  const getCategoryGroup = (id: string) =>
+    categories.find(c => c.id === id)?.group_name || null;
 
   // ── Inline cell renderer ────────────────────────────────────────────────────
   const isEditing = (productId: string, field: string) =>
     cellEdit?.productId === productId && cellEdit?.field === field;
 
-  const renderTextCell = (product: Product, field: keyof Product, placeholder = '—', cls = '') => {
+  const renderTextCell = (
+    product: Product,
+    field: keyof Product,
+    placeholder = "—",
+    cls = ""
+  ) => {
     if (isEditing(product.id, field as string)) {
       return (
         <div className="flex items-center gap-1">
           <Input
             ref={cellInputRef}
             value={cellEdit!.value}
-            onChange={(e) => setCellEdit({ ...cellEdit!, value: e.target.value })}
+            onChange={e => setCellEdit({ ...cellEdit!, value: e.target.value })}
             onKeyDown={handleCellKey}
             onBlur={saveCellEdit}
             className={`h-8 text-sm min-w-[100px] ${cls}`}
             disabled={cellSaving}
           />
-          {cellSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 flex-shrink-0" />}
+          {cellSaving && (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 flex-shrink-0" />
+          )}
         </div>
       );
     }
@@ -689,7 +935,12 @@ export default function AdminProducts({
     );
   };
 
-  const renderNumberCell = (product: Product, field: keyof Product, prefix = '', placeholder = '—') => {
+  const renderNumberCell = (
+    product: Product,
+    field: keyof Product,
+    prefix = "",
+    placeholder = "—"
+  ) => {
     if (isEditing(product.id, field as string)) {
       return (
         <div className="flex items-center gap-1">
@@ -698,13 +949,15 @@ export default function AdminProducts({
             type="number"
             step="0.01"
             value={cellEdit!.value}
-            onChange={(e) => setCellEdit({ ...cellEdit!, value: e.target.value })}
+            onChange={e => setCellEdit({ ...cellEdit!, value: e.target.value })}
             onKeyDown={handleCellKey}
             onBlur={saveCellEdit}
             className="h-8 text-sm w-24"
             disabled={cellSaving}
           />
-          {cellSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 flex-shrink-0" />}
+          {cellSaving && (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 flex-shrink-0" />
+          )}
         </div>
       );
     }
@@ -715,27 +968,39 @@ export default function AdminProducts({
         className="text-left hover:bg-slate-100 rounded px-1.5 py-0.5 transition-colors group font-semibold text-sm"
         title="Click to edit"
       >
-        {val != null ? `${prefix}${Number(val).toLocaleString()}` : <span className="text-slate-300 italic font-normal">{placeholder}</span>}
-        <span className="ml-1 opacity-0 group-hover:opacity-40 text-xs font-normal">✎</span>
+        {val != null ? (
+          `${prefix}${Number(val).toLocaleString()}`
+        ) : (
+          <span className="text-slate-300 italic font-normal">
+            {placeholder}
+          </span>
+        )}
+        <span className="ml-1 opacity-0 group-hover:opacity-40 text-xs font-normal">
+          ✎
+        </span>
       </button>
     );
   };
 
   const renderCategoryCell = (product: Product) => {
-    if (isEditing(product.id, 'category_id')) {
+    if (isEditing(product.id, "category_id")) {
       return (
         <Select
           value={product.category_id}
-          onValueChange={(v) => saveCategoryEdit(product.id, v)}
+          onValueChange={v => saveCategoryEdit(product.id, v)}
           open
-          onOpenChange={(open) => { if (!open) cancelCellEdit(); }}
+          onOpenChange={open => {
+            if (!open) cancelCellEdit();
+          }}
         >
           <SelectTrigger className="h-8 text-sm w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+            {categories.map(cat => (
+              <SelectItem key={cat.id} value={cat.id}>
+                {cat.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -743,7 +1008,9 @@ export default function AdminProducts({
     }
     return (
       <button
-        onClick={() => startCellEdit(product.id, 'category_id', product.category_id)}
+        onClick={() =>
+          startCellEdit(product.id, "category_id", product.category_id)
+        }
         className="text-left hover:bg-slate-100 rounded px-1.5 py-0.5 text-sm transition-colors group text-slate-600 w-full"
         title="Click to change category"
       >
@@ -754,30 +1021,38 @@ export default function AdminProducts({
   };
 
   const renderUnitCell = (product: Product) => {
-    if (isEditing(product.id, 'unit_of_measure')) {
+    if (isEditing(product.id, "unit_of_measure")) {
       return (
         <Select
-          value={product.unit_of_measure || 'pcs'}
-          onValueChange={(v) => saveUnitEdit(product.id, v)}
+          value={product.unit_of_measure || "pcs"}
+          onValueChange={v => saveUnitEdit(product.id, v)}
           open
-          onOpenChange={(open) => { if (!open) cancelCellEdit(); }}
+          onOpenChange={open => {
+            if (!open) cancelCellEdit();
+          }}
         >
           <SelectTrigger className="h-8 text-sm w-24">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+            {UNITS.map(u => (
+              <SelectItem key={u} value={u}>
+                {u}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       );
     }
     return (
       <button
-        onClick={() => startCellEdit(product.id, 'unit_of_measure', product.unit_of_measure)}
+        onClick={() =>
+          startCellEdit(product.id, "unit_of_measure", product.unit_of_measure)
+        }
         className="text-left hover:bg-slate-100 rounded px-1.5 py-0.5 text-sm transition-colors group text-slate-600"
         title="Click to change unit"
       >
-        {product.unit_of_measure || 'pcs'}
+        {product.unit_of_measure || "pcs"}
         <span className="ml-1 opacity-0 group-hover:opacity-40 text-xs">✎</span>
       </button>
     );
@@ -786,7 +1061,6 @@ export default function AdminProducts({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-
       {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
@@ -797,7 +1071,8 @@ export default function AdminProducts({
             </span>
           </div>
           <p className="text-slate-400 text-xs mt-0.5">
-            Page {page} of {Math.max(totalPages, 1)} · click any cell to edit inline · Tab moves between fields
+            Page {page} of {Math.max(totalPages, 1)} · click any cell to edit
+            inline · Tab moves between fields
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -807,7 +1082,7 @@ export default function AdminProducts({
             title="Reload"
             className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
           <Button
             onClick={() => setSmartPasteOpen(true)}
@@ -819,13 +1094,13 @@ export default function AdminProducts({
             AI Smart Paste
           </Button>
           <Button
-            onClick={() => setShowQuickAdd((v) => !v)}
+            onClick={() => setShowQuickAdd(v => !v)}
             variant="outline"
             size="sm"
             className="gap-1.5 text-sm"
           >
             <Zap className="w-3.5 h-3.5" />
-            {showQuickAdd ? 'Hide quick-add' : 'Quick Add'}
+            {showQuickAdd ? "Hide quick-add" : "Quick Add"}
           </Button>
           <Button
             onClick={handleOpenFullAdd}
@@ -846,19 +1121,39 @@ export default function AdminProducts({
             ref={searchRef}
             placeholder="Search by name…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
             className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
           />
         </div>
-        <Select value={selectedCategory} onValueChange={(v) => { setSelectedCategory(v); setPage(1); }}>
-          <SelectTrigger className="w-44 h-9 bg-slate-50 border-slate-200 text-sm"><SelectValue placeholder="All catalogues" /></SelectTrigger>
+        <Select
+          value={selectedCategory}
+          onValueChange={v => {
+            setSelectedCategory(v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-44 h-9 bg-slate-50 border-slate-200 text-sm">
+            <SelectValue placeholder="All catalogues" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All catalogues</SelectItem>
-            {categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+            {categories.map(cat => (
+              <SelectItem key={cat.id} value={cat.id}>
+                {cat.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        <Select value={status} onValueChange={(v) => { setStatus(v as StatusFilter); setPage(1); }}>
-          <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm"><SelectValue /></SelectTrigger>
+        <Select
+          value={status}
+          onValueChange={v => {
+            setStatus(v as StatusFilter);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All status</SelectItem>
             <SelectItem value="published">Published</SelectItem>
@@ -871,22 +1166,32 @@ export default function AdminProducts({
         {/* Missing-data filter — sourced from v_product_health; ANDs with the
             search/category/status filters above. */}
         <Select
-          value={attentionFilter ?? 'none'}
-          onValueChange={(v) => { onAttentionChange?.(v === 'none' ? null : (v as AttentionFilter)); setPage(1); }}
+          value={attentionFilter ?? "none"}
+          onValueChange={v => {
+            onAttentionChange?.(v === "none" ? null : (v as AttentionFilter));
+            setPage(1);
+          }}
         >
-          <SelectTrigger className={`w-44 h-9 border-slate-200 text-sm ${attentionFilter ? 'bg-amber-50 border-amber-200 text-amber-800 font-semibold' : 'bg-slate-50'}`}>
+          <SelectTrigger
+            className={`w-44 h-9 border-slate-200 text-sm ${attentionFilter ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
+          >
             <SelectValue placeholder="Missing…" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Missing… (all)</SelectItem>
-            {MISSING_FILTERS.map((f) => (
-              <SelectItem key={f} value={f}>{ATTENTION_LABELS[f]}</SelectItem>
+            {MISSING_FILTERS.map(f => (
+              <SelectItem key={f} value={f}>
+                {ATTENTION_LABELS[f]}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         {attentionFilter && (
           <button
-            onClick={() => { onAttentionChange?.(null); setPage(1); }}
+            onClick={() => {
+              onAttentionChange?.(null);
+              setPage(1);
+            }}
             className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 h-9 text-sm font-semibold hover:bg-amber-100"
             title="Clear missing-data filter"
           >
@@ -904,24 +1209,37 @@ export default function AdminProducts({
           <div className="flex flex-wrap items-center gap-2 text-sm">
             {selectAllMatching ? (
               <span className="font-semibold text-slate-800">
-                All <span className="text-red-600">{totalCount.toLocaleString()}</span> matching products selected
+                All{" "}
+                <span className="text-red-600">
+                  {totalCount.toLocaleString()}
+                </span>{" "}
+                matching products selected
               </span>
             ) : (
               <span className="font-semibold text-slate-800">
-                {selected.size} selected{canSelectAllMatching ? ` on this page` : ''}
+                {selected.size} selected
+                {canSelectAllMatching ? ` on this page` : ""}
               </span>
             )}
             {canSelectAllMatching && (
               <>
                 <span className="text-slate-300">·</span>
-                <button onClick={() => setSelectAllMatching(true)} className="font-semibold text-red-600 hover:text-red-700 underline underline-offset-2">
+                <button
+                  onClick={() => setSelectAllMatching(true)}
+                  className="font-semibold text-red-600 hover:text-red-700 underline underline-offset-2"
+                >
                   Select all {totalCount.toLocaleString()} matching the filter
                 </button>
               </>
             )}
             <div className="flex-1" />
-            {bulkBusy && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
-            <button onClick={clearSelection} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800">
+            {bulkBusy && (
+              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+            )}
+            <button
+              onClick={clearSelection}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800"
+            >
               <X className="w-3.5 h-3.5" /> Clear
             </button>
           </div>
@@ -929,30 +1247,124 @@ export default function AdminProducts({
           {/* Actions — each confirms with the exact target count before writing */}
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
             <div className="flex items-center gap-1">
-              <Input value={bulkBrand} onChange={(e) => setBulkBrand(e.target.value)} placeholder="Brand…" className="h-8 w-28 text-sm" disabled={bulkBusy} />
-              <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={doSetBrand}>Set</Button>
+              <Input
+                value={bulkBrand}
+                onChange={e => setBulkBrand(e.target.value)}
+                placeholder="Brand…"
+                className="h-8 w-28 text-sm"
+                disabled={bulkBusy}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                disabled={bulkBusy}
+                onClick={doSetBrand}
+              >
+                Set
+              </Button>
             </div>
             <div className="flex items-center gap-1">
-              <Input type="number" min="1" value={bulkMoq} onChange={(e) => setBulkMoq(e.target.value)} placeholder="MOQ…" className="h-8 w-20 text-sm" disabled={bulkBusy} />
-              <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={doSetMoq}>Set</Button>
+              <Input
+                type="number"
+                min="1"
+                value={bulkMoq}
+                onChange={e => setBulkMoq(e.target.value)}
+                placeholder="MOQ…"
+                className="h-8 w-20 text-sm"
+                disabled={bulkBusy}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                disabled={bulkBusy}
+                onClick={doSetMoq}
+              >
+                Set
+              </Button>
             </div>
-            <Select onValueChange={(v) => doSetUnit(v)} disabled={bulkBusy}>
-              <SelectTrigger className="h-8 w-28 text-sm bg-slate-50"><SelectValue placeholder="Set unit…" /></SelectTrigger>
-              <SelectContent>{UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+            <Select onValueChange={v => doSetUnit(v)} disabled={bulkBusy}>
+              <SelectTrigger className="h-8 w-28 text-sm bg-slate-50">
+                <SelectValue placeholder="Set unit…" />
+              </SelectTrigger>
+              <SelectContent>
+                {UNITS.map(u => (
+                  <SelectItem key={u} value={u}>
+                    {u}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
             <div className="w-44">
-              <CategoryCombobox categories={categories} value="" onChange={(id) => { if (id) doSetCategory(id); }} placeholder="Set category…" className="h-8 text-sm" />
+              <CategoryCombobox
+                categories={categories}
+                value=""
+                onChange={id => {
+                  if (id) doSetCategory(id);
+                }}
+                placeholder="Set category…"
+                className="h-8 text-sm"
+              />
             </div>
             <span className="w-px h-6 bg-slate-200" />
-            <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white" disabled={bulkBusy} onClick={() => doSetStatus('published')}>Publish</Button>
-            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={() => doSetStatus('draft')}>Unpublish</Button>
-            <Button size="sm" variant="outline" className="h-8 text-xs gap-1" disabled={bulkBusy} onClick={() => { setNaSelected([]); setNaDialogOpen(true); }}>
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+              disabled={bulkBusy}
+              onClick={() => doSetStatus("published")}
+            >
+              Publish
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              disabled={bulkBusy}
+              onClick={() => doSetStatus("draft")}
+            >
+              Unpublish
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs gap-1"
+              disabled={bulkBusy}
+              onClick={() => {
+                setNaSelected([]);
+                setNaDialogOpen(true);
+              }}
+            >
               <Ban className="w-3.5 h-3.5" /> N/A
             </Button>
             <span className="w-px h-6 bg-slate-200" />
-            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={() => doSetActive(true)}>Activate</Button>
-            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={bulkBusy} onClick={() => doSetActive(false)}>Deactivate</Button>
-            <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={bulkBusy} onClick={doDelete}>Delete</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              disabled={bulkBusy}
+              onClick={() => doSetActive(true)}
+            >
+              Activate
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              disabled={bulkBusy}
+              onClick={() => doSetActive(false)}
+            >
+              Deactivate
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-8 text-xs"
+              disabled={bulkBusy}
+              onClick={doDelete}
+            >
+              Delete
+            </Button>
           </div>
         </div>
       )}
@@ -964,21 +1376,54 @@ export default function AdminProducts({
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80">
                 <th className="w-10 px-3 py-3">
-                  <Checkbox checked={allPageSelected} onCheckedChange={toggleAll} aria-label="Select all" />
+                  <Checkbox
+                    checked={allPageSelected}
+                    onCheckedChange={toggleAll}
+                    aria-label="Select all"
+                  />
                 </th>
-                <th className="w-14 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Img</th>
-                <th className="px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Name</th>
-                <th className="w-36 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Category</th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Price ₹</th>
-                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">MRP ₹</th>
-                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Unit</th>
-                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Qty</th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Brand</th>
-                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">SKU</th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Group</th>
-                <th className="w-18 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest" title="Completeness: image, price, category, slug, meta title">Score</th>
-                <th className="w-22 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Status</th>
-                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">Actions</th>
+                <th className="w-14 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Img
+                </th>
+                <th className="px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Name
+                </th>
+                <th className="w-36 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Category
+                </th>
+                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Price ₹
+                </th>
+                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  MRP ₹
+                </th>
+                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Unit
+                </th>
+                <th className="w-20 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Qty
+                </th>
+                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Brand
+                </th>
+                <th className="w-24 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  SKU
+                </th>
+                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Group
+                </th>
+                <th
+                  className="w-18 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest"
+                  title="Completeness: image, price, category, slug, meta title"
+                >
+                  Score
+                </th>
+                <th className="w-22 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Status
+                </th>
+                <th className="w-28 px-2 py-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-widest">
+                  Actions
+                </th>
               </tr>
             </thead>
 
@@ -987,10 +1432,11 @@ export default function AdminProducts({
               {showQuickAdd && (
                 <tr className="bg-green-50 border-b-2 border-green-200">
                   <td className="px-3 py-2">
-                    {quickAdding
-                      ? <Loader2 className="w-4 h-4 animate-spin text-green-600" />
-                      : <Check className="w-4 h-4 text-green-400" />
-                    }
+                    {quickAdding ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+                    ) : (
+                      <Check className="w-4 h-4 text-green-400" />
+                    )}
                   </td>
                   {/* Image placeholder */}
                   <td className="px-2 py-2">
@@ -1003,8 +1449,10 @@ export default function AdminProducts({
                     <Input
                       ref={quickNameRef}
                       value={quickAdd.name}
-                      onChange={(e) => setQuickAdd({ ...quickAdd, name: e.target.value })}
-                      onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+                      onChange={e =>
+                        setQuickAdd({ ...quickAdd, name: e.target.value })
+                      }
+                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
                       placeholder="Product name *"
                       className="h-8 text-sm border-green-300 focus:border-green-500"
                       disabled={quickAdding}
@@ -1015,7 +1463,9 @@ export default function AdminProducts({
                     <CategoryCombobox
                       categories={categories}
                       value={quickAdd.category_id}
-                      onChange={(v) => setQuickAdd({ ...quickAdd, category_id: v })}
+                      onChange={v =>
+                        setQuickAdd({ ...quickAdd, category_id: v })
+                      }
                       placeholder="Category *"
                       className="h-8 text-sm border-green-300"
                     />
@@ -1023,10 +1473,14 @@ export default function AdminProducts({
                   {/* Price */}
                   <td className="px-2 py-2">
                     <Input
-                      type="number" step="0.01" min="0"
+                      type="number"
+                      step="0.01"
+                      min="0"
                       value={quickAdd.price}
-                      onChange={(e) => setQuickAdd({ ...quickAdd, price: e.target.value })}
-                      onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+                      onChange={e =>
+                        setQuickAdd({ ...quickAdd, price: e.target.value })
+                      }
+                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
                       placeholder="0.00 *"
                       className="h-8 text-sm border-green-300 w-24"
                       disabled={quickAdding}
@@ -1035,10 +1489,14 @@ export default function AdminProducts({
                   {/* MRP */}
                   <td className="px-2 py-2">
                     <Input
-                      type="number" step="0.01" min="0"
+                      type="number"
+                      step="0.01"
+                      min="0"
                       value={quickAdd.mrp}
-                      onChange={(e) => setQuickAdd({ ...quickAdd, mrp: e.target.value })}
-                      onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+                      onChange={e =>
+                        setQuickAdd({ ...quickAdd, mrp: e.target.value })
+                      }
+                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
                       placeholder="MRP"
                       className="h-8 text-sm border-green-300 w-24"
                       disabled={quickAdding}
@@ -1046,22 +1504,37 @@ export default function AdminProducts({
                   </td>
                   {/* Unit */}
                   <td className="px-2 py-2">
-                    <Select value={quickAdd.unit_of_measure} onValueChange={(v) => setQuickAdd({ ...quickAdd, unit_of_measure: v })}>
+                    <Select
+                      value={quickAdd.unit_of_measure}
+                      onValueChange={v =>
+                        setQuickAdd({ ...quickAdd, unit_of_measure: v })
+                      }
+                    >
                       <SelectTrigger className="h-8 text-sm border-green-300 w-20">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        {UNITS.map(u => (
+                          <SelectItem key={u} value={u}>
+                            {u}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </td>
                   {/* Qty */}
                   <td className="px-2 py-2">
                     <Input
-                      type="number" min="1"
+                      type="number"
+                      min="1"
                       value={quickAdd.quantity_in_unit}
-                      onChange={(e) => setQuickAdd({ ...quickAdd, quantity_in_unit: e.target.value })}
-                      onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+                      onChange={e =>
+                        setQuickAdd({
+                          ...quickAdd,
+                          quantity_in_unit: e.target.value,
+                        })
+                      }
+                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
                       placeholder="Qty"
                       className="h-8 text-sm border-green-300 w-16"
                       disabled={quickAdding}
@@ -1071,8 +1544,10 @@ export default function AdminProducts({
                   <td className="px-2 py-2">
                     <Input
                       value={quickAdd.brand}
-                      onChange={(e) => setQuickAdd({ ...quickAdd, brand: e.target.value })}
-                      onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+                      onChange={e =>
+                        setQuickAdd({ ...quickAdd, brand: e.target.value })
+                      }
+                      onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
                       placeholder="Brand"
                       className="h-8 text-sm border-green-300 w-24"
                       disabled={quickAdding}
@@ -1088,7 +1563,12 @@ export default function AdminProducts({
                   <td className="px-2 py-2" />
                   {/* Status placeholder — quick-add creates drafts */}
                   <td className="px-2 py-2">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700" title="New products start as drafts — publish them when ready">Draft</span>
+                    <span
+                      className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"
+                      title="New products start as drafts — publish them when ready"
+                    >
+                      Draft
+                    </span>
                   </td>
                   {/* Save + cancel */}
                   <td className="px-2 py-2">
@@ -1099,11 +1579,18 @@ export default function AdminProducts({
                         disabled={quickAdding}
                         className="h-8 px-3 bg-green-600 hover:bg-green-700 gap-1"
                       >
-                        {quickAdding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                        {quickAdding ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Check className="w-3 h-3" />
+                        )}
                         Add
                       </Button>
                       <button
-                        onClick={() => { setShowQuickAdd(false); setQuickAdd(QUICK_ADD_DEFAULTS); }}
+                        onClick={() => {
+                          setShowQuickAdd(false);
+                          setQuickAdd(QUICK_ADD_DEFAULTS);
+                        }}
                         className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
                       >
                         <X className="w-4 h-4" />
@@ -1123,280 +1610,408 @@ export default function AdminProducts({
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="text-center py-12 text-slate-400">No products found</td>
+                  <td colSpan={14} className="text-center py-12 text-slate-400">
+                    No products found
+                  </td>
                 </tr>
-              ) : products.map((product) => {
-                const isMenuOpen = menuOpenProductId === product.id;
-                return (
-                  <ContextMenu key={product.id} onOpenChange={(open) => setMenuOpenProductId(open ? product.id : null)}>
-                    <ContextMenuTrigger asChild>
-                      <tr
-                        className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${selected.has(product.id) ? 'bg-red-50 hover:bg-red-50' : ''} ${isMenuOpen ? 'bg-red-50/40 ring-1 ring-red-200' : ''}`}
-                      >
-                        <td className="px-3 py-2">
-                          <Checkbox checked={selected.has(product.id)} onCheckedChange={() => toggleOne(product.id)} />
-                        </td>
-                        {/* Image — click to open gallery */}
-                        <td className="px-2 py-2">
-                          <button onClick={() => setGalleryProduct(product)} title="Manage images" className="block">
-                            {product.image_url ? (
-                              <img
-                                src={normalizeImageUrl(product.image_url)}
-                                alt={product.image_alt_text || product.name}
-                                className="w-11 h-11 object-cover rounded-lg border hover:ring-2 ring-red-400 transition-all"
-                              />
-                            ) : (
-                              <div className="w-11 h-11 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300 hover:border-red-400 hover:bg-red-50 transition-colors">
-                                <ImageIcon className="w-4 h-4 text-slate-300" />
-                              </div>
-                            )}
-                          </button>
-                        </td>
-                        {/* Name */}
-                        <td className="px-2 py-2 max-w-[240px]">
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex-1 min-w-[120px]">
-                              {renderTextCell(product, 'name', 'Enter name')}
-                            </div>
-                            {product.master_id && (
-                              <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-200 select-none flex-shrink-0">
-                                variant
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        {/* Category */}
-                        <td className="px-2 py-2">
-                          {renderCategoryCell(product)}
-                        </td>
-                        {/* Price */}
-                        <td className="px-2 py-2">
-                          {renderNumberCell(product, 'price', '₹')}
-                        </td>
-                        {/* MRP */}
-                        <td className="px-2 py-2">
-                          {renderNumberCell(product, 'mrp', '₹', '—')}
-                        </td>
-                        {/* Unit */}
-                        <td className="px-2 py-2">
-                          {renderUnitCell(product)}
-                        </td>
-                        {/* Qty */}
-                        <td className="px-2 py-2">
-                          {isEditing(product.id, 'quantity_in_unit') ? (
-                            <div className="flex items-center gap-1">
-                              <Input
-                                ref={cellInputRef}
-                                type="number" min="1"
-                                value={cellEdit!.value}
-                                onChange={(e) => setCellEdit({ ...cellEdit!, value: e.target.value })}
-                                onKeyDown={handleCellKey}
-                                onBlur={saveCellEdit}
-                                className="h-8 text-sm w-16"
-                                disabled={cellSaving}
-                              />
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => startCellEdit(product.id, 'quantity_in_unit', product.quantity_in_unit)}
-                              className="text-left hover:bg-slate-100 rounded px-1.5 py-0.5 text-sm transition-colors group text-slate-600"
-                            >
-                              {product.quantity_in_unit || <span className="text-slate-300 italic">—</span>}
-                              <span className="ml-1 opacity-0 group-hover:opacity-40 text-xs">✎</span>
-                            </button>
-                          )}
-                        </td>
-                        {/* Brand */}
-                        <td className="px-2 py-2 max-w-[110px]">
-                          {renderTextCell(product, 'brand', 'Brand')}
-                        </td>
-                        {/* SKU — read-only in table */}
-                        <td className="px-2 py-2">
-                          <span className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                            {product.sku || <span className="text-slate-300 italic font-sans">—</span>}
-                          </span>
-                        </td>
-                        {/* Group */}
-                        <td className="px-2 py-2">
-                          <span className="text-xs text-slate-500">
-                            {getCategoryGroup(product.category_id) ?? <span className="text-slate-300">—</span>}
-                          </span>
-                        </td>
-                        {/* Completeness score */}
-                        <td className="px-2 py-2">
-                          {(() => {
-                            const { score, missing } = productCompleteness(product);
-                            return (
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${completenessColor(score)}`}
-                                title={missing.length ? `Missing: ${missing.join(', ')}` : 'Complete'}
-                              >
-                                {score}%
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        {/* Status: publish state badge + active toggle */}
-                        <td className="px-2 py-2">
-                          <div className="flex flex-col items-start gap-1">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap border ${
-                                product.status === 'published'
-                                  ? 'bg-green-50 text-green-700 border-green-200'
-                                  : 'bg-amber-50 text-amber-700 border-amber-200'
-                              }`}
-                              title={product.status === 'published' ? 'Live on the storefront' : 'Hidden — not on the storefront'}
-                            >
-                              {product.status === 'published' ? 'Published' : 'Draft'}
-                            </span>
-                            <button
-                              onClick={() => handleToggleActive(product.id, product.is_active)}
-                              title="Click to toggle active"
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap border ${
-                                product.is_active
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                  : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                              }`}
-                            >
-                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${product.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                              {product.is_active ? 'Active' : 'Inactive'}
-                            </button>
-                          </div>
-                        </td>
-                        {/* Actions */}
-                        <td className="px-2 py-2">
-                          <div className="flex items-center gap-0.5">
-                            {product.status !== 'published' && (
-                              <button
-                                onClick={() => handlePublish(product.id)}
-                                title="Publish to website"
-                                className="p-1.5 rounded hover:bg-green-50 text-green-600"
-                              >
-                                <Power className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleToggleFeatured(product.id, product.is_featured)}
-                              title={product.is_featured ? 'Unfeature' : 'Feature'}
-                              className={`p-1.5 rounded hover:bg-slate-100 transition-colors ${product.is_featured ? 'text-amber-500' : 'text-slate-300 hover:text-slate-500'}`}
-                            >
-                              <Star className="w-3.5 h-3.5" fill={product.is_featured ? 'currentColor' : 'none'} />
-                            </button>
-                            <button
-                              onClick={() => handleOpenFullEdit(product)}
-                              title="Full edit (description, images)"
-                              className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
+              ) : (
+                products.map(product => {
+                  const isMenuOpen = menuOpenProductId === product.id;
+                  return (
+                    <ContextMenu
+                      key={product.id}
+                      onOpenChange={open =>
+                        setMenuOpenProductId(open ? product.id : null)
+                      }
+                    >
+                      <ContextMenuTrigger asChild>
+                        <tr
+                          className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${selected.has(product.id) ? "bg-red-50 hover:bg-red-50" : ""} ${isMenuOpen ? "bg-red-50/40 ring-1 ring-red-200" : ""}`}
+                        >
+                          <td className="px-3 py-2">
+                            <Checkbox
+                              checked={selected.has(product.id)}
+                              onCheckedChange={() => toggleOne(product.id)}
+                            />
+                          </td>
+                          {/* Image — click to open gallery */}
+                          <td className="px-2 py-2">
                             <button
                               onClick={() => setGalleryProduct(product)}
                               title="Manage images"
-                              className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
+                              className="block"
                             >
-                              <Images className="w-3.5 h-3.5" />
+                              {product.image_url ? (
+                                <img
+                                  src={normalizeImageUrl(product.image_url)}
+                                  alt={product.image_alt_text || product.name}
+                                  className="w-11 h-11 object-cover rounded-lg border hover:ring-2 ring-red-400 transition-all"
+                                />
+                              ) : (
+                                <div className="w-11 h-11 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300 hover:border-red-400 hover:bg-red-50 transition-colors">
+                                  <ImageIcon className="w-4 h-4 text-slate-300" />
+                                </div>
+                              )}
                             </button>
-                            <button
-                              onClick={() => handleDuplicate(product)}
-                              title="Duplicate"
-                              className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(product.id)}
-                              className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent className="w-56">
-                      <ContextMenuItem onClick={() => handleOpenFullEdit(product)} className="gap-2">
-                        <Edit2 className="w-4 h-4 text-slate-500" />
-                        <span>Edit Details</span>
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => setGalleryProduct(product)} className="gap-2">
-                        <Images className="w-4 h-4 text-slate-500" />
-                        <span>Manage Images</span>
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => handleDuplicate(product)} className="gap-2">
-                        <Copy className="w-4 h-4 text-slate-500" />
-                        <span>Duplicate</span>
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => window.open(`/product/${product.id}`, '_blank')} className="gap-2">
-                        <ExternalLink className="w-4 h-4 text-slate-500" />
-                        <span>View Live Page</span>
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      {product.status !== 'published' && (
-                        <ContextMenuItem onClick={() => handlePublish(product.id)} className="gap-2 text-green-700 focus:text-green-800 focus:bg-green-50">
-                          <Power className="w-4 h-4 text-green-600" />
-                          <span>Publish to website</span>
+                          </td>
+                          {/* Name */}
+                          <td className="px-2 py-2 max-w-[240px]">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 min-w-[120px]">
+                                {renderTextCell(product, "name", "Enter name")}
+                              </div>
+                              {product.master_id && (
+                                <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-200 select-none flex-shrink-0">
+                                  variant
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          {/* Category */}
+                          <td className="px-2 py-2">
+                            {renderCategoryCell(product)}
+                          </td>
+                          {/* Price */}
+                          <td className="px-2 py-2">
+                            {renderNumberCell(product, "price", "₹")}
+                          </td>
+                          {/* MRP */}
+                          <td className="px-2 py-2">
+                            {renderNumberCell(product, "mrp", "₹", "—")}
+                          </td>
+                          {/* Unit */}
+                          <td className="px-2 py-2">
+                            {renderUnitCell(product)}
+                          </td>
+                          {/* Qty */}
+                          <td className="px-2 py-2">
+                            {isEditing(product.id, "quantity_in_unit") ? (
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  ref={cellInputRef}
+                                  type="number"
+                                  min="1"
+                                  value={cellEdit!.value}
+                                  onChange={e =>
+                                    setCellEdit({
+                                      ...cellEdit!,
+                                      value: e.target.value,
+                                    })
+                                  }
+                                  onKeyDown={handleCellKey}
+                                  onBlur={saveCellEdit}
+                                  className="h-8 text-sm w-16"
+                                  disabled={cellSaving}
+                                />
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  startCellEdit(
+                                    product.id,
+                                    "quantity_in_unit",
+                                    product.quantity_in_unit
+                                  )
+                                }
+                                className="text-left hover:bg-slate-100 rounded px-1.5 py-0.5 text-sm transition-colors group text-slate-600"
+                              >
+                                {product.quantity_in_unit || (
+                                  <span className="text-slate-300 italic">
+                                    —
+                                  </span>
+                                )}
+                                <span className="ml-1 opacity-0 group-hover:opacity-40 text-xs">
+                                  ✎
+                                </span>
+                              </button>
+                            )}
+                          </td>
+                          {/* Brand */}
+                          <td className="px-2 py-2 max-w-[110px]">
+                            {renderTextCell(product, "brand", "Brand")}
+                          </td>
+                          {/* SKU — read-only in table */}
+                          <td className="px-2 py-2">
+                            <span className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {product.sku || (
+                                <span className="text-slate-300 italic font-sans">
+                                  —
+                                </span>
+                              )}
+                            </span>
+                          </td>
+                          {/* Group */}
+                          <td className="px-2 py-2">
+                            <span className="text-xs text-slate-500">
+                              {getCategoryGroup(product.category_id) ?? (
+                                <span className="text-slate-300">—</span>
+                              )}
+                            </span>
+                          </td>
+                          {/* Completeness score */}
+                          <td className="px-2 py-2">
+                            {(() => {
+                              const { score, missing } =
+                                productCompleteness(product);
+                              return (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${completenessColor(score)}`}
+                                  title={
+                                    missing.length
+                                      ? `Missing: ${missing.join(", ")}`
+                                      : "Complete"
+                                  }
+                                >
+                                  {score}%
+                                </span>
+                              );
+                            })()}
+                          </td>
+                          {/* Status: publish state badge + active toggle */}
+                          <td className="px-2 py-2">
+                            <div className="flex flex-col items-start gap-1">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap border ${
+                                  product.status === "published"
+                                    ? "bg-green-50 text-green-700 border-green-200"
+                                    : "bg-amber-50 text-amber-700 border-amber-200"
+                                }`}
+                                title={
+                                  product.status === "published"
+                                    ? "Live on the storefront"
+                                    : "Hidden — not on the storefront"
+                                }
+                              >
+                                {product.status === "published"
+                                  ? "Published"
+                                  : "Draft"}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  handleToggleActive(
+                                    product.id,
+                                    product.is_active
+                                  )
+                                }
+                                title="Click to toggle active"
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap border ${
+                                  product.is_active
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                                }`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${product.is_active ? "bg-emerald-500" : "bg-slate-400"}`}
+                                />
+                                {product.is_active ? "Active" : "Inactive"}
+                              </button>
+                            </div>
+                          </td>
+                          {/* Actions */}
+                          <td className="px-2 py-2">
+                            <div className="flex items-center gap-0.5">
+                              {product.status !== "published" && (
+                                <button
+                                  onClick={() => handlePublish(product.id)}
+                                  title="Publish to website"
+                                  className="p-1.5 rounded hover:bg-green-50 text-green-600"
+                                >
+                                  <Power className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() =>
+                                  handleToggleFeatured(
+                                    product.id,
+                                    product.is_featured
+                                  )
+                                }
+                                title={
+                                  product.is_featured ? "Unfeature" : "Feature"
+                                }
+                                className={`p-1.5 rounded hover:bg-slate-100 transition-colors ${product.is_featured ? "text-amber-500" : "text-slate-300 hover:text-slate-500"}`}
+                              >
+                                <Star
+                                  className="w-3.5 h-3.5"
+                                  fill={
+                                    product.is_featured
+                                      ? "currentColor"
+                                      : "none"
+                                  }
+                                />
+                              </button>
+                              <button
+                                onClick={() => handleOpenFullEdit(product)}
+                                title="Full edit (description, images)"
+                                className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setGalleryProduct(product)}
+                                title="Manage images"
+                                className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
+                              >
+                                <Images className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDuplicate(product)}
+                                title="Duplicate"
+                                className="p-1.5 hover:bg-slate-100 rounded text-slate-500"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(product.id)}
+                                className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent className="w-56">
+                        <ContextMenuItem
+                          onClick={() => handleOpenFullEdit(product)}
+                          className="gap-2"
+                        >
+                          <Edit2 className="w-4 h-4 text-slate-500" />
+                          <span>Edit Details</span>
                         </ContextMenuItem>
-                      )}
-                      <ContextMenuItem onClick={() => handleToggleActive(product.id, product.is_active)} className="gap-2">
-                        <Power className="w-4 h-4 text-slate-500" />
-                        <span>{product.is_active ? 'Set as Inactive' : 'Set as Active'}</span>
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => handleToggleFeatured(product.id, product.is_featured)} className="gap-2">
-                        <Star className="w-4 h-4 text-slate-500" fill={product.is_featured ? 'currentColor' : 'none'} />
-                        <span>{product.is_featured ? 'Remove Featured' : 'Mark as Featured'}</span>
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuSub>
-                        <ContextMenuSubTrigger className="gap-2">
+                        <ContextMenuItem
+                          onClick={() => setGalleryProduct(product)}
+                          className="gap-2"
+                        >
+                          <Images className="w-4 h-4 text-slate-500" />
+                          <span>Manage Images</span>
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onClick={() => handleDuplicate(product)}
+                          className="gap-2"
+                        >
                           <Copy className="w-4 h-4 text-slate-500" />
-                          <span>Copy Info</span>
-                        </ContextMenuSubTrigger>
-                        <ContextMenuSubContent className="w-48">
-                          <ContextMenuItem onClick={() => {
-                            if (product.sku) {
-                              navigator.clipboard.writeText(product.sku);
-                              toast.success('SKU copied!');
-                            } else {
-                              toast.error('No SKU available');
-                            }
-                          }}>
-                            Copy SKU
+                          <span>Duplicate</span>
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onClick={() =>
+                            window.open(`/product/${product.id}`, "_blank")
+                          }
+                          className="gap-2"
+                        >
+                          <ExternalLink className="w-4 h-4 text-slate-500" />
+                          <span>View Live Page</span>
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        {product.status !== "published" && (
+                          <ContextMenuItem
+                            onClick={() => handlePublish(product.id)}
+                            className="gap-2 text-green-700 focus:text-green-800 focus:bg-green-50"
+                          >
+                            <Power className="w-4 h-4 text-green-600" />
+                            <span>Publish to website</span>
                           </ContextMenuItem>
-                          <ContextMenuItem onClick={() => {
-                            navigator.clipboard.writeText(product.name);
-                            toast.success('Product name copied!');
-                          }}>
-                            Copy Name
-                          </ContextMenuItem>
-                          <ContextMenuItem onClick={() => {
-                            if (product.price != null) {
-                              navigator.clipboard.writeText(product.price.toString());
-                              toast.success('Price copied!');
-                            }
-                          }}>
-                            Copy Price (₹)
-                          </ContextMenuItem>
-                          <ContextMenuItem onClick={() => {
-                            if (product.image_url) {
-                              navigator.clipboard.writeText(product.image_url);
-                              toast.success('Image URL copied!');
-                            } else {
-                              toast.error('No image URL available');
-                            }
-                          }}>
-                            Copy Image URL
-                          </ContextMenuItem>
-                        </ContextMenuSubContent>
-                      </ContextMenuSub>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem onClick={() => handleDelete(product.id)} className="gap-2 text-red-600 focus:text-red-700 focus:bg-red-50">
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                        <span>Delete Product</span>
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                );
-              })}
+                        )}
+                        <ContextMenuItem
+                          onClick={() =>
+                            handleToggleActive(product.id, product.is_active)
+                          }
+                          className="gap-2"
+                        >
+                          <Power className="w-4 h-4 text-slate-500" />
+                          <span>
+                            {product.is_active
+                              ? "Set as Inactive"
+                              : "Set as Active"}
+                          </span>
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onClick={() =>
+                            handleToggleFeatured(
+                              product.id,
+                              product.is_featured
+                            )
+                          }
+                          className="gap-2"
+                        >
+                          <Star
+                            className="w-4 h-4 text-slate-500"
+                            fill={product.is_featured ? "currentColor" : "none"}
+                          />
+                          <span>
+                            {product.is_featured
+                              ? "Remove Featured"
+                              : "Mark as Featured"}
+                          </span>
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuSub>
+                          <ContextMenuSubTrigger className="gap-2">
+                            <Copy className="w-4 h-4 text-slate-500" />
+                            <span>Copy Info</span>
+                          </ContextMenuSubTrigger>
+                          <ContextMenuSubContent className="w-48">
+                            <ContextMenuItem
+                              onClick={() => {
+                                if (product.sku) {
+                                  navigator.clipboard.writeText(product.sku);
+                                  toast.success("SKU copied!");
+                                } else {
+                                  toast.error("No SKU available");
+                                }
+                              }}
+                            >
+                              Copy SKU
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => {
+                                navigator.clipboard.writeText(product.name);
+                                toast.success("Product name copied!");
+                              }}
+                            >
+                              Copy Name
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => {
+                                if (product.price != null) {
+                                  navigator.clipboard.writeText(
+                                    product.price.toString()
+                                  );
+                                  toast.success("Price copied!");
+                                }
+                              }}
+                            >
+                              Copy Price (₹)
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => {
+                                if (product.image_url) {
+                                  navigator.clipboard.writeText(
+                                    product.image_url
+                                  );
+                                  toast.success("Image URL copied!");
+                                } else {
+                                  toast.error("No image URL available");
+                                }
+                              }}
+                            >
+                              Copy Image URL
+                            </ContextMenuItem>
+                          </ContextMenuSubContent>
+                        </ContextMenuSub>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem
+                          onClick={() => handleDelete(product.id)}
+                          className="gap-2 text-red-600 focus:text-red-700 focus:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                          <span>Delete Product</span>
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -1405,15 +2020,33 @@ export default function AdminProducts({
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50">
             <p className="text-sm text-slate-500">
-              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount.toLocaleString()}
+              Showing {(page - 1) * PAGE_SIZE + 1}–
+              {Math.min(page * PAGE_SIZE, totalCount)} of{" "}
+              {totalCount.toLocaleString()}
             </p>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="gap-1">
-                <ChevronLeft className="w-4 h-4" />Prev
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="gap-1"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Prev
               </Button>
-              <span className="text-sm font-medium text-slate-700 px-2">{page} / {totalPages}</span>
-              <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="gap-1">
-                Next<ChevronRight className="w-4 h-4" />
+              <span className="text-sm font-medium text-slate-700 px-2">
+                {page} / {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="gap-1"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -1426,7 +2059,11 @@ export default function AdminProducts({
         open={!!galleryProduct}
         onClose={() => setGalleryProduct(null)}
         onPrimaryChanged={(productId, newUrl) => {
-          setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, image_url: newUrl } : p));
+          setProducts(prev =>
+            prev.map(p =>
+              p.id === productId ? { ...p, image_url: newUrl } : p
+            )
+          );
         }}
       />
 
@@ -1438,23 +2075,35 @@ export default function AdminProducts({
         onAutofill={handleAutofill}
       />
 
-      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <KeyboardShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+      />
 
       {/* ── Bulk "Not applicable" dialog ──────────────────────────────────────── */}
       {/* Marks the picked field(s) as N/A across the selected products so
           v_product_health stops counting them as missing (and the storefront
           treats a blank brand/specs/etc. as intentional, not incomplete). */}
-      <Dialog open={naDialogOpen} onOpenChange={(open) => { if (!open) { setNaDialogOpen(false); setNaSelected([]); } }}>
+      <Dialog
+        open={naDialogOpen}
+        onOpenChange={open => {
+          if (!open) {
+            setNaDialogOpen(false);
+            setNaSelected([]);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Mark fields “Not applicable”</DialogTitle>
             <DialogDescription>
-              Pick which fields don’t apply to {selectionCount.toLocaleString()} selected product{selectionCount === 1 ? '' : 's'}.
-              Marking N/A stops these from showing as “missing data”.
+              Pick which fields don’t apply to {selectionCount.toLocaleString()}{" "}
+              selected product{selectionCount === 1 ? "" : "s"}. Marking N/A
+              stops these from showing as “missing data”.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-2">
-            {NA_FIELDS.map((f) => {
+            {NA_FIELDS.map(f => {
               const checked = naSelected.includes(f.key);
               return (
                 <label
@@ -1464,8 +2113,10 @@ export default function AdminProducts({
                   <Checkbox
                     checked={checked}
                     onCheckedChange={() =>
-                      setNaSelected((prev) =>
-                        prev.includes(f.key) ? prev.filter((k) => k !== f.key) : [...prev, f.key]
+                      setNaSelected(prev =>
+                        prev.includes(f.key)
+                          ? prev.filter(k => k !== f.key)
+                          : [...prev, f.key]
                       )
                     }
                   />
@@ -1475,13 +2126,31 @@ export default function AdminProducts({
             })}
           </div>
           <div className="flex items-center justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" disabled={bulkBusy} onClick={() => { setNaDialogOpen(false); setNaSelected([]); }}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={bulkBusy}
+              onClick={() => {
+                setNaDialogOpen(false);
+                setNaSelected([]);
+              }}
+            >
               Cancel
             </Button>
-            <Button variant="outline" size="sm" disabled={bulkBusy || !naSelected.length} onClick={() => doSetNA(false)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={bulkBusy || !naSelected.length}
+              onClick={() => doSetNA(false)}
+            >
               Clear N/A
             </Button>
-            <Button size="sm" className="bg-slate-800 hover:bg-slate-900 text-white gap-1" disabled={bulkBusy || !naSelected.length} onClick={() => doSetNA(true)}>
+            <Button
+              size="sm"
+              className="bg-slate-800 hover:bg-slate-900 text-white gap-1"
+              disabled={bulkBusy || !naSelected.length}
+              onClick={() => doSetNA(true)}
+            >
               <Ban className="w-3.5 h-3.5" /> Mark N/A
             </Button>
           </div>

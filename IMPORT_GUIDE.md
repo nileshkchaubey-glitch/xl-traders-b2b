@@ -67,10 +67,12 @@ npx ts-node scripts/import-from-sheet.ts
 ## Database Schema
 
 ### Categories Table
+
 - 21 product categories (Round Container, Paper Box, etc.)
 - Each category has an emoji icon and display order
 
 ### Products Table
+
 - Product name, category, description
 - Price (₹ format converted to decimal)
 - Image URL and alt text
@@ -78,17 +80,20 @@ npx ts-node scripts/import-from-sheet.ts
 - Created/Updated timestamps
 
 ### Product Images Table
+
 - Multiple images per product
 - Alt text and description for each image
 - Display order for gallery
 
 ### User Profiles Table
+
 - User authentication data
 - Company information
 - GST number
 - Admin flag
 
 ### Enquiries Table
+
 - Customer enquiries for products
 - WhatsApp integration
 - Status tracking
@@ -97,34 +102,38 @@ npx ts-node scripts/import-from-sheet.ts
 
 The database is configured with RLS policies:
 
-| Table | Public Read | Authenticated | Admin Only |
-|-------|-------------|---------------|-----------|
-| Categories | ✓ | ✓ | CRUD |
-| Products | ✓ | ✓ | CRUD |
-| Product Images | ✓ | ✓ | CRUD |
-| User Profiles | Own only | Own | All |
-| Enquiries | Own only | Own | All |
+| Table          | Public Read | Authenticated | Admin Only |
+| -------------- | ----------- | ------------- | ---------- |
+| Categories     | ✓           | ✓             | CRUD       |
+| Products       | ✓           | ✓             | CRUD       |
+| Product Images | ✓           | ✓             | CRUD       |
+| User Profiles  | Own only    | Own           | All        |
+| Enquiries      | Own only    | Own           | All        |
 
 **Price Protection**: Prices are visible to all users (no hiding). To hide prices until login, modify the RLS policy in the SQL file.
 
 ## Troubleshooting
 
 ### "Missing Supabase credentials"
+
 - Check `.env.local` file exists
 - Verify `VITE_SUPABASE_URL` and keys are correct
 - Restart dev server after adding .env.local
 
 ### "Category not found"
+
 - The category must exist in the database first
 - Run the SQL migration to create all 21 categories
 - Check category names match exactly
 
 ### "Failed to download image"
+
 - Google Drive link might be expired
 - Check the image_download_link in the sheet
 - Verify Google Drive folder is publicly accessible
 
 ### "Storage bucket not found"
+
 - Create the bucket manually in Supabase dashboard
 - Name must be: `product-images`
 - Must be set to **Public**
@@ -159,6 +168,7 @@ Products are matched by name. If the name changes, it creates a new product.
 ### Automatic Image Processing
 
 The import script:
+
 1. Downloads images from Google Drive
 2. Uploads to Supabase Storage
 3. Generates public URLs
@@ -191,17 +201,17 @@ product-images/
 
 ```typescript
 const { data: products } = await supabase
-  .from('products')
-  .select('*')
-  .eq('is_active', true);
+  .from("products")
+  .select("*")
+  .eq("is_active", true);
 ```
 
 ### Search Products
 
 ```typescript
 const { data } = await supabase
-  .from('products')
-  .select('*')
+  .from("products")
+  .select("*")
   .or(`name.ilike.%query%,description.ilike.%query%`);
 ```
 
@@ -209,38 +219,36 @@ const { data } = await supabase
 
 ```typescript
 const { data } = await supabase
-  .from('products')
-  .select('*')
-  .eq('category_id', categoryId);
+  .from("products")
+  .select("*")
+  .eq("category_id", categoryId);
 ```
 
 ### Create Enquiry
 
 ```typescript
-const { data } = await supabase
-  .from('enquiries')
-  .insert({
-    product_id: productId,
-    customer_name: 'John Doe',
-    customer_email: 'john@example.com',
-    customer_phone: '9773239442',
-    quantity_requested: 100,
-    message: 'Interested in bulk order',
-  });
+const { data } = await supabase.from("enquiries").insert({
+  product_id: productId,
+  customer_name: "John Doe",
+  customer_email: "john@example.com",
+  customer_phone: "9773239442",
+  quantity_requested: 100,
+  message: "Interested in bulk order",
+});
 ```
 
 ## CSV Format Reference
 
 The Google Sheet must have these columns:
 
-| Column | Type | Example |
-|--------|------|---------|
-| item_name | Text | "50ml Attach Lid container (2550 pcs)" |
-| category | Text | "Round Container" |
-| description | Text | "Food-grade container" |
-| price | Text | "₹3,187.00" |
-| image_download_link | URL | "https://drive.google.com/uc?export=download&id=..." |
-| image_file_name | Text | "50ml_Attach_Lid_container.jpg" |
+| Column              | Type | Example                                              |
+| ------------------- | ---- | ---------------------------------------------------- |
+| item_name           | Text | "50ml Attach Lid container (2550 pcs)"               |
+| category            | Text | "Round Container"                                    |
+| description         | Text | "Food-grade container"                               |
+| price               | Text | "₹3,187.00"                                          |
+| image_download_link | URL  | "https://drive.google.com/uc?export=download&id=..." |
+| image_file_name     | Text | "50ml_Attach_Lid_container.jpg"                      |
 
 ## Performance Notes
 
@@ -250,6 +258,7 @@ The Google Sheet must have these columns:
 - Total time: ~5 minutes
 
 To speed up:
+
 1. Use Python script (faster than TypeScript)
 2. Increase `BATCH_SIZE` in import script
 3. Use service role key (faster than anon key)
@@ -267,6 +276,7 @@ To speed up:
 ## Support
 
 For issues:
+
 1. Check the troubleshooting section above
 2. Verify Supabase credentials
 3. Check database tables exist

@@ -1,7 +1,7 @@
 # XL Traders B2B Project Monitor Automation
 
 Review date: 2026-05-31  
-Live site: https://animated-cuchufli-dd5a16.netlify.app/  
+Live site: https://xl-traders-b2b.pages.dev/  
 Repository: https://github.com/nileshkchaubey-glitch/xl-traders-b2b
 
 ## Automation objective
@@ -11,7 +11,7 @@ Monitor the XL Traders B2B catalog and admin platform for changes that affect pr
 ## Recommended check-in schedule
 
 - **Weekly roadmap review:** Monday morning before business planning.
-- **Deployment review:** After each production deploy from GitHub to Netlify.
+- **Deployment review:** After each production deploy from GitHub to Cloudflare Pages.
 - **Incident review:** Immediately when product data, image loading, authentication, admin access, or WhatsApp enquiry flows appear degraded.
 
 ## What the monitor should watch
@@ -86,7 +86,7 @@ Monitor for:
 - Bundle size increases after roadmap feature work.
 - Homepage and catalog loading delays on mobile networks.
 - Supabase query failures silently falling back to demo data.
-- Missing or misconfigured Netlify environment variables.
+- Missing or misconfigured Cloudflare Pages environment variables.
 - TypeScript checks failing before deploy.
 - Dependency vulnerabilities once audit access is available in CI.
 
@@ -109,7 +109,6 @@ Current roadmap items:
 - Admin pagination, inline edit, and bulk actions for larger catalogs.
 - Image migration from Google Drive thumbnails to Supabase Storage.
 - Custom domain setup.
-- Cleanup of leftover Manus files.
 
 Recommended roadmap order:
 
@@ -117,7 +116,7 @@ Recommended roadmap order:
 2. **Catalog trust foundation:** image migration, responsive image variants, alt text completeness, broken-image reporting.
 3. **Buyer conversion:** enquiry tracking dashboard, WhatsApp enquiry attribution, product-detail enquiry history.
 4. **Operations:** supplier management, supplier-product linking, stock/availability notes.
-5. **Production polish:** custom domain, analytics configuration, stale Manus file cleanup, CI checks.
+5. **Production polish:** custom domain, analytics configuration, CI checks.
 
 ## Suggested automation report format
 
@@ -132,20 +131,20 @@ Each monitor run should report:
 
 ## Current priority backlog
 
-| Priority | Update | Why it matters | Suggested next step |
-| --- | --- | --- | --- |
-| P0 | Fix TypeScript checks | Prevents hidden regressions and makes CI trustworthy | Add missing types/deps and adjust TS target/downlevel iteration |
-| P0 | Make analytics script conditional | Avoids unresolved production placeholders and build warnings | Render analytics only when endpoint and website ID exist |
-| P1 | Improve product grid images | Better buyer confidence and mobile catalog browsing | Use `object-contain`, aspect ratio, responsive dimensions, and image status checks |
-| P1 | Streamline add-product flow | Reduces admin time for similar packaging SKUs | Add duplicate product, templates, validation, and category defaults |
-| P1 | Code-split heavy routes | Improves initial page load and catalog responsiveness | Dynamic import admin, auth, detail, and bulk import pages |
-| P1 | Add admin pagination/bulk actions | Keeps admin usable as catalog grows beyond 500 products | Implement server-backed pagination and batch operations |
-| P2 | Migrate Google Drive images | Improves reliability, cacheability, and image control | Batch import images into Supabase Storage and rewrite product URLs |
-| P2 | Add inquiry tracking | Improves sales follow-up | Build enquiry dashboard with status, source, and product context |
-| P2 | Custom domain | Improves brand trust | Configure `xltraders.in` after core stability checks pass |
+| Priority | Update                            | Why it matters                                               | Suggested next step                                                                |
+| -------- | --------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| P0       | Fix TypeScript checks             | Prevents hidden regressions and makes CI trustworthy         | Add missing types/deps and adjust TS target/downlevel iteration                    |
+| P0       | Make analytics script conditional | Avoids unresolved production placeholders and build warnings | Render analytics only when endpoint and website ID exist                           |
+| P1       | Improve product grid images       | Better buyer confidence and mobile catalog browsing          | Use `object-contain`, aspect ratio, responsive dimensions, and image status checks |
+| P1       | Streamline add-product flow       | Reduces admin time for similar packaging SKUs                | Add duplicate product, templates, validation, and category defaults                |
+| P1       | Code-split heavy routes           | Improves initial page load and catalog responsiveness        | Dynamic import admin, auth, detail, and bulk import pages                          |
+| P1       | Add admin pagination/bulk actions | Keeps admin usable as catalog grows beyond 500 products      | Implement server-backed pagination and batch operations                            |
+| P2       | Migrate Google Drive images       | Improves reliability, cacheability, and image control        | Batch import images into Supabase Storage and rewrite product URLs                 |
+| P2       | Add inquiry tracking              | Improves sales follow-up                                     | Build enquiry dashboard with status, source, and product context                   |
+| P2       | Custom domain                     | Improves brand trust                                         | Configure `xltraders.in` after core stability checks pass                          |
 
 ## Monitor prompt draft
 
 Use this prompt when creating the Project monitor automation:
 
-> Review the XL Traders B2B live site and repository. Focus on admin product-addition efficiency, product grid image quality/responsiveness, roadmap progress, build/type-check health, performance risks, Supabase/catalog reliability, and buyer UX. Prioritize issues as P0/P1/P2, explain business impact, and recommend the smallest practical next changes. Check weekly on Monday morning, after each Netlify production deploy, and immediately if product data, images, authentication, admin access, or WhatsApp enquiries appear degraded.
+> Review the XL Traders B2B live site and repository. Focus on admin product-addition efficiency, product grid image quality/responsiveness, roadmap progress, build/type-check health, performance risks, Supabase/catalog reliability, and buyer UX. Prioritize issues as P0/P1/P2, explain business impact, and recommend the smallest practical next changes. Check weekly on Monday morning, after each Cloudflare Pages production deploy, and immediately if product data, images, authentication, admin access, or WhatsApp enquiries appear degraded.

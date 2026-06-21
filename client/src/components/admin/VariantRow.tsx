@@ -1,12 +1,18 @@
-import { useState, useEffect, useRef } from 'react';
-import { Check, X, Edit2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { masterService } from '@/lib/masterService';
+import { useState, useEffect, useRef } from "react";
+import { Check, X, Edit2 } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { masterService } from "@/lib/masterService";
 
-const UNITS = ['pcs', 'box', 'pack', 'roll', 'kg', 'litre', 'set'];
+const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
 
 interface VariantRowProps {
   masterId: string;
@@ -15,14 +21,19 @@ interface VariantRowProps {
   onCancel: () => void;
 }
 
-export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }: VariantRowProps) {
-  const [label, setLabel] = useState('');
-  const [sku, setSku] = useState('');
+export default function VariantRow({
+  masterId,
+  masterSlug,
+  onSuccess,
+  onCancel,
+}: VariantRowProps) {
+  const [label, setLabel] = useState("");
+  const [sku, setSku] = useState("");
   const [isManualSku, setIsManualSku] = useState(false);
-  const [price, setPrice] = useState('0');
-  const [mrp, setMrp] = useState('0');
-  const [moq, setMoq] = useState('1');
-  const [unit, setUnit] = useState('pcs');
+  const [price, setPrice] = useState("0");
+  const [mrp, setMrp] = useState("0");
+  const [moq, setMoq] = useState("1");
+  const [unit, setUnit] = useState("pcs");
   const [submitting, setSubmitting] = useState(false);
 
   const labelInputRef = useRef<HTMLInputElement>(null);
@@ -37,14 +48,14 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
     if (!isManualSku) {
       const cleanLabel = label
         .trim()
-        .replace(/[^a-zA-Z0-9\s-]/g, '') // Remove special chars
-        .replace(/[\s-]+/g, '-') // Replace spaces and hyphens with a single hyphen
+        .replace(/[^a-zA-Z0-9\s-]/g, "") // Remove special chars
+        .replace(/[\s-]+/g, "-") // Replace spaces and hyphens with a single hyphen
         .toUpperCase();
-      
+
       if (cleanLabel) {
         setSku(`${masterSlug.toUpperCase()}-${cleanLabel}`);
       } else {
-        setSku('');
+        setSku("");
       }
     }
   }, [label, masterSlug, isManualSku]);
@@ -52,7 +63,7 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!label.trim()) {
-      toast.error('Variant label is required');
+      toast.error("Variant label is required");
       return;
     }
 
@@ -68,25 +79,25 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
         sku: sku.trim() || undefined,
       });
 
-      toast.success('Variant added ✓');
-      
+      toast.success("Variant added ✓");
+
       // Clear form but keep focus
-      setLabel('');
-      setPrice('0');
-      setMrp('0');
-      setMoq('1');
-      setUnit('pcs');
+      setLabel("");
+      setPrice("0");
+      setMrp("0");
+      setMoq("1");
+      setUnit("pcs");
       setIsManualSku(false);
-      
+
       onSuccess();
-      
+
       // Refocus label input
       setTimeout(() => {
         labelInputRef.current?.focus();
       }, 50);
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || 'Failed to add variant');
+      toast.error(err.message || "Failed to add variant");
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +111,7 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
           <Input
             ref={labelInputRef}
             value={label}
-            onChange={(e) => setLabel(e.target.value)}
+            onChange={e => setLabel(e.target.value)}
             placeholder="e.g. 250ml"
             className="h-8 text-xs max-w-[120px]"
             disabled={submitting}
@@ -110,7 +121,7 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
           <div className="flex items-center gap-1">
             <Input
               value={sku}
-              onChange={(e) => {
+              onChange={e => {
                 setSku(e.target.value);
                 setIsManualSku(true);
               }}
@@ -119,7 +130,7 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
               disabled={submitting}
             />
             {!isManualSku && (
-              <button 
+              <button
                 type="button"
                 onClick={() => setIsManualSku(true)}
                 className="text-slate-400 hover:text-slate-600 p-1"
@@ -134,7 +145,7 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
           <Input
             type="number"
             value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            onChange={e => setPrice(e.target.value)}
             placeholder="0.00"
             className="h-8 text-xs max-w-[90px]"
             disabled={submitting}
@@ -144,7 +155,7 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
           <Input
             type="number"
             value={mrp}
-            onChange={(e) => setMrp(e.target.value)}
+            onChange={e => setMrp(e.target.value)}
             placeholder="0.00"
             className="h-8 text-xs max-w-[90px]"
             disabled={submitting}
@@ -154,7 +165,7 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
           <Input
             type="number"
             value={moq}
-            onChange={(e) => setMoq(e.target.value)}
+            onChange={e => setMoq(e.target.value)}
             placeholder="1"
             className="h-8 text-xs max-w-[70px]"
             disabled={submitting}
@@ -167,7 +178,9 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
             </SelectTrigger>
             <SelectContent>
               {UNITS.map(u => (
-                <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
+                <SelectItem key={u} value={u} className="text-xs">
+                  {u}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -200,13 +213,17 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
 
       {/* ── MOBILE LAYOUT (Stacked Form Card) ── */}
       <div className="sm:hidden block p-4 border border-slate-200 rounded-xl bg-slate-50 space-y-3 mt-2">
-        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Add New Variant</h4>
-        
+        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+          Add New Variant
+        </h4>
+
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-500 uppercase">Variant Label *</label>
+          <label className="text-[10px] font-bold text-slate-500 uppercase">
+            Variant Label *
+          </label>
           <Input
             value={label}
-            onChange={(e) => setLabel(e.target.value)}
+            onChange={e => setLabel(e.target.value)}
             placeholder="e.g. 250ml"
             className="h-9 text-sm"
             disabled={submitting}
@@ -216,9 +233,9 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
         <div className="space-y-1">
           <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
             <span>SKU (auto)</span>
-            <button 
-              type="button" 
-              onClick={() => setIsManualSku(true)} 
+            <button
+              type="button"
+              onClick={() => setIsManualSku(true)}
               className="text-indigo-600 hover:text-indigo-800 text-[10px] lowercase flex items-center gap-0.5"
             >
               <Edit2 className="w-2.5 h-2.5" /> Edit SKU
@@ -226,7 +243,7 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
           </label>
           <Input
             value={sku}
-            onChange={(e) => {
+            onChange={e => {
               setSku(e.target.value);
               setIsManualSku(true);
             }}
@@ -238,22 +255,26 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Price ₹</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">
+              Price ₹
+            </label>
             <Input
               type="number"
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              onChange={e => setPrice(e.target.value)}
               placeholder="0.00"
               className="h-9 text-sm"
               disabled={submitting}
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">MRP ₹</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">
+              MRP ₹
+            </label>
             <Input
               type="number"
               value={mrp}
-              onChange={(e) => setMrp(e.target.value)}
+              onChange={e => setMrp(e.target.value)}
               placeholder="0.00"
               className="h-9 text-sm"
               disabled={submitting}
@@ -263,25 +284,31 @@ export default function VariantRow({ masterId, masterSlug, onSuccess, onCancel }
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">MOQ</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">
+              MOQ
+            </label>
             <Input
               type="number"
               value={moq}
-              onChange={(e) => setMoq(e.target.value)}
+              onChange={e => setMoq(e.target.value)}
               placeholder="1"
               className="h-9 text-sm"
               disabled={submitting}
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Unit</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">
+              Unit
+            </label>
             <Select value={unit} onValueChange={setUnit} disabled={submitting}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="unit" />
               </SelectTrigger>
               <SelectContent>
                 {UNITS.map(u => (
-                  <SelectItem key={u} value={u} className="text-sm">{u}</SelectItem>
+                  <SelectItem key={u} value={u} className="text-sm">
+                    {u}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

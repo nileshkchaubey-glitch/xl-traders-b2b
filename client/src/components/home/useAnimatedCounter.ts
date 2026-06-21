@@ -1,6 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
-export function useAnimatedCounter(target: number, duration = 1600, enabled = true) {
+export function useAnimatedCounter(
+  target: number,
+  duration = 1600,
+  enabled = true
+) {
   const [value, setValue] = useState(0);
   const started = useRef(false);
 

@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -16,8 +16,7 @@ import Auth from "./pages/Auth";
 // it — keeps the initial bundle lean for the customers who actually matter.
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminProductEditor = lazy(() => import("./pages/AdminProductEditor"));
-import AdminMasters from '@/components/admin/AdminMasters';
-
+import AdminMasters from "@/components/admin/AdminMasters";
 
 function AdminFallback() {
   return (

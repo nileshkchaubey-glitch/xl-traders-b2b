@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { useLocation } from 'wouter';
-import { Mail, Lock, Building2, Eye, EyeOff } from 'lucide-react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { useAuthStore } from '@/lib/authStore';
+import { useState } from "react";
+import { useLocation } from "wouter";
+import { Mail, Lock, Building2, Eye, EyeOff } from "lucide-react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import { useAuthStore } from "@/lib/authStore";
 
 export default function Auth() {
   const [, setLocation] = useLocation();
@@ -13,16 +13,16 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    company: '',
+    email: "",
+    password: "",
+    company: "",
   });
 
   const { signIn, signUp } = useAuthStore();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
     setError(null);
   };
 
@@ -34,7 +34,7 @@ export default function Auth() {
     try {
       if (isSignUp) {
         if (!formData.company.trim()) {
-          setError('Company name is required');
+          setError("Company name is required");
           setIsLoading(false);
           return;
         }
@@ -46,22 +46,22 @@ export default function Auth() {
         );
 
         if (error) {
-          setError(error.message || 'Sign up failed');
+          setError(error.message || "Sign up failed");
         } else {
-          setLocation('/');
+          setLocation("/");
         }
       } else {
         const { error } = await signIn(formData.email, formData.password);
 
         if (error) {
-          setError(error.message || 'Sign in failed');
+          setError(error.message || "Sign in failed");
         } else {
           const admin = useAuthStore.getState().isAdmin;
-          setLocation(admin ? '/admin' : '/');
+          setLocation(admin ? "/admin" : "/");
         }
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError("An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -78,12 +78,12 @@ export default function Auth() {
             {/* Header */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-8 text-center">
               <h1 className="text-2xl font-bold mb-2">
-                {isSignUp ? 'Create Account' : 'Sign In'}
+                {isSignUp ? "Create Account" : "Sign In"}
               </h1>
               <p className="text-slate-300 text-sm">
                 {isSignUp
-                  ? 'Join XL Traders to view prices and manage orders'
-                  : 'Access your account to view prices'}
+                  ? "Join XL Traders to view prices and manage orders"
+                  : "Access your account to view prices"}
               </p>
             </div>
 
@@ -153,7 +153,7 @@ export default function Auth() {
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                   />
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
@@ -178,17 +178,17 @@ export default function Auth() {
                 className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-bold py-2 px-4 rounded-lg transition mt-6"
               >
                 {isLoading
-                  ? 'Loading...'
+                  ? "Loading..."
                   : isSignUp
-                  ? 'Create Account'
-                  : 'Sign In'}
+                    ? "Create Account"
+                    : "Sign In"}
               </button>
 
               {/* Toggle */}
               <div className="text-center text-sm text-slate-600 mt-4">
                 {isSignUp ? (
                   <>
-                    Already have an account?{' '}
+                    Already have an account?{" "}
                     <button
                       type="button"
                       onClick={() => {
@@ -202,7 +202,7 @@ export default function Auth() {
                   </>
                 ) : (
                   <>
-                    Don't have an account?{' '}
+                    Don't have an account?{" "}
                     <button
                       type="button"
                       onClick={() => {

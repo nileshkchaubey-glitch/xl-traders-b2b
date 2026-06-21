@@ -1,6 +1,13 @@
-import { useState } from 'react';
-import { useLocation } from 'wouter';
-import { MapPin, Search, Phone, MessageCircle, FileText, Zap } from 'lucide-react';
+import { useState } from "react";
+import { useLocation } from "wouter";
+import {
+  MapPin,
+  Search,
+  Phone,
+  MessageCircle,
+  FileText,
+  Zap,
+} from "lucide-react";
 
 interface HeroTopBarProps {
   whatsappNumber: string;
@@ -8,19 +15,19 @@ interface HeroTopBarProps {
 }
 
 export default function HeroTopBar({ whatsappNumber, phone }: HeroTopBarProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [, setLocation] = useLocation();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       setLocation(`/catalog?search=${encodeURIComponent(searchQuery)}`);
-      setSearchQuery('');
+      setSearchQuery("");
     }
   };
 
   const quoteMessage = encodeURIComponent(
-    'Hi XL Traders, I need a wholesale quote for packaging supplies. Please share pricing.'
+    "Hi XL Traders, I need a wholesale quote for packaging supplies. Please share pricing."
   );
 
   return (
@@ -33,7 +40,9 @@ export default function HeroTopBar({ whatsappNumber, phone }: HeroTopBarProps) {
               <MapPin size={16} />
             </span>
             <div>
-              <span className="font-semibold text-slate-900">Surat, Gujarat</span>
+              <span className="font-semibold text-slate-900">
+                Surat, Gujarat
+              </span>
               <span className="mx-2 text-slate-300">|</span>
               <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
                 <Zap size={14} className="fill-emerald-500 text-emerald-500" />
@@ -56,7 +65,7 @@ export default function HeroTopBar({ whatsappNumber, phone }: HeroTopBarProps) {
               <input
                 type="search"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search containers, cups, carry bags, boxes..."
                 className="flex-1 bg-transparent px-3 py-3.5 md:py-4 text-sm md:text-base text-slate-900 placeholder:text-slate-400 outline-none"
                 aria-label="Search products"
@@ -72,7 +81,7 @@ export default function HeroTopBar({ whatsappNumber, phone }: HeroTopBarProps) {
 
           <div className="flex gap-2 shrink-0">
             <a
-              href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Hi, I need packaging supplies from XL Traders.')}`}
+              href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent("Hi, I need packaging supplies from XL Traders.")}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 lg:flex-none inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 transition shadow-sm"

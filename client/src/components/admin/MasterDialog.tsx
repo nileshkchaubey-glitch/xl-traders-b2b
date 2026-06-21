@@ -1,16 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, Loader2, Star, Upload, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import CategoryCombobox from '@/components/admin/CategoryCombobox';
-import { masterService } from '@/lib/masterService';
-import { generateDescription } from '@/lib/aiService';
-import { Category } from '@/lib/supabase';
+import { useState, useEffect, useRef } from "react";
+import { X, Sparkles, Loader2, Star, Upload, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import CategoryCombobox from "@/components/admin/CategoryCombobox";
+import { masterService } from "@/lib/masterService";
+import { generateDescription } from "@/lib/aiService";
+import { Category } from "@/lib/supabase";
 
 interface MasterDialogProps {
   open: boolean;
@@ -19,15 +25,20 @@ interface MasterDialogProps {
   onSuccess: () => void;
 }
 
-export default function MasterDialog({ open, onClose, categories, onSuccess }: MasterDialogProps) {
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
+export default function MasterDialog({
+  open,
+  onClose,
+  categories,
+  onSuccess,
+}: MasterDialogProps) {
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
   const [isManualSlug, setIsManualSlug] = useState(false);
-  const [categoryId, setCategoryId] = useState('');
-  const [brand, setBrand] = useState('');
-  const [description, setDescription] = useState('');
-  const [metaTitle, setMetaTitle] = useState('');
-  const [metaDescription, setMetaDescription] = useState('');
+  const [categoryId, setCategoryId] = useState("");
+  const [brand, setBrand] = useState("");
+  const [description, setDescription] = useState("");
+  const [metaTitle, setMetaTitle] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
 
   // Images state
@@ -47,8 +58,8 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
       const cleanName = name
         .toLowerCase()
         .trim()
-        .replace(/[^a-z0-9\s-]/g, '') // Remove non-alphanumeric
-        .replace(/[\s-]+/g, '-'); // Replace spaces and hyphens with single hyphen
+        .replace(/[^a-z0-9\s-]/g, "") // Remove non-alphanumeric
+        .replace(/[\s-]+/g, "-"); // Replace spaces and hyphens with single hyphen
       setSlug(cleanName);
     }
   }, [name, isManualSlug]);
@@ -63,14 +74,14 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
     // Max 10 files check
     const spaceLeft = 10 - files.length;
     if (spaceLeft <= 0) {
-      toast.warning('Max 10 images allowed');
+      toast.warning("Max 10 images allowed");
       return;
     }
 
     const filesToProcess = Array.from(selectedFiles).slice(0, spaceLeft);
 
     filesToProcess.forEach(file => {
-      if (file.type.startsWith('image/')) {
+      if (file.type.startsWith("image/")) {
         validFiles.push(file);
         newPreviews.push(URL.createObjectURL(file));
       }
@@ -99,7 +110,7 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
-    
+
     // Revoke object URL to avoid memory leak
     URL.revokeObjectURL(previews[index]);
     setPreviews(prev => prev.filter((_, i) => i !== index));
@@ -114,19 +125,19 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
 
   const handleAIGenerate = async () => {
     if (!name.trim()) {
-      toast.error('Product Master Name is required for AI generation');
+      toast.error("Product Master Name is required for AI generation");
       return;
     }
     setGenerating(true);
     try {
       const selectedCategory = categories.find(c => c.id === categoryId);
-      const categoryName = selectedCategory ? selectedCategory.name : '';
+      const categoryName = selectedCategory ? selectedCategory.name : "";
       const desc = await generateDescription(name.trim(), categoryName);
       setDescription(desc);
-      toast.success('Description generated ✓');
+      toast.success("Description generated ✓");
     } catch (err: any) {
       console.error(err);
-      toast.error('Failed to generate description');
+      toast.error("Failed to generate description");
     } finally {
       setGenerating(false);
     }
@@ -135,17 +146,18 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error('Product Master Name is required');
+      toast.error("Product Master Name is required");
       return;
     }
     if (!categoryId) {
-      toast.error('Category is required');
+      toast.error("Category is required");
       return;
     }
 
     setSubmitting(true);
     try {
-      const finalSlug = slug.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const finalSlug =
+        slug.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
       const master = await masterService.createMaster({
         name: name.trim(),
         slug: finalSlug,
@@ -160,52 +172,65 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
       if (files.length > 0) {
         await Promise.all(
           files.map((file, idx) =>
-            masterService.uploadMasterImage(master.id, file, idx === primaryIndex)
+            masterService.uploadMasterImage(
+              master.id,
+              file,
+              idx === primaryIndex
+            )
           )
         );
       }
 
-      toast.success('Master created ✓');
+      toast.success("Master created ✓");
       onSuccess();
       onClose();
 
       // Reset Form State
-      setName('');
-      setSlug('');
+      setName("");
+      setSlug("");
       setIsManualSlug(false);
-      setCategoryId('');
-      setBrand('');
-      setDescription('');
-      setMetaTitle('');
-      setMetaDescription('');
+      setCategoryId("");
+      setBrand("");
+      setDescription("");
+      setMetaTitle("");
+      setMetaDescription("");
       setIsActive(true);
       setFiles([]);
       setPreviews([]);
       setPrimaryIndex(0);
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || 'Failed to create product master');
+      toast.error(err.message || "Failed to create product master");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={v => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent className="w-full h-full sm:max-w-2xl sm:h-auto rounded-none sm:rounded-2xl max-w-none p-0 overflow-hidden flex flex-col bg-white">
-        <form onSubmit={handleSubmit} className="flex flex-col h-full sm:h-auto overflow-hidden">
-          
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col h-full sm:h-auto overflow-hidden"
+        >
           {/* Sticky Mobile Header */}
           <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10 flex-shrink-0 sm:static sm:border-0 sm:p-6 pb-2">
             <div>
-              <DialogTitle className="text-lg font-bold text-slate-900">New Product Master</DialogTitle>
+              <DialogTitle className="text-lg font-bold text-slate-900">
+                New Product Master
+              </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 mt-0.5">
                 Create a master shell to group different product sizes/variants.
               </DialogDescription>
             </div>
-            <button 
-              type="button" 
-              onClick={onClose} 
+            <button
+              type="button"
+              onClick={onClose}
               className="text-slate-400 hover:text-slate-600 sm:hidden p-1"
             >
               <X className="w-5 h-5" />
@@ -214,17 +239,19 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
 
           {/* Scrollable Form Body */}
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5 sm:p-6 pt-0 max-h-[75vh]">
-            
             {/* Name & Slug */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="master-name" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="master-name"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Product Master Name *
                 </Label>
                 <Input
                   id="master-name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={e => setName(e.target.value)}
                   placeholder="e.g. Hinged Container"
                   required
                   disabled={submitting}
@@ -232,13 +259,16 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="master-slug" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="master-slug"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Slug (URL Keyword)
                 </Label>
                 <Input
                   id="master-slug"
                   value={slug}
-                  onChange={(e) => {
+                  onChange={e => {
                     setSlug(e.target.value);
                     setIsManualSlug(true);
                   }}
@@ -247,7 +277,10 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
                   className="font-mono text-xs"
                 />
                 <p className="text-[10px] text-slate-400 truncate">
-                  Preview: <span className="font-mono bg-slate-50 px-1 py-0.5 rounded">/products/{slug || 'container'}</span>
+                  Preview:{" "}
+                  <span className="font-mono bg-slate-50 px-1 py-0.5 rounded">
+                    /products/{slug || "container"}
+                  </span>
                 </p>
               </div>
             </div>
@@ -255,7 +288,9 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
             {/* Category & Brand */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Category *</Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Category *
+                </Label>
                 <CategoryCombobox
                   categories={categories}
                   value={categoryId}
@@ -264,13 +299,16 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="master-brand" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="master-brand"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Brand
                 </Label>
                 <Input
                   id="master-brand"
                   value={brand}
-                  onChange={(e) => setBrand(e.target.value)}
+                  onChange={e => setBrand(e.target.value)}
                   placeholder="e.g. XL Traders"
                   disabled={submitting}
                 />
@@ -280,7 +318,10 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
             {/* Description */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="master-desc" className="text-xs font-semibold text-slate-700">
+                <Label
+                  htmlFor="master-desc"
+                  className="text-xs font-semibold text-slate-700"
+                >
                   Description
                 </Label>
                 <Button
@@ -302,7 +343,7 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
               <Textarea
                 id="master-desc"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={e => setDescription(e.target.value)}
                 placeholder="Details about quality, food safety, packaging type..."
                 rows={3}
                 disabled={submitting}
@@ -311,17 +352,20 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
 
             {/* Images Upload Section */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-slate-700">Images Section (Max 10)</Label>
-              
+              <Label className="text-xs font-semibold text-slate-700">
+                Images Section (Max 10)
+              </Label>
+
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center
-                  ${dragOver 
-                    ? 'border-indigo-500 bg-indigo-50/40 ring-2 ring-indigo-500/20' 
-                    : 'border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-slate-50'
+                  ${
+                    dragOver
+                      ? "border-indigo-500 bg-indigo-50/40 ring-2 ring-indigo-500/20"
+                      : "border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-slate-50"
                   }`}
               >
                 <input
@@ -329,13 +373,17 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
                   type="file"
                   multiple
                   accept="image/*"
-                  onChange={(e) => handleFiles(e.target.files)}
+                  onChange={e => handleFiles(e.target.files)}
                   className="hidden"
                   disabled={submitting}
                 />
                 <Upload className="w-7 h-7 text-slate-400 mb-2" />
-                <p className="text-xs font-bold text-slate-700">Drop images here or click to upload</p>
-                <p className="text-[10px] text-slate-400 mt-1">Supports PNG, JPEG, WEBP. First image is auto-primary.</p>
+                <p className="text-xs font-bold text-slate-700">
+                  Drop images here or click to upload
+                </p>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Supports PNG, JPEG, WEBP. First image is auto-primary.
+                </p>
               </div>
 
               {/* Previews Grid */}
@@ -344,15 +392,22 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
                   {previews.map((src, index) => {
                     const isPrimary = index === primaryIndex;
                     return (
-                      <div key={index} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center">
-                        <img src={src} alt="Preview" className="w-full h-full object-cover" />
-                        
+                      <div
+                        key={index}
+                        className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center"
+                      >
+                        <img
+                          src={src}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+
                         {/* Overlay Controls */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => setPrimaryIndex(index)}
-                            className={`p-1.5 rounded-full hover:scale-105 transition ${isPrimary ? 'bg-amber-500 text-white' : 'bg-white text-slate-600'}`}
+                            className={`p-1.5 rounded-full hover:scale-105 transition ${isPrimary ? "bg-amber-500 text-white" : "bg-white text-slate-600"}`}
                             title="Set as Primary Image"
                           >
                             <Star className="w-3.5 h-3.5 fill-current" />
@@ -382,30 +437,38 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
 
             {/* SEO Section (Meta) */}
             <div className="border-t border-slate-100 pt-4 space-y-4">
-              <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wide">SEO Metadata (Optional)</h4>
-              
+              <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                SEO Metadata (Optional)
+              </h4>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="meta-title" className="text-xs font-semibold text-slate-700">
+                  <Label
+                    htmlFor="meta-title"
+                    className="text-xs font-semibold text-slate-700"
+                  >
                     Meta Title (SEO)
                   </Label>
                   <Input
                     id="meta-title"
                     value={metaTitle}
-                    onChange={(e) => setMetaTitle(e.target.value)}
+                    onChange={e => setMetaTitle(e.target.value)}
                     placeholder="Search engine title tag"
                     disabled={submitting}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="meta-desc" className="text-xs font-semibold text-slate-700">
+                  <Label
+                    htmlFor="meta-desc"
+                    className="text-xs font-semibold text-slate-700"
+                  >
                     Meta Description (SEO)
                   </Label>
                   <Textarea
                     id="meta-desc"
                     value={metaDescription}
-                    onChange={(e) => setMetaDescription(e.target.value)}
+                    onChange={e => setMetaDescription(e.target.value)}
                     placeholder="Short description for Google search results page..."
                     rows={2}
                     disabled={submitting}
@@ -417,10 +480,15 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
             {/* Active Toggle Switch */}
             <div className="flex items-center justify-between border-t border-slate-100 pt-4">
               <div>
-                <Label htmlFor="master-active" className="text-xs font-semibold text-slate-700 block">
+                <Label
+                  htmlFor="master-active"
+                  className="text-xs font-semibold text-slate-700 block"
+                >
                   Active Status
                 </Label>
-                <span className="text-[10px] text-slate-500">Enable or disable viewing this product master group.</span>
+                <span className="text-[10px] text-slate-500">
+                  Enable or disable viewing this product master group.
+                </span>
               </div>
               <Switch
                 id="master-active"
@@ -429,7 +497,6 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
                 disabled={submitting}
               />
             </div>
-
           </div>
 
           {/* Sticky Mobile / Bottom Desktop Footer */}
@@ -454,11 +521,10 @@ export default function MasterDialog({ open, onClose, categories, onSuccess }: M
                   Creating...
                 </>
               ) : (
-                'Create Master'
+                "Create Master"
               )}
             </Button>
           </div>
-
         </form>
       </DialogContent>
     </Dialog>

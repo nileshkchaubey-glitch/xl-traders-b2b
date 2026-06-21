@@ -1,16 +1,16 @@
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import HomeHero from '@/components/home/HomeHero';
-import HomeCategoryGrid from '@/components/home/HomeCategoryGrid';
-import HomeFeaturedProducts from '@/components/home/HomeFeaturedProducts';
-import HomeUseCases from '@/components/home/HomeUseCases';
-import HomeBrandSection from '@/components/home/HomeBrandSection';
-import HomeDailySuggestion from '@/components/home/HomeDailySuggestion';
-import { MessageCircle, Phone } from 'lucide-react';
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import HomeHero from "@/components/home/HomeHero";
+import HomeCategoryGrid from "@/components/home/HomeCategoryGrid";
+import HomeFeaturedProducts from "@/components/home/HomeFeaturedProducts";
+import HomeUseCases from "@/components/home/HomeUseCases";
+import HomeBrandSection from "@/components/home/HomeBrandSection";
+import HomeDailySuggestion from "@/components/home/HomeDailySuggestion";
+import { MessageCircle, Phone } from "lucide-react";
 
 export default function Home() {
-  const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '919773239442';
-  const phone1 = import.meta.env.VITE_PHONE_1 || '9773239442';
+  const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
+  const phone1 = import.meta.env.VITE_PHONE_1 || "9773239442";
   const isDev = import.meta.env.DEV;
 
   return (
@@ -36,9 +36,12 @@ export default function Home() {
         {/* CTA Section */}
         <section className="bg-gradient-to-r from-red-600 to-red-700 text-white py-14 md:py-20">
           <div className="max-w-7xl mx-auto px-4 text-center">
-            <h2 className="text-2xl md:text-4xl font-bold mb-3">Ready to Place a Bulk Order?</h2>
+            <h2 className="text-2xl md:text-4xl font-bold mb-3">
+              Ready to Place a Bulk Order?
+            </h2>
             <p className="text-base text-red-100 mb-8 max-w-xl mx-auto">
-              Contact us directly for wholesale pricing, custom requirements, and same-day dispatch in Surat.
+              Contact us directly for wholesale pricing, custom requirements,
+              and same-day dispatch in Surat.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a

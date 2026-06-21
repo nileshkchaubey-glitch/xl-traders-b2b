@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Save, Phone, Mail, MapPin } from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Save, Phone, Mail, MapPin } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 /**
  * Admin Settings Component
- * 
+ *
  * Features:
  * - Update WhatsApp number
  * - Update contact details
@@ -23,16 +23,16 @@ export default function AdminSettings() {
   const [tableAvailable, setTableAvailable] = useState(true);
 
   const [settings, setSettings] = useState({
-    whatsapp_number: '919773239442',
-    phone_1: '9773239442',
-    phone_2: '7778052990',
-    email: 'xltraders990@gmail.com',
-    company_name: 'XL Traders',
-    address: 'Surat, Gujarat',
-    city: 'Surat',
-    state: 'Gujarat',
-    pincode: '',
-    business_description: '',
+    whatsapp_number: "919773239442",
+    phone_1: "9773239442",
+    phone_2: "7778052990",
+    email: "xltraders990@gmail.com",
+    company_name: "XL Traders",
+    address: "Surat, Gujarat",
+    city: "Surat",
+    state: "Gujarat",
+    pincode: "",
+    business_description: "",
   });
 
   // Load settings
@@ -44,14 +44,15 @@ export default function AdminSettings() {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('business_settings')
-        .select('*')
+        .from("business_settings")
+        .select("*")
         .maybeSingle();
 
       if (error) {
         // Only show "not configured" banner when the table truly doesn't exist.
         // PGRST204 = no schema cache entry; 42P01 = undefined_table (raw PG).
-        const isTableMissing = error.code === 'PGRST204' || error.code === '42P01';
+        const isTableMissing =
+          error.code === "PGRST204" || error.code === "42P01";
         if (isTableMissing) setTableAvailable(false);
         // All other errors (RLS denial, network hiccup, etc.): use defaults silently.
         return;
@@ -73,23 +74,23 @@ export default function AdminSettings() {
 
       // Try to update or insert
       const { error } = await supabase
-        .from('business_settings')
-        .upsert(settings, { onConflict: 'id' });
+        .from("business_settings")
+        .upsert(settings, { onConflict: "id" });
 
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code !== "PGRST116") {
         // PGRST116 means table doesn't exist, which is okay for demo
         throw error;
       }
 
       // Also save to localStorage as fallback
-      localStorage.setItem('xl-traders-settings', JSON.stringify(settings));
+      localStorage.setItem("xl-traders-settings", JSON.stringify(settings));
 
-      toast.success('Settings saved');
+      toast.success("Settings saved");
     } catch (error) {
       console.error(error);
       // Save to localStorage anyway
-      localStorage.setItem('xl-traders-settings', JSON.stringify(settings));
-      toast.success('Settings saved locally');
+      localStorage.setItem("xl-traders-settings", JSON.stringify(settings));
+      toast.success("Settings saved locally");
     } finally {
       setSaving(false);
     }
@@ -104,30 +105,36 @@ export default function AdminSettings() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-        <p className="text-slate-400 text-xs mt-0.5">Business information and contact details</p>
+        <p className="text-slate-400 text-xs mt-0.5">
+          Business information and contact details
+        </p>
       </div>
 
       {/* Table unavailable notice */}
       {!tableAvailable && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <span className="font-semibold">Settings not configured</span> — the{' '}
-          <code className="font-mono text-xs">business_settings</code> table was not found in Supabase.
-          Changes will be saved to localStorage only.
+          <span className="font-semibold">Settings not configured</span> — the{" "}
+          <code className="font-mono text-xs">business_settings</code> table was
+          not found in Supabase. Changes will be saved to localStorage only.
         </div>
       )}
 
       {/* Business Information */}
       <Card className="p-6 space-y-6">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Business Information</h3>
-          
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+            Business Information
+          </h3>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="company_name">Company Name</Label>
               <Input
                 id="company_name"
                 value={settings.company_name}
-                onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
+                onChange={e =>
+                  setSettings({ ...settings, company_name: e.target.value })
+                }
                 placeholder="XL Traders"
               />
             </div>
@@ -137,7 +144,9 @@ export default function AdminSettings() {
               <Input
                 id="address"
                 value={settings.address}
-                onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                onChange={e =>
+                  setSettings({ ...settings, address: e.target.value })
+                }
                 placeholder="Street address"
               />
             </div>
@@ -147,7 +156,9 @@ export default function AdminSettings() {
               <Input
                 id="city"
                 value={settings.city}
-                onChange={(e) => setSettings({ ...settings, city: e.target.value })}
+                onChange={e =>
+                  setSettings({ ...settings, city: e.target.value })
+                }
                 placeholder="Surat"
               />
             </div>
@@ -157,7 +168,9 @@ export default function AdminSettings() {
               <Input
                 id="state"
                 value={settings.state}
-                onChange={(e) => setSettings({ ...settings, state: e.target.value })}
+                onChange={e =>
+                  setSettings({ ...settings, state: e.target.value })
+                }
                 placeholder="Gujarat"
               />
             </div>
@@ -167,7 +180,9 @@ export default function AdminSettings() {
               <Input
                 id="pincode"
                 value={settings.pincode}
-                onChange={(e) => setSettings({ ...settings, pincode: e.target.value })}
+                onChange={e =>
+                  setSettings({ ...settings, pincode: e.target.value })
+                }
                 placeholder="395001"
               />
             </div>
@@ -178,7 +193,12 @@ export default function AdminSettings() {
             <Textarea
               id="business_description"
               value={settings.business_description}
-              onChange={(e) => setSettings({ ...settings, business_description: e.target.value })}
+              onChange={e =>
+                setSettings({
+                  ...settings,
+                  business_description: e.target.value,
+                })
+              }
               placeholder="Describe your business..."
               rows={4}
             />
@@ -200,11 +220,15 @@ export default function AdminSettings() {
               <Input
                 id="whatsapp"
                 value={settings.whatsapp_number}
-                onChange={(e) => setSettings({ ...settings, whatsapp_number: e.target.value })}
+                onChange={e =>
+                  setSettings({ ...settings, whatsapp_number: e.target.value })
+                }
                 placeholder="919773239442"
                 type="tel"
               />
-              <p className="text-xs text-slate-500">Include country code (e.g., 91 for India)</p>
+              <p className="text-xs text-slate-500">
+                Include country code (e.g., 91 for India)
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -212,7 +236,9 @@ export default function AdminSettings() {
               <Input
                 id="phone_1"
                 value={settings.phone_1}
-                onChange={(e) => setSettings({ ...settings, phone_1: e.target.value })}
+                onChange={e =>
+                  setSettings({ ...settings, phone_1: e.target.value })
+                }
                 placeholder="9773239442"
                 type="tel"
               />
@@ -223,7 +249,9 @@ export default function AdminSettings() {
               <Input
                 id="phone_2"
                 value={settings.phone_2}
-                onChange={(e) => setSettings({ ...settings, phone_2: e.target.value })}
+                onChange={e =>
+                  setSettings({ ...settings, phone_2: e.target.value })
+                }
                 placeholder="7778052990"
                 type="tel"
               />
@@ -234,7 +262,9 @@ export default function AdminSettings() {
               <Input
                 id="email"
                 value={settings.email}
-                onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                onChange={e =>
+                  setSettings({ ...settings, email: e.target.value })
+                }
                 placeholder="xltraders990@gmail.com"
                 type="email"
               />
@@ -249,9 +279,12 @@ export default function AdminSettings() {
           <div className="flex items-start gap-3">
             <Phone className="w-5 h-5 text-blue-600 mt-1" />
             <div>
-              <h4 className="font-semibold text-blue-900">WhatsApp Integration</h4>
+              <h4 className="font-semibold text-blue-900">
+                WhatsApp Integration
+              </h4>
               <p className="text-sm text-blue-700 mt-1">
-                The WhatsApp number is used for enquiry buttons throughout the site
+                The WhatsApp number is used for enquiry buttons throughout the
+                site
               </p>
             </div>
           </div>
@@ -291,7 +324,7 @@ export default function AdminSettings() {
           className="gap-2"
         >
           <Save className="w-4 h-4" />
-          {saving ? 'Saving...' : 'Save Settings'}
+          {saving ? "Saving..." : "Save Settings"}
         </Button>
       </div>
 
@@ -305,7 +338,10 @@ export default function AdminSettings() {
           </div>
           <div>
             <span className="text-slate-600">Address:</span>
-            <p className="font-medium">{settings.address}, {settings.city}, {settings.state} {settings.pincode}</p>
+            <p className="font-medium">
+              {settings.address}, {settings.city}, {settings.state}{" "}
+              {settings.pincode}
+            </p>
           </div>
           <div>
             <span className="text-slate-600">WhatsApp:</span>

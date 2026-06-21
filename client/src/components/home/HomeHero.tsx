@@ -1,11 +1,11 @@
-import { Link } from 'wouter';
-import { ArrowRight, Check, MessageCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
-import HeroTopBar from './HeroTopBar';
-import HeroProductShowcase from './HeroProductShowcase';
-import HeroTrustStrip from './HeroTrustStrip';
-import HeroBrandsSlider from './HeroBrandsSlider';
-import { TRUST_POINTS } from './heroConfig';
+import { Link } from "wouter";
+import { ArrowRight, Check, MessageCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import HeroTopBar from "./HeroTopBar";
+import HeroProductShowcase from "./HeroProductShowcase";
+import HeroTrustStrip from "./HeroTrustStrip";
+import HeroBrandsSlider from "./HeroBrandsSlider";
+import { TRUST_POINTS } from "./heroConfig";
 
 interface HomeHeroProps {
   whatsappNumber: string;
@@ -14,7 +14,7 @@ interface HomeHeroProps {
 
 export default function HomeHero({ whatsappNumber, phone }: HomeHeroProps) {
   const catalogMessage = encodeURIComponent(
-    'Hi XL Traders, I want to browse your wholesale packaging catalog.'
+    "Hi XL Traders, I want to browse your wholesale packaging catalog."
   );
 
   return (
@@ -38,18 +38,21 @@ export default function HomeHero({ whatsappNumber, phone }: HomeHeroProps) {
               </p>
 
               <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold text-slate-900 leading-[1.15] tracking-tight">
-                Packaging Solutions For{' '}
+                Packaging Solutions For{" "}
                 <span className="text-red-600">Growing Businesses</span>
               </h1>
 
               <p className="mt-5 text-base md:text-lg text-slate-600 leading-relaxed max-w-xl">
-                Wholesale food packaging, disposable containers, paper cups, carry bags,
-                corrugated boxes and restaurant supplies.
+                Wholesale food packaging, disposable containers, paper cups,
+                carry bags, corrugated boxes and restaurant supplies.
               </p>
 
               <ul className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {TRUST_POINTS.map((point) => (
-                  <li key={point} className="flex items-start gap-2 text-sm text-slate-700">
+                {TRUST_POINTS.map(point => (
+                  <li
+                    key={point}
+                    className="flex items-start gap-2 text-sm text-slate-700"
+                  >
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
                       <Check size={12} strokeWidth={3} />
                     </span>
@@ -78,7 +81,8 @@ export default function HomeHero({ whatsappNumber, phone }: HomeHeroProps) {
               </div>
 
               <p className="mt-6 text-xs text-slate-500">
-                For restaurants, cafes, cloud kitchens, caterers, bakeries &amp; distributors
+                For restaurants, cafes, cloud kitchens, caterers, bakeries &amp;
+                distributors
               </p>
             </motion.div>
 

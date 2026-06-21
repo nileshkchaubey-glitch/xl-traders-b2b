@@ -13,6 +13,7 @@ Many products displayed broken images or wrong stock photos because:
 ### 1. Professional Image Placeholder Component
 
 Created `ImagePlaceholder.tsx` - a clean, professional placeholder that displays:
+
 - Package icon (from lucide-react)
 - "XL Traders" text
 - Subtle slate gradient background
@@ -27,12 +28,14 @@ Created `ImagePlaceholder.tsx` - a clean, professional placeholder that displays
 ### 2. Image Error Handling in ProductCard
 
 Updated `ProductCard.tsx` to:
+
 - Track image load errors with state
 - Add `onError` handler to all `<img>` tags
 - Display placeholder when image fails to load
 - Works for both grid and list views
 
 **Changes**:
+
 - Added `useState` for tracking image errors
 - Added `onError={() => setImageError(true)}` to img tags
 - Replaced broken emoji with `<ImagePlaceholder />`
@@ -40,12 +43,14 @@ Updated `ProductCard.tsx` to:
 ### 3. Image Error Handling in ProductDetail
 
 Updated `ProductDetail.tsx` to:
+
 - Track errors for main image and thumbnails separately
 - Display placeholder for main image if it fails
 - Display placeholder for thumbnail if it fails
 - Maintain clean UI even with multiple broken images
 
 **Changes**:
+
 - Added `imageErrors` Set state to track which images failed
 - Added `handleImageError()` function
 - Updated main image and thumbnail gallery to use placeholder
@@ -53,20 +58,22 @@ Updated `ProductDetail.tsx` to:
 ### 4. Clear Broken Google Drive URLs from Database
 
 Created `clear-broken-images.sql` migration to:
+
 - Find all products with Google Drive URLs
 - Set their `image_url` to NULL
 - Find all product images with Google Drive URLs
 - Set their `image_url` to NULL
 
 **Run this in Supabase SQL Editor**:
+
 ```sql
 -- Clear broken Google Drive image URLs
-UPDATE products SET image_url = NULL 
-WHERE image_url LIKE '%drive.google.com%' 
+UPDATE products SET image_url = NULL
+WHERE image_url LIKE '%drive.google.com%'
    OR image_url LIKE '%docs.google.com%';
 
-UPDATE product_images SET image_url = NULL 
-WHERE image_url LIKE '%drive.google.com%' 
+UPDATE product_images SET image_url = NULL
+WHERE image_url LIKE '%drive.google.com%'
    OR image_url LIKE '%docs.google.com%';
 ```
 
@@ -90,6 +97,7 @@ WHERE image_url LIKE '%drive.google.com%'
 ### Option 3: Use the Python Import Script
 
 The `scripts/import_products.py` script:
+
 - Reads products from Google Sheet
 - Downloads images from Google Drive
 - Uploads them to Supabase Storage
@@ -102,12 +110,14 @@ python3 scripts/import_products.py
 ## What Users Will See
 
 ### Before Fix
+
 - ❌ Broken image icons
 - ❌ Empty boxes
 - ❌ Ugly emoji placeholders
 - ❌ Confusing user experience
 
 ### After Fix
+
 - ✅ Clean package icon placeholder
 - ✅ "XL Traders" branding
 - ✅ Professional gradient background
@@ -152,10 +162,14 @@ export function ImagePlaceholder({
   showText = true,
 }: ImagePlaceholderProps) {
   return (
-    <div className={`flex flex-col items-center justify-center 
-      bg-gradient-to-br from-slate-200 to-slate-300 ${className}`}>
+    <div
+      className={`flex flex-col items-center justify-center 
+      bg-gradient-to-br from-slate-200 to-slate-300 ${className}`}
+    >
       <Package className="w-12 h-12 text-slate-500 mb-2" />
-      {showText && <p className="text-slate-600 text-xs font-medium">XL Traders</p>}
+      {showText && (
+        <p className="text-slate-600 text-xs font-medium">XL Traders</p>
+      )}
     </div>
   );
 }
@@ -167,16 +181,18 @@ export function ImagePlaceholder({
 const [imageError, setImageError] = useState(false);
 
 // In JSX:
-{product.image_url && !imageError ? (
-  <img
-    src={product.image_url}
-    alt={product.image_alt_text || product.name}
-    className="w-full h-full object-cover"
-    onError={() => setImageError(true)}
-  />
-) : (
-  <ImagePlaceholder className="w-full h-full" showText={true} />
-)}
+{
+  product.image_url && !imageError ? (
+    <img
+      src={product.image_url}
+      alt={product.image_alt_text || product.name}
+      className="w-full h-full object-cover"
+      onError={() => setImageError(true)}
+    />
+  ) : (
+    <ImagePlaceholder className="w-full h-full" showText={true} />
+  );
+}
 ```
 
 ## Next Steps

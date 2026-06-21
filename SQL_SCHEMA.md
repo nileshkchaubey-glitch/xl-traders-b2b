@@ -23,10 +23,12 @@ CREATE TABLE categories (
 ```
 
 **Indexes:**
+
 - `idx_categories_slug` - Fast lookup by slug
 - `idx_categories_is_active` - Filter active categories
 
 **Sample Data:**
+
 - Round Container 🥤
 - Rectangle Container 📦
 - Hinged Container 🍱
@@ -66,6 +68,7 @@ CREATE TABLE products (
 ```
 
 **Indexes:**
+
 - `idx_products_category_id` - Filter by category
 - `idx_products_is_active` - Filter active products
 - `idx_products_is_featured` - Get featured products
@@ -73,6 +76,7 @@ CREATE TABLE products (
 - `idx_products_description` - Full-text search on description
 
 **Fields:**
+
 - `price` - Wholesale price in ₹
 - `mrp` - Maximum retail price (optional)
 - `discount_percent` - Discount percentage (0-100)
@@ -84,6 +88,7 @@ CREATE TABLE products (
 - `display_order` - Sort order in listings
 
 **Sample Products:**
+
 - 50ml Attach Lid container (2550 pcs) - ₹3,187
 - 100ml Round Container Black (1500 pcs) - ₹2,490
 - 4X4X2 WHITE Paper Box (100 pcs) - ₹150
@@ -108,15 +113,18 @@ CREATE TABLE product_images (
 ```
 
 **Indexes:**
+
 - `idx_product_images_product_id` - Get images for product
 
 **Fields:**
+
 - `image_url` - URL to image in Supabase Storage
 - `alt_text` - SEO alt text
 - `description` - Image description for accessibility
 - `display_order` - Order in gallery (0 = primary)
 
 **Usage:**
+
 - Product detail page gallery
 - Multiple angles/variations
 - Packaging examples
@@ -147,16 +155,19 @@ CREATE TABLE user_profiles (
 ```
 
 **Indexes:**
+
 - `idx_user_profiles_email` - Email lookup
 - `idx_user_profiles_is_admin` - Find admin users
 
 **Fields:**
+
 - `company_name` - Business name
 - `gst_number` - GST registration number
 - `is_admin` - Admin panel access
 - `is_active` - Account status
 
 **Usage:**
+
 - User authentication
 - Company information
 - Invoice generation
@@ -187,16 +198,19 @@ CREATE TABLE enquiries (
 ```
 
 **Indexes:**
+
 - `idx_enquiries_user_id` - Get user's enquiries
 - `idx_enquiries_product_id` - Get product enquiries
 - `idx_enquiries_status` - Filter by status
 
 **Fields:**
+
 - `enquiry_source` - 'whatsapp', 'email', 'form'
 - `status` - 'new', 'contacted', 'quoted', 'closed'
 - `quantity_requested` - Bulk order quantity
 
 **Usage:**
+
 - WhatsApp enquiry tracking
 - Sales pipeline
 - Customer follow-up
@@ -277,11 +291,11 @@ Products table has GIN indexes for fast text search:
 
 ```sql
 -- Search by product name
-SELECT * FROM products 
+SELECT * FROM products
 WHERE to_tsvector('english', name) @@ plainto_tsquery('english', 'container');
 
 -- Search by description
-SELECT * FROM products 
+SELECT * FROM products
 WHERE to_tsvector('english', description) @@ plainto_tsquery('english', 'food');
 ```
 
@@ -291,7 +305,7 @@ Fast category lookups:
 
 ```sql
 -- Get all products in category
-SELECT * FROM products 
+SELECT * FROM products
 WHERE category_id = 'uuid-here' AND is_active = TRUE
 ORDER BY display_order;
 ```
@@ -302,7 +316,7 @@ Quick homepage query:
 
 ```sql
 -- Get featured products
-SELECT * FROM products 
+SELECT * FROM products
 WHERE is_featured = TRUE AND is_active = TRUE
 ORDER BY display_order
 LIMIT 6;
@@ -313,13 +327,17 @@ LIMIT 6;
 ## Data Types
 
 ### DECIMAL(10, 2)
+
 Used for prices to avoid floating-point errors:
+
 - Max value: 99,999,999.99
 - Precision: 2 decimal places
 - Perfect for currency
 
 ### JSONB
+
 Used for flexible specifications:
+
 ```json
 {
   "material": "Plastic",
@@ -330,7 +348,9 @@ Used for flexible specifications:
 ```
 
 ### UUID
+
 Primary keys are UUIDs for:
+
 - Distributed systems
 - Privacy (non-sequential)
 - Collision resistance
@@ -402,7 +422,7 @@ VACUUM ANALYZE categories;
 
 ```sql
 -- Find unused indexes
-SELECT * FROM pg_stat_user_indexes 
+SELECT * FROM pg_stat_user_indexes
 WHERE idx_scan = 0;
 ```
 
@@ -410,7 +430,7 @@ WHERE idx_scan = 0;
 
 ```sql
 -- Table sizes
-SELECT 
+SELECT
   schemaname,
   tablename,
   pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
@@ -426,7 +446,7 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 ### Get All Products with Category
 
 ```sql
-SELECT 
+SELECT
   p.id,
   p.name,
   p.price,
@@ -442,7 +462,7 @@ ORDER BY p.display_order;
 
 ```sql
 SELECT * FROM products
-WHERE to_tsvector('english', name || ' ' || COALESCE(description, '')) 
+WHERE to_tsvector('english', name || ' ' || COALESCE(description, ''))
       @@ plainto_tsquery('english', 'container')
 AND is_active = TRUE;
 ```
@@ -450,7 +470,7 @@ AND is_active = TRUE;
 ### Get Product with All Images
 
 ```sql
-SELECT 
+SELECT
   p.*,
   json_agg(json_build_object(
     'id', pi.id,
@@ -466,7 +486,7 @@ GROUP BY p.id;
 ### Get Enquiries by Status
 
 ```sql
-SELECT 
+SELECT
   e.*,
   p.name as product_name,
   u.company_name
