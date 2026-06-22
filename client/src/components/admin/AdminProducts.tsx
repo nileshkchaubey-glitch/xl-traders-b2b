@@ -1466,7 +1466,7 @@ export default function AdminProducts({
                       onChange={v =>
                         setQuickAdd({ ...quickAdd, category_id: v })
                       }
-                      placeholder="Category *"
+                      placeholder="Category"
                       className="h-8 text-sm border-green-300"
                     />
                   </td>
@@ -1481,7 +1481,7 @@ export default function AdminProducts({
                         setQuickAdd({ ...quickAdd, price: e.target.value })
                       }
                       onKeyDown={e => e.key === "Enter" && handleQuickAdd()}
-                      placeholder="0.00 *"
+                      placeholder="0.00"
                       className="h-8 text-sm border-green-300 w-24"
                       disabled={quickAdding}
                     />
