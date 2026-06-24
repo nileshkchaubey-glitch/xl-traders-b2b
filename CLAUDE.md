@@ -1,7 +1,7 @@
 # XL Traders B2B — Master Project Blueprint
 
 **Single source of truth. Lives as `CLAUDE.md` at repo root AND in the Claude Project.**
-**Last updated: June 20, 2026** · Update after every merged PR (Shipped + Roadmap only).
+**Last updated: June 24, 2026** · Update after every merged PR (Shipped + Roadmap only).
 
 ---
 
@@ -116,8 +116,13 @@ inquiries, orders, order_items, import_logs, business_settings
 ### Admin Panel (PIM)
 
 - Shopify-style dark sidebar; CATALOGUE / SALES / CONTENT & IMPORT / SYSTEM
-- Products list: quick-add row (Tab nav), inline editing, SKU auto-gen, completeness badges
-- **Route-based editor** (`/admin/products/new`, `/admin/products/:id`): Save & Add Another, draft persistence
+- **Products list redesign (Phase 1):** compact, virtualized list + side detail-drawer (no full-page navigation)
+  - **`ProductsTable`** — TanStack Table + virtualizer compact list (image, name, price, status, completeness); row click opens the drawer; per-row dropdown + right-click context menu (Edit, Images, Duplicate, Delete, Toggle status, Feature, View Live)
+  - **`ProductDrawer`** — slide-in side sheet to view/edit a product without leaving the list; shares save logic with the route editor (no fork) via `useProductForm`; "Save & Next" steps to the next row; embeds `ProductMediaSection` (product_images gallery + Image Library)
+  - **`EditableCell`** — click-to-edit inline cells on the list (price, status); commits on Enter/blur, cancels on Escape; doesn't open the drawer
+  - **`RapidEntryRow`** — single-line fast add (name, category, price, unit); Enter saves and refocuses name for the next entry; remaining fields live in the drawer
+  - **Bulk action bar** — appears on selection; select-all-matching-filter; set brand/MOQ/unit/category; Publish/Unpublish/Activate/Delete; N/A marking; confirm dialog
+- **Route-based editor** (`/admin/products/new`, `/admin/products/:id`): Save & Add Another, draft persistence (shares `useProductForm` with the drawer)
 - **Incomplete-first entry:** only `name` required; blank price/MOQ/category → NULL/Uncategorized; never blocked
 - **Draft/Published gate:** new products default draft; "Publish to website" button; Draft/Published badges
 - **AI Smart Paste:** paste supplier text → auto-extracts fields → autofills form (Claude AI + regex fallback)
@@ -222,6 +227,8 @@ inquiries, orders, order_items, import_logs, business_settings
 - #47 Bug fixes (Uncategorized, WhatsApp null, cart total)
 - #48 Missing-data filters + dashboard chips
 - #49 Bulk update + N/A marking + docs fix (Cloudflare + pnpm-lock)
+- #53 Import UI polish (category optional; status + na_fields columns wired)
+- #55 Phase 1 — Products list redesign (ProductsTable + ProductDrawer + EditableCell + RapidEntryRow + bulk action bar)
 
 ---
 
@@ -230,7 +237,7 @@ inquiries, orders, order_items, import_logs, business_settings
 | Column           | Required | Notes                                         |
 | ---------------- | -------- | --------------------------------------------- |
 | name             | ✅       | Full name including size for variants         |
-| category         | ✅       | Must match Categories tab exactly             |
+| category         | ⬜       | Blank → Uncategorized; must match Categories tab exactly |
 | unit             | ✅       | pcs/box/kg/set/roll/meter/litre/packet        |
 | price            | ⬜       | Blank = "Price on enquiry"                    |
 | mrp              | ⬜       | Optional                                      |
