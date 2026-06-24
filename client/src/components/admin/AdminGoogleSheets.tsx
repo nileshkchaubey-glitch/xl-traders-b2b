@@ -14,7 +14,12 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import { fetchGoogleSheetAsCsv } from "@/lib/googleSheetsService";
-import { bulkImportProducts, ImportRow } from "@/lib/bulkImportService";
+import {
+  bulkImportProducts,
+  ImportRow,
+  normalizeStatus,
+  parseNaFields,
+} from "@/lib/bulkImportService";
 import { downloadProductTemplate } from "@/lib/templateService";
 
 type Step = "input" | "mapping" | "preview" | "importing" | "done";
@@ -34,6 +39,9 @@ interface ColMap {
   sku: string;
   barcode: string;
   moq: string;
+  status: string;
+  tags: string;
+  na_fields: string;
 }
 
 const DEFAULT_MAP: ColMap = {
@@ -51,6 +59,9 @@ const DEFAULT_MAP: ColMap = {
   sku: "sku",
   barcode: "barcode",
   moq: "moq",
+  status: "status",
+  tags: "tags",
+  na_fields: "na_fields",
 };
 
 function mapRow(raw: Record<string, string>, map: ColMap): ImportRow | null {
@@ -90,6 +101,9 @@ function mapRow(raw: Record<string, string>, map: ColMap): ImportRow | null {
     is_featured:
       raw[map.is_featured]?.toLowerCase() === "true" ||
       raw[map.is_featured] === "1",
+    status: map.status ? normalizeStatus(raw[map.status]) : undefined,
+    na_fields: map.na_fields ? parseNaFields(raw[map.na_fields]) : undefined,
+    tags: map.tags ? raw[map.tags]?.trim() : undefined,
   };
 }
 
@@ -243,28 +257,22 @@ export default function AdminGoogleSheets() {
     "brand",
     "description",
     "is_featured",
+    "status",
+    "tags",
+    "na_fields",
   ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Google Sheets Import
-          </h1>
-          <p className="text-slate-400 text-xs mt-0.5">
-            Sync your product catalogue directly from a Google Spreadsheet
-          </p>
-        </div>
-        {/* Download Template button — always visible */}
-        <Button
-          onClick={handleDownloadTemplate}
-          variant="outline"
-          className="gap-2 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 flex-shrink-0"
-        >
-          <Download className="w-4 h-4" />
-          Download Template
-        </Button>
+      {/* Single header — the template download lives inside the card below, with
+          context, so there is exactly ONE primary download CTA on this page. */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">
+          Google Sheets Import
+        </h1>
+        <p className="text-slate-400 text-xs mt-0.5">
+          Sync your product catalogue directly from a Google Spreadsheet
+        </p>
       </div>
 
       {/* Template call-to-action banner */}
@@ -308,7 +316,7 @@ export default function AdminGoogleSheets() {
               size="sm"
             >
               <Download className="w-4 h-4" />
-              Download (.xlsx)
+              Download Template (.xlsx)
             </Button>
           </div>
         </Card>

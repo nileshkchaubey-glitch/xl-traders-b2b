@@ -23,6 +23,35 @@ export interface ImportRow {
   image_url_4?: string;
   image_url_5?: string;
   is_featured?: boolean;
+  // status: 'draft' | 'published'. Left undefined when blank/invalid so inserts
+  // default to 'draft' and updates leave the existing status untouched.
+  status?: ProductStatus;
+  // na_fields: fields the seller marks "not applicable" (suppresses missing-data noise).
+  na_fields?: string[];
+  // tags: captured from the sheet but NOT yet written — the products.tags column
+  // is only present via an untracked conditional migration (see TODO in bulkImportProducts).
+  tags?: string;
+}
+
+export type ProductStatus = 'draft' | 'published';
+
+// Normalize a free-text status cell to a valid value, or undefined.
+// Trim + lowercase first so " Published " etc. are accepted.
+export function normalizeStatus(raw: unknown): ProductStatus | undefined {
+  const s = String(raw ?? '').trim().toLowerCase();
+  if (s === 'published') return 'published';
+  if (s === 'draft') return 'draft';
+  return undefined;
+}
+
+// Split a comma-separated na_fields cell into a trimmed, de-duplicated array.
+// Returns undefined when nothing usable is present (so updates skip the column).
+export function parseNaFields(raw: unknown): string[] | undefined {
+  const parts = String(raw ?? '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parts.length ? Array.from(new Set(parts)) : undefined;
 }
 
 export interface ImportResult {
@@ -120,8 +149,14 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
   if (rawPrice !== null && (isNaN(rawPrice) || rawPrice < 0)) {
     throw new Error("Invalid price — must be a positive number or left blank");
   }
-  const quantity = parseFloat(row.quantity_in_unit);
-  if (isNaN(quantity) || quantity <= 0) {
+  // quantity_in_unit is optional — blank defaults to 1 (matches the Google Sheets
+  // path and the documented template). Only reject a value that is present but invalid.
+  const hasQty =
+    row.quantity_in_unit !== undefined &&
+    row.quantity_in_unit !== null &&
+    String(row.quantity_in_unit).trim() !== "";
+  const quantity = hasQty ? parseFloat(row.quantity_in_unit) : 1;
+  if (hasQty && (isNaN(quantity) || quantity <= 0)) {
     throw new Error("Invalid quantity_in_unit — must be a positive number");
   }
   // Category: blank/missing rows map to 'uncategorized' (resolved at import time)
@@ -155,6 +190,9 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
       row.is_featured === "true" ||
       row.is_featured === true ||
       row.is_featured === 1,
+    status: normalizeStatus(row.status),
+    na_fields: parseNaFields(row.na_fields),
+    tags: row.tags ? String(row.tags).trim() : undefined,
   };
 }
 
@@ -274,6 +312,12 @@ export async function bulkImportProducts(
   };
   const seenSkus = new Set<string>();
 
+  // TODO(tags): row.tags is parsed and carried on ImportRow but intentionally NOT
+  // written here. products.tags exists only via an untracked conditional migration
+  // (see GUEST_PRODUCT_COLS note in productService.ts) and is absent on some DB
+  // instances — writing it unconditionally would fail those inserts. Wire it in once
+  // the column is part of a tracked migration on every environment.
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNumber = i + 2;
@@ -383,6 +427,10 @@ export async function bulkImportProducts(
               moq: row.moq ?? null,
               is_featured: row.is_featured || false,
               ...(row.sku ? { sku: row.sku } : {}),
+              // Only overwrite status/na_fields when the row actually supplies them,
+              // so a re-import without those columns never silently unpublishes a product.
+              ...(row.status ? { status: row.status } : {}),
+              ...(row.na_fields ? { na_fields: row.na_fields } : {}),
               updated_at: new Date().toISOString(),
             })
             .eq("id", existingVariant.id);
@@ -419,7 +467,8 @@ export async function bulkImportProducts(
               brand: row.brand,
               is_featured: row.is_featured || false,
               is_active: true,
-              status: "draft",
+              status: row.status ?? "draft",
+              na_fields: row.na_fields ?? [],
             })
             .select("id")
             .single();
@@ -483,6 +532,10 @@ export async function bulkImportProducts(
               moq: row.moq ?? null,
               is_featured: row.is_featured || false,
               ...(row.sku ? { sku: row.sku } : {}),
+              // Only overwrite status/na_fields when the row actually supplies them,
+              // so a re-import without those columns never silently unpublishes a product.
+              ...(row.status ? { status: row.status } : {}),
+              ...(row.na_fields ? { na_fields: row.na_fields } : {}),
               updated_at: new Date().toISOString(),
             })
             .eq("id", existing.id);
@@ -515,7 +568,8 @@ export async function bulkImportProducts(
               brand: row.brand,
               is_featured: row.is_featured || false,
               is_active: true,
-              status: "draft",
+              status: row.status ?? "draft",
+              na_fields: row.na_fields ?? [],
             })
             .select("id")
             .single();
