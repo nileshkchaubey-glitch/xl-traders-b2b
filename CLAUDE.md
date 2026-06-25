@@ -132,6 +132,12 @@ inquiries, orders, order_items, import_logs, business_settings
 - **Missing-data smart filters:** 8-dimension "Missing…" dropdown (no-price/moq/brand/image/specs/desc/seo/category); composable with search+category+status
 - **Dashboard chips:** 8 missing-count chips on Overview → deep-link to filtered list
 - **Bulk update:** select-all-matching-filter; set brand/MOQ/unit/category; Publish/Unpublish/Activate/Delete; confirm dialog; N/A marking
+- **Products list redesign (Phase 1 — branch `feat/phase-1-products-redesign`, pending PR, NOT yet on production):**
+  compact virtualized `ProductsTable` (TanStack Table + Virtual, fixed grid, thumbnail, completeness score,
+  right-click + dropdown row menu); `ProductDrawer` quick-edit sharing the route editor's save logic (no fork)
+  with Save & Next; drawer Media (primary + `product_images` gallery, add-from-Library, set-primary);
+  inline `EditableCell` (price + draft/published on the row); `RapidEntryRow` single-line fast add.
+  No schema changes; all DB logic stays in services.
 - **N/A marking:** bulk + per-product; na_fields[] prevents permanent false-missing noise
 - **Daily Admin Improvement widget:** rotating Quick Win/Medium/Major on Overview
 - Orders, Enquiries, SEO tabs
@@ -159,6 +165,19 @@ inquiries, orders, order_items, import_logs, business_settings
 
 ## 🗺️ Roadmap (next, in order)
 
+0. **Phase 2 — PIM Image Management & QC** (planned, grounded in 2026-06-25 Supabase audit). No new tables.
+   - **Prereqs (you, via SQL Editor — not the agent):** standardize 4 canonical `group_name` values
+     (`Disposal & Food Packaging`, `Decoration`, `Cleaning`, `Packaging`); confirm `product-images`
+     bucket public-read.
+   - **A. SKU upload pipeline:** `autoResizeImage` gains a webp option; `isOwnImage(url)` host check;
+     `storageService.uploadBySku` → `products/{SKU}/{SKU}.webp` (+ `_NN` for gallery), `upsert:true`,
+     id-fallback when SKU null; `productImageService.assignOwnImage`.
+   - **B. Image QC grid mode:** new `ProductsQCGrid` reusing AdminProducts' data/filters/selection (no fork);
+     OWN / PLACEHOLDER / MISSING badge, group›category breadcrumb, draft/published toggle; `viewMode`
+     toggle swaps table↔grid; Replace-image reuses the existing `AdminImageGallery` dialog with an
+     "Upload own image" button; server-side "needs own image" filter ANDs with existing filters.
+   - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
+     shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.)
 1. **Update import UI** — price/moq as optional on Google Sheets + CSV screens; add status+tags to column list
 2. **Catalogue data entry** — bulk-enter products via Google Sheets template v3; target 1000 products
 3. **Batch AI extraction** — supplier list → AI returns ParsedProduct[] → review grid → bulk import (needs Edge Function first)
