@@ -31,12 +31,23 @@ export default function ProductCard({
     view === "list" ? 200 : 400
   );
 
+  // Hide the loading shimmer that sits behind each thumbnail. State-free
+  // (queries a sibling marked with data-shimmer) so it composes with the
+  // no-state load/error handlers below without triggering re-renders.
+  const hideShimmer = (img: HTMLImageElement) => {
+    const shimmer = img.parentElement?.querySelector<HTMLElement>(
+      "[data-shimmer]"
+    );
+    if (shimmer) shimmer.style.display = "none";
+  };
+
   // CSS-only broken-image fallback — no React state, so a page full of broken
-  // images can't trigger a cascade of re-renders. onError hides the <img> and
-  // reveals its sibling placeholder.
+  // images can't trigger a cascade of re-renders. onError hides the <img>,
+  // drops the shimmer, and reveals the placeholder sibling.
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     img.style.display = "none";
+    hideShimmer(img);
     (img.nextElementSibling as HTMLElement | null)?.classList.remove("hidden");
   };
 
@@ -45,12 +56,16 @@ export default function ProductCard({
   // images that are already complete render at full opacity immediately.
   const handleImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     e.currentTarget.style.opacity = "1";
+    hideShimmer(e.currentTarget);
   };
   // A cached image can already be `complete` before React attaches onLoad, so
   // onLoad would never fire and it'd stay invisible. Reveal those immediately
   // via a ref callback; the rest fade in on load.
   const revealIfComplete = (img: HTMLImageElement | null) => {
-    if (img?.complete && img.naturalWidth > 0) img.style.opacity = "1";
+    if (img?.complete && img.naturalWidth > 0) {
+      img.style.opacity = "1";
+      hideShimmer(img);
+    }
   };
   // Start transparent; the image's existing `transition duration-300` animates
   // opacity back to 1 on load. No extra transition utility (would conflict).
@@ -112,21 +127,27 @@ export default function ProductCard({
         {/* Image */}
         <Link
           href={`/product/${product.id}`}
-          className="w-24 h-24 flex-shrink-0 overflow-hidden bg-slate-50"
+          className="relative w-24 h-24 flex-shrink-0 overflow-hidden bg-slate-50"
         >
           {imageUrl ? (
             <>
+              <div
+                data-shimmer
+                className="absolute inset-0 animate-pulse bg-slate-100 pointer-events-none"
+              />
               <img
+                ref={revealIfComplete}
                 src={imageUrl}
                 alt={product.image_alt_text || product.name}
                 width={96}
                 height={96}
-                className="w-full h-full object-contain p-1.5"
+                className="relative z-10 w-full h-full object-contain p-1.5"
                 loading="lazy"
                 decoding="async"
+                onLoad={handleImgLoad}
                 onError={handleImgError}
               />
-              <div className="hidden w-full h-full flex items-center justify-center bg-slate-100">
+              <div className="hidden relative z-10 w-full h-full flex items-center justify-center bg-slate-100">
                 <Package className="w-6 h-6 text-slate-300" />
               </div>
             </>
@@ -189,19 +210,23 @@ export default function ProductCard({
         <div className="aspect-square overflow-hidden relative group flex-shrink-0 bg-slate-50">
           {imageUrl ? (
             <>
+              <div
+                data-shimmer
+                className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-100 to-slate-200 pointer-events-none"
+              />
               <img
                 ref={revealIfComplete}
                 src={imageUrl}
                 alt={product.image_alt_text || product.name}
                 width={400}
                 height={400}
-                className={`w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300 ${fadeInClass}`}
+                className={`relative z-10 w-full h-full object-contain p-2 group-hover:scale-105 transition duration-300 ${fadeInClass}`}
                 loading="lazy"
                 decoding="async"
                 onLoad={handleImgLoad}
                 onError={handleImgError}
               />
-              <div className="hidden w-full h-full flex items-center justify-center bg-slate-100">
+              <div className="hidden relative z-10 w-full h-full flex items-center justify-center bg-slate-100">
                 <Package className="w-6 h-6 text-slate-300" />
               </div>
             </>
@@ -209,7 +234,7 @@ export default function ProductCard({
             <ImagePlaceholder className="w-full h-full" showText={false} />
           )}
           {product.is_featured && (
-            <div className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+            <div className="absolute top-1.5 left-1.5 z-20 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
               Featured
             </div>
           )}
