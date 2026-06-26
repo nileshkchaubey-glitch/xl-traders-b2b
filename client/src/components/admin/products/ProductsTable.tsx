@@ -42,7 +42,16 @@ const ROW_HEIGHT = 60;
 
 // Compact, fixed grid — no horizontal scroll. The name column flexes (min-w-0
 // so it truncates); everything else is a fixed track.
-const GRID_COLS = "grid-cols-[40px_56px_minmax(0,1fr)_120px_140px_72px_48px]";
+//
+// Responsive: on phones (< sm) the price / status / score columns are hidden
+// (the cells use `hidden sm:…`, so they drop out of the grid flow entirely) and
+// the template collapses to 4 tracks — select, image, name, actions. Price and
+// status are then folded into a compact second line inside the name cell. This
+// keeps the fixed tracks well under a 360px viewport so the name column never
+// collapses to zero and the variant chip can no longer spill over the price.
+const GRID_COLS =
+  "grid-cols-[32px_44px_minmax(0,1fr)_40px] " +
+  "sm:grid-cols-[40px_56px_minmax(0,1fr)_120px_140px_72px_48px]";
 
 export interface ProductRowActions {
   onEdit: (product: Product) => void;
@@ -140,9 +149,9 @@ export default function ProductsTable({
         </div>
         <div />
         <div>Product</div>
-        <div>Price</div>
-        <div>Status</div>
-        <div className="text-center">Score</div>
+        <div className="hidden sm:block">Price</div>
+        <div className="hidden sm:block">Status</div>
+        <div className="hidden text-center sm:block">Score</div>
         <div />
       </div>
 
@@ -224,13 +233,30 @@ export default function ProductsTable({
                             </span>
                           )}
                         </div>
-                        <div className="truncate text-xs text-slate-400">
+                        {/* desktop: category (its own column shows price/status) */}
+                        <div className="hidden truncate text-xs text-slate-400 sm:block">
                           {getCategoryName(product.category_id)}
+                        </div>
+                        {/* mobile: price + status, since those columns are hidden < sm */}
+                        <div className="mt-0.5 flex items-center gap-2 sm:hidden">
+                          <span className="text-xs tabular-nums text-slate-700">
+                            {product.price == null ? (
+                              <span className="italic text-slate-400">
+                                Enquiry
+                              </span>
+                            ) : (
+                              formatPrice(product.price)
+                            )}
+                          </span>
+                          <StatusToggleBadge
+                            product={product}
+                            onInlineUpdate={onInlineUpdate}
+                          />
                         </div>
                       </div>
 
-                      {/* price — inline editable */}
-                      <div className="text-sm tabular-nums text-slate-700">
+                      {/* price — inline editable (desktop column; mobile shows it in the name cell) */}
+                      <div className="hidden text-sm tabular-nums text-slate-700 sm:block">
                         <EditableCell
                           type="number"
                           value={
@@ -256,29 +282,12 @@ export default function ProductsTable({
                         />
                       </div>
 
-                      {/* status — click to toggle draft/published */}
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            onInlineUpdate(product.id, {
-                              status: (product.status === "published"
-                                ? "draft"
-                                : "published") as ProductStatus,
-                            });
-                          }}
-                          title="Click to toggle published / draft"
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold transition-colors ${
-                            product.status === "published"
-                              ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                              : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                          }`}
-                        >
-                          {product.status === "published"
-                            ? "Published"
-                            : "Draft"}
-                        </button>
+                      {/* status — click to toggle draft/published (desktop column) */}
+                      <div className="hidden items-center gap-1.5 sm:flex">
+                        <StatusToggleBadge
+                          product={product}
+                          onInlineUpdate={onInlineUpdate}
+                        />
                         <span
                           title={product.is_active ? "Active" : "Inactive"}
                           className={`w-1.5 h-1.5 rounded-full ${
@@ -289,8 +298,8 @@ export default function ProductsTable({
                         />
                       </div>
 
-                      {/* score */}
-                      <div className="flex justify-center">
+                      {/* score (desktop column) */}
+                      <div className="hidden justify-center sm:flex">
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-bold ${completenessColor(score)}`}
                           title={
@@ -344,6 +353,37 @@ export default function ProductsTable({
         </div>
       )}
     </div>
+  );
+}
+
+// Draft/Published toggle pill — shared by the desktop status column and the
+// mobile compact line inside the name cell so both stay identical.
+function StatusToggleBadge({
+  product,
+  onInlineUpdate,
+}: {
+  product: Product;
+  onInlineUpdate: (id: string, patch: ProductPatch) => void;
+}) {
+  const published = product.status === "published";
+  return (
+    <button
+      type="button"
+      onClick={e => {
+        e.stopPropagation();
+        onInlineUpdate(product.id, {
+          status: (published ? "draft" : "published") as ProductStatus,
+        });
+      }}
+      title="Click to toggle published / draft"
+      className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-bold transition-colors ${
+        published
+          ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+          : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+      }`}
+    >
+      {published ? "Published" : "Draft"}
+    </button>
   );
 }
 
