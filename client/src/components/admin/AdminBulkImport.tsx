@@ -15,6 +15,7 @@ import {
   parseExcel,
   bulkImportProducts,
   exportProductsAsCSV,
+  validateImportRows,
   ImportRow,
   ImportResult,
 } from "@/lib/bulkImportService";
@@ -104,9 +105,13 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
     setStep("importing");
     setProgress(0);
     try {
-      const result = await bulkImportProducts(parsedRows, (done, total) => {
-        setProgress(Math.round((done / total) * 100));
-      });
+      const result = await bulkImportProducts(
+        parsedRows,
+        "csv",
+        (done, total) => {
+          setProgress(Math.round((done / total) * 100));
+        }
+      );
       setImportResult(result);
       setStep("complete");
       toast.success(result.summary);
@@ -146,8 +151,8 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">CSV Import</h1>
           <p className="text-slate-400 text-xs mt-0.5">
-            Import or update products in bulk · matched by SKU first, then by
-            name
+            Import or update products in bulk · matched by SKU (provided or
+            auto-generated)
           </p>
         </div>
         <Button
@@ -296,113 +301,149 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
       )}
 
       {/* Preview */}
-      {step === "preview" && (
-        <div className="space-y-4">
-          {parseErrors.length > 0 && (
-            <Card className="p-4 bg-yellow-50 border-yellow-200">
-              <div className="flex gap-2 mb-2">
-                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-                <p className="font-semibold text-yellow-900">
-                  {parseErrors.length} row(s) with errors (skipped)
-                </p>
-              </div>
-              <ul className="text-sm text-yellow-800 space-y-0.5">
-                {parseErrors.slice(0, 6).map((err, i) => (
-                  <li key={i}>• {err}</li>
-                ))}
-                {parseErrors.length > 6 && (
-                  <li>• … and {parseErrors.length - 6} more</li>
-                )}
-              </ul>
-            </Card>
-          )}
-
-          <Card>
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <p className="font-semibold text-slate-900">
-                {parsedRows.length} products ready to import
-                {file && (
-                  <span className="text-slate-400 font-normal ml-2 text-sm">
-                    from {file.name}
-                  </span>
-                )}
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    {[
-                      "Name",
-                      "Category",
-                      "Price (₹)",
-                      "MRP (₹)",
-                      "Unit",
-                      "Qty",
-                    ].map(h => (
-                      <th
-                        key={h}
-                        className="px-4 py-2.5 text-left font-semibold text-slate-700"
-                      >
-                        {h}
-                      </th>
+      {step === "preview" &&
+        (() => {
+          const validation = validateImportRows(parsedRows);
+          return (
+            <div className="space-y-4">
+              {(validation.duplicateSkus.length > 0 ||
+                validation.orphanVariants.length > 0) && (
+                <Card className="p-4 bg-amber-50 border-amber-200">
+                  <div className="flex gap-2 mb-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                    <p className="font-semibold text-amber-900">
+                      Pre-import checks
+                    </p>
+                  </div>
+                  <ul className="text-sm text-amber-800 space-y-1">
+                    {validation.duplicateSkus.length > 0 && (
+                      <li>
+                        • {validation.duplicateSkus.length} duplicate SKU(s) in
+                        file — only the first row of each is imported:{" "}
+                        <span className="font-mono">
+                          {validation.duplicateSkus.slice(0, 5).join(", ")}
+                          {validation.duplicateSkus.length > 5 && " …"}
+                        </span>
+                      </li>
+                    )}
+                    {validation.orphanVariants.length > 0 && (
+                      <li>
+                        • {validation.orphanVariants.length} row(s) have a
+                        variant_label but no master_name — they import as
+                        standalone products.
+                      </li>
+                    )}
+                  </ul>
+                </Card>
+              )}
+              {parseErrors.length > 0 && (
+                <Card className="p-4 bg-yellow-50 border-yellow-200">
+                  <div className="flex gap-2 mb-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                    <p className="font-semibold text-yellow-900">
+                      {parseErrors.length} row(s) with errors (skipped)
+                    </p>
+                  </div>
+                  <ul className="text-sm text-yellow-800 space-y-0.5">
+                    {parseErrors.slice(0, 6).map((err, i) => (
+                      <li key={i}>• {err}</li>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {parsedRows.slice(0, 15).map((row, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-slate-100 hover:bg-slate-50"
-                    >
-                      <td className="px-4 py-2 text-slate-900 max-w-[200px] truncate">
-                        {row.name}
-                      </td>
-                      <td className="px-4 py-2 text-slate-600">
-                        {row.category}
-                      </td>
-                      <td className="px-4 py-2 font-semibold">
-                        {row.price != null ? (
-                          `₹${row.price.toLocaleString()}`
-                        ) : (
-                          <span className="text-slate-400 font-normal">
-                            On enquiry
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-slate-500">
-                        {row.mrp ? `₹${row.mrp.toLocaleString()}` : "—"}
-                      </td>
-                      <td className="px-4 py-2 text-slate-600">{row.unit}</td>
-                      <td className="px-4 py-2 text-slate-600">
-                        {row.quantity_in_unit}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {parsedRows.length > 15 && (
-              <div className="px-4 py-3 bg-slate-50 border-t text-sm text-slate-500">
-                … and {parsedRows.length - 15} more products
-              </div>
-            )}
-          </Card>
+                    {parseErrors.length > 6 && (
+                      <li>• … and {parseErrors.length - 6} more</li>
+                    )}
+                  </ul>
+                </Card>
+              )}
 
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={handleReset}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleImport}
-              disabled={isLoading}
-              className="flex-1"
-            >
-              Import {parsedRows.length} Products
-            </Button>
-          </div>
-        </div>
-      )}
+              <Card>
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <p className="font-semibold text-slate-900">
+                    {parsedRows.length} products ready to import
+                    {file && (
+                      <span className="text-slate-400 font-normal ml-2 text-sm">
+                        from {file.name}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        {[
+                          "Name",
+                          "Category",
+                          "Price (₹)",
+                          "MRP (₹)",
+                          "Unit",
+                          "Qty",
+                        ].map(h => (
+                          <th
+                            key={h}
+                            className="px-4 py-2.5 text-left font-semibold text-slate-700"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedRows.slice(0, 15).map((row, i) => (
+                        <tr
+                          key={i}
+                          className="border-b border-slate-100 hover:bg-slate-50"
+                        >
+                          <td className="px-4 py-2 text-slate-900 max-w-[200px] truncate">
+                            {row.name}
+                          </td>
+                          <td className="px-4 py-2 text-slate-600">
+                            {row.category}
+                          </td>
+                          <td className="px-4 py-2 font-semibold">
+                            {row.price != null ? (
+                              `₹${row.price.toLocaleString()}`
+                            ) : (
+                              <span className="text-slate-400 font-normal">
+                                On enquiry
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-slate-500">
+                            {row.mrp ? `₹${row.mrp.toLocaleString()}` : "—"}
+                          </td>
+                          <td className="px-4 py-2 text-slate-600">
+                            {row.unit}
+                          </td>
+                          <td className="px-4 py-2 text-slate-600">
+                            {row.quantity_in_unit}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {parsedRows.length > 15 && (
+                  <div className="px-4 py-3 bg-slate-50 border-t text-sm text-slate-500">
+                    … and {parsedRows.length - 15} more products
+                  </div>
+                )}
+              </Card>
+
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={handleReset}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleImport}
+                  disabled={isLoading}
+                  className="flex-1"
+                >
+                  Import {parsedRows.length} Products
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* Importing */}
       {step === "importing" && (
@@ -444,6 +485,23 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
               </div>
             </div>
           </Card>
+
+          {importResult.unknownCategories.length > 0 && (
+            <Card className="p-4 bg-yellow-50 border-yellow-200">
+              <p className="font-semibold text-yellow-900 mb-2">
+                {importResult.unknownCategories.length} unknown categor
+                {importResult.unknownCategories.length === 1 ? "y" : "ies"} →
+                routed to Uncategorized
+              </p>
+              <p className="text-sm text-yellow-800">
+                {importResult.unknownCategories.join(", ")}
+              </p>
+              <p className="text-xs text-yellow-700 mt-2">
+                Create these categories in Categories, then re-import (or
+                reassign from the products list) to file them correctly.
+              </p>
+            </Card>
+          )}
 
           {importResult.errors.length > 0 && (
             <Card className="p-4 bg-red-50 border-red-200">

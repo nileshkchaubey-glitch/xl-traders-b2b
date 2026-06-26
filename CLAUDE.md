@@ -137,6 +137,15 @@ inquiries, orders, order_items, import_logs, business_settings
 - **Daily Admin Improvement widget:** rotating Quick Win/Medium/Major on Overview
 - Orders, Enquiries, SEO tabs
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
+- **SKU-upsert import hardening** (`bulkImportService.ts`): batch resolution + a single
+  `.upsert(onConflict:'sku')` (chunked, 200/batch; per-row fallback isolates a bad row) replaces the
+  old per-row read-then-write and its risky name-fallback matching. Respects provided SKU, auto-generates
+  if blank (variants get a deterministic `master-label` SKU → idempotent re-import; standalones get a unique
+  `IMP-` SKU). `status`/`is_active` omitted from the payload so new rows take DB defaults (draft/active) and
+  existing rows preserve their values on conflict. Categories resolved name→id in one pass; **unknown
+  categories route to the Uncategorized sentinel and are reported** (no longer auto-created). Pre-commit
+  dry-run (`validateImportRows`) surfaces duplicate SKUs + orphan variants in the preview before writing.
+  Fixed arg-order bug in `AdminBulkImport` (progress callback was passed as the `source` arg).
 - Tab persistence, optimistic updates, auto-resize images to 800px
 
 ### Health System
