@@ -6,9 +6,11 @@ import {
   parseCSV,
   parseExcel,
   bulkImportProducts,
+  dryRunImport,
   exportProductsAsCSV,
   ImportRow,
   ImportResult,
+  DryRunResult,
 } from '@/lib/bulkImportService';
 import { downloadProductTemplate } from '@/lib/templateService';
 import { toast } from 'sonner';
@@ -54,6 +56,8 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
+  const [dryRunning, setDryRunning] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -91,7 +95,7 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
     setStep('importing');
     setProgress(0);
     try {
-      const result = await bulkImportProducts(parsedRows, (done, total) => {
+      const result = await bulkImportProducts(parsedRows, 'csv', (done, total) => {
         setProgress(Math.round((done / total) * 100));
       });
       setImportResult(result);
@@ -294,8 +298,52 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
             )}
           </Card>
 
+          {dryRunResult && (
+            <Card className="p-4 space-y-3 border-blue-200 bg-blue-50">
+              <p className="font-semibold text-blue-900">Dry-Run Results</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div><span className="text-blue-600 font-bold">{dryRunResult.totalRows}</span> total rows</div>
+                <div><span className="text-green-600 font-bold">{dryRunResult.withSku}</span> with SKU</div>
+                <div><span className="text-yellow-600 font-bold">{dryRunResult.withoutSku}</span> auto-SKU</div>
+                <div><span className="text-blue-600 font-bold">{dryRunResult.existingSkus.length}</span> will update</div>
+              </div>
+              {dryRunResult.duplicateSkus.length > 0 && (
+                <div className="text-sm text-red-700">
+                  <strong>Duplicate SKUs in file:</strong>{' '}
+                  {dryRunResult.duplicateSkus.map(d => `${d.sku} (rows ${d.rows.join(',')})`).join('; ')}
+                </div>
+              )}
+              {dryRunResult.unknownCategories.length > 0 && (
+                <div className="text-sm text-yellow-700">
+                  <strong>Unknown categories (→ Uncategorized):</strong>{' '}
+                  {dryRunResult.unknownCategories.map(u => `"${u.category}" (${u.rows.length} rows)`).join(', ')}
+                </div>
+              )}
+              {dryRunResult.ready && dryRunResult.duplicateSkus.length === 0 && (
+                <p className="text-green-700 font-semibold text-sm">All checks passed — ready to import.</p>
+              )}
+            </Card>
+          )}
+
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleReset}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                setDryRunning(true);
+                try {
+                  const dr = await dryRunImport(parsedRows);
+                  setDryRunResult(dr);
+                  toast.success('Dry-run complete');
+                } catch { toast.error('Dry-run failed'); }
+                finally { setDryRunning(false); }
+              }}
+              disabled={dryRunning}
+              className="gap-1.5"
+            >
+              {dryRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              Dry Run
+            </Button>
             <Button onClick={handleImport} disabled={isLoading} className="flex-1">
               Import {parsedRows.length} Products
             </Button>
