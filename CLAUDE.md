@@ -220,6 +220,14 @@ inquiries, orders, order_items, import_logs, business_settings
 
 ---
 
+## Custom commands
+
+- /suggest-admin — admin improvements + new features + mistake flags
+- /suggest-storefront — storefront look/UX + mistake flags
+- /audit — bugs/security/architecture audit (Problem→Fix→Verification)
+
+---
+
 ## 🛠️ Workflow
 
 ```
