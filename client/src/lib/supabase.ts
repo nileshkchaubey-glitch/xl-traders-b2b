@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -22,7 +22,7 @@ export interface Category {
 
 // Publish gate — a product is only visible on the storefront when
 // status === 'published' AND is_active === true. New products default to draft.
-export type ProductStatus = 'draft' | 'published';
+export type ProductStatus = "draft" | "published";
 
 export interface Product {
   id: string;
@@ -125,7 +125,12 @@ export interface Enquiry {
   updated_at: string;
 }
 
-export type OrderStatus = 'new' | 'confirmed' | 'processing' | 'delivered' | 'cancelled';
+export type OrderStatus =
+  | "new"
+  | "confirmed"
+  | "processing"
+  | "delivered"
+  | "cancelled";
 
 export interface Order {
   id: string;

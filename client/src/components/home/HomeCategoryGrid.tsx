@@ -1,39 +1,67 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'wouter';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useMemo } from "react";
+import { Link } from "wouter";
+import { motion } from "framer-motion";
 import {
-  ArrowRight, Package2, Coffee, ShoppingBag, Package,
-  UtensilsCrossed, Layers, Wind, Utensils, Pizza, Printer,
-} from 'lucide-react';
-import { categoryService } from '@/lib/productService';
-import { Category } from '@/lib/supabase';
+  ArrowRight,
+  Package2,
+  Coffee,
+  ShoppingBag,
+  Package,
+  UtensilsCrossed,
+  Layers,
+  Wind,
+  Utensils,
+  Pizza,
+  Printer,
+} from "lucide-react";
+import { categoryService } from "@/lib/productService";
+import { Category } from "@/lib/supabase";
 
 // ─── Visual constants ────────────────────────────────────────────────────────
 
 const FALLBACK_ICONS = [
-  Package2, Coffee, ShoppingBag, Package,
-  UtensilsCrossed, Layers, Wind, Utensils, Pizza, Printer,
+  Package2,
+  Coffee,
+  ShoppingBag,
+  Package,
+  UtensilsCrossed,
+  Layers,
+  Wind,
+  Utensils,
+  Pizza,
+  Printer,
 ];
 
 const GRADIENT_PAIRS = [
-  ['from-red-50',    'to-orange-50'],
-  ['from-blue-50',   'to-cyan-50'],
-  ['from-green-50',  'to-emerald-50'],
-  ['from-purple-50', 'to-pink-50'],
-  ['from-amber-50',  'to-yellow-50'],
-  ['from-teal-50',   'to-green-50'],
-  ['from-indigo-50', 'to-blue-50'],
-  ['from-rose-50',   'to-red-50'],
-  ['from-sky-50',    'to-indigo-50'],
-  ['from-lime-50',   'to-teal-50'],
+  ["from-red-50", "to-orange-50"],
+  ["from-blue-50", "to-cyan-50"],
+  ["from-green-50", "to-emerald-50"],
+  ["from-purple-50", "to-pink-50"],
+  ["from-amber-50", "to-yellow-50"],
+  ["from-teal-50", "to-green-50"],
+  ["from-indigo-50", "to-blue-50"],
+  ["from-rose-50", "to-red-50"],
+  ["from-sky-50", "to-indigo-50"],
+  ["from-lime-50", "to-teal-50"],
 ];
 
 const ICON_COLORS = [
-  'text-red-400', 'text-blue-400', 'text-green-400', 'text-purple-400',
-  'text-amber-400', 'text-teal-400', 'text-indigo-400', 'text-rose-400',
+  "text-red-400",
+  "text-blue-400",
+  "text-green-400",
+  "text-purple-400",
+  "text-amber-400",
+  "text-teal-400",
+  "text-indigo-400",
+  "text-rose-400",
 ];
 
-const CROP = ['object-left-top', 'object-right-top', 'object-left-bottom', 'object-right-bottom'] as const;
+const CROP = [
+  "object-left-top",
+  "object-right-top",
+  "object-left-bottom",
+  "object-right-bottom",
+] as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -43,7 +71,11 @@ function pickTop(cats: Category[], max = 5): Category[] {
   return [...with_, ...without].slice(0, max);
 }
 
-interface CG { name: string; order: number; cats: Category[] }
+interface CG {
+  name: string;
+  order: number;
+  cats: Category[];
+}
 
 function buildGroups(cats: Category[]): CG[] | null {
   const withGroup = cats.filter(c => c.group_name);
@@ -52,7 +84,8 @@ function buildGroups(cats: Category[]): CG[] | null {
   const map = new Map<string, CG>();
   for (const cat of withGroup) {
     const key = cat.group_name!;
-    if (!map.has(key)) map.set(key, { name: key, order: cat.group_order ?? 999, cats: [] });
+    if (!map.has(key))
+      map.set(key, { name: key, order: cat.group_order ?? 999, cats: [] });
     map.get(key)!.cats.push(cat);
   }
   return [...map.values()].sort((a, b) => a.order - b.order);
@@ -60,7 +93,10 @@ function buildGroups(cats: Category[]): CG[] | null {
 
 // ─── Card components ──────────────────────────────────────────────────────────
 
-interface CardProps { category: Category; idx: number }
+interface CardProps {
+  category: Category;
+  idx: number;
+}
 
 function MosaicCard({ category, idx }: CardProps) {
   const Icon = FALLBACK_ICONS[idx % FALLBACK_ICONS.length];
@@ -83,7 +119,10 @@ function MosaicCard({ category, idx }: CardProps) {
                   alt=""
                   className={`absolute inset-0 w-full h-full object-cover scale-[2.2] ${pos} transition duration-500 group-hover:scale-[2.4]`}
                   loading="lazy"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  onError={e => {
+                    (e.currentTarget as HTMLImageElement).style.display =
+                      "none";
+                  }}
                 />
               )}
               <Icon className={`relative z-10 w-5 h-5 ${ic} opacity-25`} />
@@ -109,16 +148,23 @@ function MobileChip({ category, idx }: CardProps) {
   const ic = ICON_COLORS[idx % ICON_COLORS.length];
 
   return (
-    <Link href={`/catalog?category=${category.slug}`} className="snap-start shrink-0">
+    <Link
+      href={`/catalog?category=${category.slug}`}
+      className="snap-start shrink-0"
+    >
       <div className="w-20">
-        <div className={`h-16 w-16 mx-auto rounded-xl overflow-hidden bg-gradient-to-br ${gf} ${gt} relative flex items-center justify-center`}>
+        <div
+          className={`h-16 w-16 mx-auto rounded-xl overflow-hidden bg-gradient-to-br ${gf} ${gt} relative flex items-center justify-center`}
+        >
           {category.image_url && (
             <img
               src={category.image_url}
               alt={category.name}
               className="absolute inset-0 w-full h-full object-cover"
               loading="lazy"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              onError={e => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
             />
           )}
           <Icon className={`relative z-10 w-7 h-7 ${ic} opacity-40`} />
@@ -137,9 +183,15 @@ function SectionHeader() {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-8">
       <div>
-        <p className="text-red-600 text-xs font-bold uppercase tracking-widest mb-1">Our Range</p>
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Browse by Category</h2>
-        <p className="text-slate-500 text-sm mt-1">XL Traders wholesale collection</p>
+        <p className="text-red-600 text-xs font-bold uppercase tracking-widest mb-1">
+          Our Range
+        </p>
+        <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
+          Browse by Category
+        </h2>
+        <p className="text-slate-500 text-sm mt-1">
+          XL Traders wholesale collection
+        </p>
       </div>
       <Link
         href="/catalog"
@@ -157,7 +209,10 @@ export default function HomeCategoryGrid() {
   const [cats, setCats] = useState<Category[]>([]);
 
   useEffect(() => {
-    categoryService.getAll().then(setCats).catch(() => {});
+    categoryService
+      .getAll()
+      .then(setCats)
+      .catch(() => {});
   }, []);
 
   const groups = useMemo(() => buildGroups(cats), [cats]);
@@ -174,7 +229,7 @@ export default function HomeCategoryGrid() {
           <SectionHeader />
 
           <div className="space-y-10 md:space-y-14">
-            {groups.map((group) => {
+            {groups.map(group => {
               const shown = pickTop(group.cats);
               const startIdx = globalIdx;
               globalIdx += shown.length;
@@ -184,7 +239,9 @@ export default function HomeCategoryGrid() {
                 <div key={group.name}>
                   {/* Group heading */}
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-base md:text-lg font-bold text-slate-900">{group.name}</h3>
+                    <h3 className="text-base md:text-lg font-bold text-slate-900">
+                      {group.name}
+                    </h3>
                     <Link
                       href={groupHref}
                       className="inline-flex items-center gap-1 text-red-600 text-xs font-semibold hover:text-red-700 transition"
@@ -196,7 +253,11 @@ export default function HomeCategoryGrid() {
                   {/* Mobile: scroll strip */}
                   <div className="flex md:hidden gap-3 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide">
                     {shown.map((cat, i) => (
-                      <MobileChip key={cat.id} category={cat} idx={startIdx + i} />
+                      <MobileChip
+                        key={cat.id}
+                        category={cat}
+                        idx={startIdx + i}
+                      />
                     ))}
                   </div>
 

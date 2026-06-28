@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
 
 export interface MissingCounts {
   price: number;
@@ -28,24 +28,24 @@ export interface ProductHealthRow {
 export const healthService = {
   async getMissingCounts(): Promise<MissingCounts> {
     const { data, error } = await supabase
-      .from('v_product_health')
+      .from("v_product_health")
       .select(
-        'missing_price,missing_category,missing_moq,missing_brand,' +
-        'missing_image,missing_specifications,missing_description,missing_seo',
+        "missing_price,missing_category,missing_moq,missing_brand," +
+          "missing_image,missing_specifications,missing_description,missing_seo"
       );
 
     if (error) throw error;
 
     const rows = (data ?? []) as Array<Record<string, boolean>>;
     return {
-      price: rows.filter((r) => r.missing_price).length,
-      category: rows.filter((r) => r.missing_category).length,
-      moq: rows.filter((r) => r.missing_moq).length,
-      brand: rows.filter((r) => r.missing_brand).length,
-      image: rows.filter((r) => r.missing_image).length,
-      specifications: rows.filter((r) => r.missing_specifications).length,
-      description: rows.filter((r) => r.missing_description).length,
-      seo: rows.filter((r) => r.missing_seo).length,
+      price: rows.filter(r => r.missing_price).length,
+      category: rows.filter(r => r.missing_category).length,
+      moq: rows.filter(r => r.missing_moq).length,
+      brand: rows.filter(r => r.missing_brand).length,
+      image: rows.filter(r => r.missing_image).length,
+      specifications: rows.filter(r => r.missing_specifications).length,
+      description: rows.filter(r => r.missing_description).length,
+      seo: rows.filter(r => r.missing_seo).length,
     };
   },
 
@@ -55,8 +55,8 @@ export const healthService = {
   async getIdsMissing(field: keyof MissingCounts): Promise<string[]> {
     const col = `missing_${field}`;
     const { data, error } = await supabase
-      .from('v_product_health')
-      .select('id')
+      .from("v_product_health")
+      .select("id")
       .eq(col, true);
 
     if (error) throw error;
@@ -65,9 +65,9 @@ export const healthService = {
 
   async productHealth(id: string): Promise<ProductHealthRow | null> {
     const { data, error } = await supabase
-      .from('v_product_health')
-      .select('*')
-      .eq('id', id)
+      .from("v_product_health")
+      .select("*")
+      .eq("id", id)
       .maybeSingle();
 
     if (error) throw error;
@@ -79,13 +79,13 @@ export const healthService = {
   async getProductsMissing(
     field: keyof Omit<MissingCounts, never>,
     page = 1,
-    pageSize = 50,
+    pageSize = 50
   ): Promise<{ id: string; name: string }[]> {
     const col = `missing_${field}` as string;
     const from = (page - 1) * pageSize;
     const { data, error } = await supabase
-      .from('v_product_health')
-      .select('id,name')
+      .from("v_product_health")
+      .select("id,name")
       .eq(col, true)
       .range(from, from + pageSize - 1);
 

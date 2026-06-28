@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export interface CartItem {
   productId: string;
@@ -21,7 +21,7 @@ export interface CustomerInfo {
 interface CartState {
   items: CartItem[];
   customer: CustomerInfo;
-  addItem: (item: Omit<CartItem, 'quantity'>) => void;
+  addItem: (item: Omit<CartItem, "quantity">) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   setCustomer: (customer: CustomerInfo) => void;
@@ -34,17 +34,19 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      customer: { name: '', phone: '' },
+      customer: { name: "", phone: "" },
 
-      addItem: (newItem) => {
-        set((state) => {
-          const existing = state.items.find((i) => i.productId === newItem.productId);
+      addItem: newItem => {
+        set(state => {
+          const existing = state.items.find(
+            i => i.productId === newItem.productId
+          );
           if (existing) {
             return {
-              items: state.items.map((i) =>
+              items: state.items.map(i =>
                 i.productId === newItem.productId
                   ? { ...i, quantity: i.quantity + 1 }
-                  : i,
+                  : i
               ),
             };
           }
@@ -54,9 +56,9 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      removeItem: (productId) => {
-        set((state) => ({
-          items: state.items.filter((i) => i.productId !== productId),
+      removeItem: productId => {
+        set(state => ({
+          items: state.items.filter(i => i.productId !== productId),
         }));
       },
 
@@ -65,26 +67,25 @@ export const useCartStore = create<CartState>()(
           get().removeItem(productId);
           return;
         }
-        set((state) => ({
-          items: state.items.map((i) =>
-            i.productId === productId ? { ...i, quantity } : i,
+        set(state => ({
+          items: state.items.map(i =>
+            i.productId === productId ? { ...i, quantity } : i
           ),
         }));
       },
 
-      setCustomer: (customer) => set({ customer }),
+      setCustomer: customer => set({ customer }),
 
-      clearCart: () => set({ items: [], customer: { name: '', phone: '' } }),
+      clearCart: () => set({ items: [], customer: { name: "", phone: "" } }),
 
       getTotal: () =>
         get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
 
-      getItemCount: () =>
-        get().items.reduce((sum, i) => sum + i.quantity, 0),
+      getItemCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
     }),
     {
-      name: 'xl-cart-storage',
-      partialize: (state) => ({ items: state.items, customer: state.customer }),
-    },
-  ),
+      name: "xl-cart-storage",
+      partialize: state => ({ items: state.items, customer: state.customer }),
+    }
+  )
 );

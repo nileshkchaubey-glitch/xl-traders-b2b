@@ -1,13 +1,13 @@
 # XL Traders B2B - Self-Hosted Setup Guide
 
-Complete step-by-step guide to deploy XL Traders website on Netlify + Supabase.
+Complete step-by-step guide to deploy XL Traders website on Cloudflare Pages + Supabase.
 
 ## Prerequisites
 
 - Node.js 18+ installed
 - npm or pnpm package manager
 - Git account (for version control)
-- Netlify account (free tier available)
+- Cloudflare account (free tier available)
 - Supabase account (free tier available)
 
 ---
@@ -86,6 +86,7 @@ This installs all required packages (takes 2-3 minutes).
 ### 2.3 Create .env.local File
 
 1. Copy `.env.example` to `.env.local`:
+
    ```bash
    cp .env.example .env.local
    ```
@@ -93,6 +94,7 @@ This installs all required packages (takes 2-3 minutes).
 2. Open `.env.local` in a text editor
 
 3. Fill in your Supabase credentials:
+
    ```env
    VITE_SUPABASE_URL=https://your-project.supabase.co
    VITE_SUPABASE_ANON_KEY=eyJhbGc...
@@ -139,67 +141,48 @@ npm run preview
 
 ---
 
-## Step 4: Deploy to Netlify
+## Step 4: Deploy to Cloudflare Pages
 
-### 4.1 Create Netlify Account
+Production hosting is Cloudflare Pages, auto-deploying from `main`. Full details
+(build settings, env vars, SPA config, troubleshooting) live in
+[`DEPLOYMENT.md`](./DEPLOYMENT.md). Short version:
 
-1. Go to [netlify.com](https://netlify.com)
-2. Sign up (free tier available)
-3. Verify email
+### 4.1 Push to GitHub
 
-### 4.2 Connect GitHub (Recommended)
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/YOUR_USERNAME/xl-traders-b2b.git
+git branch -M main
+git push -u origin main
+```
 
-1. Push your code to GitHub:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/YOUR_USERNAME/xl-traders-b2b.git
-   git branch -M main
-   git push -u origin main
-   ```
+### 4.2 Create the Pages project
 
-2. In Netlify dashboard:
-   - Click **"Add new site"**
-   - Select **"Import an existing project"**
-   - Choose **GitHub**
-   - Select your `xl-traders-b2b` repository
+1. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git**.
+2. Select the `xl-traders-b2b` repository.
+3. Build settings:
+   - **Build command**: `npm install && npm run build`
+   - **Build output directory**: `dist/public`
+   - **Node version**: 20
 
-3. Configure build settings:
-   - **Build command**: `npm run build`
-   - **Publish directory**: `dist/public`
-   - Click **Deploy**
+### 4.3 Add environment variables
 
-### 4.3 Add Environment Variables
+Under **Settings → Environment variables**, add (for Production and Preview):
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_ADMIN_EMAILS`, and the
+business/contact vars. Then trigger a deploy.
 
-1. In Netlify dashboard, go to **Site settings**
-2. Click **"Environment variables"**
-3. Add your Supabase credentials:
-   - **Key**: `VITE_SUPABASE_URL`
-   - **Value**: `https://your-project.supabase.co`
-   - Click **Save**
+### 4.4 Live URL
 
-4. Add second variable:
-   - **Key**: `VITE_SUPABASE_ANON_KEY`
-   - **Value**: `eyJhbGc...`
-   - Click **Save**
-
-5. Redeploy:
-   - Go to **Deploys**
-   - Click **"Trigger deploy"** → **"Deploy site"**
-
-### 4.4 Get Your Live URL
-
-- Netlify generates a URL like: `https://xl-traders-abc123.netlify.app`
-- Your site is now live! 🎉
+The site goes live at `https://<project>.pages.dev`. SPA routing + headers ship
+from `client/public/_redirects` and `client/public/_headers` — no dashboard
+redirect config needed.
 
 ### 4.5 (Optional) Custom Domain
 
-1. In Netlify, go to **Domain settings**
-2. Click **"Add custom domain"**
-3. Enter your domain (e.g., `xltraders.com`)
-4. Follow DNS setup instructions
-5. Wait for DNS propagation (5-30 minutes)
+In the Pages project: **Custom domains → Set up a domain**, enter your domain
+(e.g. `xltraders.in`), follow the DNS instructions, and wait for propagation.
 
 ---
 
@@ -224,6 +207,7 @@ python3 scripts/import_products.py
 ```
 
 This will:
+
 - Fetch 133 products from Google Sheet
 - Download images from Google Drive
 - Upload to Supabase Storage
@@ -247,9 +231,10 @@ This will:
 1. Go to Supabase dashboard
 2. Click **SQL Editor**
 3. Run this query:
+
    ```sql
-   UPDATE user_profiles 
-   SET is_admin = true 
+   UPDATE user_profiles
+   SET is_admin = true
    WHERE email = 'your-email@example.com';
    ```
 
@@ -294,26 +279,29 @@ This will:
 **Error**: `Cannot find module '@supabase/supabase-js'`
 
 **Solution**:
+
 ```bash
 rm -rf node_modules package-lock.json
 npm install
 ```
 
-### Blank Page on Netlify
+### Blank Page After Deploy
 
 **Error**: Site shows blank page
 
 **Solution**:
+
 1. Check environment variables are set
 2. Check Supabase URL and key are correct
 3. Check browser console for errors (F12)
-4. Redeploy: Netlify → Deploys → Trigger deploy
+4. Redeploy: Cloudflare Pages → Deployments → Retry deployment
 
 ### Products Not Showing
 
 **Error**: Catalog page is empty
 
 **Solution**:
+
 1. Check SQL migration ran successfully
 2. Check products are marked `is_active = true`
 3. Check Supabase connection in `.env.local`
@@ -324,6 +312,7 @@ npm install
 **Error**: Product images show broken image icon
 
 **Solution**:
+
 1. Check `product-images` bucket exists in Supabase Storage
 2. Check bucket is set to **Public**
 3. Check images uploaded successfully
@@ -334,6 +323,7 @@ npm install
 **Error**: Redirected to login when visiting `/admin`
 
 **Solution**:
+
 1. Sign in first
 2. Check your account has `is_admin = true` in database
 3. Run SQL: `UPDATE user_profiles SET is_admin = true WHERE email = '...'`
@@ -343,6 +333,7 @@ npm install
 **Error**: WhatsApp button doesn't work
 
 **Solution**:
+
 1. Check WhatsApp number includes country code (91 for India)
 2. Format should be: `919773239442` (not `+91-9773-239442`)
 3. Update in Settings tab
@@ -370,7 +361,8 @@ xl-traders-b2b/
 ├── vite.config.ts              # Vite configuration
 ├── tsconfig.json               # TypeScript configuration
 ├── tailwind.config.ts          # Tailwind CSS configuration
-├── netlify.toml                # Netlify deployment config
+├── client/public/_redirects    # Cloudflare Pages SPA routing
+├── client/public/_headers      # Cloudflare Pages security headers
 ├── .env.example                # Environment variables template
 ├── supabase-migration-with-products.sql  # Database schema
 └── README.md                   # Documentation
@@ -438,7 +430,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 1. **Images**: Compress before uploading
 2. **Categories**: Don't create too many (keep < 50)
 3. **Products**: Index by category for faster queries
-4. **Cache**: Netlify caches static files automatically
+4. **Cache**: Cloudflare's CDN caches static files automatically
 
 ---
 
@@ -467,12 +459,12 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 
 1. **Review enquiries** daily
 2. **Update products** as needed
-3. **Monitor performance** (Netlify Analytics)
+3. **Monitor performance** (Cloudflare Web Analytics)
 4. **Backup database** (Supabase auto-backups)
 
 ### Monitoring
 
-- **Netlify**: Site settings → Analytics
+- **Cloudflare**: Pages project → Analytics
 - **Supabase**: Logs → API requests
 - **Browser**: DevTools → Network tab
 
@@ -483,7 +475,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 ### Documentation
 
 - [Supabase Docs](https://supabase.com/docs)
-- [Netlify Docs](https://docs.netlify.com)
+- [Cloudflare Pages Docs](https://developers.cloudflare.com/pages/)
 - [React Docs](https://react.dev)
 - [Vite Docs](https://vitejs.dev)
 
@@ -500,7 +492,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 1. ✅ Create Supabase project
 2. ✅ Run SQL migration
 3. ✅ Set up local environment
-4. ✅ Deploy to Netlify
+4. ✅ Deploy to Cloudflare Pages
 5. ✅ Import products
 6. ✅ Create admin account
 7. ✅ Configure business settings
@@ -511,9 +503,9 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | May 2026 | Initial release |
+| Version | Date     | Changes         |
+| ------- | -------- | --------------- |
+| 1.0     | May 2026 | Initial release |
 
 ---
 

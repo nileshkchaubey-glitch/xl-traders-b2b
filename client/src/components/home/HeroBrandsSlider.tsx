@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion';
-import { BRAND_NAMES } from './heroConfig';
+import { motion } from "framer-motion";
+import { BRAND_NAMES } from "./heroConfig";
 
 export default function HeroBrandsSlider() {
   const items = [...BRAND_NAMES, ...BRAND_NAMES];
@@ -21,8 +21,8 @@ export default function HeroBrandsSlider() {
 
         <motion.div
           className="flex gap-8 md:gap-12 w-max"
-          animate={{ x: ['0%', '-50%'] }}
-          transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+          animate={{ x: ["0%", "-50%"] }}
+          transition={{ duration: 28, repeat: Infinity, ease: "linear" }}
         >
           {items.map((name, i) => (
             <div

@@ -1,19 +1,19 @@
-import { useState } from 'react';
-import { X, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
-import { DAILY_SUGGESTIONS, getTodaysSuggestion } from '@/lib/dailySuggestions';
+import { useState } from "react";
+import { X, Lightbulb, ChevronLeft, ChevronRight } from "lucide-react";
+import { DAILY_SUGGESTIONS, getTodaysSuggestion } from "@/lib/dailySuggestions";
 
 const PRIORITY_COLORS = {
-  High: 'bg-red-100 text-red-700 border-red-200',
-  Medium: 'bg-amber-100 text-amber-700 border-amber-200',
-  Low: 'bg-slate-100 text-slate-600 border-slate-200',
+  High: "bg-red-100 text-red-700 border-red-200",
+  Medium: "bg-amber-100 text-amber-700 border-amber-200",
+  Low: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
 const IMPACT_COLORS = {
-  Conversion: 'bg-emerald-100 text-emerald-700',
-  Design: 'bg-purple-100 text-purple-700',
-  Catalog: 'bg-blue-100 text-blue-700',
-  Mobile: 'bg-orange-100 text-orange-700',
-  SEO: 'bg-teal-100 text-teal-700',
+  Conversion: "bg-emerald-100 text-emerald-700",
+  Design: "bg-purple-100 text-purple-700",
+  Catalog: "bg-blue-100 text-blue-700",
+  Mobile: "bg-orange-100 text-orange-700",
+  SEO: "bg-teal-100 text-teal-700",
 };
 
 export default function HomeDailySuggestion() {
@@ -26,7 +26,8 @@ export default function HomeDailySuggestion() {
   const currentIndex = DAILY_SUGGESTIONS.findIndex(s => s.id === current.id);
 
   const prev = () => {
-    const idx = (currentIndex - 1 + DAILY_SUGGESTIONS.length) % DAILY_SUGGESTIONS.length;
+    const idx =
+      (currentIndex - 1 + DAILY_SUGGESTIONS.length) % DAILY_SUGGESTIONS.length;
     setCurrent(DAILY_SUGGESTIONS[idx]);
   };
 
@@ -56,20 +57,30 @@ export default function HomeDailySuggestion() {
             </p>
           </div>
 
-          <h3 className="text-white font-bold text-base md:text-lg mb-3 pr-6">{current.title}</h3>
-          <p className="text-slate-400 text-sm leading-relaxed mb-4">{current.note}</p>
+          <h3 className="text-white font-bold text-base md:text-lg mb-3 pr-6">
+            {current.title}
+          </h3>
+          <p className="text-slate-400 text-sm leading-relaxed mb-4">
+            {current.note}
+          </p>
 
           <div className="flex flex-wrap gap-2 mb-4">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${PRIORITY_COLORS[current.priority]}`}>
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${PRIORITY_COLORS[current.priority]}`}
+            >
               {current.priority} Priority
             </span>
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${IMPACT_COLORS[current.impact]}`}>
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${IMPACT_COLORS[current.impact]}`}
+            >
               {current.impact} Impact
             </span>
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t border-slate-700">
-            <span className="text-xs text-slate-500">Dev-only · Rotates daily</span>
+            <span className="text-xs text-slate-500">
+              Dev-only · Rotates daily
+            </span>
             <div className="flex gap-2">
               <button
                 onClick={prev}

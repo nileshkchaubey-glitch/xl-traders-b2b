@@ -1,0 +1,3 @@
+# Cloudflare Pages — SPA fallback: serve index.html for client-side routes.
+# Static files that exist are served directly; this only applies to unmatched paths.
+/*    /index.html    200

@@ -1,16 +1,30 @@
-import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { TRUST_STATS } from './heroConfig';
-import { useAnimatedCounter } from './useAnimatedCounter';
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { TRUST_STATS } from "./heroConfig";
+import { useAnimatedCounter } from "./useAnimatedCounter";
 
-function StatItem({ stat, inView }: { stat: import('./heroConfig').TrustStat; inView: boolean }) {
-  const count = useAnimatedCounter('value' in stat ? stat.value : 0, 1600, inView);
+function StatItem({
+  stat,
+  inView,
+}: {
+  stat: import("./heroConfig").TrustStat;
+  inView: boolean;
+}) {
+  const count = useAnimatedCounter(
+    "value" in stat ? stat.value : 0,
+    1600,
+    inView
+  );
 
-  if ('text' in stat) {
+  if ("text" in stat) {
     return (
       <div className="text-center px-4">
-        <p className="text-2xl md:text-3xl font-bold text-red-600">{stat.text}</p>
-        <p className="text-xs md:text-sm text-slate-600 mt-1 font-medium">{stat.label}</p>
+        <p className="text-2xl md:text-3xl font-bold text-red-600">
+          {stat.text}
+        </p>
+        <p className="text-xs md:text-sm text-slate-600 mt-1 font-medium">
+          {stat.label}
+        </p>
       </div>
     );
   }
@@ -21,7 +35,9 @@ function StatItem({ stat, inView }: { stat: import('./heroConfig').TrustStat; in
         {count}
         <span className="text-red-600">{stat.suffix}</span>
       </p>
-      <p className="text-xs md:text-sm text-slate-600 mt-1 font-medium">{stat.label}</p>
+      <p className="text-xs md:text-sm text-slate-600 mt-1 font-medium">
+        {stat.label}
+      </p>
     </div>
   );
 }
@@ -54,7 +70,7 @@ export default function HeroTrustStrip() {
     >
       <div className="max-w-7xl mx-auto px-4 py-8 md:py-10">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-0 md:flex md:justify-between md:items-center">
-          {TRUST_STATS.map((stat) => (
+          {TRUST_STATS.map(stat => (
             <StatItem key={stat.label} stat={stat} inView={inView} />
           ))}
         </div>

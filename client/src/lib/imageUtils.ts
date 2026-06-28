@@ -16,7 +16,7 @@ export interface ResizeResult {
 export async function autoResizeImage(
   file: File,
   maxSize = 800,
-  quality = 0.85,
+  quality = 0.85
 ): Promise<ResizeResult> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -39,22 +39,22 @@ export async function autoResizeImage(
         }
       }
 
-      const canvas = document.createElement('canvas');
+      const canvas = document.createElement("canvas");
       canvas.width = w;
       canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error('Canvas not available'));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas not available"));
 
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, w, h);
       ctx.drawImage(img, 0, 0, w, h);
 
       canvas.toBlob(
-        (blob) => {
-          if (!blob) return reject(new Error('Compression failed'));
-          const outName = file.name.replace(/\.[^.]+$/, '.jpg');
+        blob => {
+          if (!blob) return reject(new Error("Compression failed"));
+          const outName = file.name.replace(/\.[^.]+$/, ".jpg");
           const outFile = new File([blob], outName, {
-            type: 'image/jpeg',
+            type: "image/jpeg",
             lastModified: Date.now(),
           });
           resolve({
@@ -65,14 +65,14 @@ export async function autoResizeImage(
             newDimensions: { w, h },
           });
         },
-        'image/jpeg',
-        quality,
+        "image/jpeg",
+        quality
       );
     };
 
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error('Failed to load image'));
+      reject(new Error("Failed to load image"));
     };
 
     img.src = objectUrl;
@@ -82,7 +82,7 @@ export async function autoResizeImage(
 export async function batchAutoResize(
   files: File[],
   maxSize = 800,
-  quality = 0.85,
+  quality = 0.85
 ): Promise<ResizeResult[]> {
   const results: ResizeResult[] = [];
   for (const file of files) {
@@ -121,9 +121,9 @@ export function formatBytes(bytes: number): string {
  * trimmed and otherwise untouched. Empty/blank input returns ''.
  */
 export function normalizeImageUrl(url?: string | null, size = 1000): string {
-  if (!url) return '';
+  if (!url) return "";
   const trimmed = url.trim();
-  if (!trimmed) return '';
+  if (!trimmed) return "";
 
   if (!/drive\.google\.com|googleusercontent\.com\/d\//.test(trimmed)) {
     return trimmed;

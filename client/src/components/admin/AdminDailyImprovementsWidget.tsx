@@ -1,32 +1,48 @@
-import { useState, useEffect } from 'react';
-import { X, Lightbulb, ChevronLeft, ChevronRight, Rocket, Zap, Trophy, HelpCircle, Check, Play } from 'lucide-react';
-import { getTodaysAdminSuggestions, AdminSuggestion } from '@/lib/adminDailyImprovements';
+import { useState, useEffect } from "react";
+import {
+  X,
+  Lightbulb,
+  ChevronLeft,
+  ChevronRight,
+  Rocket,
+  Zap,
+  Trophy,
+  HelpCircle,
+  Check,
+  Play,
+} from "lucide-react";
+import {
+  getTodaysAdminSuggestions,
+  AdminSuggestion,
+} from "@/lib/adminDailyImprovements";
 
 const PRIORITY_COLORS = {
-  High: 'bg-red-500/10 text-red-400 border-red-500/20',
-  Medium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  Low: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  High: "bg-red-500/10 text-red-400 border-red-500/20",
+  Medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  Low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
 };
 
 const DOMAIN_ICONS = {
-  'Product entry': Rocket,
-  'Image management': Zap,
-  'Categories': HelpCircle,
-  'PIM data quality': Trophy,
-  'Search & filters': Rocket,
-  'Bulk actions': Zap,
-  'Missing automation': Trophy,
+  "Product entry": Rocket,
+  "Image management": Zap,
+  Categories: HelpCircle,
+  "PIM data quality": Trophy,
+  "Search & filters": Rocket,
+  "Bulk actions": Zap,
+  "Missing automation": Trophy,
 };
 
 export default function AdminDailyImprovementsWidget() {
   const [dayOffset, setDayOffset] = useState(0);
-  const [activeTab, setActiveTab] = useState<'quickWin' | 'medium' | 'major'>('quickWin');
+  const [activeTab, setActiveTab] = useState<"quickWin" | "medium" | "major">(
+    "quickWin"
+  );
   const [dismissed, setDismissed] = useState(false);
 
   // Check if dismissed today
   useEffect(() => {
     const todayStr = new Date().toDateString();
-    const dismissedDate = localStorage.getItem('admin-daily-dismissed-date');
+    const dismissedDate = localStorage.getItem("admin-daily-dismissed-date");
     if (dismissedDate === todayStr) {
       setDismissed(true);
     }
@@ -39,27 +55,30 @@ export default function AdminDailyImprovementsWidget() {
 
   const handleDismiss = () => {
     const todayStr = new Date().toDateString();
-    localStorage.setItem('admin-daily-dismissed-date', todayStr);
+    localStorage.setItem("admin-daily-dismissed-date", todayStr);
     setDismissed(true);
   };
 
-  const getTabLabel = (type: 'quickWin' | 'medium' | 'major', sug: AdminSuggestion) => {
+  const getTabLabel = (
+    type: "quickWin" | "medium" | "major",
+    sug: AdminSuggestion
+  ) => {
     switch (type) {
-      case 'quickWin':
+      case "quickWin":
         return (
           <span className="flex items-center gap-1.5">
             <Rocket className="w-3.5 h-3.5 text-rose-500" />
             <span>Quick Win</span>
           </span>
         );
-      case 'medium':
+      case "medium":
         return (
           <span className="flex items-center gap-1.5">
             <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
             <span>Medium Improvement</span>
           </span>
         );
-      case 'major':
+      case "major":
         return (
           <span className="flex items-center gap-1.5">
             <Trophy className="w-3.5 h-3.5 text-violet-400" />
@@ -90,7 +109,9 @@ export default function AdminDailyImprovementsWidget() {
                 </span>
               )}
             </h2>
-            <p className="text-[11px] text-slate-400 font-medium">Productivity and catalog optimization ideas</p>
+            <p className="text-[11px] text-slate-400 font-medium">
+              Productivity and catalog optimization ideas
+            </p>
           </div>
         </div>
 
@@ -130,16 +151,17 @@ export default function AdminDailyImprovementsWidget() {
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 mb-5">
-        {(['quickWin', 'medium', 'major'] as const).map((tab) => {
+        {(["quickWin", "medium", "major"] as const).map(tab => {
           const isActive = activeTab === tab;
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200
-                ${isActive
-                  ? 'bg-slate-800 text-white border-slate-600 shadow-sm'
-                  : 'bg-transparent text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/40'
+                ${
+                  isActive
+                    ? "bg-slate-800 text-white border-slate-600 shadow-sm"
+                    : "bg-transparent text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/40"
                 }`}
             >
               {getTabLabel(tab, suggestions[tab])}
@@ -161,7 +183,9 @@ export default function AdminDailyImprovementsWidget() {
           </div>
 
           <div className="flex gap-2">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold ${PRIORITY_COLORS[activeSuggestion.priority]}`}>
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold ${PRIORITY_COLORS[activeSuggestion.priority]}`}
+            >
               {activeSuggestion.priority} Priority
             </span>
           </div>
@@ -175,7 +199,9 @@ export default function AdminDailyImprovementsWidget() {
               <p className="text-[10px] font-bold text-rose-400 uppercase tracking-wide mb-1 flex items-center gap-1">
                 <span>⚠️</span> Problem
               </p>
-              <p className="text-xs text-slate-300 leading-relaxed font-sans">{activeSuggestion.problem}</p>
+              <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                {activeSuggestion.problem}
+              </p>
             </div>
           </div>
 
@@ -185,7 +211,9 @@ export default function AdminDailyImprovementsWidget() {
               <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide mb-1 flex items-center gap-1">
                 <span>💡</span> Suggested Solution
               </p>
-              <p className="text-xs text-slate-300 leading-relaxed font-sans">{activeSuggestion.solution}</p>
+              <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                {activeSuggestion.solution}
+              </p>
             </div>
           </div>
 
@@ -195,7 +223,9 @@ export default function AdminDailyImprovementsWidget() {
               <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wide mb-1 flex items-center gap-1">
                 <span>🎯</span> Expected Benefit
               </p>
-              <p className="text-xs text-slate-300 leading-relaxed font-sans">{activeSuggestion.benefit}</p>
+              <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                {activeSuggestion.benefit}
+              </p>
             </div>
           </div>
         </div>
