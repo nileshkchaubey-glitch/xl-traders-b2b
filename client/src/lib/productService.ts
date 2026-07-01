@@ -208,6 +208,36 @@ const BULK_EDITABLE_FIELDS: BulkEditableField[] = [
   "is_active",
 ];
 
+// Scalar admin filters shared by getAllAdmin (paginated rows) and
+// getAdminMatchingIds (all ids for "select all matching"), so the two can
+// never drift on what "matching the filter" means.
+export type AdminStatusFilter =
+  | "all"
+  | "draft"
+  | "published"
+  | "active"
+  | "inactive"
+  | "featured";
+
+function applyAdminScalarFilters(
+  query: any,
+  {
+    search,
+    categoryId,
+    status = "all",
+  }: { search?: string; categoryId?: string; status?: AdminStatusFilter }
+): any {
+  if (search?.trim()) query = query.ilike("name", `%${search.trim()}%`);
+  if (categoryId && categoryId !== "all")
+    query = query.eq("category_id", categoryId);
+  if (status === "active") query = query.eq("is_active", true);
+  else if (status === "inactive") query = query.eq("is_active", false);
+  else if (status === "featured") query = query.eq("is_featured", true);
+  else if (status === "draft") query = query.eq("status", "draft");
+  else if (status === "published") query = query.eq("status", "published");
+  return query;
+}
+
 export const productService = {
   async getAll(filters?: {
     categoryId?: string;
@@ -291,7 +321,7 @@ export const productService = {
     pageSize?: number;
     search?: string;
     categoryId?: string;
-    status?: "all" | "draft" | "published" | "active" | "inactive" | "featured";
+    status?: AdminStatusFilter;
     sortField?: "name" | "price" | "created_at";
     sortAscending?: boolean;
     ids?: string[];
@@ -309,19 +339,13 @@ export const productService = {
 
     if (ids && ids.length === 0) return { data: [], count: 0 };
 
-    let query = supabase
-      .from("products")
-      .select("*", { count: "exact" })
-      .order(sortField, { ascending: sortAscending });
-
-    if (search?.trim()) query = query.ilike("name", `%${search.trim()}%`);
-    if (categoryId && categoryId !== "all")
-      query = query.eq("category_id", categoryId);
-    if (status === "active") query = query.eq("is_active", true);
-    else if (status === "inactive") query = query.eq("is_active", false);
-    else if (status === "featured") query = query.eq("is_featured", true);
-    else if (status === "draft") query = query.eq("status", "draft");
-    else if (status === "published") query = query.eq("status", "published");
+    let query = applyAdminScalarFilters(
+      supabase
+        .from("products")
+        .select("*", { count: "exact" })
+        .order(sortField, { ascending: sortAscending }),
+      { search, categoryId, status }
+    );
     if (ids) query = query.in("id", ids);
 
     query = query.range((page - 1) * pageSize, page * pageSize - 1);
@@ -329,6 +353,29 @@ export const productService = {
     const { data, error, count } = await query;
     if (error) throw error;
     return { data: (data as Product[]) ?? [], count: count ?? 0 };
+  },
+
+  // Every product id matching the given admin filters (no pagination) — the
+  // backing set for the grid's "select all N matching the filter" bulk action.
+  // Same filters as getAllAdmin so the two never drift.
+  async getAdminMatchingIds(params: {
+    search?: string;
+    categoryId?: string;
+    status?: AdminStatusFilter;
+    ids?: string[];
+  }): Promise<string[]> {
+    const { search, categoryId, status = "all", ids } = params;
+    if (ids && ids.length === 0) return [];
+
+    let query = applyAdminScalarFilters(
+      supabase.from("products").select("id"),
+      { search, categoryId, status }
+    );
+    if (ids) query = query.in("id", ids);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return ((data ?? []) as { id: string }[]).map(r => r.id);
   },
 
   async getBrands(): Promise<string[]> {
