@@ -115,6 +115,23 @@ export const masterService = {
     return data as Product[];
   },
 
+  // Admin call — every variant of a master regardless of status (draft +
+  // published), for the admin variants matrix. Mirrors getVariantsByMasterId
+  // but without the published-only gate.
+  async getVariantsByMasterIdAdmin(masterId: string) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("master_id", masterId)
+      .order("price", { ascending: true, nullsFirst: true });
+
+    if (error) {
+      console.error("Error fetching variants:", error);
+      return [];
+    }
+    return data as Product[];
+  },
+
   async addVariant(variant: {
     master_id: string;
     variant_label: string;
