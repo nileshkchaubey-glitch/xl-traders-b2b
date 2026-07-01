@@ -64,6 +64,21 @@ export function useProductGrid() {
     }
   }, [page, debouncedSearch, categoryId, status, attention, sortField, sortAscending]);
 
+  // Resolves EVERY product id matching the active filters (all pages) — backs
+  // the grid's "select all N matching" bulk action. Reuses the same
+  // healthService + productService filter path as load() so it can't drift.
+  const getMatchingIds = useCallback(async (): Promise<string[]> => {
+    const ids = attention
+      ? await healthService.getIdsMissing(ATTENTION_FIELD[attention])
+      : undefined;
+    return productService.getAdminMatchingIds({
+      search: debouncedSearch,
+      categoryId,
+      status,
+      ids,
+    });
+  }, [debouncedSearch, categoryId, status, attention]);
+
   const hasFetched = useRef(false);
   useEffect(() => {
     if (hasFetched.current) return;
@@ -118,5 +133,6 @@ export function useProductGrid() {
     pageSize: PAGE_SIZE,
     totalPages: Math.max(1, Math.ceil(totalCount / PAGE_SIZE)),
     reload: load,
+    getMatchingIds,
   };
 }

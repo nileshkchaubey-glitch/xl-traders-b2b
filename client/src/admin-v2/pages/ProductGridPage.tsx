@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -30,6 +29,8 @@ import {
   useProductGrid,
   GridSortField,
 } from "../hooks/useProductGrid";
+import { useBulkSelection } from "../hooks/useBulkSelection";
+import BulkActionBar from "../components/bulk/BulkActionBar";
 
 const SORT_OPTIONS: { value: GridSortField; label: string }[] = [
   { value: "created_at", label: "Newest" },
@@ -40,24 +41,16 @@ const SORT_OPTIONS: { value: GridSortField; label: string }[] = [
 export default function ProductGridPage() {
   const [, setLocation] = useLocation();
   const grid = useProductGrid();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const bulk = useBulkSelection({
+    pageIds: grid.products.map(p => p.id),
+    totalCount: grid.totalCount,
+    getMatchingIds: grid.getMatchingIds,
+    onChanged: grid.reload,
+  });
 
   const getCategoryName = (id: string) =>
     grid.categories.find(c => c.id === id)?.name || "—";
-
-  const allPageSelected =
-    grid.products.length > 0 && grid.products.every(p => selected.has(p.id));
-
-  const toggleAll = () => {
-    setSelected(allPageSelected ? new Set() : new Set(grid.products.map(p => p.id)));
-  };
-  const toggleOne = (id: string) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
 
   const handleInlineUpdate = async (id: string, patch: ProductPatch) => {
     grid.setProducts(prev =>
@@ -227,14 +220,28 @@ export default function ProductGridPage() {
         </Button>
       </div>
 
+      {bulk.hasSelection && (
+        <BulkActionBar
+          categories={grid.categories}
+          totalCount={grid.totalCount}
+          selectionCount={bulk.selectionCount}
+          selectAllMatching={bulk.selectAllMatching}
+          canSelectAllMatching={bulk.canSelectAllMatching}
+          busy={bulk.busy}
+          onSelectAllMatching={() => bulk.setSelectAllMatching(true)}
+          onClear={bulk.clear}
+          actions={bulk.actions}
+        />
+      )}
+
       <ProductsTable
         products={grid.products}
         loading={grid.loading}
         getCategoryName={getCategoryName}
-        selected={selected}
-        onToggleRow={toggleOne}
-        onToggleAll={toggleAll}
-        allPageSelected={allPageSelected}
+        selected={bulk.selected}
+        onToggleRow={bulk.toggleRow}
+        onToggleAll={bulk.toggleAllOnPage}
+        allPageSelected={bulk.allPageSelected}
         onRowOpen={product => setLocation(`/admin-v2/products/${product.id}`)}
         onInlineUpdate={handleInlineUpdate}
         onEdit={product => setLocation(`/admin-v2/products/${product.id}`)}
