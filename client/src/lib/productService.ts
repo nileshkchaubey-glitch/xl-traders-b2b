@@ -280,6 +280,57 @@ export const productService = {
     }
   },
 
+  // Admin-scoped listing: unlike getAll() above, this returns every status
+  // (draft + published, active + inactive) since admin screens must see the
+  // whole catalogue, not just what's public. Sort/search/category/status are
+  // applied server-side; `ids` (optional) intersects with a caller-supplied id
+  // set — e.g. from healthService.getIdsMissing() — so "missing X" filters can
+  // AND in without this method knowing anything about v_product_health.
+  async getAllAdmin(params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    categoryId?: string;
+    status?: "all" | "draft" | "published" | "active" | "inactive" | "featured";
+    sortField?: "name" | "price" | "created_at";
+    sortAscending?: boolean;
+    ids?: string[];
+  }): Promise<{ data: Product[]; count: number }> {
+    const {
+      page = 1,
+      pageSize = 50,
+      search,
+      categoryId,
+      status = "all",
+      sortField = "created_at",
+      sortAscending = false,
+      ids,
+    } = params;
+
+    if (ids && ids.length === 0) return { data: [], count: 0 };
+
+    let query = supabase
+      .from("products")
+      .select("*", { count: "exact" })
+      .order(sortField, { ascending: sortAscending });
+
+    if (search?.trim()) query = query.ilike("name", `%${search.trim()}%`);
+    if (categoryId && categoryId !== "all")
+      query = query.eq("category_id", categoryId);
+    if (status === "active") query = query.eq("is_active", true);
+    else if (status === "inactive") query = query.eq("is_active", false);
+    else if (status === "featured") query = query.eq("is_featured", true);
+    else if (status === "draft") query = query.eq("status", "draft");
+    else if (status === "published") query = query.eq("status", "published");
+    if (ids) query = query.in("id", ids);
+
+    query = query.range((page - 1) * pageSize, page * pageSize - 1);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+    return { data: (data as Product[]) ?? [], count: count ?? 0 };
+  },
+
   async getBrands(): Promise<string[]> {
     if (isDemo) return [];
     try {
