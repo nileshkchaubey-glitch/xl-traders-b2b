@@ -18,6 +18,10 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminProductEditor = lazy(() => import("./pages/AdminProductEditor"));
 import AdminMasters from "@/components/admin/AdminMasters";
 
+// admin-v2 is a parallel, in-progress admin experience — see ADMIN_V2_SPEC.md.
+// Kept fully separate from /admin so the existing panel stays unaffected.
+const AdminV2Shell = lazy(() => import("./admin-v2/layout/AdminV2Shell"));
+
 function AdminFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -47,6 +51,11 @@ function Router() {
         </Suspense>
       </Route>
       <Route path={"/admin/masters"} component={AdminMasters} />
+      <Route path={"/admin-v2/:rest*"}>
+        <Suspense fallback={<AdminFallback />}>
+          <AdminV2Shell />
+        </Suspense>
+      </Route>
       <Route path={"/admin"}>
         <Suspense fallback={<AdminFallback />}>
           <AdminDashboard />

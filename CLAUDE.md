@@ -10,6 +10,9 @@
 - **Claude Code (VS Code):** Named `CLAUDE.md` at repo root → auto-read every session.
 - **Claude Chat:** Upload to Claude Project → every new chat knows the full website.
 - **Update ritual:** After each merged PR → update Shipped + Roadmap. Agent does this in the PR.
+- **Working on `admin-v2`?** Read `ADMIN_V2_SPEC.md` (repo root) first — it has the phase plan,
+  guardrails, and architecture for the parallel `/admin-v2` experience. Do not touch `admin-v2`
+  code without it.
 
 ---
 
