@@ -51,6 +51,54 @@ export async function generateDescription(
   return text.trim();
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/**
+ * Lightweight ad-hoc assistant for the admin AI Workspace. Sends the running
+ * conversation to the same Anthropic endpoint the rest of aiService uses and
+ * returns the assistant's reply text. Intentionally does NOT auto-attach the
+ * product database — the caller passes only what it wants the model to see, so
+ * the browser-exposed key (see CLAUDE.md Known Issues / roadmap: move to an
+ * Edge Function) never ships the whole catalogue in a request.
+ */
+export async function chatAssist(messages: ChatMessage[]): Promise<string> {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("VITE_ANTHROPIC_API_KEY is not configured");
+
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 700,
+      system:
+        "You are the admin assistant for XL Traders, a B2B wholesale packaging " +
+        "distributor in Surat, Gujarat (food packaging, biodegradable, cleaning " +
+        "supplies, kirana bio plastic bags, catering, decoration & party). Help " +
+        "the owner with product copy, category ideas, pricing phrasing, and " +
+        "catalogue tasks. Be concise and practical.",
+      messages: messages.map(m => ({ role: m.role, content: m.content })),
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(
+      (err as any)?.error?.message || `Anthropic API error ${response.status}`
+    );
+  }
+
+  const data = await response.json();
+  return (data?.content?.[0]?.text ?? "").trim();
+}
+
 /**
  * Parses unstructured text (e.g. from copy-pasting a product page, PDF, or supplier detail)
  * into a structured product object. If the Anthropic API key is not configured, it falls back
