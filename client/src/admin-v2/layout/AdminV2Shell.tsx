@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { Menu } from "lucide-react";
 import { useAuthStore } from "@/lib/authStore";
 import Sidebar from "./Sidebar";
 import AdminV2Routes from "../routes";
@@ -9,6 +10,7 @@ export default function AdminV2Shell() {
   const { isAuthenticated, isAdmin, isLoading, refreshProfile } =
     useAuthStore();
   const [accessChecked, setAccessChecked] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const redirectingRef = useRef(false);
   const hasVerified = useRef(false);
 
@@ -62,10 +64,33 @@ export default function AdminV2Shell() {
 
   return (
     <div className="flex h-screen bg-[#f4f6f9] overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto ml-[220px]">
-        <AdminV2Routes />
-      </main>
+      {/* Mobile overlay — tap outside the drawer to close */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Topbar — hamburger visible only below the lg breakpoint */}
+        <header className="lg:hidden flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="text-slate-500 hover:text-slate-800"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="font-bold text-slate-800 text-sm">Admin v2</span>
+        </header>
+
+        <main className="flex-1 overflow-y-auto">
+          <AdminV2Routes />
+        </main>
+      </div>
     </div>
   );
 }
