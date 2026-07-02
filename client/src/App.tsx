@@ -51,7 +51,11 @@ function Router() {
         </Suspense>
       </Route>
       <Route path={"/admin/masters"} component={AdminMasters} />
-      <Route path={"/admin-v2/:rest*"}>
+      {/* Optional catch-all (`/*?`) so this matches the bare `/admin-v2` AND
+          every sub-path (incl. the 2-segment `/admin-v2/products/:id` editor).
+          `:rest*` is NOT a wouter/regexparam catch-all — it matches a single
+          required segment only, so bare `/admin-v2` fell through to NotFound. */}
+      <Route path={"/admin-v2/*?"}>
         <Suspense fallback={<AdminFallback />}>
           <AdminV2Shell />
         </Suspense>
