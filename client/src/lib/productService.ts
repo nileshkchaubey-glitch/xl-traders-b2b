@@ -378,6 +378,25 @@ export const productService = {
     return ((data ?? []) as { id: string }[]).map(r => r.id);
   },
 
+  // Quick lookup for the admin command palette: matches name OR sku across
+  // every status (drafts included — unlike the public search()). Returns only
+  // the display columns the palette needs; price is intentionally excluded.
+  async searchAdmin(query: string, limit = 8): Promise<Product[]> {
+    // Commas/parens would break the PostgREST or() filter syntax.
+    const q = query.trim().replace(/[,()]/g, " ").trim();
+    if (!q) return [];
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("id,name,sku,image_url,status,variant_label")
+      .or(`name.ilike.%${q}%,sku.ilike.%${q}%`)
+      .order("name", { ascending: true })
+      .limit(limit);
+
+    if (error) throw error;
+    return (data as unknown as Product[]) ?? [];
+  },
+
   async getBrands(): Promise<string[]> {
     if (isDemo) return [];
     try {
