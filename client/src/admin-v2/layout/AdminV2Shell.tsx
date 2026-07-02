@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Menu } from "lucide-react";
 import { useAuthStore } from "@/lib/authStore";
 import Sidebar from "./Sidebar";
+import CommandPalette from "./CommandPalette";
 import AdminV2Routes from "../routes";
 
 export default function AdminV2Shell() {
@@ -10,9 +11,36 @@ export default function AdminV2Shell() {
   const { isAuthenticated, isAdmin, isLoading, refreshProfile } =
     useAuthStore();
   const [accessChecked, setAccessChecked] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const redirectingRef = useRef(false);
   const hasVerified = useRef(false);
+
+  // Global palette hotkeys: Cmd/Ctrl+K anywhere; "/" only when the user isn't
+  // typing in an input/textarea/contenteditable.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen(o => !o);
+        return;
+      }
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const t = e.target as HTMLElement | null;
+        if (
+          t &&
+          (t.tagName === "INPUT" ||
+            t.tagName === "TEXTAREA" ||
+            t.isContentEditable)
+        )
+          return;
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +119,8 @@ export default function AdminV2Shell() {
           <AdminV2Routes />
         </main>
       </div>
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   );
 }

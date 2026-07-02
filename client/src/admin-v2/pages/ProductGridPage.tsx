@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -22,9 +23,10 @@ import {
   MISSING_FILTERS,
   ATTENTION_LABELS,
 } from "@/lib/catalogHealth";
-import ProductsTable, {
+import ProductsGrid, {
   ProductPatch,
-} from "@/components/admin/products/ProductsTable";
+  RowSaveState,
+} from "../components/grid/ProductsGrid";
 import {
   useProductGrid,
   GridSortField,
@@ -52,14 +54,33 @@ export default function ProductGridPage() {
   const getCategoryName = (id: string) =>
     grid.categories.find(c => c.id === id)?.name || "—";
 
+  // Per-row saving/saved indicator for inline edits. "saved" clears itself
+  // after a beat; timers are keyed per row so rapid edits don't race.
+  const [rowStatus, setRowStatus] = useState<Record<string, RowSaveState>>({});
+  const savedTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const clearRowStatus = (id: string) =>
+    setRowStatus(s => {
+      const next = { ...s };
+      delete next[id];
+      return next;
+    });
+
   const handleInlineUpdate = async (id: string, patch: ProductPatch) => {
     grid.setProducts(prev =>
       prev.map(p => (p.id === id ? { ...p, ...(patch as Partial<Product>) } : p))
     );
+    setRowStatus(s => ({ ...s, [id]: "saving" }));
+    clearTimeout(savedTimers.current[id]);
     try {
+      // Same single-field update path the drawer/full editor persist through
+      // (saveProductForm also lands on productService.update for edits).
       await productService.update(id, patch as Partial<Product>);
+      setRowStatus(s => ({ ...s, [id]: "saved" }));
+      savedTimers.current[id] = setTimeout(() => clearRowStatus(id), 1500);
     } catch {
       toast.error("Update failed");
+      clearRowStatus(id);
       grid.reload();
     }
   };
@@ -234,7 +255,7 @@ export default function ProductGridPage() {
         />
       )}
 
-      <ProductsTable
+      <ProductsGrid
         products={grid.products}
         loading={grid.loading}
         getCategoryName={getCategoryName}
@@ -242,8 +263,9 @@ export default function ProductGridPage() {
         onToggleRow={bulk.toggleRow}
         onToggleAll={bulk.toggleAllOnPage}
         allPageSelected={bulk.allPageSelected}
-        onRowOpen={product => setLocation(`/admin-v2/products/${product.id}`)}
+        onOpen={product => setLocation(`/admin-v2/products/${product.id}`)}
         onInlineUpdate={handleInlineUpdate}
+        rowStatus={rowStatus}
         onEdit={product => setLocation(`/admin-v2/products/${product.id}`)}
         onManageImages={() => setLocation("/admin-v2/images")}
         onDuplicate={handleDuplicate}
