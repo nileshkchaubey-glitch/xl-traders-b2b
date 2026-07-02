@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import {
+  Home,
   LayoutGrid,
   FilePlus,
   Image as ImageIcon,
@@ -9,6 +10,7 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
+  { to: "/admin-v2", label: "Dashboard", icon: Home },
   { to: "/admin-v2/products", label: "Product Grid", icon: LayoutGrid },
   { to: "/admin-v2/products/new", label: "Product Entry", icon: FilePlus },
   { to: "/admin-v2/images", label: "Image Library", icon: ImageIcon },

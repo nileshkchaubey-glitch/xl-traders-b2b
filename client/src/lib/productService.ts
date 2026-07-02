@@ -322,7 +322,7 @@ export const productService = {
     search?: string;
     categoryId?: string;
     status?: AdminStatusFilter;
-    sortField?: "name" | "price" | "created_at";
+    sortField?: "name" | "price" | "created_at" | "updated_at";
     sortAscending?: boolean;
     ids?: string[];
   }): Promise<{ data: Product[]; count: number }> {
