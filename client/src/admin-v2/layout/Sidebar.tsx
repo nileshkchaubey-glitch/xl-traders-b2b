@@ -1,18 +1,22 @@
 import { Link, useLocation } from "wouter";
 import {
+  Home,
   LayoutGrid,
   FilePlus,
   Image as ImageIcon,
   Layers,
+  FolderTree,
   Sparkles,
   X,
 } from "lucide-react";
 
 const NAV_ITEMS = [
+  { to: "/admin-v2", label: "Dashboard", icon: Home },
   { to: "/admin-v2/products", label: "Product Grid", icon: LayoutGrid },
   { to: "/admin-v2/products/new", label: "Product Entry", icon: FilePlus },
   { to: "/admin-v2/images", label: "Image Library", icon: ImageIcon },
   { to: "/admin-v2/variants", label: "Variants", icon: Layers },
+  { to: "/admin-v2/categories", label: "Categories", icon: FolderTree },
   { to: "/admin-v2/ai", label: "AI Workspace", icon: Sparkles },
 ];
 

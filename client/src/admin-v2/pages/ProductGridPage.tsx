@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +22,7 @@ import { Product } from "@/lib/supabase";
 import {
   MISSING_FILTERS,
   ATTENTION_LABELS,
+  isMissingFilter,
 } from "@/lib/catalogHealth";
 import ProductsGrid, {
   ProductPatch,
@@ -53,6 +54,14 @@ export default function ProductGridPage() {
 
   const getCategoryName = (id: string) =>
     grid.categories.find(c => c.id === id)?.name || "—";
+
+  // Deep-link support: dashboard chips link to /admin-v2/products?missing=<key>.
+  const search = useSearch();
+  useEffect(() => {
+    const missing = new URLSearchParams(search).get("missing");
+    if (isMissingFilter(missing)) grid.setAttention(missing);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   // Per-row saving/saved indicator for inline edits. "saved" clears itself
   // after a beat; timers are keyed per row so rapid edits don't race.

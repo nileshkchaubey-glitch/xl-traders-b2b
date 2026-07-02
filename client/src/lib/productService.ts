@@ -77,6 +77,36 @@ export const categoryService = {
     }
   },
 
+  // Admin listing: every category regardless of is_active (getAll above is
+  // the storefront call and hides inactive ones — the manager must also show
+  // the deactivated Uncategorized sentinel).
+  async getAllAdmin(): Promise<Category[]> {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .order("group_order", { ascending: true, nullsFirst: false })
+      .order("display_order", { ascending: true });
+
+    if (error) throw error;
+    return (data as Category[]) ?? [];
+  },
+
+  // Product count per category id (client-side aggregation — id-only rows,
+  // cheap at catalogue scale). Backs the categories manager's count column.
+  async getProductCounts(): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+      .from("products")
+      .select("category_id");
+
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    for (const row of (data ?? []) as { category_id: string | null }[]) {
+      if (row.category_id)
+        counts[row.category_id] = (counts[row.category_id] ?? 0) + 1;
+    }
+    return counts;
+  },
+
   async getById(id: string) {
     const { data, error } = await supabase
       .from("categories")
@@ -322,7 +352,7 @@ export const productService = {
     search?: string;
     categoryId?: string;
     status?: AdminStatusFilter;
-    sortField?: "name" | "price" | "created_at";
+    sortField?: "name" | "price" | "created_at" | "updated_at";
     sortAscending?: boolean;
     ids?: string[];
   }): Promise<{ data: Product[]; count: number }> {
