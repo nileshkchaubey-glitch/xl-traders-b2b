@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
+  CheckSquare,
 } from "lucide-react";
 import { productService } from "@/lib/productService";
 import { Product } from "@/lib/supabase";
@@ -41,9 +42,18 @@ const SORT_OPTIONS: { value: GridSortField; label: string }[] = [
   { value: "price", label: "Price" },
 ];
 
-export default function ProductGridPage() {
+interface ProductGridPageProps {
+  // Pins the grid to one category (the /admin-v2/categories/:id drill-down):
+  // hides the category select, swaps the header for the category name + a
+  // back link, and surfaces a select-all banner so bulk actions are one click.
+  fixedCategoryId?: string;
+}
+
+export default function ProductGridPage({
+  fixedCategoryId,
+}: ProductGridPageProps = {}) {
   const [, setLocation] = useLocation();
-  const grid = useProductGrid();
+  const grid = useProductGrid({ fixedCategoryId });
 
   const bulk = useBulkSelection({
     pageIds: grid.products.map(p => p.id),
@@ -145,12 +155,26 @@ export default function ProductGridPage() {
     }
   };
 
+  const fixedCategory = fixedCategoryId
+    ? grid.categories.find(c => c.id === fixedCategoryId)
+    : undefined;
+
   return (
     <div className="space-y-4 p-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
+          {fixedCategoryId && (
+            <Link
+              to="/admin-v2/categories"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-slate-700 mb-0.5"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Categories
+            </Link>
+          )}
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-slate-900">Products</h1>
+            <h1 className="text-xl font-bold text-slate-900">
+              {fixedCategoryId ? (fixedCategory?.name ?? "Category") : "Products"}
+            </h1>
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
               {grid.totalCount.toLocaleString()}
             </span>
@@ -179,19 +203,21 @@ export default function ProductGridPage() {
             className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
           />
         </div>
-        <Select value={grid.categoryId} onValueChange={grid.setCategoryId}>
-          <SelectTrigger className="w-44 h-9 bg-slate-50 border-slate-200 text-sm">
-            <SelectValue placeholder="All catalogues" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All catalogues</SelectItem>
-            {grid.categories.map(cat => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!fixedCategoryId && (
+          <Select value={grid.categoryId} onValueChange={grid.setCategoryId}>
+            <SelectTrigger className="w-44 h-9 bg-slate-50 border-slate-200 text-sm">
+              <SelectValue placeholder="All catalogues" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All catalogues</SelectItem>
+              {grid.categories.map(cat => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={grid.status} onValueChange={grid.setStatus}>
           <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm">
             <SelectValue />
@@ -249,6 +275,34 @@ export default function ProductGridPage() {
           {grid.sortAscending ? "Asc" : "Desc"}
         </Button>
       </div>
+
+      {/* Category drill-down: bulk is one click away by default — selects the
+          ENTIRE category (all pages) and opens the Phase 6 toolbar. */}
+      {fixedCategoryId &&
+        !bulk.hasSelection &&
+        !grid.loading &&
+        grid.totalCount > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+            <p className="text-sm text-slate-600">
+              <span className="font-semibold text-slate-800">
+                {grid.totalCount.toLocaleString()}
+              </span>{" "}
+              product{grid.totalCount === 1 ? "" : "s"} in this category
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs font-semibold"
+              onClick={() => {
+                bulk.toggleAllOnPage();
+                bulk.setSelectAllMatching(true);
+              }}
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              Select all {grid.totalCount.toLocaleString()} for bulk actions
+            </Button>
+          </div>
+        )}
 
       {bulk.hasSelection && (
         <BulkActionBar

@@ -14,6 +14,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import ProductMediaSection from "@/components/admin/products/ProductMediaSection";
 import { useProductForm } from "@/hooks/useProductForm";
@@ -105,6 +115,22 @@ export default function ProductEntryPage() {
 
   const goBack = () => setLocation("/admin-v2/products");
 
+  // Confirmation gate for the primary Save button: the modal only decides
+  // WHETHER to save — the save itself is the unchanged handleSave →
+  // saveProductForm path. Save & Add Another and Publish stay direct
+  // (Publish is already an explicit, labeled action).
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+
+  const requestSave = () => {
+    if (!formData.name.trim()) {
+      // Fail fast with the same validation the save path applies — no point
+      // confirming a save that will be rejected.
+      toast.error("Product name is required");
+      return;
+    }
+    setConfirmSaveOpen(true);
+  };
+
   const handleSave = async (opts: {
     addAnother?: boolean;
     publish?: boolean;
@@ -164,7 +190,7 @@ export default function ProductEntryPage() {
       <form
         onSubmit={e => {
           e.preventDefault();
-          handleSave({});
+          requestSave();
         }}
         className="space-y-6"
       >
@@ -414,6 +440,33 @@ export default function ProductEntryPage() {
           )}
         </div>
       </form>
+
+      {/* Save confirmation — gates the primary Save click only; Confirm runs
+          the exact same handleSave → saveProductForm path as before. */}
+      <AlertDialog open={confirmSaveOpen} onOpenChange={setConfirmSaveOpen}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Save changes to “{formData.name.trim() || "this product"}”? This
+              updates the live catalogue.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={saving}
+              onClick={() => {
+                setConfirmSaveOpen(false);
+                handleSave({});
+              }}
+              className="bg-slate-700 text-white hover:bg-slate-800"
+            >
+              Confirm save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -18,7 +18,9 @@ export type GridSortField = "name" | "price" | "created_at";
 
 // Thin wrapper around productService.getAllAdmin() + healthService — no query
 // logic lives here beyond wiring filter state to the existing service calls.
-export function useProductGrid() {
+// `fixedCategoryId` pins the category filter (used by the /admin-v2/categories/:id
+// drill-down); callers that pass it also hide the category select in the UI.
+export function useProductGrid(opts?: { fixedCategoryId?: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -26,7 +28,7 @@ export function useProductGrid() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [categoryId, setCategoryId] = useState("all");
+  const [categoryId, setCategoryId] = useState(opts?.fixedCategoryId ?? "all");
   const [status, setStatus] = useState<GridStatusFilter>("all");
   const [attention, setAttention] = useState<AttentionFilter>(null);
   const [sortField, setSortField] = useState<GridSortField>("created_at");

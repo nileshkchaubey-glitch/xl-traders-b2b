@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { toast } from "sonner";
 import {
   FolderTree,
@@ -9,6 +10,7 @@ import {
   Lock,
   Check,
   X,
+  ChevronRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ const UNCATEGORIZED_SLUG = "uncategorized"; // sentinel — never delete/rename
 // View + rename + create only. Deleting categories and moving products
 // between categories are intentionally out of scope for this phase.
 export default function CategoriesPage() {
+  const [, setLocation] = useLocation();
   const [categories, setCategories] = useState<Category[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -210,7 +213,13 @@ export default function CategoriesPage() {
                 return (
                   <div
                     key={cat.id}
-                    className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-50 hover:bg-slate-50/60"
+                    onClick={() => {
+                      // Row click drills into the category's products — unless
+                      // the row is mid-rename (typing shouldn't navigate).
+                      if (!renaming)
+                        setLocation(`/admin-v2/categories/${cat.id}`);
+                    }}
+                    className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-50 hover:bg-slate-50/60 cursor-pointer"
                   >
                     <div className="min-w-0 flex-1">
                       {renaming ? (
@@ -218,6 +227,7 @@ export default function CategoriesPage() {
                           autoFocus
                           value={renameDraft}
                           onChange={e => setRenameDraft(e.target.value)}
+                          onClick={e => e.stopPropagation()}
                           onKeyDown={e => {
                             if (e.key === "Enter") commitRename(cat);
                             else if (e.key === "Escape") setRenamingId(null);
@@ -260,7 +270,10 @@ export default function CategoriesPage() {
                       <span className="flex shrink-0 items-center gap-1">
                         <button
                           onMouseDown={e => e.preventDefault()}
-                          onClick={() => commitRename(cat)}
+                          onClick={e => {
+                            e.stopPropagation();
+                            commitRename(cat);
+                          }}
                           className="p-1.5 rounded text-emerald-600 hover:bg-emerald-50"
                           title="Save"
                         >
@@ -268,7 +281,10 @@ export default function CategoriesPage() {
                         </button>
                         <button
                           onMouseDown={e => e.preventDefault()}
-                          onClick={() => setRenamingId(null)}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setRenamingId(null);
+                          }}
                           className="p-1.5 rounded text-slate-400 hover:bg-slate-100"
                           title="Cancel"
                         >
@@ -277,7 +293,10 @@ export default function CategoriesPage() {
                       </span>
                     ) : (
                       <button
-                        onClick={() => startRename(cat)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          startRename(cat);
+                        }}
                         disabled={savingRename}
                         className="shrink-0 p-1.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                         title="Rename"
@@ -285,6 +304,7 @@ export default function CategoriesPage() {
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    <ChevronRight className="w-4 h-4 shrink-0 text-slate-300" />
                   </div>
                 );
               })}
