@@ -568,7 +568,7 @@ export const productService = {
       const { data, error } = await query.single();
 
       if (error) throw error;
-      return data as Product;
+      return data as unknown as Product;
     } catch (error) {
       console.error("Error fetching product:", error);
       return null;
@@ -598,7 +598,7 @@ export const productService = {
         .limit(limit);
 
       if (error) throw error;
-      return data as Product[];
+      return data as unknown as Product[];
     } catch (error) {
       console.error("Error fetching featured products:", error);
       return [];
@@ -628,7 +628,7 @@ export const productService = {
         .limit(limit);
 
       if (error) throw error;
-      return data as Product[];
+      return data as unknown as Product[];
     } catch (error) {
       console.error("Error searching products:", error);
       return [];
