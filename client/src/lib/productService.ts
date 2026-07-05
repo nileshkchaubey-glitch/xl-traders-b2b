@@ -268,32 +268,125 @@ function applyAdminScalarFilters(
   return query;
 }
 
+// Sort options offered by the public storefront (Catalog controls bar).
+export type PublicProductSort = "newest" | "price-low" | "price-high" | "name";
+
+// Filters shared by the public storefront listing (getAll) and its total-count
+// helper (countPublished). Both enforce published+active at the call site.
+export interface PublicProductFilters {
+  categoryId?: string;
+  categoryIds?: string[];
+  search?: string;
+  featured?: boolean;
+  brand?: string;
+}
+
+// Applies the public scalar filters to a query so the paginated list and its
+// count never drift (mirrors applyAdminScalarFilters for the admin side).
+function applyPublicScalarFilters(
+  query: any,
+  filters?: PublicProductFilters
+): any {
+  if (filters?.categoryId) query = query.eq("category_id", filters.categoryId);
+  if (filters?.categoryIds?.length)
+    query = query.in("category_id", filters.categoryIds);
+  if (filters?.featured) query = query.eq("is_featured", true);
+  if (filters?.brand) query = query.eq("brand", filters.brand);
+  if (filters?.search)
+    query = query.or(
+      `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
+    );
+  return query;
+}
+
+// Server-side ordering for the public catalogue. For price sorts, null-price
+// ("Price on enquiry") items always sort last so priced items lead the page.
+// Default (no sort) preserves the manual display_order used elsewhere.
+function applyPublicSort(query: any, sort?: PublicProductSort): any {
+  switch (sort) {
+    case "newest":
+      return query.order("created_at", { ascending: false });
+    case "price-low":
+      return query.order("price", { ascending: true, nullsFirst: false });
+    case "price-high":
+      return query.order("price", { ascending: false, nullsFirst: false });
+    case "name":
+      return query.order("name", { ascending: true });
+    default:
+      return query.order("display_order", { ascending: true });
+  }
+}
+
+// Demo-mode equivalent of applyPublicScalarFilters — filters the in-memory demo
+// dataset the same way so getAll() and countPublished() agree without a backend.
+function filterDemoProducts(filters?: PublicProductFilters): Product[] {
+  let results = [...demoProducts];
+  if (filters?.categoryId)
+    results = results.filter(p => p.category_id === filters.categoryId);
+  if (filters?.categoryIds?.length)
+    results = results.filter(p => filters.categoryIds!.includes(p.category_id));
+  if (filters?.featured) results = results.filter(p => p.is_featured);
+  if (filters?.brand) results = results.filter(p => p.brand === filters.brand);
+  if (filters?.search) {
+    const q = filters.search.toLowerCase();
+    results = results.filter(
+      p =>
+        p.name.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q)
+    );
+  }
+  return results;
+}
+
+// Demo-mode client sort mirroring applyPublicSort's ordering.
+function sortDemoProducts(
+  products: Product[],
+  sort?: PublicProductSort
+): Product[] {
+  const out = [...products];
+  switch (sort) {
+    case "newest":
+      return out.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    case "price-low":
+      return out.sort(
+        (a, b) => (a.price ?? Infinity) - (b.price ?? Infinity)
+      );
+    case "price-high":
+      return out.sort(
+        (a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity)
+      );
+    case "name":
+      return out.sort((a, b) => a.name.localeCompare(b.name));
+    default:
+      return out.sort(
+        (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+      );
+  }
+}
+
 export const productService = {
-  async getAll(filters?: {
-    categoryId?: string;
-    categoryIds?: string[];
-    search?: string;
-    featured?: boolean;
-    brand?: string;
-  }) {
+  // Public storefront listing (published + active only). Supports server-side
+  // pagination + sorting so the catalogue never loads the whole dataset into the
+  // browser (previously it fetched every product and sorted client-side, which
+  // silently breaks past PostgREST's 1000-row cap). Pass `pageSize` to paginate;
+  // omit it and every match is returned (kept for small callers like the
+  // "similar products" row). Use countPublished() for the matching total.
+  async getAll(
+    filters?: PublicProductFilters & {
+      page?: number;
+      pageSize?: number;
+      sort?: PublicProductSort;
+    }
+  ): Promise<Product[]> {
     if (isDemo) {
-      let results = [...demoProducts];
-      if (filters?.categoryId)
-        results = results.filter(p => p.category_id === filters.categoryId);
-      if (filters?.categoryIds?.length)
-        results = results.filter(p =>
-          filters.categoryIds!.includes(p.category_id)
-        );
-      if (filters?.featured) results = results.filter(p => p.is_featured);
-      if (filters?.brand)
-        results = results.filter(p => p.brand === filters.brand);
-      if (filters?.search) {
-        const q = filters.search.toLowerCase();
-        results = results.filter(
-          p =>
-            p.name.toLowerCase().includes(q) ||
-            p.description?.toLowerCase().includes(q)
-        );
+      let results = sortDemoProducts(filterDemoProducts(filters), filters?.sort);
+      if (filters?.pageSize != null) {
+        const page = filters.page ?? 1;
+        const size = filters.pageSize;
+        results = results.slice((page - 1) * size, page * size);
       }
       return results;
     }
@@ -301,33 +394,20 @@ export const productService = {
     try {
       const cols = await productSelectCols();
       // Public visibility = published AND active. Drafts never appear publicly.
-      let query = supabase
-        .from("products")
-        .select(cols)
-        .eq("status", "published")
-        .eq("is_active", true)
-        .order("display_order", { ascending: true });
+      let query = applyPublicScalarFilters(
+        supabase
+          .from("products")
+          .select(cols)
+          .eq("status", "published")
+          .eq("is_active", true),
+        filters
+      );
+      query = applyPublicSort(query, filters?.sort);
 
-      if (filters?.categoryId) {
-        query = query.eq("category_id", filters.categoryId);
-      }
-
-      if (filters?.categoryIds?.length) {
-        query = query.in("category_id", filters.categoryIds);
-      }
-
-      if (filters?.featured) {
-        query = query.eq("is_featured", true);
-      }
-
-      if (filters?.brand) {
-        query = query.eq("brand", filters.brand);
-      }
-
-      if (filters?.search) {
-        query = query.or(
-          `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
-        );
+      if (filters?.pageSize != null) {
+        const page = filters.page ?? 1;
+        const size = filters.pageSize;
+        query = query.range((page - 1) * size, page * size - 1);
       }
 
       const { data, error } = await query;
@@ -337,6 +417,30 @@ export const productService = {
     } catch (error) {
       console.error("Error fetching products:", error);
       return [];
+    }
+  },
+
+  // Total number of published+active products matching the same filters getAll()
+  // applies — powers the catalogue's "N products" count and its has-more check
+  // (a HEAD request, so no rows are transferred).
+  async countPublished(filters?: PublicProductFilters): Promise<number> {
+    if (isDemo) return filterDemoProducts(filters).length;
+
+    try {
+      const query = applyPublicScalarFilters(
+        supabase
+          .from("products")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "published")
+          .eq("is_active", true),
+        filters
+      );
+      const { count, error } = await query;
+      if (error) throw error;
+      return count ?? 0;
+    } catch (error) {
+      console.error("Error counting products:", error);
+      return 0;
     }
   },
 

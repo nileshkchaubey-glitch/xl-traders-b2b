@@ -521,27 +521,6 @@ export default function ProductDetail() {
                   </div>
                 )}
 
-                {/* Features */}
-                <div className="mb-8 pb-8 border-b border-slate-200">
-                  <h3 className="font-bold text-slate-900 mb-4">
-                    Key Features
-                  </h3>
-                  <ul className="space-y-2">
-                    <li className="flex gap-2 text-slate-600">
-                      <span className="text-red-600 font-bold">✓</span>Premium
-                      quality materials
-                    </li>
-                    <li className="flex gap-2 text-slate-600">
-                      <span className="text-red-600 font-bold">✓</span>Bulk
-                      order discounts available
-                    </li>
-                    <li className="flex gap-2 text-slate-600">
-                      <span className="text-red-600 font-bold">✓</span>Fast
-                      delivery in Surat
-                    </li>
-                  </ul>
-                </div>
-
                 {/* Actions */}
                 <div className="space-y-3">
                   {/* Add to Cart (authenticated users — null-price items enter as enquiry lines) */}
