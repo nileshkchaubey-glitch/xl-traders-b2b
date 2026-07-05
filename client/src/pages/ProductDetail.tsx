@@ -298,7 +298,11 @@ export default function ProductDetail() {
     );
   }
 
-  if (!product) {
+  // currentProd is null exactly when product is (it's `selectedVariant ||
+  // product`, and selectedVariant is set from product on load), so guarding on
+  // it is equivalent to guarding on product — and it narrows currentProd to a
+  // non-null Product for the entire render below.
+  if (!currentProd) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Header />

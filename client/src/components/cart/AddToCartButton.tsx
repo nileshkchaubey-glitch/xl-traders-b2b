@@ -27,7 +27,8 @@ export default function AddToCartButton({ product, compact = false }: Props) {
       price: product.price ?? 0,
       priceOnEnquiry: product.price == null ? true : undefined,
       unit: product.unit_of_measure ?? "pcs",
-      imageUrl: product.image_url,
+      // image_url is nullable; the cart item expects string | undefined.
+      imageUrl: product.image_url ?? undefined,
       moq,
     });
     if (qty > 1) {

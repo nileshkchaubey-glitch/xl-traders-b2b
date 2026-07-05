@@ -36,7 +36,9 @@ export const healthService = {
 
     if (error) throw error;
 
-    const rows = (data ?? []) as Array<Record<string, boolean>>;
+    // Dynamic .select() widens the row type to GenericStringError[]; cast via
+    // unknown to the known view shape.
+    const rows = (data ?? []) as unknown as Array<Record<string, boolean>>;
     return {
       price: rows.filter(r => r.missing_price).length,
       category: rows.filter(r => r.missing_category).length,
