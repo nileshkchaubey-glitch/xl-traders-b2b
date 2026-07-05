@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Grid3x3, List, ChevronDown, Package } from "lucide-react";
+import { Grid3x3, List, ChevronDown, Package, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
@@ -8,8 +8,14 @@ import {
   categoryService,
   productService,
   CategoryGroup,
+  PublicProductFilters,
+  PublicProductSort,
 } from "@/lib/productService";
 import { Category, Product } from "@/lib/supabase";
+
+// Products fetched per page. Chosen as a common multiple of the grid columns
+// (2 / 3 / 4 / 5) so pages fill evenly across breakpoints.
+const PAGE_SIZE = 24;
 
 // Icon shown next to each category in the 2-level sidebar
 function CategoryIcon({ cat }: { cat: Category }) {
@@ -40,10 +46,13 @@ export default function Catalog() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [brands, setBrands] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sortBy, setSortBy] = useState("newest");
+  const [sortBy, setSortBy] = useState<PublicProductSort>("newest");
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     params.get("category") || null
@@ -75,67 +84,90 @@ export default function Catalog() {
     loadMeta();
   }, []);
 
-  // Load products based on filters
+  // Resolve the active UI selection into the server-side filter getAll/
+  // countPublished understand. Sorting + pagination are applied on top of this;
+  // this is only the "which products" part so the list and its count agree.
+  const buildFilters = useCallback((): PublicProductFilters => {
+    if (searchQuery) return { search: searchQuery };
+    if (selectedBrand) return { brand: selectedBrand };
+    if (selectedGroup) {
+      const ids = categories
+        .filter(c => c.group_name === selectedGroup)
+        .map(c => c.id);
+      // No categories in the group yet → fall back to all products (old behaviour).
+      return ids.length ? { categoryIds: ids } : {};
+    }
+    if (selectedCategory) {
+      const cat = categories.find(c => c.slug === selectedCategory);
+      return cat ? { categoryId: cat.id } : {};
+    }
+    return {};
+  }, [searchQuery, selectedBrand, selectedGroup, selectedCategory, categories]);
+
+  // Load (or reload) the first page whenever the filters or sort change. Fetches
+  // one page + the matching total in parallel; sort/pagination happen server-side
+  // so the browser never pulls the whole catalogue.
   useEffect(() => {
-    const loadProducts = async () => {
+    // A category/group filter needs the categories list to resolve its id/slug —
+    // wait for it rather than briefly showing every product.
+    if ((selectedCategory || selectedGroup) && categories.length === 0) return;
+
+    let cancelled = false;
+    const loadFirstPage = async () => {
       setIsLoading(true);
+      setPage(1);
+      const filters = buildFilters();
       try {
-        let result: Product[] = [];
-
-        if (searchQuery) {
-          result = await productService.search(searchQuery);
-        } else if (selectedBrand) {
-          result = await productService.getAll({ brand: selectedBrand });
-        } else if (selectedGroup) {
-          const ids = categories
-            .filter(c => c.group_name === selectedGroup)
-            .map(c => c.id);
-          result = ids.length
-            ? await productService.getAll({ categoryIds: ids })
-            : await productService.getAll();
-        } else if (selectedCategory) {
-          const cat = categories.find(c => c.slug === selectedCategory);
-          if (cat) result = await productService.getAll({ categoryId: cat.id });
-        } else {
-          result = await productService.getAll();
-        }
-
-        switch (sortBy) {
-          case "price-low":
-            result.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-            break;
-          case "price-high":
-            result.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
-            break;
-          case "name":
-            result.sort((a, b) => a.name.localeCompare(b.name));
-            break;
-          case "newest":
-          default:
-            result.sort(
-              (a, b) =>
-                new Date(b.created_at).getTime() -
-                new Date(a.created_at).getTime()
-            );
-        }
-
-        setProducts(result);
+        const [rows, count] = await Promise.all([
+          productService.getAll({
+            ...filters,
+            sort: sortBy,
+            page: 1,
+            pageSize: PAGE_SIZE,
+          }),
+          productService.countPublished(filters),
+        ]);
+        if (cancelled) return;
+        setProducts(rows);
+        setTotalCount(count);
       } catch (error) {
+        if (cancelled) return;
         console.error("Error loading products:", error);
+        setProducts([]);
+        setTotalCount(0);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
-    loadProducts();
-  }, [
-    selectedCategory,
-    selectedGroup,
-    selectedBrand,
-    searchQuery,
-    sortBy,
-    categories,
-  ]);
+    loadFirstPage();
+    return () => {
+      cancelled = true;
+    };
+  }, [buildFilters, sortBy, selectedCategory, selectedGroup, categories]);
+
+  // "Load More" — append the next page to the already-loaded list.
+  const handleLoadMore = async () => {
+    if (isLoadingMore) return;
+    const nextPage = page + 1;
+    setIsLoadingMore(true);
+    try {
+      const rows = await productService.getAll({
+        ...buildFilters(),
+        sort: sortBy,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      });
+      setProducts(prev => [...prev, ...rows]);
+      setPage(nextPage);
+    } catch (error) {
+      console.error("Error loading more products:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const hasMore = products.length < totalCount;
 
   const handleCategoryChange = (slug: string | null) => {
     setSelectedCategory(slug);
@@ -198,7 +230,7 @@ export default function Catalog() {
               Product Catalog
             </h1>
             <p className="text-slate-600">
-              {products.length} products
+              {totalCount.toLocaleString()} products
               {activeFilterLabel ? ` in ${activeFilterLabel}` : " available"}
             </p>
           </div>
@@ -369,7 +401,9 @@ export default function Catalog() {
                   <div className="relative">
                     <select
                       value={sortBy}
-                      onChange={e => setSortBy(e.target.value)}
+                      onChange={e =>
+                        setSortBy(e.target.value as PublicProductSort)
+                      }
                       className="appearance-none px-3 py-2 pr-8 border border-slate-300 rounded text-sm bg-white cursor-pointer focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
                     >
                       <option value="newest">Newest</option>
@@ -504,21 +538,47 @@ export default function Catalog() {
                   </p>
                 </div>
               ) : (
-                <div
-                  className={
-                    viewMode === "grid"
-                      ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
-                      : "space-y-4"
-                  }
-                >
-                  {products.map(product => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      view={viewMode}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div
+                    className={
+                      viewMode === "grid"
+                        ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
+                        : "space-y-4"
+                    }
+                  >
+                    {products.map(product => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        view={viewMode}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Load More / end-of-list */}
+                  <div className="mt-8 flex flex-col items-center gap-3">
+                    <p className="text-sm text-slate-500">
+                      Showing {products.length.toLocaleString()} of{" "}
+                      {totalCount.toLocaleString()}
+                    </p>
+                    {hasMore && (
+                      <button
+                        onClick={handleLoadMore}
+                        disabled={isLoadingMore}
+                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition disabled:opacity-60"
+                      >
+                        {isLoadingMore ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" />
+                            Loading…
+                          </>
+                        ) : (
+                          "Load More"
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
