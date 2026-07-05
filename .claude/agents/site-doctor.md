@@ -16,7 +16,7 @@ fix it with the smallest safe change, via a PR the owner reviews and merges.
 
 ## Read first
 
-- `CLAUDE.md` and `PROJECT_CONTEXT.md` for full context.
+- `CLAUDE.md` for full context.
 
 ## Diagnostic method (root-cause first, never guess)
 
