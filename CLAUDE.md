@@ -1,7 +1,7 @@
 # XL Traders B2B — Master Project Blueprint
 
 **Single source of truth. Lives as `CLAUDE.md` at repo root AND in the Claude Project.**
-**Last updated: June 24, 2026** · Update after every merged PR (Shipped + Roadmap only).
+**Last updated: July 5, 2026** · Update after every merged PR (Shipped + Roadmap only).
 
 ---
 
@@ -10,9 +10,8 @@
 - **Claude Code (VS Code):** Named `CLAUDE.md` at repo root → auto-read every session.
 - **Claude Chat:** Upload to Claude Project → every new chat knows the full website.
 - **Update ritual:** After each merged PR → update Shipped + Roadmap. Agent does this in the PR.
-- **Working on `admin-v2`?** Read `ADMIN_V2_SPEC.md` (repo root) first — it has the phase plan,
-  guardrails, and architecture for the parallel `/admin-v2` experience. Do not touch `admin-v2`
-  code without it.
+- **`/admin-v2` is GONE.** The parallel admin-v2 experience (PRs #62–#79) was removed in July 2026 —
+  the original `/admin` PIM is the only admin. Do not recreate admin-v2 code, routes, or specs.
 
 ---
 
@@ -135,16 +134,12 @@ inquiries, orders, order_items, import_logs, business_settings
 - **Missing-data smart filters:** 8-dimension "Missing…" dropdown (no-price/moq/brand/image/specs/desc/seo/category); composable with search+category+status
 - **Dashboard chips:** 8 missing-count chips on Overview → deep-link to filtered list
 - **Bulk update:** select-all-matching-filter; set brand/MOQ/unit/category; Publish/Unpublish/Activate/Delete; confirm dialog; N/A marking
-- **Products list redesign (Phase 1 — branch `feat/phase-1-products-redesign`, pending PR, NOT yet on production):**
-  compact virtualized `ProductsTable` (TanStack Table + Virtual, fixed grid, thumbnail, completeness score,
-  right-click + dropdown row menu); `ProductDrawer` quick-edit sharing the route editor's save logic (no fork)
-  with Save & Next; drawer Media (primary + `product_images` gallery, add-from-Library, set-primary);
-  inline `EditableCell` (price + draft/published on the row); `RapidEntryRow` single-line fast add.
-  No schema changes; all DB logic stays in services.
+- **Mobile-responsive ProductsTable** (PR #58): compact list layout adapts to small screens
 - **N/A marking:** bulk + per-product; na_fields[] prevents permanent false-missing noise
 - **Daily Admin Improvement widget:** rotating Quick Win/Medium/Major on Overview
 - Orders, Enquiries, SEO tabs
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
+- **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
 
 ### Health System
@@ -225,9 +220,11 @@ inquiries, orders, order_items, import_logs, business_settings
 
 ## Custom commands
 
-- /suggest-admin — admin improvements + new features + mistake flags
-- /suggest-storefront — storefront look/UX + mistake flags
+(actual files in `.claude/commands/`)
+
 - /audit — bugs/security/architecture audit (Problem→Fix→Verification)
+- /suggest-storefront — storefront look/UX + mistake flags
+- /setup-catalog-ui — 2-level category UI + category images (replaces emoji)
 
 ---
 
@@ -258,7 +255,13 @@ inquiries, orders, order_items, import_logs, business_settings
 - #48 Missing-data filters + dashboard chips
 - #49 Bulk update + N/A marking + docs fix (Cloudflare + pnpm-lock)
 - #53 Import UI polish (category optional; status + na_fields columns wired)
+- #54 Phase 0 — repo hygiene (README rewrite, stale artifacts removed, Cloudflare Pages confirmed)
 - #55 Phase 1 — Products list redesign (ProductsTable + ProductDrawer + EditableCell + RapidEntryRow + bulk action bar)
+- #57 Phase 1 follow-up (CLAUDE.md docs + dev-server launch config)
+- #58 Responsive ProductsTable layout for mobile
+- #60 SKU-respecting upsert import pipeline with dry-run
+- #61 /audit + /suggest-storefront slash commands
+- #62–#79 admin-v2 phases 1–11 — **built, then removed** (July 2026 pivot back to `/admin`)
 
 ---
 
