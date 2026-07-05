@@ -5,6 +5,9 @@
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "noEmit": true,
+    // ES2020 so native Set/Map iteration type-checks without --downlevelIteration.
+    // Type-check only (noEmit); Vite/esbuild controls the actual output target.
+    "target": "ES2020",
     "module": "ESNext",
     "strict": true,
     "lib": ["esnext", "dom", "dom.iterable"],
