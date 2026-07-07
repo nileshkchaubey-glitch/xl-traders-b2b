@@ -119,8 +119,11 @@ inquiries, orders, order_items, import_logs, business_settings
   - Header: dark utility bar (GST/delivery/hours/phone), Categories mega-menu from real
     category groups, live search suggestions (debounced `productService.search`) with
     recent/popular chips + WhatsApp "we probably stock it" fallback, red Cart button → `/cart`
-  - Home: hero with rating badge + category tiles, sign-in hook banner (anon only), bulk-quote
-    banner, trust stats/points, service areas + brands (from DB), FAQ accordion
+  - Home: hero with rating badge + **auto-rotating motion tiles** (`HeroMotionTiles` — local
+    `/images/hero/*.png`, crossfade + Ken Burns, progress dots, links to catalog search),
+    infinite marquee strip (brands from DB, value-prop fallback), scroll-reveal sections
+    (framer-motion), sign-in hook banner (anon only), bulk-quote banner, trust stats/points,
+    service areas + brands, FAQ accordion; `prefers-reduced-motion` disables animations
   - Catalog: breadcrumb + title/controls row (sort + grid/list on desktop), restyled sidebar
   - ProductCard: brand line, ₹/pack + per-piece + MOQ line, outline Add-to-Cart → red stepper,
     MOQ pre-filled on first add; anon sees Enquire + "Sign in for exact price"

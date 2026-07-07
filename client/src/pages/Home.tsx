@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import HeroMotionTiles from "@/components/home/HeroMotionTiles";
 import HomeCategoryGrid from "@/components/home/HomeCategoryGrid";
 import HomeFeaturedProducts from "@/components/home/HomeFeaturedProducts";
 import HomeDailySuggestion from "@/components/home/HomeDailySuggestion";
@@ -11,22 +13,20 @@ import {
   Star,
   Check,
   Lock,
-  Package,
   Plus,
   Minus,
   MapPin,
 } from "lucide-react";
-import { categoryService, productService } from "@/lib/productService";
-import { Category } from "@/lib/supabase";
+import { productService } from "@/lib/productService";
 import { useAuthStore } from "@/lib/authStore";
-import { normalizeImageUrl } from "@/lib/imageUtils";
 
-const HERO_TILE_TINTS = [
-  "bg-red-50 text-red-600",
-  "bg-blue-50 text-blue-600",
-  "bg-emerald-50 text-emerald-600",
-  "bg-amber-50 text-amber-700",
-];
+// Shared scroll-reveal: sections fade up once as they enter the viewport.
+const fadeUp = {
+  initial: { opacity: 0, y: 18 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-60px" },
+  transition: { duration: 0.5, ease: "easeOut" as const },
+};
 
 const TRUST_STATS = [
   { value: "4.8★", label: "Google Rating", sub: "From local businesses" },
@@ -87,22 +87,13 @@ export default function Home() {
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
   const isDev = import.meta.env.DEV;
   const { isAuthenticated } = useAuthStore();
-  const [heroCats, setHeroCats] = useState<Category[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [openFaq, setOpenFaq] = useState(-1);
 
   useEffect(() => {
-    categoryService
-      .getAll()
-      .then(cats => {
-        const withImage = cats.filter(c => c.image_url);
-        const without = cats.filter(c => !c.image_url);
-        setHeroCats([...withImage, ...without].slice(0, 4));
-      })
-      .catch(() => {});
     productService
       .getBrands()
-      .then(b => setBrands(b.slice(0, 8)))
+      .then(b => setBrands(b.slice(0, 10)))
       .catch(() => {});
   }, []);
 
@@ -114,9 +105,22 @@ export default function Home() {
 
       <main className="flex-1 pb-20 md:pb-0">
         {/* ── HERO ── */}
-        <section className="border-b border-slate-100 bg-[radial-gradient(1000px_500px_at_20%_0%,#fef2f2_0%,#ffffff_55%)]">
-          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-12 lg:py-14 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-12 items-center">
-            <div>
+        <section className="relative overflow-hidden border-b border-slate-100 bg-[radial-gradient(1000px_500px_at_20%_0%,#fef2f2_0%,#ffffff_55%)]">
+          {/* Ambient blobs */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 -right-24 w-96 h-96 rounded-full bg-red-100/50 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -bottom-32 left-1/3 w-80 h-80 rounded-full bg-amber-100/40 blur-3xl"
+          />
+          <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-12 lg:py-14 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-12 items-center">
+            <motion.div
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: "easeOut" }}
+            >
               <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-3.5 py-1.5 text-xs font-semibold text-slate-600 mb-5 shadow-sm">
                 <span className="flex items-center gap-1 text-amber-700">
                   <Star size={13} className="fill-amber-500 text-amber-500" />
@@ -164,47 +168,68 @@ export default function Home() {
                   </span>
                 ))}
               </div>
-            </div>
+            </motion.div>
 
-            {/* Hero category tiles */}
-            {heroCats.length > 0 && (
-              <div className="grid grid-cols-2 gap-3.5">
-                {heroCats.map((cat, i) => (
+            {/* Hero motion tiles — auto-rotating product imagery */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.55, delay: 0.15, ease: "easeOut" }}
+            >
+              <HeroMotionTiles />
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ── MARQUEE STRIP — brands when we have enough, value props otherwise ── */}
+        <section className="bg-white border-b border-slate-100 py-3.5 overflow-hidden">
+          <div
+            className="relative"
+            style={{
+              maskImage:
+                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+              WebkitMaskImage:
+                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+            }}
+          >
+            <div className="xl-marquee flex w-max items-center gap-10">
+              {(() => {
+                const entries =
+                  brands.length >= 4
+                    ? brands.map(b => ({
+                        label: b,
+                        href: `/catalog?brand=${encodeURIComponent(b)}`,
+                      }))
+                    : [
+                        "Same-day delivery in Surat",
+                        "GST invoice on every order",
+                        "500+ businesses served",
+                        "Bulk slab pricing",
+                        "24h dispatch pan-India",
+                        "Food-grade materials",
+                        ...brands.map(b => b),
+                      ].map(label => ({ label, href: "/catalog" }));
+                return [...entries, ...entries].map((e, i) => (
                   <Link
-                    key={cat.id}
-                    href={`/catalog?category=${cat.slug}`}
-                    className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition"
+                    key={`${e.label}-${i}`}
+                    href={e.href}
+                    className="flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-slate-400 hover:text-red-600 transition whitespace-nowrap uppercase"
                   >
-                    <div
-                      className={`h-[88px] rounded-xl flex items-center justify-center mb-3 overflow-hidden ${
-                        cat.image_url ? "bg-slate-50" : HERO_TILE_TINTS[i % 4]
-                      }`}
-                    >
-                      {cat.image_url ? (
-                        <img
-                          src={normalizeImageUrl(cat.image_url, 300) ?? ""}
-                          alt={cat.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <Package size={28} />
-                      )}
-                    </div>
-                    <div className="text-[13.5px] font-bold">{cat.name}</div>
-                    <div className="text-xs text-slate-500">
-                      Wholesale packs
-                    </div>
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-300" />
+                    {e.label}
                   </Link>
-                ))}
-              </div>
-            )}
+                ));
+              })()}
+            </div>
           </div>
         </section>
 
         {/* ── SIGN-IN HOOK ── */}
         {!isAuthenticated && (
-          <section className="max-w-7xl mx-auto px-4 lg:px-8 pt-7 w-full">
+          <motion.section
+            {...fadeUp}
+            className="max-w-7xl mx-auto px-4 lg:px-8 pt-7 w-full"
+          >
             <div className="bg-slate-900 rounded-2xl px-5 py-5 md:px-6 flex flex-col md:flex-row md:items-center gap-4">
               <div className="w-10 h-10 bg-red-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Lock size={19} className="text-red-400" />
@@ -225,7 +250,7 @@ export default function Home() {
                 Sign In
               </Link>
             </div>
-          </section>
+          </motion.section>
         )}
 
         {/* ── CATEGORIES (existing data-wired grid) ── */}
@@ -235,7 +260,10 @@ export default function Home() {
         <HomeFeaturedProducts whatsappNumber={whatsappNumber} />
 
         {/* ── BULK BANNER ── */}
-        <section className="max-w-7xl mx-auto px-4 lg:px-8 py-6 w-full">
+        <motion.section
+          {...fadeUp}
+          className="max-w-7xl mx-auto px-4 lg:px-8 py-6 w-full"
+        >
           <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl px-6 py-8 md:px-9 flex flex-col md:flex-row md:items-center gap-6">
             <div className="flex-1">
               <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-red-400 mb-2">
@@ -259,10 +287,13 @@ export default function Home() {
               <ArrowRight size={16} />
             </a>
           </div>
-        </section>
+        </motion.section>
 
         {/* ── TRUST ── */}
-        <section className="max-w-7xl mx-auto px-4 lg:px-8 py-8 w-full">
+        <motion.section
+          {...fadeUp}
+          className="max-w-7xl mx-auto px-4 lg:px-8 py-8 w-full"
+        >
           <div className="text-center mb-6">
             <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-red-600 mb-1">
               Why XL Traders
@@ -305,10 +336,13 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </section>
+        </motion.section>
 
         {/* ── SERVICE AREAS + BRANDS ── */}
-        <section className="max-w-7xl mx-auto px-4 lg:px-8 py-4 w-full grid md:grid-cols-2 gap-3.5">
+        <motion.section
+          {...fadeUp}
+          className="max-w-7xl mx-auto px-4 lg:px-8 py-4 w-full grid md:grid-cols-2 gap-3.5"
+        >
           <div className="bg-white border border-slate-200 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-[14.5px] font-bold mb-3">
               <MapPin size={16} className="text-red-600" />
@@ -351,10 +385,13 @@ export default function Home() {
               </div>
             )}
           </div>
-        </section>
+        </motion.section>
 
         {/* ── FAQ ── */}
-        <section className="max-w-3xl mx-auto px-4 lg:px-8 py-10 w-full">
+        <motion.section
+          {...fadeUp}
+          className="max-w-3xl mx-auto px-4 lg:px-8 py-10 w-full"
+        >
           <h2 className="text-[22px] font-extrabold tracking-tight text-center mb-5">
             Common Questions
           </h2>
@@ -383,7 +420,7 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </section>
+        </motion.section>
 
         {/* Daily improvement suggestions — dev mode only */}
         {isDev && <HomeDailySuggestion />}
