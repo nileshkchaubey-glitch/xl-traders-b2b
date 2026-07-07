@@ -9,6 +9,7 @@ import { useAuthStore } from "./lib/authStore";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
 import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
 import Auth from "./pages/Auth";
 
 // Admin panel is heavy (charts, xlsx/CSV import, image tools) and is only ever
@@ -35,6 +36,7 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/catalog"} component={Catalog} />
       <Route path={"/product/:id"} component={ProductDetail} />
+      <Route path={"/cart"} component={Cart} />
       <Route path={"/auth"} component={Auth} />
       <Route path={"/admin/products/new"}>
         <Suspense fallback={<AdminFallback />}>

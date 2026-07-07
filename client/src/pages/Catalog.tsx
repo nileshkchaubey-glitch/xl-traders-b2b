@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocation, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Grid3x3, List, ChevronDown, Package, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -223,24 +223,76 @@ export default function Catalog() {
       <Header />
 
       <main className="flex-1">
-        {/* Page Header */}
-        <div className="bg-white border-b border-slate-200 py-8">
-          <div className="max-w-7xl mx-auto px-4">
-            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-              Product Catalog
-            </h1>
-            <p className="text-slate-600">
-              {totalCount.toLocaleString()} products
-              {activeFilterLabel ? ` in ${activeFilterLabel}` : " available"}
-            </p>
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
+          {/* Breadcrumb */}
+          <div className="text-[12.5px] text-slate-500 mb-3.5">
+            <Link href="/" className="hover:text-red-600 transition">
+              Home
+            </Link>
+            <span className="mx-1.5">/</span>
+            <span className="text-slate-900 font-semibold">
+              {activeFilterLabel || "All Products"}
+            </span>
           </div>
-        </div>
 
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Title + controls */}
+          <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+                {activeFilterLabel || "All Products"}
+              </h1>
+              <p className="text-[13px] text-slate-500 mt-0.5">
+                {totalCount.toLocaleString()} products
+              </p>
+            </div>
+            <div className="hidden lg:flex items-center gap-2.5">
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as PublicProductSort)}
+                  className="appearance-none h-10 pl-3 pr-8 border border-slate-200 rounded-lg text-[13px] font-semibold bg-white cursor-pointer outline-none"
+                >
+                  <option value="newest">Sort: Newest</option>
+                  <option value="name">Name (A–Z)</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                </select>
+                <ChevronDown
+                  size={15}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"
+                />
+              </div>
+              <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  aria-label="Grid view"
+                  className={`w-10 h-10 flex items-center justify-center transition ${
+                    viewMode === "grid"
+                      ? "bg-slate-900 text-white"
+                      : "bg-white text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  <Grid3x3 size={16} />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  aria-label="List view"
+                  className={`w-10 h-10 flex items-center justify-center transition ${
+                    viewMode === "list"
+                      ? "bg-slate-900 text-white"
+                      : "bg-white text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  <List size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* ── Desktop Sidebar ── */}
             <aside className="hidden lg:block">
-              <div className="bg-white border border-slate-200 rounded-lg overflow-hidden sticky top-24">
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden sticky top-24">
                 {/* Search */}
                 <div className="p-4 border-b border-slate-200">
                   <input
@@ -367,8 +419,8 @@ export default function Catalog() {
 
             {/* ── Main Content ── */}
             <div className="lg:col-span-3">
-              {/* Controls Bar */}
-              <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
+              {/* Controls Bar — mobile/tablet only; desktop controls sit in the title row */}
+              <div className="lg:hidden bg-white border border-slate-200 rounded-lg p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setViewMode("grid")}
