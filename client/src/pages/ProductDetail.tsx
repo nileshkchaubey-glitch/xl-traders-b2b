@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation, Link } from "wouter";
-import { ArrowLeft, MessageCircle, Share2 } from "lucide-react";
+import {
+  MessageCircle,
+  Share2,
+  Minus,
+  Plus,
+  ShoppingCart,
+  Truck,
+  ShieldCheck,
+  Check,
+} from "lucide-react";
+import { useCartStore } from "@/stores/cartStore";
+import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import {
@@ -13,7 +24,6 @@ import { masterService } from "@/lib/masterService";
 import { Product, ProductImage } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 import { ImagePlaceholder } from "@/components/ImagePlaceholder";
-import AddToCartButton from "@/components/cart/AddToCartButton";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
@@ -144,6 +154,12 @@ export default function ProductDetail() {
   const [variants, setVariants] = useState<Product[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<Product | null>(null);
 
+  // Buy panel state (prototype): quantity stepper + delivery pincode check
+  const [qty, setQty] = useState(1);
+  const [pincode, setPincode] = useState("");
+  const [pinResult, setPinResult] = useState<string | null>(null);
+  const { addItem, updateQuantity, items: cartItems } = useCartStore();
+
   useEffect(() => {
     const loadProduct = async () => {
       if (!id) return;
@@ -208,6 +224,52 @@ export default function ProductDetail() {
   }, [id]);
 
   const currentProd = selectedVariant || product;
+
+  // Start the stepper at the product's MOQ whenever the shown product changes.
+  useEffect(() => {
+    setQty(currentProd?.moq ?? 1);
+  }, [currentProd?.id, currentProd?.moq]);
+
+  const handleAddToCart = () => {
+    if (!currentProd) return;
+    const moq = currentProd.moq ?? 1;
+    const finalQty = Math.max(qty, moq);
+    const existing = cartItems.find(i => i.productId === currentProd.id);
+    if (!existing) {
+      addItem({
+        productId: currentProd.id,
+        sku: currentProd.sku ?? currentProd.id,
+        name: currentProd.name,
+        price: currentProd.price ?? 0,
+        priceOnEnquiry: currentProd.price == null ? true : undefined,
+        unit: currentProd.unit_of_measure ?? "pcs",
+        imageUrl: currentProd.image_url ?? undefined,
+        moq,
+      });
+    }
+    updateQuantity(
+      currentProd.id,
+      existing ? existing.quantity + finalQty : finalQty
+    );
+    if (qty < moq) {
+      toast.warning(`Minimum ${moq} — quantity bumped to MOQ`);
+    } else {
+      toast.success(`Added ${finalQty} to cart`);
+    }
+  };
+
+  const handleCheckPin = () => {
+    const pc = pincode.trim();
+    if (pc.length < 6) {
+      toast.error("Enter a 6-digit pincode");
+      return;
+    }
+    setPinResult(
+      pc.startsWith("395") || pc.startsWith("394")
+        ? "Same-day delivery available — order by 2pm"
+        : "Delivered in 2–4 days via surface transport"
+    );
+  };
 
   const handleEnquire = () => {
     if (!currentProd) return;
@@ -334,18 +396,24 @@ export default function ProductDetail() {
       <Header />
 
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          {/* Back */}
-          <button
-            onClick={() => setLocation("/catalog")}
-            className="flex items-center gap-2 text-red-600 font-semibold hover:text-red-700 mb-8 transition"
-          >
-            <ArrowLeft size={18} />
-            Back to Catalog
-          </button>
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
+          {/* Breadcrumb */}
+          <div className="text-[12.5px] text-slate-500 mb-4">
+            <Link href="/" className="hover:text-red-600 transition">
+              Home
+            </Link>
+            <span className="mx-1.5">/</span>
+            <Link href="/catalog" className="hover:text-red-600 transition">
+              Catalogue
+            </Link>
+            <span className="mx-1.5">/</span>
+            <span className="text-slate-900 font-semibold">
+              {currentProd.name}
+            </span>
+          </div>
 
           {/* Product grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-9">
             {/* Images */}
             <div>
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden mb-4 aspect-square flex items-center justify-center">
@@ -394,26 +462,16 @@ export default function ProductDetail() {
             </div>
 
             {/* Product Details */}
-            <div>
-              <div className="bg-white border border-slate-200 rounded-lg p-8">
-                <h1 className="text-3xl font-bold text-slate-900 mb-1">
+            <div className="lg:sticky lg:top-24 self-start">
+              <div>
+                <div className="text-[12.5px] font-semibold text-slate-500 mb-1">
+                  {[currentProd.brand, currentProd.sku && `SKU ${currentProd.sku}`]
+                    .filter(Boolean)
+                    .join(" · ") || "XL Traders"}
+                </div>
+                <h1 className="text-2xl lg:text-[26px] font-extrabold tracking-tight leading-tight text-slate-900 mb-4">
                   {currentProd.name}
                 </h1>
-                <div className="flex items-center gap-3 flex-wrap mb-6">
-                  <p className="text-slate-400 text-sm">
-                    SKU: {currentProd.sku || "N/A"}
-                  </p>
-                  {currentProd.barcode && (
-                    <p className="text-slate-400 text-sm">
-                      Barcode: {currentProd.barcode}
-                    </p>
-                  )}
-                  {currentProd.moq && currentProd.moq > 1 && (
-                    <span className="text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
-                      Min. order: {currentProd.moq}
-                    </span>
-                  )}
-                </div>
 
                 {/* Variant Selector */}
                 {variants.length > 1 && (
@@ -453,55 +511,230 @@ export default function ProductDetail() {
                   </div>
                 )}
 
-                {/* Price */}
-                <div className="mb-8 pb-8 border-b border-slate-200">
+                {/* Price card */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
                   {isAuthenticated ? (
-                    <div>
-                      <p className="text-slate-600 text-sm font-semibold mb-2">
-                        Price
-                      </p>
-                      {currentProd.price != null ? (
-                        <p className="text-4xl font-bold text-red-600">
+                    currentProd.price != null ? (
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="text-[26px] font-extrabold text-red-600 tabular-nums">
                           ₹{currentProd.price.toLocaleString()}
-                        </p>
-                      ) : (
-                        <p className="text-xl font-semibold text-slate-500 italic">
-                          Price on enquiry
-                        </p>
-                      )}
-                      <p className="text-slate-500 text-sm mt-2">
-                        Per {currentProd.quantity_in_unit}{" "}
-                        {currentProd.unit_of_measure}
-                      </p>
-                    </div>
+                        </span>
+                        {currentProd.quantity_in_unit ? (
+                          <span className="text-[13px] text-slate-500">
+                            / pack of {currentProd.quantity_in_unit}{" "}
+                            {currentProd.unit_of_measure}
+                          </span>
+                        ) : (
+                          currentProd.unit_of_measure && (
+                            <span className="text-[13px] text-slate-500">
+                              / {currentProd.unit_of_measure}
+                            </span>
+                          )
+                        )}
+                        {currentProd.quantity_in_unit &&
+                          currentProd.quantity_in_unit > 1 && (
+                            <span className="text-[13px] font-semibold text-slate-600 ml-auto">
+                              ₹
+                              {(
+                                Math.round(
+                                  (currentProd.price /
+                                    currentProd.quantity_in_unit) *
+                                    100
+                                ) / 100
+                              ).toLocaleString()}
+                              /pc
+                            </span>
+                          )}
+                      </div>
+                    ) : (
+                      <div className="text-lg font-bold text-slate-600 italic">
+                        Price on enquiry
+                      </div>
+                    )
                   ) : (
-                    <div className="bg-slate-100 border border-slate-200 rounded-lg p-4 text-center">
-                      <p className="text-slate-600 font-semibold mb-2">
-                        Sign in to view pricing
-                      </p>
+                    <div>
+                      <div className="text-lg font-bold text-slate-700">
+                        Wholesale price hidden
+                      </div>
                       <button
                         onClick={() => setLocation("/auth")}
-                        className="text-red-600 font-semibold hover:text-red-700"
+                        className="text-[12.5px] font-semibold text-red-600 underline mt-0.5"
                       >
-                        Sign In Now
+                        Sign in to see your exact wholesale price
                       </button>
                     </div>
                   )}
                 </div>
 
+                {/* Quantity + Add to Cart (authenticated users — null-price
+                    items enter as enquiry lines) */}
+                {isAuthenticated && (
+                  <div className="mb-4">
+                    <div className="flex gap-3 items-end flex-wrap mb-1.5">
+                      <div>
+                        <div className="text-[12.5px] font-bold mb-2">
+                          Quantity{" "}
+                          {currentProd.unit_of_measure && (
+                            <span className="font-medium text-slate-500">
+                              ({currentProd.unit_of_measure})
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center border-[1.5px] border-slate-300 rounded-xl overflow-hidden h-[46px] w-40">
+                          <button
+                            onClick={() => setQty(q => Math.max(1, q - 1))}
+                            className="w-11 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
+                            aria-label="Decrease"
+                          >
+                            <Minus size={16} />
+                          </button>
+                          <input
+                            value={qty}
+                            onChange={e => {
+                              const v = parseInt(e.target.value, 10);
+                              if (!isNaN(v)) setQty(Math.max(1, v));
+                            }}
+                            className="flex-1 w-12 text-center text-[15px] font-bold tabular-nums outline-none"
+                            inputMode="numeric"
+                          />
+                          <button
+                            onClick={() => setQty(q => q + 1)}
+                            className="w-11 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
+                            aria-label="Increase"
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5 pb-0.5">
+                        {[5, 10, 25].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => setQty(q => q + n)}
+                            className="px-3.5 py-3 border border-slate-200 bg-white rounded-lg text-[12.5px] font-bold text-slate-600 hover:border-red-600 hover:text-red-600 transition"
+                          >
+                            +{n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {currentProd.moq != null && currentProd.moq > 1 && (
+                      <div
+                        className={`text-xs font-semibold mb-3.5 ${
+                          qty < currentProd.moq
+                            ? "text-red-700"
+                            : "text-emerald-700"
+                        }`}
+                      >
+                        {qty < currentProd.moq
+                          ? `Below MOQ — minimum ${currentProd.moq}`
+                          : `✓ MOQ ${currentProd.moq} met`}
+                      </div>
+                    )}
+                    <div className="flex gap-2.5 mt-2">
+                      <button
+                        onClick={handleAddToCart}
+                        className="flex-1 flex items-center justify-center gap-2 h-[50px] bg-red-600 text-white rounded-xl text-[15px] font-bold hover:bg-red-700 transition shadow-[0_6px_18px_rgba(220,38,38,0.28)]"
+                      >
+                        <ShoppingCart size={17} />
+                        Add to Cart
+                        {currentProd.price != null &&
+                          ` · ₹${(currentProd.price * qty).toLocaleString()}`}
+                      </button>
+                      <button
+                        onClick={handleEnquire}
+                        title="Enquire on WhatsApp"
+                        className="w-[50px] h-[50px] bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition flex items-center justify-center flex-shrink-0"
+                      >
+                        <MessageCircle size={20} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Anonymous: enquiry is the primary action */}
+                {!isAuthenticated && (
+                  <button
+                    onClick={handleEnquire}
+                    className="w-full flex items-center justify-center gap-2 h-[50px] bg-emerald-600 text-white rounded-xl text-[15px] font-bold hover:bg-emerald-700 transition mb-4"
+                  >
+                    <MessageCircle size={18} />
+                    Enquire on WhatsApp
+                  </button>
+                )}
+
+                {/* Delivery pincode check */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-4">
+                  <div className="flex items-center gap-2 mb-2.5 text-[13px] font-bold">
+                    <Truck size={15} className="text-emerald-600" />
+                    Check delivery
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      value={pincode}
+                      onChange={e =>
+                        setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
+                      placeholder="Enter pincode"
+                      inputMode="numeric"
+                      className="flex-1 h-10 border border-slate-300 rounded-lg px-3 text-[13.5px] outline-none focus:border-red-600 bg-white"
+                    />
+                    <button
+                      onClick={handleCheckPin}
+                      className="h-10 px-4 bg-slate-900 text-white rounded-lg text-[12.5px] font-bold hover:bg-slate-800 transition"
+                    >
+                      Check
+                    </button>
+                  </div>
+                  {pinResult && (
+                    <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-emerald-700 mt-2">
+                      <Check size={13} strokeWidth={3} />
+                      {pinResult}
+                    </div>
+                  )}
+                </div>
+
+                {/* Trust row + secondary actions */}
+                <div className="flex items-center gap-4 text-xs text-slate-600 font-medium flex-wrap">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck size={13} className="text-slate-500" />
+                    GST invoice
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Truck size={13} className="text-slate-500" />
+                    24h dispatch
+                  </span>
+                  <a
+                    href={`tel:${phone1}`}
+                    className="flex items-center gap-1.5 hover:text-red-600 transition"
+                  >
+                    📞 Call us
+                  </a>
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center gap-1.5 hover:text-red-600 transition"
+                  >
+                    <Share2 size={13} />
+                    Share
+                  </button>
+                </div>
+
                 {/* Specifications */}
                 {currentProd.specifications &&
                   Object.keys(currentProd.specifications).length > 0 && (
-                    <div className="mb-8 pb-8 border-b border-slate-200">
-                      <h3 className="font-bold text-slate-900 mb-4">
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-5">
+                      <h3 className="font-extrabold text-slate-900 mb-3">
                         Specifications
                       </h3>
-                      <div className="space-y-3">
+                      <div>
                         {Object.entries(currentProd.specifications).map(
                           ([key, value]) => (
-                            <div key={key} className="flex justify-between">
-                              <span className="text-slate-600 capitalize">
-                                {key}:
+                            <div
+                              key={key}
+                              className="grid grid-cols-[150px_1fr] gap-3 py-2 border-b border-slate-100 last:border-0 text-[13px]"
+                            >
+                              <span className="text-slate-500 font-medium capitalize">
+                                {key}
                               </span>
                               <span className="font-semibold text-slate-900">
                                 {String(value)}
@@ -515,52 +748,15 @@ export default function ProductDetail() {
 
                 {/* Description */}
                 {currentProd.description && (
-                  <div className="mb-8 pb-8 border-b border-slate-200">
-                    <h3 className="font-bold text-slate-900 mb-3">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-4">
+                    <h3 className="font-extrabold text-slate-900 mb-2.5">
                       Description
                     </h3>
-                    <p className="text-slate-600 leading-relaxed">
+                    <p className="text-[13.5px] text-slate-600 leading-relaxed">
                       {currentProd.description}
                     </p>
                   </div>
                 )}
-
-                {/* Actions */}
-                <div className="space-y-3">
-                  {/* Add to Cart (authenticated users — null-price items enter as enquiry lines) */}
-                  {isAuthenticated && <AddToCartButton product={currentProd} />}
-
-                  <button
-                    onClick={handleEnquire}
-                    className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-6 rounded-lg transition flex items-center justify-center gap-2"
-                  >
-                    <MessageCircle size={20} />
-                    Enquire on WhatsApp
-                  </button>
-                  <div className="flex gap-3">
-                    <a
-                      href={`tel:${phone1}`}
-                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-lg transition text-center"
-                    >
-                      📞 Call
-                    </a>
-                    <button
-                      onClick={handleShare}
-                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-lg transition flex items-center justify-center gap-2"
-                    >
-                      <Share2 size={18} />
-                      Share
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
-                  <p className="font-semibold mb-1">💡 Need bulk quantities?</p>
-                  <p>
-                    Contact us for special pricing on bulk orders and
-                    customization options.
-                  </p>
-                </div>
               </div>
             </div>
           </div>

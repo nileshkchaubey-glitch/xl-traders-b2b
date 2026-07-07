@@ -1,33 +1,126 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Menu, X, LogOut, LogIn, ShoppingCart } from "lucide-react";
+import {
+  Search,
+  Menu,
+  X,
+  LogOut,
+  LogIn,
+  ShoppingCart,
+  ChevronDown,
+  Package,
+  Phone,
+  MessageCircle,
+  Truck,
+  ShieldCheck,
+  Clock,
+  User,
+} from "lucide-react";
 import { useAuthStore } from "@/lib/authStore";
 import { useCartStore } from "@/stores/cartStore";
-import { Button } from "@/components/ui/button";
-import CartDrawer from "@/components/cart/CartDrawer";
+import {
+  categoryService,
+  productService,
+  CategoryGroup,
+} from "@/lib/productService";
+import { Product } from "@/lib/supabase";
+import { normalizeImageUrl } from "@/lib/imageUtils";
 
-interface HeaderProps {
-  variant?: "default" | "home";
+const RECENTS_KEY = "xl-recent-searches";
+const POPULAR_SEARCHES = [
+  "500ml container",
+  "paper cups",
+  "carry bags",
+  "aluminium foil",
+];
+
+function loadRecents(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, 4) : [];
+  } catch {
+    return [];
+  }
 }
 
-export default function Header({ variant = "default" }: HeaderProps) {
+function saveRecent(term: string) {
+  const next = [term, ...loadRecents().filter(r => r !== term)].slice(0, 4);
+  try {
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+  } catch {
+    /* storage full/blocked — recents are a nicety */
+  }
+  return next;
+}
+
+export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [cartOpen, setCartOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<Product[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [recents, setRecents] = useState<string[]>([]);
+  const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
   const { isAuthenticated, isAdmin, user, signOut } = useAuthStore();
   const cartCount = useCartStore(s => s.getItemCount());
-  const [location, setLocation] = useLocation();
-  const isHome = variant === "home" || location === "/";
+  const [, setLocation] = useLocation();
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
 
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
   const phone1 = import.meta.env.VITE_PHONE_1 || "9773239442";
 
+  useEffect(() => {
+    setRecents(loadRecents());
+    categoryService
+      .getCategoriesGroupedByGroup()
+      .then(setCategoryGroups)
+      .catch(() => {});
+  }, []);
+
+  // Live search suggestions, debounced so we don't hit the DB on every keystroke.
+  useEffect(() => {
+    clearTimeout(searchDebounce.current);
+    const q = searchQuery.trim();
+    if (!q) {
+      setSuggestions([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    searchDebounce.current = setTimeout(async () => {
+      try {
+        const results = await productService.search(q, 5);
+        setSuggestions(results);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(searchDebounce.current);
+  }, [searchQuery]);
+
+  const closeOverlays = () => {
+    setSearchOpen(false);
+    setCatOpen(false);
+  };
+
+  const goSearch = (term: string) => {
+    const q = term.trim();
+    if (!q) return;
+    setRecents(saveRecent(q));
+    closeOverlays();
+    setSearchQuery("");
+    setLocation(`/catalog?search=${encodeURIComponent(q)}`);
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      setLocation(`/catalog?search=${encodeURIComponent(searchQuery)}`);
-      setSearchQuery("");
-    }
+    goSearch(searchQuery);
   };
 
   const handleSignOut = async () => {
@@ -35,194 +128,348 @@ export default function Header({ variant = "default" }: HeaderProps) {
     setLocation("/");
   };
 
+  const overlayOpen = searchOpen || catOpen;
+
   return (
     <>
-      {/* Top Info Bar — hidden on homepage */}
-      {!isHome && (
-        <div className="bg-slate-900 text-slate-300 text-xs py-1.5">
-          <div className="max-w-7xl mx-auto px-4 flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-6">
-              <a
-                href={`tel:${phone1}`}
-                className="flex items-center gap-2 hover:text-red-500 transition"
-              >
-                <span className="inline-block w-1 h-1 bg-green-500 rounded-full"></span>
-                📞 {phone1}
-              </a>
-              <a
-                href={`https://wa.me/${whatsappNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 hover:text-red-500 transition"
-              >
-                <span className="inline-block w-1 h-1 bg-green-500 rounded-full"></span>
-                💬 WhatsApp
-              </a>
-            </div>
-            <span className="text-slate-400">Same-day Delivery in Surat</span>
-          </div>
+      {/* Utility bar */}
+      <div className="bg-slate-900 text-slate-300 text-xs hidden md:block">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-1.5 flex items-center gap-5">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck size={13} className="text-emerald-400" />
+            GST Registered Wholesaler
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Truck size={13} />
+            Same-day delivery in Surat · 24h dispatch pan-India
+          </span>
+          <span className="flex items-center gap-1.5 ml-auto">
+            <Clock size={13} />
+            Mon–Sat 9AM–9PM
+          </span>
+          <a
+            href={`tel:${phone1}`}
+            className="flex items-center gap-1.5 hover:text-white transition"
+          >
+            <Phone size={13} />
+            +91 {phone1.replace(/^91/, "")}
+          </a>
         </div>
-      )}
+      </div>
 
-      {/* Main Header */}
+      {/* Main header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-4">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-3 flex-shrink-0">
-              <div className="text-2xl font-bold text-slate-900">
-                <span className="text-red-600">XL</span> Traders
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex items-center gap-3 lg:gap-5">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="w-9 h-9 md:w-10 md:h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-extrabold text-lg tracking-tight">
+              XL
+            </div>
+            <div className="leading-tight">
+              <div className="font-extrabold text-slate-900 text-base tracking-[0.08em]">
+                TRADERS
               </div>
-              <div className="text-xs text-slate-500 border-l border-slate-200 pl-3">
-                <div className="font-semibold">Packaging</div>
-                <div>Surat, India</div>
+              <div className="text-[10px] text-slate-500 tracking-wide hidden sm:block">
+                Wholesale Packaging · Surat
               </div>
-            </Link>
+            </div>
+          </Link>
 
-            {/* Search Box - Desktop */}
-            <form
-              onSubmit={handleSearch}
-              className="hidden md:flex flex-1 max-w-sm mx-6"
+          {/* Categories mega-menu (desktop) */}
+          <div className="relative hidden lg:block">
+            <button
+              onClick={() => {
+                setCatOpen(!catOpen);
+                setSearchOpen(false);
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 transition ${
+                catOpen ? "bg-slate-100" : "bg-white hover:bg-slate-50"
+              }`}
             >
-              <div className="flex w-full border border-slate-300 rounded-md overflow-hidden focus-within:border-red-600 focus-within:ring-2 focus-within:ring-red-100 transition">
+              <Package size={16} />
+              Categories
+              <ChevronDown size={14} />
+            </button>
+            {catOpen && categoryGroups.length > 0 && (
+              <div className="absolute top-[52px] left-0 w-[720px] bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 grid grid-cols-3 gap-6 z-50">
+                {categoryGroups.slice(0, 6).map(group => (
+                  <div key={group.group_name}>
+                    <div className="text-[11px] font-bold tracking-widest uppercase text-red-600 mb-2.5">
+                      {group.group_name}
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      {group.categories.slice(0, 8).map(cat => (
+                        <Link
+                          key={cat.id}
+                          href={`/catalog?category=${cat.slug}`}
+                          onClick={closeOverlays}
+                          className="px-2.5 py-1.5 -mx-2.5 rounded-lg text-[13.5px] font-medium text-slate-700 hover:bg-red-50 hover:text-red-600 transition"
+                        >
+                          {cat.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <Link
+                  href="/catalog"
+                  onClick={closeOverlays}
+                  className="col-span-3 text-center text-sm font-semibold text-red-600 pt-2 border-t border-slate-100 hover:underline"
+                >
+                  View all categories →
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Search */}
+          <div className="flex-1 relative hidden md:block">
+            <form onSubmit={handleSearch}>
+              <div
+                className={`flex items-center gap-2 bg-slate-100 border-[1.5px] rounded-xl pl-3.5 pr-2 h-11 transition ${
+                  searchOpen ? "border-red-600 bg-white" : "border-transparent"
+                }`}
+              >
+                <Search size={17} className="text-slate-500 flex-shrink-0" />
                 <input
                   type="text"
-                  placeholder="Search products..."
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm bg-transparent outline-none"
+                  onChange={e => {
+                    setSearchQuery(e.target.value);
+                    setSearchOpen(true);
+                  }}
+                  onFocus={() => {
+                    setSearchOpen(true);
+                    setCatOpen(false);
+                  }}
+                  placeholder='Search products — try "500ml container" or a SKU'
+                  className="flex-1 bg-transparent outline-none text-sm text-slate-900 h-full"
                 />
-                <button
-                  type="submit"
-                  className="bg-red-600 text-white px-4 py-2 hover:bg-red-700 transition flex items-center gap-1"
-                >
-                  <Search size={16} />
-                </button>
               </div>
             </form>
 
-            {/* Right Actions */}
-            <div className="flex items-center gap-2 md:gap-3">
-              {/* Contact Buttons - Desktop */}
-              {!isHome && (
-                <div className="hidden md:flex gap-2">
-                  <a
-                    href={`tel:${phone1}`}
-                    className="px-3 py-2 text-sm font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded hover:bg-slate-200 transition"
-                  >
-                    📞 Call
-                  </a>
-                  <a
-                    href={`https://wa.me/${whatsappNumber}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-2 text-sm font-semibold text-white bg-green-600 rounded hover:bg-green-700 transition"
-                  >
-                    💬 WhatsApp
-                  </a>
-                </div>
-              )}
-
-              {/* Cart Icon */}
-              <button
-                onClick={() => setCartOpen(true)}
-                className="relative p-2 rounded-lg hover:bg-slate-100 transition"
-                aria-label="Open cart"
-              >
-                <ShoppingCart size={22} className="text-slate-700" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
-                    {cartCount > 99 ? "99+" : cartCount}
-                  </span>
+            {searchOpen && (
+              <div className="absolute top-[52px] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-50">
+                {searchQuery.trim() ? (
+                  suggestions.length > 0 ? (
+                    <div className="flex flex-col gap-0.5">
+                      {suggestions.map(p => (
+                        <Link
+                          key={p.id}
+                          href={`/product/${p.id}`}
+                          onClick={() => {
+                            setRecents(saveRecent(p.name));
+                            closeOverlays();
+                            setSearchQuery("");
+                          }}
+                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-slate-50 transition"
+                        >
+                          <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {p.image_url ? (
+                              <img
+                                src={normalizeImageUrl(p.image_url, 100) ?? ""}
+                                alt=""
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <Package size={16} className="text-slate-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[13.5px] font-semibold text-slate-900 truncate">
+                              {p.name}
+                            </div>
+                            <div className="text-[11.5px] text-slate-500 truncate">
+                              {[p.brand, p.moq ? `MOQ ${p.moq}` : null]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                          </div>
+                          {isAuthenticated && p.price != null && (
+                            <div className="text-[12.5px] font-bold text-red-600">
+                              ₹{p.price.toLocaleString()}
+                            </div>
+                          )}
+                        </Link>
+                      ))}
+                      <button
+                        onClick={() => goSearch(searchQuery)}
+                        className="text-left px-2.5 py-2 text-[13px] font-semibold text-red-600 hover:underline"
+                      >
+                        See all results for "{searchQuery.trim()}" →
+                      </button>
+                    </div>
+                  ) : searching ? (
+                    <div className="py-4 text-center text-sm text-slate-400">
+                      Searching…
+                    </div>
+                  ) : (
+                    <div className="py-3.5 px-2.5 text-center">
+                      <div className="text-[13.5px] font-semibold text-slate-900 mb-1">
+                        No matches for "{searchQuery.trim()}"
+                      </div>
+                      <div className="text-[12.5px] text-slate-500 mb-3">
+                        We probably stock it — ask us directly and we'll add it
+                        to your order.
+                      </div>
+                      <a
+                        href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi XL Traders, do you stock "${searchQuery.trim()}"?`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-emerald-700 transition"
+                      >
+                        <MessageCircle size={14} />
+                        Ask on WhatsApp
+                      </a>
+                    </div>
+                  )
+                ) : (
+                  <div>
+                    {recents.length > 0 && (
+                      <>
+                        <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2">
+                          Recent searches
+                        </div>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {recents.map(r => (
+                            <button
+                              key={r}
+                              onClick={() => goSearch(r)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-[12.5px] font-medium text-slate-700 hover:border-red-600 hover:text-red-600 transition"
+                            >
+                              <Clock size={12} />
+                              {r}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2">
+                      Popular right now
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {POPULAR_SEARCHES.map(t => (
+                        <button
+                          key={t}
+                          onClick={() => goSearch(t)}
+                          className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-full text-[12.5px] font-semibold text-red-700 hover:bg-red-100 transition"
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </button>
-
-              {/* Auth Buttons */}
-              {isAuthenticated ? (
-                <div className="hidden md:flex items-center gap-2">
-                  {isAdmin && (
-                    <Link href="/admin">
-                      <Button variant="outline" size="sm">
-                        Admin
-                      </Button>
-                    </Link>
-                  )}
-                  <span className="text-sm text-slate-600">{user?.email}</span>
-                  <button
-                    onClick={handleSignOut}
-                    className="px-3 py-2 text-sm font-semibold text-slate-700 bg-slate-100 rounded hover:bg-slate-200 transition flex items-center gap-1"
-                  >
-                    <LogOut size={16} />
-                    Sign Out
-                  </button>
-                </div>
-              ) : (
-                <Link href="/auth" className="hidden md:block">
-                  <Button variant="outline" size="sm">
-                    <LogIn size={16} />
-                    Sign In
-                  </Button>
-                </Link>
-              )}
-
-              {/* Mobile Menu Toggle */}
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="md:hidden p-2 hover:bg-slate-100 rounded transition"
-              >
-                {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
-            </div>
+              </div>
+            )}
           </div>
 
-          {/* Mobile Search */}
-          <form onSubmit={handleSearch} className="md:hidden mt-3">
-            <div className="flex border border-slate-300 rounded overflow-hidden focus-within:border-red-600">
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="flex-1 px-3 py-2 text-sm bg-transparent outline-none"
-              />
-              <button
-                type="submit"
-                className="bg-red-600 text-white px-3 py-2 hover:bg-red-700 transition"
+          {/* Actions */}
+          <div className="flex items-center gap-2 ml-auto md:ml-0">
+            <a
+              href={`https://wa.me/${whatsappNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-[13px] font-semibold hover:bg-emerald-100 transition"
+            >
+              <MessageCircle size={16} />
+              WhatsApp
+            </a>
+
+            {isAuthenticated ? (
+              <div className="hidden md:flex items-center gap-2">
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="h-11 px-3.5 flex items-center bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition"
+                  >
+                    Admin
+                  </Link>
+                )}
+                <button
+                  onClick={handleSignOut}
+                  title={user?.email || "Sign out"}
+                  className="flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition"
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/auth"
+                className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition"
               >
-                <Search size={16} />
-              </button>
-            </div>
-          </form>
+                <User size={16} />
+                Sign In
+              </Link>
+            )}
+
+            <Link
+              href="/cart"
+              className="relative flex items-center gap-2 h-10 md:h-11 px-3 md:px-4 bg-red-600 text-white rounded-xl text-[13.5px] font-bold hover:bg-red-700 transition shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
+            >
+              <ShoppingCart size={17} />
+              <span className="hidden sm:inline">Cart</span>
+              {cartCount > 0 && (
+                <span className="bg-white text-red-600 text-[11px] font-extrabold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
+            </Link>
+
+            {/* Mobile menu toggle */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2 hover:bg-slate-100 rounded-lg transition"
+              aria-label="Menu"
+            >
+              {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile search */}
+        <form onSubmit={handleSearch} className="md:hidden px-4 pb-3">
+          <div className="flex items-center gap-2 bg-slate-100 rounded-xl px-3.5 h-10">
+            <Search size={16} className="text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search products…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent outline-none text-sm"
+            />
+          </div>
+        </form>
+
+        {/* Mobile menu */}
         {isMenuOpen && (
           <div className="md:hidden border-t border-slate-200 bg-slate-50">
-            <div className="max-w-7xl mx-auto px-4 py-4 space-y-3">
+            <div className="px-4 py-4 space-y-1">
               <Link
                 href="/catalog"
-                className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+                onClick={() => setIsMenuOpen(false)}
+                className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
               >
-                Product Catalog
+                Product Catalogue
               </Link>
-              <button
-                onClick={() => {
-                  setCartOpen(true);
-                  setIsMenuOpen(false);
-                }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+              <Link
+                href="/cart"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
               >
                 <ShoppingCart size={16} />
-                Cart{" "}
+                Cart
                 {cartCount > 0 && (
                   <span className="bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
                     {cartCount}
                   </span>
                 )}
-              </button>
+              </Link>
               <a
                 href={`tel:${phone1}`}
-                className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+                className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
               >
                 📞 Call: {phone1}
               </a>
@@ -230,7 +477,7 @@ export default function Header({ variant = "default" }: HeaderProps) {
                 href={`https://wa.me/${whatsappNumber}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+                className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
               >
                 💬 WhatsApp
               </a>
@@ -239,23 +486,27 @@ export default function Header({ variant = "default" }: HeaderProps) {
                   {isAdmin && (
                     <Link
                       href="/admin"
-                      className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
                     >
                       Admin Panel
                     </Link>
                   )}
                   <button
                     onClick={handleSignOut}
-                    className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+                    className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
                   >
+                    <LogOut size={16} className="inline mr-2" />
                     Sign Out
                   </button>
                 </>
               ) : (
                 <Link
                   href="/auth"
-                  className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
                 >
+                  <LogIn size={16} className="inline mr-2" />
                   Sign In
                 </Link>
               )}
@@ -264,44 +515,10 @@ export default function Header({ variant = "default" }: HeaderProps) {
         )}
       </header>
 
-      {/* Category Navigation */}
-      <nav className="bg-white border-b border-slate-200 hidden md:block">
-        <div className="max-w-7xl mx-auto px-4 flex gap-6 overflow-x-auto">
-          <Link
-            href="/catalog"
-            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
-          >
-            All Products
-          </Link>
-          <Link
-            href="/catalog?category=round-container"
-            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
-          >
-            🥤 Round Containers
-          </Link>
-          <Link
-            href="/catalog?category=rectangle-container"
-            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
-          >
-            📦 Rectangle Containers
-          </Link>
-          <Link
-            href="/catalog?category=hinged-container"
-            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
-          >
-            🔗 Hinged Containers
-          </Link>
-          <Link
-            href="/catalog?category=aluminum-containers"
-            className="px-4 py-3 text-sm font-semibold text-slate-600 border-b-2 border-transparent hover:border-red-600 hover:text-red-600 transition whitespace-nowrap"
-          >
-            🥫 Aluminum Containers
-          </Link>
-        </div>
-      </nav>
-
-      {/* Cart Drawer */}
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+      {/* Click-away backdrop for menus */}
+      {overlayOpen && (
+        <div className="fixed inset-0 z-30" onClick={closeOverlays} />
+      )}
     </>
   );
 }

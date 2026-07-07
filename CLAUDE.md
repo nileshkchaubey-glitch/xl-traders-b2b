@@ -114,6 +114,24 @@ inquiries, orders, order_items, import_logs, business_settings
 - Cart → Place Order via WhatsApp (null-price items included as enquiry lines)
 - **Publish gate:** only status='published' AND is_active=true appear publicly
 - **Variant selector:** size buttons (250ml/500ml/1000ml) update price/SKU/MOQ/URL without reload
+- **Desktop-prototype redesign (July 2026):** storefront reskinned to the Claude Design
+  "XL Traders - Desktop Prototype" (reference copy in `design-reference/`):
+  - Header: dark utility bar (GST/delivery/hours/phone), Categories mega-menu from real
+    category groups, live search suggestions (debounced `productService.search`) with
+    recent/popular chips + WhatsApp "we probably stock it" fallback, red Cart button → `/cart`
+  - Home: hero with rating badge + **auto-rotating motion tiles** (`HeroMotionTiles` — local
+    `/images/hero/*.png`, crossfade + Ken Burns, progress dots, links to catalog search),
+    infinite marquee strip (brands from DB, value-prop fallback), scroll-reveal sections
+    (framer-motion), sign-in hook banner (anon only), bulk-quote banner, trust stats/points,
+    service areas + brands, FAQ accordion; `prefers-reduced-motion` disables animations
+  - Catalog: breadcrumb + title/controls row (sort + grid/list on desktop), restyled sidebar
+  - ProductCard: brand line, ₹/pack + per-piece + MOQ line, outline Add-to-Cart → red stepper,
+    MOQ pre-filled on first add; anon sees Enquire + "Sign in for exact price"
+  - Product detail: breadcrumb, sticky buy panel (price card, qty stepper + quick +5/+10/+25,
+    MOQ note, Add to Cart · ₹total, WhatsApp), delivery pincode check, specs/description cards
+  - `/cart` page: line items with Below-MOQ warning + "Fix to MOQ", order notes (appended to
+    WhatsApp message), summary card, checkout disabled until MOQ fixed; CartDrawer still exists
+  - Footer: prototype 4-column dark layout
 
 ### Admin Panel (PIM)
 
