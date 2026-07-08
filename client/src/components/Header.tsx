@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/lib/authStore";
 import { useCartStore } from "@/stores/cartStore";
+import MobileNav from "@/components/MobileNav";
 import {
   categoryService,
   productService,
@@ -129,6 +130,116 @@ export default function Header() {
   };
 
   const overlayOpen = searchOpen || catOpen;
+
+  // Shared between the desktop dropdown and the mobile panel.
+  const searchPanelBody = searchQuery.trim() ? (
+    suggestions.length > 0 ? (
+      <div className="flex flex-col gap-0.5">
+        {suggestions.map(p => (
+          <Link
+            key={p.id}
+            href={`/product/${p.id}`}
+            onClick={() => {
+              setRecents(saveRecent(p.name));
+              closeOverlays();
+              setSearchQuery("");
+            }}
+            className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-slate-50 transition"
+          >
+            <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {p.image_url ? (
+                <img
+                  src={normalizeImageUrl(p.image_url, 100) ?? ""}
+                  alt=""
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <Package size={16} className="text-slate-400" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13.5px] font-semibold text-slate-900 truncate">
+                {p.name}
+              </div>
+              <div className="text-[11.5px] text-slate-500 truncate">
+                {[p.brand, p.moq ? `MOQ ${p.moq}` : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            </div>
+            {isAuthenticated && p.price != null && (
+              <div className="text-[12.5px] font-bold text-red-600">
+                ₹{p.price.toLocaleString()}
+              </div>
+            )}
+          </Link>
+        ))}
+        <button
+          onClick={() => goSearch(searchQuery)}
+          className="text-left px-2.5 py-2 text-[13px] font-semibold text-red-600 hover:underline"
+        >
+          See all results for "{searchQuery.trim()}" →
+        </button>
+      </div>
+    ) : searching ? (
+      <div className="py-4 text-center text-sm text-slate-400">Searching…</div>
+    ) : (
+      <div className="py-3.5 px-2.5 text-center">
+        <div className="text-[13.5px] font-semibold text-slate-900 mb-1">
+          No matches for "{searchQuery.trim()}"
+        </div>
+        <div className="text-[12.5px] text-slate-500 mb-3">
+          We probably stock it — ask us directly and we'll add it to your
+          order.
+        </div>
+        <a
+          href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi XL Traders, do you stock "${searchQuery.trim()}"?`)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-emerald-700 transition"
+        >
+          <MessageCircle size={14} />
+          Ask on WhatsApp
+        </a>
+      </div>
+    )
+  ) : (
+    <div>
+      {recents.length > 0 && (
+        <>
+          <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2">
+            Recent searches
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {recents.map(r => (
+              <button
+                key={r}
+                onClick={() => goSearch(r)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-[12.5px] font-medium text-slate-700 hover:border-red-600 hover:text-red-600 transition"
+              >
+                <Clock size={12} />
+                {r}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2">
+        Popular right now
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {POPULAR_SEARCHES.map(t => (
+          <button
+            key={t}
+            onClick={() => goSearch(t)}
+            className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-full text-[12.5px] font-semibold text-red-700 hover:bg-red-100 transition"
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -250,116 +361,7 @@ export default function Header() {
 
             {searchOpen && (
               <div className="absolute top-[52px] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-50">
-                {searchQuery.trim() ? (
-                  suggestions.length > 0 ? (
-                    <div className="flex flex-col gap-0.5">
-                      {suggestions.map(p => (
-                        <Link
-                          key={p.id}
-                          href={`/product/${p.id}`}
-                          onClick={() => {
-                            setRecents(saveRecent(p.name));
-                            closeOverlays();
-                            setSearchQuery("");
-                          }}
-                          className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-slate-50 transition"
-                        >
-                          <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {p.image_url ? (
-                              <img
-                                src={normalizeImageUrl(p.image_url, 100) ?? ""}
-                                alt=""
-                                className="w-full h-full object-contain"
-                              />
-                            ) : (
-                              <Package size={16} className="text-slate-400" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[13.5px] font-semibold text-slate-900 truncate">
-                              {p.name}
-                            </div>
-                            <div className="text-[11.5px] text-slate-500 truncate">
-                              {[p.brand, p.moq ? `MOQ ${p.moq}` : null]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </div>
-                          </div>
-                          {isAuthenticated && p.price != null && (
-                            <div className="text-[12.5px] font-bold text-red-600">
-                              ₹{p.price.toLocaleString()}
-                            </div>
-                          )}
-                        </Link>
-                      ))}
-                      <button
-                        onClick={() => goSearch(searchQuery)}
-                        className="text-left px-2.5 py-2 text-[13px] font-semibold text-red-600 hover:underline"
-                      >
-                        See all results for "{searchQuery.trim()}" →
-                      </button>
-                    </div>
-                  ) : searching ? (
-                    <div className="py-4 text-center text-sm text-slate-400">
-                      Searching…
-                    </div>
-                  ) : (
-                    <div className="py-3.5 px-2.5 text-center">
-                      <div className="text-[13.5px] font-semibold text-slate-900 mb-1">
-                        No matches for "{searchQuery.trim()}"
-                      </div>
-                      <div className="text-[12.5px] text-slate-500 mb-3">
-                        We probably stock it — ask us directly and we'll add it
-                        to your order.
-                      </div>
-                      <a
-                        href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi XL Traders, do you stock "${searchQuery.trim()}"?`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-emerald-700 transition"
-                      >
-                        <MessageCircle size={14} />
-                        Ask on WhatsApp
-                      </a>
-                    </div>
-                  )
-                ) : (
-                  <div>
-                    {recents.length > 0 && (
-                      <>
-                        <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2">
-                          Recent searches
-                        </div>
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {recents.map(r => (
-                            <button
-                              key={r}
-                              onClick={() => goSearch(r)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-[12.5px] font-medium text-slate-700 hover:border-red-600 hover:text-red-600 transition"
-                            >
-                              <Clock size={12} />
-                              {r}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                    <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2">
-                      Popular right now
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {POPULAR_SEARCHES.map(t => (
-                        <button
-                          key={t}
-                          onClick={() => goSearch(t)}
-                          className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-full text-[12.5px] font-semibold text-red-700 hover:bg-red-100 transition"
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {searchPanelBody}
               </div>
             )}
           </div>
@@ -405,12 +407,18 @@ export default function Header() {
               </Link>
             )}
 
+            {/* Same-day pill — mobile header per prototype (cart lives in the bottom nav) */}
+            <span className="md:hidden flex items-center gap-1.5 h-[34px] px-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[11px] font-bold whitespace-nowrap">
+              <Truck size={11} />
+              Same-day Surat
+            </span>
+
             <Link
               href="/cart"
-              className="relative flex items-center gap-2 h-10 md:h-11 px-3 md:px-4 bg-red-600 text-white rounded-xl text-[13.5px] font-bold hover:bg-red-700 transition shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
+              className="relative hidden md:flex items-center gap-2 h-11 px-4 bg-red-600 text-white rounded-xl text-[13.5px] font-bold hover:bg-red-700 transition shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
             >
               <ShoppingCart size={17} />
-              <span className="hidden sm:inline">Cart</span>
+              <span>Cart</span>
               {cartCount > 0 && (
                 <span className="bg-white text-red-600 text-[11px] font-extrabold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5">
                   {cartCount > 99 ? "99+" : cartCount}
@@ -429,19 +437,40 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Mobile search */}
-        <form onSubmit={handleSearch} className="md:hidden px-4 pb-3">
-          <div className="flex items-center gap-2 bg-slate-100 rounded-xl px-3.5 h-10">
-            <Search size={16} className="text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search products…"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-sm"
-            />
-          </div>
-        </form>
+        {/* Mobile search — shares the live-suggestion panel with desktop */}
+        <div className="md:hidden relative">
+          <form onSubmit={handleSearch} className="px-4 pb-3">
+            <div
+              className={`flex items-center gap-2 bg-slate-100 border-[1.5px] rounded-xl px-3.5 h-11 transition ${
+                searchOpen ? "border-red-600 bg-white" : "border-transparent"
+              }`}
+            >
+              <Search size={16} className="text-slate-500" />
+              <input
+                type="text"
+                placeholder="Search products, brands, sizes…"
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setSearchOpen(true);
+                }}
+                onFocus={() => setSearchOpen(true)}
+                className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+              />
+            </div>
+          </form>
+          {searchOpen && (
+            <div className="absolute top-full left-0 right-0 bg-white border-b border-slate-200 shadow-2xl px-4 py-3.5 z-50">
+              {searchPanelBody}
+              <button
+                onClick={closeOverlays}
+                className="mt-3.5 w-full h-10 bg-slate-100 rounded-lg text-[12.5px] font-semibold text-slate-500"
+              >
+                Close
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Mobile menu */}
         {isMenuOpen && (
@@ -519,6 +548,9 @@ export default function Header() {
       {overlayOpen && (
         <div className="fixed inset-0 z-30" onClick={closeOverlays} />
       )}
+
+      {/* Mobile bottom nav + floating cart FAB */}
+      <MobileNav />
     </>
   );
 }

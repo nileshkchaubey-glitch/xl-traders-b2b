@@ -132,6 +132,12 @@ inquiries, orders, order_items, import_logs, business_settings
   - `/cart` page: line items with Below-MOQ warning + "Fix to MOQ", order notes (appended to
     WhatsApp message), summary card, checkout disabled until MOQ fixed; CartDrawer still exists
   - Footer: prototype 4-column dark layout
+  - **Mobile prototype (July 2026,** reference `design-reference/xl-traders-mobile-prototype.dc.html`**):**
+    fixed bottom nav (Home/Categories/Cart badge/WhatsApp) + floating cart FAB (count + running
+    total) via `MobileNav` (rendered by Header); "Same-day Surat" pill in mobile header; mobile
+    search shares the live-suggestion panel; catalog mobile = Filters chip + group quick chips +
+    slide-up Filters & Sort bottom sheet ("Show N products"); PDP mobile = sticky WhatsApp +
+    Add-to-Cart·₹total action bar above the nav (anon: "Sign in for wholesale price")
 
 ### Admin Panel (PIM)
 

@@ -395,7 +395,7 @@ export default function ProductDetail() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
 
-      <main className="flex-1">
+      <main className="flex-1 pb-40 md:pb-0">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
           {/* Breadcrumb */}
           <div className="text-[12.5px] text-slate-500 mb-4">
@@ -776,6 +776,35 @@ export default function ProductDetail() {
           />
         </div>
       </main>
+
+      {/* Sticky mobile action bar — sits above the bottom nav (prototype) */}
+      <div className="md:hidden fixed bottom-16 inset-x-0 z-30 bg-white border-t border-slate-200 px-4 py-2.5 flex gap-2.5 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+        <button
+          onClick={handleEnquire}
+          title="Enquire on WhatsApp"
+          className="w-[52px] h-[52px] bg-emerald-600 text-white rounded-xl flex items-center justify-center flex-shrink-0"
+        >
+          <MessageCircle size={21} />
+        </button>
+        {isAuthenticated ? (
+          <button
+            onClick={handleAddToCart}
+            className="flex-1 h-[52px] bg-red-600 text-white rounded-xl text-[15px] font-extrabold shadow-[0_6px_16px_rgba(220,38,38,0.28)] flex items-center justify-center gap-2"
+          >
+            <ShoppingCart size={17} />
+            Add to Cart
+            {currentProd.price != null &&
+              ` · ₹${(currentProd.price * qty).toLocaleString()}`}
+          </button>
+        ) : (
+          <button
+            onClick={() => setLocation("/auth")}
+            className="flex-1 h-[52px] bg-slate-900 text-white rounded-xl text-[14px] font-bold flex items-center justify-center"
+          >
+            Sign in for wholesale price
+          </button>
+        )}
+      </div>
 
       <Footer />
     </div>
