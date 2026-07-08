@@ -10,6 +10,7 @@ import {
   Upload,
   LayoutDashboard,
   FileSpreadsheet,
+  FileText,
   ShoppingBag,
   Globe,
   Menu,
@@ -28,6 +29,7 @@ import AdminEnquiries from "@/components/admin/AdminEnquiries";
 import AdminSettings from "@/components/admin/AdminSettings";
 import AdminBulkImport from "@/components/admin/AdminBulkImport";
 import AdminGoogleSheets from "@/components/admin/AdminGoogleSheets";
+import AdminSiteContent from "@/components/admin/AdminSiteContent";
 import AdminOrders from "@/components/admin/AdminOrders";
 import AdminSEO from "@/components/admin/AdminSEO";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
@@ -67,6 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Content & Import",
     items: [
+      { id: "site-content", label: "Site Content", icon: FileText },
       { id: "seo", label: "SEO", icon: Globe },
       { id: "bulk-import", label: "CSV Import", icon: Upload },
       { id: "google-sheets", label: "Google Sheets", icon: FileSpreadsheet },
@@ -85,6 +88,7 @@ const BREADCRUMB: Record<string, { parent: string; label: string }> = {
   "image-library": { parent: "Catalogue", label: "Image Library" },
   orders: { parent: "Sales", label: "Orders" },
   enquiries: { parent: "Sales", label: "Enquiries" },
+  "site-content": { parent: "Content & Import", label: "Site Content" },
   seo: { parent: "Content & Import", label: "SEO" },
   "bulk-import": { parent: "Content & Import", label: "CSV Import" },
   "google-sheets": { parent: "Content & Import", label: "Google Sheets" },
@@ -377,6 +381,7 @@ export default function AdminDashboard() {
               />
             )}
             {activeTab === "google-sheets" && <AdminGoogleSheets />}
+            {activeTab === "site-content" && <AdminSiteContent />}
             {activeTab === "settings" && <AdminSettings />}
             {activeTab === "image-library" && <AdminImageLibrary />}
           </div>
