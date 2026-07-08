@@ -89,7 +89,7 @@ export default function AdminDailyImprovementsWidget() {
   };
 
   return (
-    <div className="bg-[#1e293b] border border-slate-700/80 rounded-2xl p-5 md:p-6 text-white shadow-xl relative overflow-hidden transition-all">
+    <div className="bg-slate-800 border border-slate-700/80 rounded-2xl p-5 md:p-6 text-white shadow-xl relative overflow-hidden transition-all">
       {/* Background radial highlight */}
       <div className="absolute -right-20 -top-20 w-64 h-64 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-indigo-600/5 rounded-full blur-3xl pointer-events-none" />
