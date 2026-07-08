@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { Grid3x3, List, ChevronDown, Package, Loader2 } from "lucide-react";
+import {
+  Grid3x3,
+  List,
+  ChevronDown,
+  Package,
+  Loader2,
+  SlidersHorizontal,
+} from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
@@ -53,6 +60,7 @@ export default function Catalog() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<PublicProductSort>("newest");
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     params.get("category") || null
@@ -222,7 +230,7 @@ export default function Catalog() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
 
-      <main className="flex-1">
+      <main className="flex-1 pb-24 md:pb-0">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
           {/* Breadcrumb */}
           <div className="text-[12.5px] text-slate-500 mb-3.5">
@@ -471,110 +479,42 @@ export default function Catalog() {
                 </div>
               </div>
 
-              {/* ── Mobile Filters ── */}
-              <div className="lg:hidden mb-4 space-y-3">
-                {categoryGroups.length > 0 ? (
-                  <>
-                    {/* Group chips */}
-                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                      <button
-                        onClick={() => handleGroupChange(null)}
-                        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                          !selectedGroup && !selectedCategory
-                            ? "bg-red-600 text-white border-red-600"
-                            : "bg-white text-slate-600 border-slate-300 hover:border-red-400"
-                        }`}
-                      >
-                        All
-                      </button>
-                      {categoryGroups.map(group => (
-                        <button
-                          key={group.group_name}
-                          onClick={() => handleGroupChange(group.group_name)}
-                          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                            selectedGroup === group.group_name
-                              ? "bg-red-600 text-white border-red-600"
-                              : "bg-white text-slate-600 border-slate-300 hover:border-red-400"
-                          }`}
-                        >
-                          {group.group_name}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Category dropdown (filtered by selected group) */}
-                    <div className="relative">
-                      <select
-                        value={selectedCategory || ""}
-                        onChange={e =>
-                          handleCategoryChange(e.target.value || null)
-                        }
-                        className="w-full appearance-none px-4 py-2 pr-8 border border-slate-300 rounded bg-white cursor-pointer focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
-                      >
-                        <option value="">All Categories</option>
-                        {mobileCategoryOptions.map(cat => (
-                          <option key={cat.id} value={cat.slug}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown
-                        size={16}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  // Flat fallback
-                  <div className="relative">
-                    <select
-                      value={selectedCategory || ""}
-                      onChange={e =>
-                        handleCategoryChange(e.target.value || null)
-                      }
-                      className="w-full appearance-none px-4 py-2 pr-8 border border-slate-300 rounded bg-white cursor-pointer focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
-                    >
-                      <option value="">All Categories</option>
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.slug}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600"
-                    />
-                  </div>
-                )}
-
-                {/* Brand chips */}
-                {brands.length > 0 && (
-                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                    <button
-                      onClick={() => handleBrandChange(null)}
-                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                        !selectedBrand
-                          ? "bg-red-600 text-white border-red-600"
-                          : "bg-white text-slate-600 border-slate-300 hover:border-red-400"
-                      }`}
-                    >
-                      All Brands
-                    </button>
-                    {brands.map(brand => (
-                      <button
-                        key={brand}
-                        onClick={() => handleBrandChange(brand)}
-                        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                          selectedBrand === brand
-                            ? "bg-red-600 text-white border-red-600"
-                            : "bg-white text-slate-600 border-slate-300 hover:border-red-400"
-                        }`}
-                      >
-                        {brand}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              {/* ── Mobile: Filters button + quick group chips (bottom sheet holds the rest) ── */}
+              <div className="lg:hidden mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  onClick={() => setSheetOpen(true)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 h-10 px-3.5 rounded-full text-[12.5px] font-bold border-[1.5px] transition ${
+                    activeFilterLabel
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-900 border-slate-200"
+                  }`}
+                >
+                  <SlidersHorizontal size={14} />
+                  Filters{activeFilterLabel ? " · 1" : ""}
+                </button>
+                <button
+                  onClick={() => handleGroupChange(null)}
+                  className={`flex-shrink-0 h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                    isNothingSelected
+                      ? "bg-red-50 text-red-600 border-red-600"
+                      : "bg-white text-slate-600 border-slate-200"
+                  }`}
+                >
+                  All
+                </button>
+                {categoryGroups.map(group => (
+                  <button
+                    key={group.group_name}
+                    onClick={() => handleGroupChange(group.group_name)}
+                    className={`flex-shrink-0 h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                      selectedGroup === group.group_name
+                        ? "bg-red-50 text-red-600 border-red-600"
+                        : "bg-white text-slate-600 border-slate-200"
+                    }`}
+                  >
+                    {group.group_name}
+                  </button>
+                ))}
               </div>
 
               {/* Products Grid/List */}
@@ -636,6 +576,127 @@ export default function Catalog() {
           </div>
         </div>
       </main>
+
+      {/* ── Mobile filter & sort bottom sheet (prototype) ── */}
+      {sheetOpen && (
+        <div className="lg:hidden">
+          <div
+            className="fixed inset-0 bg-slate-900/45 z-50"
+            onClick={() => setSheetOpen(false)}
+          />
+          <div className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-[20px] max-h-[75vh] overflow-auto animate-in slide-in-from-bottom duration-300">
+            <div className="sticky top-0 bg-white px-5 pt-3.5 pb-2.5 border-b border-slate-100 flex items-center justify-between">
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 bg-slate-200 rounded-full" />
+              <span className="text-[15px] font-extrabold mt-1.5">
+                Filters &amp; Sort
+              </span>
+              <button
+                onClick={() => {
+                  handleCategoryChange(null);
+                  setSortBy("newest");
+                }}
+                className="text-[12.5px] font-bold text-red-600 mt-1.5"
+              >
+                Clear all
+              </button>
+            </div>
+
+            <div className="px-5 py-4 pb-24">
+              {/* Sort */}
+              <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
+                Sort
+              </div>
+              <div className="flex flex-wrap gap-2 mb-5">
+                {(
+                  [
+                    ["newest", "Newest"],
+                    ["name", "Name A–Z"],
+                    ["price-low", "Price: Low"],
+                    ["price-high", "Price: High"],
+                  ] as [PublicProductSort, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setSortBy(value)}
+                    className={`h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                      sortBy === value
+                        ? "bg-red-50 text-red-600 border-red-600"
+                        : "bg-white text-slate-600 border-slate-200"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Categories */}
+              <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
+                Category
+              </div>
+              <div className="flex flex-wrap gap-2 mb-5">
+                {(selectedGroup && categoryGroups.length > 0
+                  ? (categoryGroups.find(g => g.group_name === selectedGroup)
+                      ?.categories ?? categories)
+                  : categories
+                ).map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() =>
+                      handleCategoryChange(
+                        selectedCategory === cat.slug ? null : cat.slug
+                      )
+                    }
+                    className={`h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                      selectedCategory === cat.slug
+                        ? "bg-red-50 text-red-600 border-red-600"
+                        : "bg-white text-slate-600 border-slate-200"
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Brands */}
+              {brands.length > 0 && (
+                <>
+                  <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
+                    Brand
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {brands.map(brand => (
+                      <button
+                        key={brand}
+                        onClick={() =>
+                          handleBrandChange(
+                            selectedBrand === brand ? null : brand
+                          )
+                        }
+                        className={`h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                          selectedBrand === brand
+                            ? "bg-red-50 text-red-600 border-red-600"
+                            : "bg-white text-slate-600 border-slate-200"
+                        }`}
+                      >
+                        {brand}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-slate-100 px-5 py-3">
+              <button
+                onClick={() => setSheetOpen(false)}
+                className="w-full h-[50px] bg-red-600 text-white rounded-xl text-[14.5px] font-extrabold hover:bg-red-700 transition"
+              >
+                Show {totalCount.toLocaleString()} products
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
