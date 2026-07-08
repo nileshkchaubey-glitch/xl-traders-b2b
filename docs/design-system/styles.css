@@ -1,0 +1,4 @@
+/* XL Traders — Master stylesheet
+   Single import point: link this one file to get all design tokens.
+   ================================================================= */
+@import './colors_and_type.css';

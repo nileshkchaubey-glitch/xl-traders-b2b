@@ -1,0 +1,210 @@
+/* ============================================================
+   XL Traders — Colors & Type Foundations
+   B2B wholesale packaging supplier, Surat, India
+   Source of truth: client/src/index.css + Tailwind classes
+   used across the live React app (red-accent + slate neutrals).
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* ---------- BRAND : Red (primary accent) ---------- */
+  /* The app's true accent. Logo "XL", all CTAs, links, focus rings. */
+  --red-50:  #fef2f2;
+  --red-100: #fee2e2;
+  --red-200: #fecaca;
+  --red-300: #fca5a5;
+  --red-500: #ef4444;
+  --red-600: #dc2626;   /* PRIMARY brand red — buttons, logo, links */
+  --red-700: #b91c1c;   /* hover / pressed */
+
+  /* ---------- NEUTRALS : Slate ---------- */
+  --slate-50:  #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;   /* near-black: footer, headlines, dark CTAs */
+
+  /* ---------- SEMANTIC : WhatsApp / success (green family) ---------- */
+  /* WhatsApp/enquiry actions use emerald; status pills use green. */
+  --emerald-50:  #ecfdf5;
+  --emerald-500: #10b981;
+  --emerald-600: #059669;   /* WhatsApp buttons */
+  --emerald-700: #047857;   /* WhatsApp hover */
+  --green-100:   #dcfce7;   /* "Active" status pill bg */
+  --green-700:   #15803d;   /* "Active" status pill text */
+
+  /* ---------- SECONDARY ACCENTS (category & use-case tints) ---------- */
+  /* Used sparingly as soft 50/100-level fills behind category icons.   */
+  --amber-50:  #fffbeb;  --amber-100: #fef3c7;  --amber-600: #d97706;
+  --orange-50: #fff7ed;  --orange-100:#ffedd5;  --orange-600:#ea580c;
+  --blue-50:   #eff6ff;  --blue-600:  #2563eb;
+  --teal-50:   #f0fdfa;  --teal-600:  #0d9488;
+  --pink-50:   #fdf2f8;  --pink-600:  #db2777;
+  --purple-50: #faf5ff;  --purple-600:#9333ea;
+
+  /* ============================================================
+     SEMANTIC TOKENS — use these in components
+     ============================================================ */
+  --bg:            #ffffff;          /* page background */
+  --bg-subtle:     var(--slate-50);  /* section / app shell background */
+  --bg-muted:      var(--slate-100); /* secondary buttons, chips */
+  --surface:       #ffffff;          /* card surface */
+
+  --fg:            var(--slate-900); /* primary text / headlines */
+  --fg-2:          var(--slate-600); /* body / secondary text */
+  --fg-3:          var(--slate-500); /* muted captions */
+  --fg-4:          var(--slate-400); /* placeholder / disabled */
+  --fg-on-dark:    var(--slate-300); /* text on slate-900 surfaces */
+
+  --primary:       var(--red-600);
+  --primary-hover: var(--red-700);
+  --primary-fg:    #ffffff;
+  --primary-tint:  var(--red-50);    /* eyebrow pills, soft fills */
+
+  --whatsapp:      var(--emerald-600);
+  --whatsapp-hover:var(--emerald-700);
+
+  --border:        var(--slate-200);
+  --border-strong: var(--slate-300);
+  --ring:          rgba(220, 38, 38, 0.10); /* red focus ring */
+  --ring-strong:   var(--red-500);
+
+  /* ---------- RADII ---------- */
+  --radius-sm:   0.375rem;  /* 6px  — buttons, inputs, badges */
+  --radius-md:   0.5rem;    /* 8px  — product cards, panels */
+  --radius-lg:   0.65rem;   /* 10.4px — app --radius base */
+  --radius-xl:   0.75rem;   /* 12px — primary CTAs, search bar */
+  --radius-2xl:  1rem;      /* 16px — category cards, showcase */
+  --radius-3xl:  1.5rem;    /* 24px — hero glass panel */
+  --radius-full: 9999px;    /* pills, avatars, dots */
+
+  /* ---------- SHADOWS ---------- */
+  --shadow-xs:  0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm:  0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md:  0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --shadow-lg:  0 10px 15px -3px rgba(15, 23, 42, 0.10), 0 4px 6px -4px rgba(15, 23, 42, 0.06);
+  --shadow-xl:  0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+  /* Colored CTA shadows */
+  --shadow-red:     0 10px 15px -3px rgba(220, 38, 38, 0.25);
+  --shadow-emerald: 0 10px 15px -3px rgba(5, 150, 105, 0.30);
+
+  /* ---------- TYPE FOUNDATIONS ---------- */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* Single-family system — Inter for everything. No serif, no separate display. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-extrabold:800;
+}
+
+/* ============================================================
+   SEMANTIC TYPE STYLES
+   Scale anchored to the live site (px values noted).
+   ============================================================ */
+
+.t-hero {       /* hero headline — homepage H1 */
+  font-family: var(--font-sans);
+  font-size: 2.75rem;          /* 44px desktop */
+  line-height: 1.15;
+  font-weight: var(--weight-extrabold);
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.t-h1 {         /* page title (Admin Panel, Auth headers) */
+  font-family: var(--font-sans);
+  font-size: 1.875rem;         /* 30px */
+  line-height: 1.2;
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.015em;
+  color: var(--fg);
+}
+
+.t-h2 {         /* section heading ("Popular Categories") */
+  font-family: var(--font-sans);
+  font-size: 1.5rem;           /* 24px → up to 30px */
+  line-height: 1.25;
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+
+.t-h3 {         /* card / sub-section heading */
+  font-family: var(--font-sans);
+  font-size: 1.125rem;         /* 18px */
+  line-height: 1.35;
+  font-weight: var(--weight-bold);
+  color: var(--fg);
+}
+
+.t-eyebrow {    /* uppercase red label above section titles */
+  font-family: var(--font-sans);
+  font-size: 0.875rem;         /* 14px */
+  line-height: 1.4;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.t-lead {       /* hero / section intro paragraph */
+  font-family: var(--font-sans);
+  font-size: 1.125rem;         /* 18px */
+  line-height: 1.6;
+  font-weight: var(--weight-regular);
+  color: var(--fg-2);
+}
+
+.t-body {       /* default body text */
+  font-family: var(--font-sans);
+  font-size: 0.875rem;         /* 14px — the app's workhorse size */
+  line-height: 1.6;
+  font-weight: var(--weight-regular);
+  color: var(--fg-2);
+}
+
+.t-label {      /* form labels, nav items, button text */
+  font-family: var(--font-sans);
+  font-size: 0.875rem;         /* 14px */
+  line-height: 1.4;
+  font-weight: var(--weight-semibold);
+  color: var(--fg);
+}
+
+.t-caption {    /* meta, pack sizes, counts */
+  font-family: var(--font-sans);
+  font-size: 0.75rem;          /* 12px */
+  line-height: 1.4;
+  font-weight: var(--weight-medium);
+  color: var(--fg-3);
+}
+
+.t-price {      /* product price (always red, tabular) */
+  font-family: var(--font-sans);
+  font-weight: var(--weight-bold);
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.t-mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--fg-2);
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
