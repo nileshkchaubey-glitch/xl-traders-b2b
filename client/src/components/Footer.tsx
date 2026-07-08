@@ -1,4 +1,20 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { categoryService } from "@/lib/productService";
+import { settingsService, FALLBACKS } from "@/lib/settingsService";
+
+interface FooterLink {
+  label: string;
+  href: string;
+}
+
+// Shown only if the DB has no grouped categories yet (keeps the footer populated).
+const FALLBACK_CATEGORY_LINKS: FooterLink[] = [
+  { label: "Food Packaging", href: "/catalog?group=Disposal%20%26%20Food%20Packaging" },
+  { label: "Cleaning Supplies", href: "/catalog?group=Cleaning" },
+  { label: "Decoration & Party", href: "/catalog?group=Decoration" },
+  { label: "Packaging", href: "/catalog?group=Packaging" },
+];
 
 export default function Footer() {
   const email = import.meta.env.VITE_EMAIL || "xltraders990@gmail.com";
@@ -6,12 +22,29 @@ export default function Footer() {
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
   const currentYear = new Date().getFullYear();
 
-  const categoryLinks = [
-    { label: "Food Packaging", href: "/catalog?group=Disposal%20%26%20Food%20Packaging" },
-    { label: "Cleaning Supplies", href: "/catalog?group=Cleaning" },
-    { label: "Decoration & Party", href: "/catalog?group=Decoration" },
-    { label: "Packaging", href: "/catalog?group=Packaging" },
-  ];
+  const [footer, setFooter] = useState(FALLBACKS.footer);
+  const [categoryLinks, setCategoryLinks] = useState<FooterLink[]>(
+    FALLBACK_CATEGORY_LINKS
+  );
+
+  useEffect(() => {
+    settingsService.getContent("footer").then(setFooter).catch(() => {});
+
+    // Category quick-links come from the real category groups, not hardcoded.
+    categoryService
+      .getCategoriesGroupedByGroup()
+      .then(groups => {
+        if (groups.length > 0) {
+          setCategoryLinks(
+            groups.map(g => ({
+              label: g.group_name,
+              href: `/catalog?group=${encodeURIComponent(g.group_name)}`,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <footer className="bg-slate-900 text-slate-400 mt-auto">
@@ -27,11 +60,10 @@ export default function Footer() {
             </span>
           </div>
           <p className="text-[13px] leading-relaxed mb-3.5">
-            Wholesale food packaging &amp; disposables for restaurants, cafés,
-            cloud kitchens, caterers and distributors. Surat, Gujarat.
+            {footer.description}
           </p>
           <div className="text-[12.5px] leading-loose">
-            Surat, Gujarat 395002
+            {footer.address}
             <br />
             <a href={`tel:${phone1}`} className="hover:text-white transition">
               +91 {phone1}
@@ -96,10 +128,9 @@ export default function Footer() {
             Ordering
           </div>
           <div className="flex flex-col gap-2 text-[13px]">
-            <span>Same-day delivery in Surat</span>
-            <span>24h dispatch pan-India</span>
-            <span>GST invoice on every order</span>
-            <span>Order &amp; confirm on WhatsApp</span>
+            {footer.ordering.map(line => (
+              <span key={line}>{line}</span>
+            ))}
           </div>
         </div>
       </div>
@@ -107,7 +138,7 @@ export default function Footer() {
       <div className="border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 text-xs flex flex-col sm:flex-row gap-1 sm:justify-between">
           <span>© {currentYear} XL Traders. All rights reserved.</span>
-          <span>You Order, We Deliver — wholesale in under 60 seconds.</span>
+          <span>{footer.tagline}</span>
         </div>
       </div>
     </footer>

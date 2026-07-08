@@ -26,6 +26,7 @@ import {
 } from "@/lib/productService";
 import { Product } from "@/lib/supabase";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { settingsService, FALLBACKS } from "@/lib/settingsService";
 
 const RECENTS_KEY = "xl-recent-searches";
 const POPULAR_SEARCHES = [
@@ -64,6 +65,7 @@ export default function Header() {
   const [searching, setSearching] = useState(false);
   const [recents, setRecents] = useState<string[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
+  const [announcement, setAnnouncement] = useState(FALLBACKS.announcement);
   const { isAuthenticated, isAdmin, user, signOut } = useAuthStore();
   const cartCount = useCartStore(s => s.getItemCount());
   const [, setLocation] = useLocation();
@@ -79,6 +81,10 @@ export default function Header() {
     categoryService
       .getCategoriesGroupedByGroup()
       .then(setCategoryGroups)
+      .catch(() => {});
+    settingsService
+      .getContent("announcement")
+      .then(setAnnouncement)
       .catch(() => {});
   }, []);
 
@@ -248,15 +254,15 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-1.5 flex items-center gap-5">
           <span className="flex items-center gap-1.5">
             <ShieldCheck size={13} className="text-emerald-400" />
-            GST Registered Wholesaler
+            {announcement.gstLine}
           </span>
           <span className="flex items-center gap-1.5">
             <Truck size={13} />
-            Same-day delivery in Surat · 24h dispatch pan-India
+            {announcement.deliveryLine}
           </span>
           <span className="flex items-center gap-1.5 ml-auto">
             <Clock size={13} />
-            Mon–Sat 9AM–9PM
+            {announcement.hours}
           </span>
           <a
             href={`tel:${phone1}`}
@@ -410,7 +416,7 @@ export default function Header() {
             {/* Same-day pill — mobile header per prototype (cart lives in the bottom nav) */}
             <span className="md:hidden flex items-center gap-1.5 h-[34px] px-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[11px] font-bold whitespace-nowrap">
               <Truck size={11} />
-              Same-day Surat
+              {announcement.mobilePill}
             </span>
 
             <Link

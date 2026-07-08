@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { productService } from "@/lib/productService";
 import { useAuthStore } from "@/lib/authStore";
+import { settingsService, FALLBACKS } from "@/lib/settingsService";
 
 // Shared scroll-reveal: sections fade up once as they enter the viewport.
 const fadeUp = {
@@ -28,61 +29,6 @@ const fadeUp = {
   transition: { duration: 0.5, ease: "easeOut" as const },
 };
 
-const TRUST_STATS = [
-  { value: "4.8★", label: "Google Rating", sub: "From local businesses" },
-  { value: "10+", label: "Years in Business", sub: "Wholesale since day one" },
-  { value: "500+", label: "Businesses Served", sub: "Restaurants to kirana" },
-  { value: "24h", label: "Dispatch Promise", sub: "Same-day in Surat" },
-];
-
-const TRUST_POINTS = [
-  {
-    glyph: "GST",
-    title: "GST-registered wholesaler",
-    body: "Proper GST invoice with every order — claim your input credit.",
-  },
-  {
-    glyph: "₹",
-    title: "Transparent wholesale pricing",
-    body: "Sign in to see exact prices; bulk orders unlock better rates.",
-  },
-  {
-    glyph: "✓",
-    title: "Quality-checked supply",
-    body: "Food-grade materials from verified manufacturers.",
-  },
-];
-
-const SERVICE_AREAS = [
-  "Surat City",
-  "Udhna",
-  "Katargam",
-  "Varachha",
-  "Navsari",
-  "Bardoli",
-  "Ankleshwar",
-  "Pan-India",
-];
-
-const FAQS = [
-  {
-    q: "What is the minimum order quantity?",
-    a: "Each product shows its own MOQ. The cart checks MOQ before you order so there are no surprises later.",
-  },
-  {
-    q: "Do you deliver outside Surat?",
-    a: "Yes — same-day in Surat city, next-day across South Gujarat, and 2–4 days pan-India via surface transport.",
-  },
-  {
-    q: "Do I get a GST invoice?",
-    a: "Every order ships with a GST invoice. Share your GSTIN on WhatsApp once and it is applied to all future orders.",
-  },
-  {
-    q: "Can I get custom printing on bags and boxes?",
-    a: "Yes, for bulk orders. Use the Bulk Quote button and we respond within 2 business hours with slab pricing.",
-  },
-];
-
 export default function Home() {
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
   const isDev = import.meta.env.DEV;
@@ -90,10 +36,33 @@ export default function Home() {
   const [brands, setBrands] = useState<string[]>([]);
   const [openFaq, setOpenFaq] = useState(-1);
 
+  // Editable content — initialised to the in-code fallback so the first paint is
+  // identical to the pre-Phase-B site, then overridden from the DB if present.
+  const [hero, setHero] = useState(FALLBACKS.hero);
+  const [trustBadge, setTrustBadge] = useState(FALLBACKS.trust_badge);
+  const [trustStats, setTrustStats] = useState(FALLBACKS.trust_stats);
+  const [trustPoints, setTrustPoints] = useState(FALLBACKS.trust_points);
+  const [serviceAreas, setServiceAreas] = useState(FALLBACKS.service_areas);
+  const [faqs, setFaqs] = useState(FALLBACKS.faqs);
+  const [bulkBanner, setBulkBanner] = useState(FALLBACKS.bulk_banner);
+
   useEffect(() => {
     productService
       .getBrands()
       .then(b => setBrands(b.slice(0, 10)))
+      .catch(() => {});
+
+    settingsService
+      .getAllContent()
+      .then(c => {
+        setHero(c.hero);
+        setTrustBadge(c.trust_badge);
+        setTrustStats(c.trust_stats);
+        setTrustPoints(c.trust_points);
+        setServiceAreas(c.service_areas);
+        setFaqs(c.faqs);
+        setBulkBanner(c.bulk_banner);
+      })
       .catch(() => {});
   }, []);
 
@@ -124,19 +93,17 @@ export default function Home() {
               <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-3.5 py-1.5 text-xs font-semibold text-slate-600 mb-5 shadow-sm">
                 <span className="flex items-center gap-1 text-amber-700">
                   <Star size={13} className="fill-amber-500 text-amber-500" />
-                  4.8 on Google
+                  {trustBadge.rating}
                 </span>
                 <span className="text-slate-300">·</span>
-                <span>500+ businesses served</span>
+                <span>{trustBadge.businesses}</span>
               </div>
               <h1 className="text-4xl lg:text-[46px] font-extrabold tracking-tight leading-[1.08] mb-4">
-                Packaging Solutions For{" "}
-                <span className="text-red-600">Growing Businesses</span>
+                {hero.titleLead}{" "}
+                <span className="text-red-600">{hero.titleAccent}</span>
               </h1>
               <p className="text-base text-slate-600 max-w-md mb-6">
-                Wholesale food containers, paper cups, carry bags, corrugated
-                boxes and restaurant supplies. Order in under a minute —
-                delivered same-day in Surat.
+                {hero.subline}
               </p>
               <div className="flex flex-col sm:flex-row gap-3 mb-7">
                 <Link
@@ -157,11 +124,7 @@ export default function Home() {
                 </a>
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-medium text-slate-700">
-                {[
-                  "Bulk wholesale pricing",
-                  "24h dispatch",
-                  "GST invoice on every order",
-                ].map(t => (
+                {hero.bullets.map(t => (
                   <span key={t} className="flex items-center gap-1.5">
                     <Check size={14} className="text-emerald-600" strokeWidth={3} />
                     {t}
@@ -267,15 +230,12 @@ export default function Home() {
           <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl px-6 py-8 md:px-9 flex flex-col md:flex-row md:items-center gap-6">
             <div className="flex-1">
               <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-red-400 mb-2">
-                Bulk &amp; Custom Orders
+                {bulkBanner.eyebrow}
               </div>
               <div className="text-white text-xl md:text-[22px] font-extrabold tracking-tight mb-1.5">
-                Ordering 10,000+ units or need custom branding?
+                {bulkBanner.title}
               </div>
-              <div className="text-slate-400 text-sm">
-                Get a dedicated quote with slab pricing, custom printing and
-                scheduled deliveries. Response within 2 business hours.
-              </div>
+              <div className="text-slate-400 text-sm">{bulkBanner.body}</div>
             </div>
             <a
               href={bulkQuoteHref}
@@ -303,7 +263,7 @@ export default function Home() {
             </h2>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-3.5">
-            {TRUST_STATS.map(s => (
+            {trustStats.map(s => (
               <div
                 key={s.label}
                 className="bg-white border border-slate-200 rounded-2xl p-5 text-center"
@@ -319,7 +279,7 @@ export default function Home() {
             ))}
           </div>
           <div className="grid md:grid-cols-3 gap-3.5">
-            {TRUST_POINTS.map(tp => (
+            {trustPoints.map(tp => (
               <div
                 key={tp.title}
                 className="flex gap-3.5 bg-white border border-slate-200 rounded-2xl p-5"
@@ -354,7 +314,7 @@ export default function Home() {
               <strong>2–4 days:</strong> Pan-India
             </div>
             <div className="flex flex-wrap gap-2">
-              {SERVICE_AREAS.map(a => (
+              {serviceAreas.map(a => (
                 <span
                   key={a}
                   className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-xs font-medium text-slate-700"
@@ -396,7 +356,7 @@ export default function Home() {
             Common Questions
           </h2>
           <div className="flex flex-col gap-2.5">
-            {FAQS.map((f, i) => (
+            {faqs.map((f, i) => (
               <div
                 key={f.q}
                 className="bg-white border border-slate-200 rounded-xl overflow-hidden"
