@@ -162,6 +162,14 @@ inquiries, orders, order_items, import_logs, business_settings
 - **N/A marking:** bulk + per-product; na_fields[] prevents permanent false-missing noise
 - **Daily Admin Improvement widget:** rotating Quick Win/Medium/Major on Overview
 - Orders, Enquiries, SEO tabs
+- **Site Content editor (Phase B):** `/admin` → **Site Content** tab edits storefront copy
+  (hero, rating badge, trust stats/points, service areas, FAQ, bulk banner, announcement bar,
+  footer) without a code deploy. Data lives in the `site_content` table (key text PK, value
+  jsonb) behind `settingsService.ts` (getContent/getAllContent/updateContent + FALLBACKS +
+  session cache); every key has an in-code fallback so an empty table renders the identical
+  site. Footer category quick-links read the real `group_name`s. Includes a **Tax / GST**
+  section (`gst_enabled`, `gst_percentage`) — stored only, NOT yet wired into cart/checkout.
+  Seed SQL: `docs/phase-b-seed.sql`.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
@@ -216,6 +224,8 @@ inquiries, orders, order_items, import_logs, business_settings
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
+- **GST setting is stored-only** — `site_content.gst_enabled` / `gst_percentage` are editable in
+  admin but NOT yet applied to any cart/checkout math (deliberate; checkout integration is a later phase)
 - Import UI shows price as required (\*) — stale after nullable migration (fix in next PR)
 - **`enquiries` vs `inquiries` are NOT duplicate tables — do NOT merge them.**
   `enquiries` = real B2B leads (admin views via `enquiryService` / AdminEnquiries).
