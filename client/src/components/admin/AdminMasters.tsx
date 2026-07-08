@@ -197,7 +197,7 @@ export default function AdminMasters() {
   const initials = user?.email?.[0]?.toUpperCase() ?? "A";
 
   return (
-    <div className="flex h-screen bg-[#f4f6f9] overflow-hidden">
+    <div className="flex h-screen bg-admin-bg overflow-hidden">
       {/* ── Mobile overlay ─────────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
@@ -208,7 +208,7 @@ export default function AdminMasters() {
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside
-        className={`fixed left-0 top-0 h-full w-[220px] bg-[#1a1d27] flex flex-col z-50 transition-transform duration-200
+        className={`fixed left-0 top-0 h-full w-[220px] bg-admin-sidebar flex flex-col z-50 transition-transform duration-200
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:static lg:translate-x-0 flex-shrink-0`}
       >
         {/* Logo */}

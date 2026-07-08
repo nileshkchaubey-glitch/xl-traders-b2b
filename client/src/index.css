@@ -40,6 +40,30 @@
   }
 }
 
+/* ============================================================
+   Design tokens — ported from docs/design-system/colors_and_type.css
+   (Tailwind v4: this @theme block is the equivalent of theme.extend
+   in a tailwind.config.ts). Phase A HIGH-severity pass only — brand
+   scale, whatsapp colors and the full type scale come in a later pass.
+   ============================================================ */
+@theme {
+  /* Inter everywhere — applied to <body> in the base layer below.
+     Preloaded in index.html but was previously never applied. */
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+
+  /* Admin shell surfaces — existing values, now named tokens
+     (replaces bg-[#f4f6f9] / bg-[#1a1d27] across the admin screens). */
+  --color-admin-bg: #f4f6f9;
+  --color-admin-sidebar: #1a1d27;
+
+  /* CTA glow shadows (design-system reference values). Defined now;
+     inline call-site shadows migrate onto these in a later pass. */
+  --shadow-red: 0 10px 15px -3px rgb(220 38 38 / 0.25);
+  --shadow-emerald: 0 10px 15px -3px rgb(5 150 105 / 0.3);
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -157,7 +181,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

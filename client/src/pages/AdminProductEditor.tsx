@@ -484,7 +484,7 @@ export default function AdminProductEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9]">
+    <div className="min-h-screen bg-admin-bg">
       <header className="border-b border-slate-200 bg-white px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <div className="flex items-center gap-1.5 text-sm">
@@ -898,7 +898,7 @@ export default function AdminProductEditor() {
             </div>
           </section>
 
-          <div className="sticky bottom-0 flex flex-wrap justify-end gap-3 border-t border-slate-200 bg-[#f4f6f9]/95 py-4 backdrop-blur">
+          <div className="sticky bottom-0 flex flex-wrap justify-end gap-3 border-t border-slate-200 bg-admin-bg/95 py-4 backdrop-blur">
             <Button
               type="button"
               variant="outline"
