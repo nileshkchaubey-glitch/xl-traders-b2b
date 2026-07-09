@@ -17,6 +17,8 @@ import {
 import { toast } from "sonner";
 import { mediaService, MediaImage } from "@/lib/productService";
 import { autoResizeImage, formatBytes } from "@/lib/imageUtils";
+import { useIsMobile } from "@/hooks/useMobile";
+import MobileImageLibrary from "@/components/admin/MobileImageLibrary";
 
 interface Props {
   onSelectImage?: (url: string) => void;
@@ -38,6 +40,7 @@ export default function AdminImageLibrary({
   const [dragOver, setDragOver] = useState(false);
   const [gridSize, setGridSize] = useState<"sm" | "md" | "lg">("lg");
   const [imageFit, setImageFit] = useState<"cover" | "contain">("contain");
+  const isMobile = useIsMobile();
 
   const loadImages = useCallback(async () => {
     setLoading(true);
@@ -128,6 +131,30 @@ export default function AdminImageLibrary({
     if (filterSource === "all") return matchesSearch;
     return matchesSearch && img.source === filterSource;
   });
+
+  // Mobile: touch-friendly grid + camera capture. Reuses every handler/state
+  // above (same mediaService flow) — only the presentation differs. Desktop
+  // rendering below is untouched.
+  if (isMobile) {
+    return (
+      <MobileImageLibrary
+        images={images}
+        filteredImages={filteredImages}
+        loading={loading}
+        uploading={uploading}
+        search={search}
+        onSearch={setSearch}
+        filterSource={filterSource}
+        onFilterSource={setFilterSource}
+        selectedUrl={selectedUrl}
+        onSelect={setSelectedUrl}
+        onUpload={handleUpload}
+        onCopyUrl={handleCopyUrl}
+        isSelectionMode={isSelectionMode}
+        onSelectImage={onSelectImage}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
