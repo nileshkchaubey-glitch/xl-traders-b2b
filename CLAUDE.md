@@ -170,6 +170,20 @@ inquiries, orders, order_items, import_logs, business_settings
   site. Footer category quick-links read the real `group_name`s. Includes a **Tax / GST**
   section (`gst_enabled`, `gst_percentage`) — stored only, NOT yet wired into cart/checkout.
   Seed SQL: `docs/phase-b-seed.sql`.
+- **Mobile-first admin experience (Phase C, C1–C4):** same routes/services/data — only the
+  chrome/presentation changes below `md` via `useIsMobile` (desktop admin unchanged).
+  - **C1 shell** (`MobileAdminShell` + shared `adminNav.tsx`): fixed bottom tabs
+    (Dashboard/Products/Images/More) + top bar; "More" lists every remaining section.
+  - **C2 products:** `MobileProductCard` list (price-on-enquiry safe) → `ProductQuickEditSheet`
+    (price / availability / publish) with "Open full editor"; shares the desktop table's
+    data/filters/pagination.
+  - **C3 images:** `MobileImageLibrary` — camera capture (`capture="environment"`) + touch grid;
+    reuses `mediaService.uploadGlobalImage` (bucket `product-images`, `products/global-*`) +
+    `autoResizeImage`.
+  - **C4 categories/masters:** touch category list with up/down reorder + `MobileCategorySheet`
+    (name/image/visibility); `AdminMasters` mobile cards → `MobileMasterSheet` (active toggle,
+    variants + per-variant full-editor link, add/delete). All bottom sheets use the one vaul
+    `Drawer` primitive (`ui/drawer`, swipe-to-close); 44px+ targets throughout.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
