@@ -25,10 +25,14 @@ import {
   GripVertical,
   Upload,
   Loader2,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { categoryService } from "@/lib/productService";
 import { supabase, Category } from "@/lib/supabase";
+import { useIsMobile } from "@/hooks/useMobile";
+import MobileCategorySheet from "@/components/admin/MobileCategorySheet";
 
 const GROUP_PRESETS = [
   "Food Containers",
@@ -73,6 +77,8 @@ export default function AdminCategories({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
+  const [quickCat, setQuickCat] = useState<Category | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -199,6 +205,38 @@ export default function AdminCategories({
       setUploading(false);
       e.target.value = "";
     }
+  };
+
+  const moveCategory = async (
+    categoryId: string,
+    currentIndex: number,
+    direction: "up" | "down"
+  ) => {
+    if (loading) return; // Prevent movement while updates are in progress
+
+    const newCategories = [...categories];
+    const categoryToMove = newCategories.splice(currentIndex, 1)[0];
+    const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+    // Boundary checks
+    if (newIndex < 0 || newIndex >= newCategories.length + 1) {
+      return;
+    }
+
+    newCategories.splice(newIndex, 0, categoryToMove);
+
+    try {
+      await Promise.all(
+        newCategories.map((cat, i) =>
+          categoryService.update(cat.id, { display_order: i } as any)
+        )
+      );
+      toast.success("Category order updated");
+    } catch (error) {
+      toast.error("Failed to update category order");
+      console.error(error);
+    }
+    refreshCategories();
   };
 
   const handleDragStart = (id: string) => setDraggedId(id);
@@ -435,14 +473,92 @@ export default function AdminCategories({
         </Dialog>
       </div>
 
-      {/* Categories Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Categories — mobile touch list vs desktop grid (desktop unchanged) */}
+      {isMobile ? (
+        <div className="space-y-2.5">
+          {loading ? (
+            <div className="text-center py-8 text-slate-500">Loading...</div>
+          ) : categories.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">No categories</div>
+          ) : (
+            categories.map((category, index) => (
+              <div
+                key={category.id}
+                className="bg-white rounded-xl border border-slate-200 shadow-sm flex items-center gap-2 p-2"
+              >
+                {/* Reorder (reuses moveCategory) */}
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => moveCategory(category.id, index, "up")}
+                    disabled={index === 0 || loading}
+                    aria-label="Move up"
+                    className="w-11 h-11 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30 active:bg-slate-50"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => moveCategory(category.id, index, "down")}
+                    disabled={index === categories.length - 1 || loading}
+                    aria-label="Move down"
+                    className="w-11 h-11 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30 active:bg-slate-50"
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Tap → quick-edit sheet */}
+                <button
+                  onClick={() => setQuickCat(category)}
+                  className="flex-1 min-w-0 flex items-center gap-3 text-left min-h-[60px] pr-1"
+                >
+                  {category.image_url ? (
+                    <img
+                      src={category.image_url}
+                      alt={category.name}
+                      className="w-12 h-12 object-cover rounded-lg flex-shrink-0 border border-slate-100"
+                      onError={e => {
+                        (e.currentTarget as HTMLImageElement).style.display =
+                          "none";
+                      }}
+                    />
+                  ) : category.icon_emoji ? (
+                    <span className="text-2xl w-12 h-12 flex items-center justify-center bg-slate-50 rounded-lg border border-slate-100 flex-shrink-0">
+                      {category.icon_emoji}
+                    </span>
+                  ) : (
+                    <div className="w-12 h-12 bg-slate-100 rounded-lg border border-slate-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-slate-400 text-sm font-bold">
+                        {category.name[0]?.toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-slate-900 truncate text-sm">
+                      {category.name}
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono truncate">
+                      {category.slug}
+                    </div>
+                    {category.group_name && (
+                      <span className="inline-block mt-1 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                        {category.group_name}
+                      </span>
+                    )}
+                  </div>
+                  <Edit2 className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
           <div className="text-center py-8 text-slate-500">Loading...</div>
         ) : categories.length === 0 ? (
           <div className="text-center py-8 text-slate-500">No categories</div>
         ) : (
-          categories.map(category => (
+          categories.map((category, index) => (
             <div
               key={category.id}
               draggable
@@ -453,6 +569,26 @@ export default function AdminCategories({
             >
               <div className="flex items-start gap-3">
                 <GripVertical className="w-4 h-4 text-slate-300 mt-1 flex-shrink-0" />
+                <div className="flex flex-col gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => moveCategory(category.id, index, "up")}
+                    disabled={index === 0 || loading}
+                    className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => moveCategory(category.id, index, "down")}
+                    disabled={index === categories.length - 1 || loading}
+                    className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2.5">
                     {category.image_url ? (
@@ -517,7 +653,24 @@ export default function AdminCategories({
             </div>
           ))
         )}
-      </div>
+        </div>
+      )}
+
+      {/* Mobile quick-edit sheet (name / image / visibility) */}
+      <MobileCategorySheet
+        category={quickCat}
+        open={!!quickCat}
+        onOpenChange={o => {
+          if (!o) setQuickCat(null);
+        }}
+        uploadImage={uploadCategoryImage}
+        onSaved={refreshCategories}
+        onFullEdit={c => {
+          setQuickCat(null);
+          handleEdit(c);
+        }}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }

@@ -35,6 +35,7 @@ import { Category, Product } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import MasterDialog from "./MasterDialog";
 import VariantRow from "./VariantRow";
+import MobileMasterSheet from "@/components/admin/MobileMasterSheet";
 import { Button } from "@/components/ui/button";
 
 interface NavItem {
@@ -95,6 +96,8 @@ export default function AdminMasters() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [addingVariantFor, setAddingVariantFor] = useState<string | null>(null);
+  // Mobile: which master's quick-edit bottom sheet is open.
+  const [sheetMasterId, setSheetMasterId] = useState<string | null>(null);
 
   const refreshData = useCallback(async () => {
     setLoading(true);
@@ -379,11 +382,10 @@ export default function AdminMasters() {
               </div>
             ) : (
               <>
-                {/* ── MOBILE LAYOUT (Cards) ── */}
-                <div className="block sm:hidden space-y-4">
+                {/* ── MOBILE LAYOUT (Cards → bottom sheet) ── */}
+                <div className="block sm:hidden space-y-3">
                   {masters.map(master => {
                     const variants = variantsMap[master.id] || [];
-                    const isExpanded = expandedId === master.id;
                     const primaryImg =
                       master.product_master_images?.find(
                         img => img.is_primary
@@ -391,147 +393,45 @@ export default function AdminMasters() {
                     const thumbUrl = primaryImg ? primaryImg.image_url : null;
 
                     return (
-                      <div
+                      <button
                         key={master.id}
-                        className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm"
+                        onClick={() => {
+                          setAddingVariantFor(null);
+                          setSheetMasterId(master.id);
+                        }}
+                        className="w-full text-left bg-white rounded-xl border border-slate-200/80 shadow-sm p-3 flex items-center gap-3 min-h-[68px]"
                       >
-                        <div className="p-4 flex gap-3 items-start">
-                          {thumbUrl ? (
-                            <img
-                              src={thumbUrl}
-                              className="w-12 h-12 object-cover rounded-lg border border-slate-100 flex-shrink-0"
+                        {thumbUrl ? (
+                          <img
+                            src={thumbUrl}
+                            className="w-12 h-12 object-cover rounded-lg border border-slate-100 flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-400">
+                            <Package className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-slate-900 truncate">
+                            {master.name}
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                            {master.categories?.name || "Uncategorized"}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                              {variants.length} variants
+                            </span>
+                            <span
+                              className={`w-2 h-2 rounded-full ${master.is_active ? "bg-emerald-500" : "bg-slate-300"}`}
                             />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-400">
-                              <Package className="w-5 h-5" />
-                            </div>
-                          )}
-
-                          <div
-                            className="flex-1 min-w-0"
-                            onClick={() =>
-                              setExpandedId(isExpanded ? null : master.id)
-                            }
-                          >
-                            <div className="flex items-center justify-between">
-                              <h3 className="font-bold text-slate-900 truncate pr-4">
-                                {master.name}
-                              </h3>
-                              <span className="text-slate-400 text-xs">
-                                &#8942;
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              {master.categories?.name || "Uncategorized"}
-                            </p>
-
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                                {variants.length} variants
-                              </span>
-                              <span
-                                className={`w-2 h-2 rounded-full ${master.is_active ? "bg-emerald-500" : "bg-slate-300"}`}
-                              />
-                              <span className="text-[10px] font-medium text-slate-500">
-                                {master.is_active ? "Active" : "Inactive"}
-                              </span>
-                            </div>
+                            <span className="text-[10px] font-medium text-slate-500">
+                              {master.is_active ? "Active" : "Inactive"}
+                            </span>
                           </div>
                         </div>
-
-                        {/* Expandable Accordion of variants */}
-                        {isExpanded && (
-                          <div className="bg-slate-50/50 border-t border-slate-100 p-4 space-y-3">
-                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                              Variants list
-                            </h4>
-                            {variants.length === 0 ? (
-                              <p className="text-xs text-slate-400 italic">
-                                No variants added yet.
-                              </p>
-                            ) : (
-                              <div className="divide-y divide-slate-100">
-                                {variants.map(v => (
-                                  <div
-                                    key={v.id}
-                                    className="py-2.5 flex items-center justify-between text-xs"
-                                  >
-                                    <div className="min-w-0 pr-4">
-                                      <p className="font-bold text-slate-800">
-                                        {v.variant_label}
-                                      </p>
-                                      <p className="font-mono text-[10px] text-slate-400">
-                                        {v.sku}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-3 flex-shrink-0">
-                                      <span className="font-bold text-slate-700">
-                                        ₹{v.price}
-                                      </span>
-                                      <button
-                                        onClick={() =>
-                                          handleDeleteVariant(v.id)
-                                        }
-                                        className="text-rose-500 hover:text-rose-700 p-1"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Inline form to add variant on mobile */}
-                            {addingVariantFor === master.id ? (
-                              <VariantRow
-                                masterId={master.id}
-                                masterSlug={master.slug}
-                                onSuccess={refreshData}
-                                onCancel={() => setAddingVariantFor(null)}
-                              />
-                            ) : (
-                              <div className="flex gap-2 justify-end pt-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleToggleActive(master)}
-                                  className="h-8 text-xs text-slate-600 hover:text-slate-800"
-                                >
-                                  {master.is_active ? "Disable" : "Enable"}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDeleteMaster(master.id)}
-                                  className="h-8 text-xs text-rose-600 hover:text-rose-700"
-                                >
-                                  Delete
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => setAddingVariantFor(master.id)}
-                                  className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
-                                >
-                                  + Add Variant
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {!isExpanded && (
-                          <div className="border-t border-slate-100 flex divide-x divide-slate-100">
-                            <button
-                              onClick={() => setExpandedId(master.id)}
-                              className="flex-1 py-2 text-[11px] font-bold text-slate-500 hover:bg-slate-50 transition flex items-center justify-center gap-1"
-                            >
-                              Expand Variants{" "}
-                              <ChevronDown className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                      </button>
                     );
                   })}
                 </div>
@@ -785,6 +685,33 @@ export default function AdminMasters() {
         onClose={() => setShowCreateDialog(false)}
         categories={categories}
         onSuccess={refreshData}
+      />
+
+      {/* Mobile master quick-edit sheet */}
+      <MobileMasterSheet
+        master={masters.find(m => m.id === sheetMasterId) || null}
+        variants={sheetMasterId ? variantsMap[sheetMasterId] || [] : []}
+        open={!!sheetMasterId}
+        onOpenChange={o => {
+          if (!o) {
+            setSheetMasterId(null);
+            setAddingVariantFor(null);
+          }
+        }}
+        addingVariant={!!sheetMasterId && addingVariantFor === sheetMasterId}
+        onStartAddVariant={() => setAddingVariantFor(sheetMasterId)}
+        onCancelAddVariant={() => setAddingVariantFor(null)}
+        onToggleActive={handleToggleActive}
+        onDeleteMaster={id => {
+          setSheetMasterId(null);
+          handleDeleteMaster(id);
+        }}
+        onDeleteVariant={handleDeleteVariant}
+        onVariantAdded={() => {
+          refreshData();
+          setAddingVariantFor(null);
+        }}
+        onEditVariant={id => setLocation(`/admin/products/${id}`)}
       />
     </div>
   );
