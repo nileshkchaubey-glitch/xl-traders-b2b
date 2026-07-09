@@ -61,9 +61,12 @@ import ProductsTable, {
 } from "@/components/admin/products/ProductsTable";
 import ProductDrawer from "@/components/admin/products/ProductDrawer";
 import RapidEntryRow from "@/components/admin/products/RapidEntryRow";
+import MobileProductCard from "@/components/admin/products/MobileProductCard";
+import ProductQuickEditSheet from "@/components/admin/products/ProductQuickEditSheet";
 import { ParsedProduct } from "@/lib/aiService";
 import KeyboardShortcutsDialog from "@/components/admin/KeyboardShortcutsDialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useIsMobile } from "@/hooks/useMobile";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -239,6 +242,7 @@ export default function AdminProducts({
   categories = [],
 }: AdminProductsProps = {}) {
   const [, setLocation] = useLocation();
+  const isMobile = useIsMobile();
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -280,6 +284,11 @@ export default function AdminProducts({
   // Image gallery
   const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
 
+  // Mobile quick-edit bottom sheet (mobile card tap target).
+  const [quickEditProduct, setQuickEditProduct] = useState<Product | null>(
+    null
+  );
+
   // Detail drawer — holds an index into the current filtered `products` so
   // "Save & next" can advance through the visible list.
   const [drawerIndex, setDrawerIndex] = useState<number | null>(null);
@@ -302,6 +311,24 @@ export default function AdminProducts({
       await productService.update(id, patch as Partial<Product>);
     } catch {
       toast.error("Update failed");
+      loadProducts();
+    }
+  };
+
+  // Save from the mobile quick-edit sheet — optimistic patch + close, then
+  // persist via the same service; reload to revert on failure.
+  const handleQuickEditSave = async (id: string, patch: ProductPatch) => {
+    setProducts(prev =>
+      prev.map(p =>
+        p.id === id ? { ...p, ...(patch as Partial<Product>) } : p
+      )
+    );
+    setQuickEditProduct(null);
+    try {
+      await productService.update(id, patch as Partial<Product>);
+      toast.success("Saved");
+    } catch {
+      toast.error("Save failed");
       loadProducts();
     }
   };
@@ -1102,8 +1129,9 @@ export default function AdminProducts({
             </span>
           </div>
           <p className="text-slate-400 text-xs mt-0.5">
-            Page {page} of {Math.max(totalPages, 1)} · click any cell to edit
-            inline · Tab moves between fields
+            {isMobile
+              ? `Page ${page} of ${Math.max(totalPages, 1)} · tap a product to quick-edit`
+              : `Page ${page} of ${Math.max(totalPages, 1)} · click any cell to edit inline · Tab moves between fields`}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -1416,25 +1444,51 @@ export default function AdminProducts({
         />
       )}
 
-      {/* ── Products list (compact, virtualized) ───────────────────────────── */}
-      <ProductsTable
-        products={products}
-        loading={loading}
-        getCategoryName={getCategoryName}
-        selected={selected}
-        onToggleRow={toggleOne}
-        onToggleAll={toggleAll}
-        allPageSelected={allPageSelected}
-        onRowOpen={openDrawer}
-        onInlineUpdate={handleInlineUpdate}
-        onEdit={handleOpenFullEdit}
-        onManageImages={setGalleryProduct}
-        onDuplicate={handleDuplicate}
-        onDelete={handleDelete}
-        onTogglePublish={p => handlePublish(p.id)}
-        onToggleFeatured={handleToggleFeatured}
-        onViewLive={p => window.open(`/product/${p.id}`, "_blank")}
-      />
+      {/* ── Products list ──────────────────────────────────────────────────
+          Mobile: scrollable card list → quick-edit sheet. Desktop: the
+          existing virtualized table (unchanged). Both read the same
+          `products` / filter / pagination state — only the output differs. */}
+      {isMobile ? (
+        <div className="space-y-2">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-slate-400">
+              <Loader2 className="w-5 h-5 animate-spin" /> Loading products…
+            </div>
+          ) : products.length === 0 ? (
+            <div className="py-16 text-center text-sm text-slate-400 bg-white border border-slate-200 rounded-xl">
+              No products match the current filters.
+            </div>
+          ) : (
+            products.map(p => (
+              <MobileProductCard
+                key={p.id}
+                product={p}
+                categoryName={getCategoryName(p.category_id)}
+                onTap={setQuickEditProduct}
+              />
+            ))
+          )}
+        </div>
+      ) : (
+        <ProductsTable
+          products={products}
+          loading={loading}
+          getCategoryName={getCategoryName}
+          selected={selected}
+          onToggleRow={toggleOne}
+          onToggleAll={toggleAll}
+          allPageSelected={allPageSelected}
+          onRowOpen={openDrawer}
+          onInlineUpdate={handleInlineUpdate}
+          onEdit={handleOpenFullEdit}
+          onManageImages={setGalleryProduct}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
+          onTogglePublish={p => handlePublish(p.id)}
+          onToggleFeatured={handleToggleFeatured}
+          onViewLive={p => window.open(`/product/${p.id}`, "_blank")}
+        />
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -1485,6 +1539,18 @@ export default function AdminProducts({
           )
         }
         onSaveAndNext={() => setDrawerIndex(i => (i != null ? i + 1 : i))}
+      />
+
+      {/* Mobile quick-edit sheet — price / availability / publish; everything
+          else routes to the full editor. Saves via the same productService. */}
+      <ProductQuickEditSheet
+        product={quickEditProduct}
+        open={!!quickEditProduct}
+        onOpenChange={open => {
+          if (!open) setQuickEditProduct(null);
+        }}
+        onSave={handleQuickEditSave}
+        onOpenFullEditor={handleOpenFullEdit}
       />
 
       {/* Image Gallery */}
