@@ -1,25 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
 import { useAuthStore } from "@/lib/authStore";
-import {
-  LogOut,
-  Package,
-  Grid3x3,
-  MessageSquare,
-  Settings,
-  Upload,
-  LayoutDashboard,
-  FileSpreadsheet,
-  FileText,
-  ShoppingBag,
-  Globe,
-  Menu,
-  X,
-  ChevronRight,
-  ExternalLink,
-  Images,
-  Layers,
-} from "lucide-react";
+import { LogOut, Menu, X, ChevronRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 import AdminOverview from "@/components/admin/AdminOverview";
@@ -36,64 +18,9 @@ import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
 import { AttentionFilter, isMissingFilter } from "@/lib/catalogHealth";
 import { categoryService } from "@/lib/productService";
 import { Category } from "@/lib/supabase";
-
-interface NavItem {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "Catalogue",
-    items: [
-      { id: "overview", label: "Overview", icon: LayoutDashboard },
-      { id: "products", label: "Products", icon: Package },
-      { id: "categories", label: "Catalogues", icon: Grid3x3 },
-      { id: "image-library", label: "Image Library", icon: Images },
-      { id: "masters", label: "Masters", icon: Layers },
-    ],
-  },
-  {
-    label: "Sales",
-    items: [
-      { id: "orders", label: "Orders", icon: ShoppingBag },
-      { id: "enquiries", label: "Enquiries", icon: MessageSquare },
-    ],
-  },
-  {
-    label: "Content & Import",
-    items: [
-      { id: "site-content", label: "Site Content", icon: FileText },
-      { id: "seo", label: "SEO", icon: Globe },
-      { id: "bulk-import", label: "CSV Import", icon: Upload },
-      { id: "google-sheets", label: "Google Sheets", icon: FileSpreadsheet },
-    ],
-  },
-  {
-    label: "System",
-    items: [{ id: "settings", label: "Settings", icon: Settings }],
-  },
-];
-
-const BREADCRUMB: Record<string, { parent: string; label: string }> = {
-  overview: { parent: "Catalogue", label: "Overview" },
-  products: { parent: "Catalogue", label: "Products" },
-  categories: { parent: "Catalogue", label: "Catalogues" },
-  "image-library": { parent: "Catalogue", label: "Image Library" },
-  orders: { parent: "Sales", label: "Orders" },
-  enquiries: { parent: "Sales", label: "Enquiries" },
-  "site-content": { parent: "Content & Import", label: "Site Content" },
-  seo: { parent: "Content & Import", label: "SEO" },
-  "bulk-import": { parent: "Content & Import", label: "CSV Import" },
-  "google-sheets": { parent: "Content & Import", label: "Google Sheets" },
-  settings: { parent: "System", label: "Settings" },
-};
+import { useIsMobile } from "@/hooks/useMobile";
+import MobileAdminShell from "@/components/admin/MobileAdminShell";
+import { NAV_GROUPS, BREADCRUMB } from "@/components/admin/adminNav";
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
@@ -112,6 +39,7 @@ export default function AdminDashboard() {
 
   const [productsAttention, setProductsAttention] =
     useState<AttentionFilter>(null);
+  const isMobile = useIsMobile();
 
   // Deep-link support: dashboard chips link to /admin?tab=products&missing=<key>.
   // Apply the tab + missing-data filter whenever those query params change.
@@ -206,6 +134,58 @@ export default function AdminDashboard() {
 
   const crumb = BREADCRUMB[activeTab] ?? { parent: "", label: activeTab };
   const initials = user?.email?.[0]?.toUpperCase() ?? "A";
+
+  // The active admin section — shared verbatim between the desktop layout and
+  // the mobile shell so no section logic is forked. Products stays mounted
+  // (hidden) to preserve its table state / keyboard shortcuts across tabs.
+  const sectionContent = (
+    <>
+      {activeTab === "overview" && <AdminOverview onTabChange={setActiveTab} />}
+
+      <div className={activeTab !== "products" ? "hidden" : ""}>
+        <AdminProducts
+          keyboardShortcutsEnabled={activeTab === "products"}
+          attentionFilter={productsAttention}
+          onAttentionChange={setProductsAttention}
+          categories={categories}
+        />
+      </div>
+
+      {activeTab === "orders" && <AdminOrders />}
+
+      {activeTab === "categories" && (
+        <AdminCategories
+          categories={categories}
+          loading={categoriesLoading}
+          refreshCategories={refreshCategories}
+        />
+      )}
+
+      {activeTab === "enquiries" && <AdminEnquiries />}
+      {activeTab === "seo" && <AdminSEO />}
+      {activeTab === "bulk-import" && (
+        <AdminBulkImport onGoToProducts={() => setActiveTab("products")} />
+      )}
+      {activeTab === "google-sheets" && <AdminGoogleSheets />}
+      {activeTab === "site-content" && <AdminSiteContent />}
+      {activeTab === "settings" && <AdminSettings />}
+      {activeTab === "image-library" && <AdminImageLibrary />}
+    </>
+  );
+
+  // Mobile: same section content inside the mobile shell (chrome only differs).
+  if (isMobile) {
+    return (
+      <MobileAdminShell
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        onSignOut={handleLogout}
+        userEmail={user?.email ?? undefined}
+      >
+        {sectionContent}
+      </MobileAdminShell>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-admin-bg overflow-hidden">
@@ -349,42 +329,7 @@ export default function AdminDashboard() {
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-screen-xl mx-auto px-6 py-6">
-            {activeTab === "overview" && (
-              <AdminOverview onTabChange={setActiveTab} />
-            )}
-
-            <div className={activeTab !== "products" ? "hidden" : ""}>
-              <AdminProducts
-                keyboardShortcutsEnabled={activeTab === "products"}
-                attentionFilter={productsAttention}
-                onAttentionChange={setProductsAttention}
-                categories={categories}
-              />
-            </div>
-
-            {activeTab === "orders" && <AdminOrders />}
-
-            {activeTab === "categories" && (
-              <AdminCategories
-                categories={categories}
-                loading={categoriesLoading}
-                refreshCategories={refreshCategories}
-              />
-            )}
-
-            {activeTab === "enquiries" && <AdminEnquiries />}
-            {activeTab === "seo" && <AdminSEO />}
-            {activeTab === "bulk-import" && (
-              <AdminBulkImport
-                onGoToProducts={() => setActiveTab("products")}
-              />
-            )}
-            {activeTab === "google-sheets" && <AdminGoogleSheets />}
-            {activeTab === "site-content" && <AdminSiteContent />}
-            {activeTab === "settings" && <AdminSettings />}
-            {activeTab === "image-library" && <AdminImageLibrary />}
-          </div>
+          <div className="max-w-screen-xl mx-auto px-6 py-6">{sectionContent}</div>
         </main>
       </div>
     </div>
