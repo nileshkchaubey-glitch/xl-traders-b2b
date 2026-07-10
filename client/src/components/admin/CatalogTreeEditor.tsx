@@ -10,11 +10,38 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Category, Product } from "@/lib/supabase";
-import { productService, categoryService } from "@/lib/productService";
-import { healthService, CategoryHealth } from "@/lib/healthService";
+import {
+  productService,
+  categoryService,
+  AdminStatusFilter,
+} from "@/lib/productService";
+import {
+  healthService,
+  CategoryHealth,
+  MissingCounts,
+} from "@/lib/healthService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 
 const PAGE_SIZE = 50;
+
+// ── Fix-Missing chips ─────────────────────────────────────────────────────────
+type ChipKey = "no-price" | "no-description" | "no-image" | "draft";
+// The three health-backed chips map to a v_product_health missing_* field
+// (via healthService); "draft" is a plain status filter, not a health metric.
+const CHIP_FIELD: Record<
+  "no-price" | "no-description" | "no-image",
+  keyof MissingCounts
+> = {
+  "no-price": "price",
+  "no-description": "description",
+  "no-image": "image",
+};
+const CHIPS: { key: ChipKey; label: string }[] = [
+  { key: "no-price", label: "No price" },
+  { key: "no-description", label: "No description" },
+  { key: "no-image", label: "No image" },
+  { key: "draft", label: "Draft" },
+];
 
 // ── Inline editing ────────────────────────────────────────────────────────────
 type EditField = "name" | "price" | "description";
@@ -131,6 +158,15 @@ export default function CatalogTreeEditor({
     {}
   );
 
+  // Fix-Missing chips: active filter + live counts (scoped to the current node).
+  const [activeChip, setActiveChip] = useState<ChipKey | null>(null);
+  const [chipCounts, setChipCounts] = useState<Record<ChipKey, number>>({
+    "no-price": 0,
+    "no-description": 0,
+    "no-image": 0,
+    draft: 0,
+  });
+
   // Table state
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -165,14 +201,55 @@ export default function CatalogTreeEditor({
     loadAggregates();
   }, [loadAggregates]);
 
-  // ── Load the table for the active node + page ────────────────────────────────
+  // Live chip counts, scoped to the active node (reuses the health view + a
+  // status='draft' HEAD count — no missing-logic re-derived here).
+  const loadChipCounts = useCallback(async () => {
+    try {
+      const [mc, draft] = await Promise.all([
+        healthService.getMissingCounts(scopedCategoryIds),
+        productService.getAllAdmin({
+          status: "draft",
+          categoryIds: scopedCategoryIds,
+          pageSize: 1,
+        }),
+      ]);
+      setChipCounts({
+        "no-price": mc.price,
+        "no-description": mc.description,
+        "no-image": mc.image,
+        draft: draft.count,
+      });
+    } catch {
+      // Non-fatal — chips still render, just without counts.
+    }
+  }, [scopedCategoryIds]);
+
+  useEffect(() => {
+    loadChipCounts();
+  }, [loadChipCounts]);
+
+  // ── Load the table for the active node + page + chip ──────────────────────────
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
+      // Missing-field chips intersect with v_product_health ids; "draft" is a
+      // plain status filter. Both AND with the node's category scope.
+      let ids: string[] | undefined;
+      let status: AdminStatusFilter = "all";
+      if (activeChip === "draft") {
+        status = "draft";
+      } else if (activeChip) {
+        ids = await healthService.getIdsMissing(
+          CHIP_FIELD[activeChip],
+          scopedCategoryIds
+        );
+      }
       const { data, count } = await productService.getAllAdmin({
         page,
         pageSize: PAGE_SIZE,
         categoryIds: scopedCategoryIds,
+        ids,
+        status,
       });
       setProducts(data);
       setTotalCount(count);
@@ -183,7 +260,7 @@ export default function CatalogTreeEditor({
     } finally {
       setLoading(false);
     }
-  }, [page, scopedCategoryIds]);
+  }, [page, scopedCategoryIds, activeChip]);
 
   // ── Inline cell editing ──────────────────────────────────────────────────────
   const [cellEdit, setCellEdit] = useState<CellEdit | null>(null);
@@ -247,6 +324,7 @@ export default function CatalogTreeEditor({
       await productService.update(productId, patch as Partial<Product>);
       toast.success("Saved");
       loadAggregates();
+      loadChipCounts();
     } catch {
       toast.error("Save failed");
       loadProducts();
@@ -267,10 +345,10 @@ export default function CatalogTreeEditor({
     }
   };
 
-  // Reset to page 1 whenever the selected node changes.
-  const prevScope = useRef<string>("all");
+  // Reset to page 1 whenever the selected node or active chip changes.
+  const prevScope = useRef<string>("");
   useEffect(() => {
-    const key = JSON.stringify(scopedCategoryIds ?? "all");
+    const key = JSON.stringify([scopedCategoryIds ?? "all", activeChip]);
     if (prevScope.current !== key) {
       prevScope.current = key;
       if (page !== 1) {
@@ -280,7 +358,7 @@ export default function CatalogTreeEditor({
     }
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedCategoryIds, page]);
+  }, [scopedCategoryIds, activeChip, page]);
 
   // ── Tree derived helpers ─────────────────────────────────────────────────────
   const groupCount = (g: TreeGroup) =>
@@ -348,6 +426,7 @@ export default function CatalogTreeEditor({
         <button
           onClick={() => {
             loadAggregates();
+            loadChipCounts();
             loadProducts();
           }}
           disabled={loading}
@@ -356,6 +435,47 @@ export default function CatalogTreeEditor({
         >
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </button>
+      </div>
+
+      {/* ── Fix-Missing chips ──────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide mr-1">
+          Fix missing
+        </span>
+        {CHIPS.map(chip => {
+          const active = activeChip === chip.key;
+          const count = chipCounts[chip.key];
+          return (
+            <button
+              key={chip.key}
+              onClick={() => setActiveChip(active ? null : chip.key)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                active
+                  ? "bg-red-600 border-red-600 text-white"
+                  : "bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600"
+              }`}
+            >
+              {chip.label}
+              <span
+                className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full px-1 text-[11px] font-semibold ${
+                  active
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+        {activeChip && (
+          <button
+            onClick={() => setActiveChip(null)}
+            className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 ml-1"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* ── Two-pane layout ────────────────────────────────────────────────── */}
