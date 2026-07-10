@@ -254,12 +254,21 @@ function applyAdminScalarFilters(
   {
     search,
     categoryId,
+    categoryIds,
     status = "all",
-  }: { search?: string; categoryId?: string; status?: AdminStatusFilter }
+  }: {
+    search?: string;
+    categoryId?: string;
+    // Multiple categories — used by the Catalog Tree Editor's group nodes, where
+    // one node spans every category in a group_name. ANDs after categoryId.
+    categoryIds?: string[];
+    status?: AdminStatusFilter;
+  }
 ): any {
   if (search?.trim()) query = query.ilike("name", `%${search.trim()}%`);
   if (categoryId && categoryId !== "all")
     query = query.eq("category_id", categoryId);
+  if (categoryIds?.length) query = query.in("category_id", categoryIds);
   if (status === "active") query = query.eq("is_active", true);
   else if (status === "inactive") query = query.eq("is_active", false);
   else if (status === "featured") query = query.eq("is_featured", true);
@@ -455,6 +464,7 @@ export const productService = {
     pageSize?: number;
     search?: string;
     categoryId?: string;
+    categoryIds?: string[];
     status?: AdminStatusFilter;
     sortField?: "name" | "price" | "created_at" | "updated_at";
     sortAscending?: boolean;
@@ -465,6 +475,7 @@ export const productService = {
       pageSize = 50,
       search,
       categoryId,
+      categoryIds,
       status = "all",
       sortField = "created_at",
       sortAscending = false,
@@ -472,13 +483,14 @@ export const productService = {
     } = params;
 
     if (ids && ids.length === 0) return { data: [], count: 0 };
+    if (categoryIds && categoryIds.length === 0) return { data: [], count: 0 };
 
     let query = applyAdminScalarFilters(
       supabase
         .from("products")
         .select("*", { count: "exact" })
         .order(sortField, { ascending: sortAscending }),
-      { search, categoryId, status }
+      { search, categoryId, categoryIds, status }
     );
     if (ids) query = query.in("id", ids);
 
@@ -495,15 +507,17 @@ export const productService = {
   async getAdminMatchingIds(params: {
     search?: string;
     categoryId?: string;
+    categoryIds?: string[];
     status?: AdminStatusFilter;
     ids?: string[];
   }): Promise<string[]> {
-    const { search, categoryId, status = "all", ids } = params;
+    const { search, categoryId, categoryIds, status = "all", ids } = params;
     if (ids && ids.length === 0) return [];
+    if (categoryIds && categoryIds.length === 0) return [];
 
     let query = applyAdminScalarFilters(
       supabase.from("products").select("id"),
-      { search, categoryId, status }
+      { search, categoryId, categoryIds, status }
     );
     if (ids) query = query.in("id", ids);
 

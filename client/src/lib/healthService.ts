@@ -25,14 +25,38 @@ export interface ProductHealthRow {
   health_score: number;
 }
 
+// Per-category rollup of catalogue health, aggregated straight from the
+// v_product_health view (still the single source of missing-logic). Backs the
+// Catalog Tree Editor's health dot: total products vs. how many are incomplete.
+export interface CategoryHealth {
+  total: number;
+  incomplete: number;
+}
+
 export const healthService = {
-  async getMissingCounts(): Promise<MissingCounts> {
-    const { data, error } = await supabase
+  // `categoryIds` (optional) scopes the counts to a group/category node in the
+  // Catalog Tree Editor. Omit for a catalogue-wide total (Overview/Products).
+  async getMissingCounts(categoryIds?: string[]): Promise<MissingCounts> {
+    if (categoryIds && categoryIds.length === 0) {
+      return {
+        price: 0,
+        category: 0,
+        moq: 0,
+        brand: 0,
+        image: 0,
+        specifications: 0,
+        description: 0,
+        seo: 0,
+      };
+    }
+    let q = supabase
       .from("v_product_health")
       .select(
         "missing_price,missing_category,missing_moq,missing_brand," +
           "missing_image,missing_specifications,missing_description,missing_seo"
       );
+    if (categoryIds?.length) q = q.in("category_id", categoryIds);
+    const { data, error } = await q;
 
     if (error) throw error;
 
@@ -54,15 +78,41 @@ export const healthService = {
   // Returns the ids of every product missing the given field, straight from
   // the v_product_health view. Callers (AdminProducts) intersect this with the
   // products table via `.in('id', ids)` so the missing-logic stays in the view.
-  async getIdsMissing(field: keyof MissingCounts): Promise<string[]> {
+  async getIdsMissing(
+    field: keyof MissingCounts,
+    categoryIds?: string[]
+  ): Promise<string[]> {
+    if (categoryIds && categoryIds.length === 0) return [];
     const col = `missing_${field}`;
-    const { data, error } = await supabase
-      .from("v_product_health")
-      .select("id")
-      .eq(col, true);
+    let q = supabase.from("v_product_health").select("id").eq(col, true);
+    if (categoryIds?.length) q = q.in("category_id", categoryIds);
+    const { data, error } = await q;
 
     if (error) throw error;
     return (data ?? []).map((r: { id: string }) => r.id);
+  },
+
+  // Aggregates the view into { total, incomplete } per category_id so the tree
+  // can colour a health dot without re-deriving "what is missing" in TS —
+  // incomplete = missing_count > 0, straight from v_product_health.
+  async getCategoryHealth(): Promise<Record<string, CategoryHealth>> {
+    const { data, error } = await supabase
+      .from("v_product_health")
+      .select("category_id,missing_count");
+
+    if (error) throw error;
+    const rows = (data ?? []) as unknown as Array<{
+      category_id: string | null;
+      missing_count: number | null;
+    }>;
+    const out: Record<string, CategoryHealth> = {};
+    for (const r of rows) {
+      if (!r.category_id) continue;
+      const entry = (out[r.category_id] ??= { total: 0, incomplete: 0 });
+      entry.total += 1;
+      if ((r.missing_count ?? 0) > 0) entry.incomplete += 1;
+    }
+    return out;
   },
 
   async productHealth(id: string): Promise<ProductHealthRow | null> {

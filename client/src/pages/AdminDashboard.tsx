@@ -15,6 +15,7 @@ import AdminSiteContent from "@/components/admin/AdminSiteContent";
 import AdminOrders from "@/components/admin/AdminOrders";
 import AdminSEO from "@/components/admin/AdminSEO";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
+import CatalogTreeEditor from "@/components/admin/CatalogTreeEditor";
 import { AttentionFilter, isMissingFilter } from "@/lib/catalogHealth";
 import { categoryService } from "@/lib/productService";
 import { Category } from "@/lib/supabase";
@@ -150,6 +151,10 @@ export default function AdminDashboard() {
           categories={categories}
         />
       </div>
+
+      {activeTab === "catalog-editor" && (
+        <CatalogTreeEditor categories={categories} />
+      )}
 
       {activeTab === "orders" && <AdminOrders />}
 

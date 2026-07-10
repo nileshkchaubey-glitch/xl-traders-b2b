@@ -11,6 +11,7 @@ import {
   Globe,
   Images,
   Layers,
+  FolderTree,
 } from "lucide-react";
 
 // Shared admin navigation config — the single source of truth for the desktop
@@ -34,6 +35,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "overview", label: "Overview", icon: LayoutDashboard },
       { id: "products", label: "Products", icon: Package },
+      { id: "catalog-editor", label: "Catalog Editor", icon: FolderTree },
       { id: "categories", label: "Catalogues", icon: Grid3x3 },
       { id: "image-library", label: "Image Library", icon: Images },
       { id: "masters", label: "Masters", icon: Layers },
@@ -64,6 +66,7 @@ export const NAV_GROUPS: NavGroup[] = [
 export const BREADCRUMB: Record<string, { parent: string; label: string }> = {
   overview: { parent: "Catalogue", label: "Overview" },
   products: { parent: "Catalogue", label: "Products" },
+  "catalog-editor": { parent: "Catalogue", label: "Catalog Editor" },
   categories: { parent: "Catalogue", label: "Catalogues" },
   "image-library": { parent: "Catalogue", label: "Image Library" },
   orders: { parent: "Sales", label: "Orders" },
