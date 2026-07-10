@@ -25,6 +25,7 @@ import { Product, ProductImage } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 import { ImagePlaceholder } from "@/components/ImagePlaceholder";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { isPriceOnEnquiry, cartLinePrice } from "@/lib/priceUtils";
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
 const RECENTLY_VIEWED_KEY = "xl_recently_viewed";
@@ -81,9 +82,9 @@ function MiniProductCard({
           </p>
           {isAuthenticated && (
             <p className="text-sm font-bold mb-1.5">
-              {product.price != null ? (
+              {!isPriceOnEnquiry(product.price) ? (
                 <span className="text-red-600">
-                  ₹{product.price.toLocaleString()}
+                  ₹{product.price!.toLocaleString()}
                 </span>
               ) : (
                 <span className="text-slate-500 italic text-xs">
@@ -240,8 +241,8 @@ export default function ProductDetail() {
         productId: currentProd.id,
         sku: currentProd.sku ?? currentProd.id,
         name: currentProd.name,
-        price: currentProd.price ?? 0,
-        priceOnEnquiry: currentProd.price == null ? true : undefined,
+        price: cartLinePrice(currentProd.price),
+        priceOnEnquiry: isPriceOnEnquiry(currentProd.price) ? true : undefined,
         unit: currentProd.unit_of_measure ?? "pcs",
         imageUrl: currentProd.image_url ?? undefined,
         moq,
@@ -273,10 +274,9 @@ export default function ProductDetail() {
 
   const handleEnquire = () => {
     if (!currentProd) return;
-    const priceStr =
-      currentProd.price != null
-        ? `\nPrice: ₹${currentProd.price}`
-        : "\nPrice: On enquiry";
+    const priceStr = !isPriceOnEnquiry(currentProd.price)
+      ? `\nPrice: ₹${currentProd.price}`
+      : "\nPrice: On enquiry";
     // Omit the quantity line entirely when pack size is missing — never print "null".
     const quantityStr =
       currentProd.quantity_in_unit != null
@@ -514,10 +514,10 @@ export default function ProductDetail() {
                 {/* Price card */}
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
                   {isAuthenticated ? (
-                    currentProd.price != null ? (
+                    !isPriceOnEnquiry(currentProd.price) ? (
                       <div className="flex items-baseline gap-2 flex-wrap">
                         <span className="text-[26px] font-extrabold text-red-600 tabular-nums">
-                          ₹{currentProd.price.toLocaleString()}
+                          ₹{currentProd.price!.toLocaleString()}
                         </span>
                         {currentProd.quantity_in_unit ? (
                           <span className="text-[13px] text-slate-500">
@@ -537,7 +537,7 @@ export default function ProductDetail() {
                               ₹
                               {(
                                 Math.round(
-                                  (currentProd.price /
+                                  (currentProd.price! /
                                     currentProd.quantity_in_unit) *
                                     100
                                 ) / 100
@@ -638,8 +638,8 @@ export default function ProductDetail() {
                       >
                         <ShoppingCart size={17} />
                         Add to Cart
-                        {currentProd.price != null &&
-                          ` · ₹${(currentProd.price * qty).toLocaleString()}`}
+                        {!isPriceOnEnquiry(currentProd.price) &&
+                          ` · ₹${(currentProd.price! * qty).toLocaleString()}`}
                       </button>
                       <button
                         onClick={handleEnquire}
@@ -793,8 +793,8 @@ export default function ProductDetail() {
           >
             <ShoppingCart size={17} />
             Add to Cart
-            {currentProd.price != null &&
-              ` · ₹${(currentProd.price * qty).toLocaleString()}`}
+            {!isPriceOnEnquiry(currentProd.price) &&
+              ` · ₹${(currentProd.price! * qty).toLocaleString()}`}
           </button>
         ) : (
           <button

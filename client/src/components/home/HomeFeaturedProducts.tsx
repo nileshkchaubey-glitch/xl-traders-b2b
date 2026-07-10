@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { productService } from "@/lib/productService";
 import { Product } from "@/lib/supabase";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import { useAuthStore } from "@/lib/authStore";
 
 const TABS = [
@@ -70,9 +71,9 @@ function FeaturedProductCard({
         {/* Price / enquire */}
         <div className="mt-3 flex items-center justify-between">
           {isAuthenticated ? (
-            product.price != null ? (
+            !isPriceOnEnquiry(product.price) ? (
               <p className="text-base font-bold text-red-600">
-                ₹{product.price.toLocaleString()}
+                ₹{product.price!.toLocaleString()}
                 <span className="text-xs text-slate-500 font-normal ml-1">
                   /{product.unit_of_measure || "pcs"}
                 </span>

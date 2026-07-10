@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Product, ProductStatus } from "@/lib/supabase";
 import { ProductPatch } from "@/components/admin/products/ProductsTable";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 
 interface ProductQuickEditSheetProps {
   product: Product | null;
@@ -55,14 +56,15 @@ export default function ProductQuickEditSheet({
   const handleSave = () => {
     const trimmed = price.trim();
     const parsedPrice = trimmed === "" ? null : Number(trimmed);
-    // Blank = "Price on enquiry" (null). A typed value must be a valid, ≥0
-    // number — never let an invalid entry through as ₹0.
-    if (parsedPrice !== null && (Number.isNaN(parsedPrice) || parsedPrice < 0)) {
+    // Blank / 0 = "Price on enquiry" (null). A typed value must be numeric —
+    // never let an invalid entry through as ₹0.
+    if (parsedPrice !== null && Number.isNaN(parsedPrice)) {
       toast.error("Enter a valid price, or leave it blank for enquiry");
       return;
     }
     onSave(product.id, {
-      price: parsedPrice,
+      // 0 / negative collapse to NULL so the storefront never shows ₹0.
+      price: isPriceOnEnquiry(parsedPrice) ? null : parsedPrice,
       is_active: isActive,
       status: (published ? "published" : "draft") as ProductStatus,
     });

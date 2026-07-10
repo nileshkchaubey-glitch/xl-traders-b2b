@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ShoppingCart, Minus, Plus } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { Product } from "@/lib/supabase";
+import { isPriceOnEnquiry, cartLinePrice } from "@/lib/priceUtils";
 import { toast } from "sonner";
 
 interface Props {
@@ -24,8 +25,8 @@ export default function AddToCartButton({ product, compact = false }: Props) {
       productId: product.id,
       sku: product.sku ?? product.id,
       name: product.name,
-      price: product.price ?? 0,
-      priceOnEnquiry: product.price == null ? true : undefined,
+      price: cartLinePrice(product.price),
+      priceOnEnquiry: isPriceOnEnquiry(product.price) ? true : undefined,
       unit: product.unit_of_measure ?? "pcs",
       // image_url is nullable; the cart item expects string | undefined.
       imageUrl: product.image_url ?? undefined,

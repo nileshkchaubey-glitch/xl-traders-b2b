@@ -2,12 +2,13 @@ import { useState } from "react";
 import { ImageIcon, ChevronRight, AlertTriangle } from "lucide-react";
 import { Product } from "@/lib/supabase";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import { productCompleteness } from "@/lib/catalogHealth";
 
-// Price rendering matches the desktop table exactly: null = "Price on enquiry"
-// (NEVER ₹0), 0 = "Free", otherwise the rupee amount.
+// Price rendering matches the desktop table exactly: null/0 = "on enquiry"
+// (NEVER ₹0), otherwise the rupee amount.
 function formatPrice(price: number): string {
-  if (price === 0) return "Free";
+  if (isPriceOnEnquiry(price)) return "Enquiry";
   return `₹${price.toLocaleString("en-IN")}`;
 }
 

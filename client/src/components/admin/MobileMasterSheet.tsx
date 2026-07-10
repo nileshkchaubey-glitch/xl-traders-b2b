@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ProductMaster } from "@/lib/masterService";
 import { Product } from "@/lib/supabase";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import VariantRow from "@/components/admin/VariantRow";
 
 interface MobileMasterSheetProps {
@@ -102,7 +103,7 @@ export default function MobileMasterSheet({
                       </div>
                     </div>
                     <span className="text-sm font-bold text-slate-700 tabular-nums flex-shrink-0">
-                      {v.price != null ? `₹${v.price}` : "—"}
+                      {!isPriceOnEnquiry(v.price) ? `₹${v.price}` : "—"}
                     </span>
                     <button
                       onClick={() => onEditVariant(v.id)}

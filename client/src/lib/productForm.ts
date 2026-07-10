@@ -1,5 +1,6 @@
 import { categoryService, productService } from "@/lib/productService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import { Product, ProductStatus } from "@/lib/supabase";
 
 // The editor form shape, shared by the route editor (AdminProductEditor) and the
@@ -82,7 +83,11 @@ export async function saveProductForm(
     name: formData.name.trim(),
     category_id: categoryId,
     description: formData.description,
-    price: formData.price ? parseFloat(formData.price) : null,
+    // Blank / 0 / negative all mean "on enquiry" → NULL, never a stored 0.
+    price: (() => {
+      const n = formData.price ? parseFloat(formData.price) : null;
+      return isPriceOnEnquiry(n) ? null : n;
+    })(),
     mrp: formData.mrp ? parseFloat(formData.mrp) : undefined,
     unit_of_measure: formData.unit_of_measure,
     quantity_in_unit: formData.quantity_in_unit

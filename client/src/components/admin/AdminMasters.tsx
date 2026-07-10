@@ -33,6 +33,7 @@ import { masterService, ProductMaster } from "@/lib/masterService";
 import { categoryService } from "@/lib/productService";
 import { Category, Product } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import MasterDialog from "./MasterDialog";
 import VariantRow from "./VariantRow";
 import MobileMasterSheet from "@/components/admin/MobileMasterSheet";
@@ -610,7 +611,9 @@ export default function AdminMasters() {
                                                 {v.sku}
                                               </td>
                                               <td className="py-2 pr-4 font-bold text-slate-800">
-                                                ₹{v.price}
+                                                {isPriceOnEnquiry(v.price)
+                                                  ? "—"
+                                                  : `₹${v.price}`}
                                               </td>
                                               <td className="py-2 pr-4 text-slate-400">
                                                 ₹{v.mrp || "—"}
