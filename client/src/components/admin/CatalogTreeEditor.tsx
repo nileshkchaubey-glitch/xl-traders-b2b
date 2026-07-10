@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useSearch, useLocation } from "wouter";
 import {
   FolderTree,
   ChevronRight,
@@ -7,8 +8,17 @@ import {
   ImageIcon,
   Boxes,
   RefreshCw,
+  Columns3,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Category, Product } from "@/lib/supabase";
 import {
   productService,
@@ -22,8 +32,51 @@ import {
 } from "@/lib/healthService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry } from "@/lib/priceUtils";
+import { productCompleteness, completenessColor } from "@/lib/catalogHealth";
 
 const PAGE_SIZE = 50;
+
+// ── Columns ───────────────────────────────────────────────────────────────────
+type ColKey =
+  | "sku"
+  | "category"
+  | "group"
+  | "unit"
+  | "stock"
+  | "price"
+  | "description"
+  | "status"
+  | "score"
+  | "updated";
+
+interface ColDef {
+  key: ColKey;
+  label: string;
+  default: boolean;
+}
+
+// Name + checkbox are always shown (sticky-left) and so are not toggleable.
+const COLUMNS: ColDef[] = [
+  { key: "sku", label: "SKU", default: false },
+  { key: "category", label: "Category", default: true },
+  { key: "group", label: "Group", default: false },
+  { key: "unit", label: "Unit / Pack", default: true },
+  { key: "stock", label: "Stock", default: true },
+  { key: "price", label: "Price", default: true },
+  { key: "description", label: "Description", default: true },
+  { key: "status", label: "Status", default: true },
+  { key: "score", label: "Score", default: false },
+  { key: "updated", label: "Updated", default: false },
+];
+const COL_KEYS = COLUMNS.map(c => c.key);
+const DEFAULT_COLS = COLUMNS.filter(c => c.default).map(c => c.key);
+
+// Parse the `cols` URL param into a valid column set (falls back to defaults).
+function colsFromParam(raw: string | null): Set<ColKey> {
+  if (!raw) return new Set(DEFAULT_COLS);
+  const keys = raw.split(",").filter(k => (COL_KEYS as string[]).includes(k));
+  return new Set(keys as ColKey[]);
+}
 
 // ── Fix-Missing chips ─────────────────────────────────────────────────────────
 type ChipKey = "no-price" | "no-description" | "no-image" | "draft";
@@ -148,6 +201,31 @@ export default function CatalogTreeEditor({
     for (const c of categories) m.set(c.id, c);
     return m;
   }, [categories]);
+
+  // Column visibility — seeded from the `cols` URL param, persisted back to it
+  // (in-memory + URL only; localStorage is restricted in our stack).
+  const search = useSearch();
+  const [, setLocation] = useLocation();
+  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() =>
+    colsFromParam(new URLSearchParams(search).get("cols"))
+  );
+  const isCol = useCallback(
+    (key: ColKey) => visibleCols.has(key),
+    [visibleCols]
+  );
+  const toggleCol = (key: ColKey) =>
+    setVisibleCols(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  // Persist the choice to the URL (merging, so ?tab / ?missing survive).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("cols", COL_KEYS.filter(k => visibleCols.has(k)).join(","));
+    setLocation(`/admin?${params.toString()}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleCols]);
 
   // Tree state
   const [selection, setSelection] = useState<TreeSelection>({ kind: "all" });
@@ -422,18 +500,56 @@ export default function CatalogTreeEditor({
             </p>
           </div>
         </div>
-        <button
-          onClick={() => {
-            loadAggregates();
-            loadChipCounts();
-            loadProducts();
-          }}
-          disabled={loading}
-          title="Reload"
-          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Columns toggle */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                title="Columns"
+                className="inline-flex items-center gap-1.5 p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors text-sm"
+              >
+                <Columns3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Columns</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="text-xs">
+                Show columns
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <div className="px-1 py-0.5 text-[11px] text-slate-400">
+                Name is always shown
+              </div>
+              {COLUMNS.map(col => (
+                <button
+                  key={col.key}
+                  onClick={e => {
+                    e.preventDefault();
+                    toggleCol(col.key);
+                  }}
+                  className="w-full flex items-center justify-between px-2 py-1.5 text-sm rounded hover:bg-slate-100 text-slate-700"
+                >
+                  {col.label}
+                  {isCol(col.key) && (
+                    <Check className="w-3.5 h-3.5 text-red-600" />
+                  )}
+                </button>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            onClick={() => {
+              loadAggregates();
+              loadChipCounts();
+              loadProducts();
+            }}
+            disabled={loading}
+            title="Reload"
+            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {/* ── Fix-Missing chips ──────────────────────────────────────────────── */}
@@ -570,6 +686,7 @@ export default function CatalogTreeEditor({
             products={products}
             loading={loading}
             categoryById={categoryById}
+            visibleCols={visibleCols}
             cellEdit={cellEdit}
             onStartEdit={startEdit}
             onEditChange={v =>
@@ -629,15 +746,22 @@ interface GridEditProps {
   onToggleAvailability: (product: Product) => void;
 }
 
+// Sticky-left offsets: checkbox column (40px) then Name column pinned after it.
+const STICKY_CHECK = "sticky left-0 z-20 bg-white";
+const STICKY_NAME = "sticky z-20 bg-white";
+const NAME_LEFT = 40; // px — width of the checkbox column
+
 function ProductGrid({
   products,
   loading,
   categoryById,
+  visibleCols,
   ...edit
 }: {
   products: Product[];
   loading: boolean;
   categoryById: Map<string, Category>;
+  visibleCols: Set<ColKey>;
 } & GridEditProps) {
   if (loading) {
     return (
@@ -654,18 +778,31 @@ function ProductGrid({
     );
   }
 
+  const cols = COLUMNS.filter(c => visibleCols.has(c.key));
+
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="text-sm border-separate border-spacing-0 min-w-full">
         <thead>
-          <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-400">
-            <th className="w-10 px-3 py-2"></th>
-            <th className="w-14 px-2 py-2">Image</th>
-            <th className="px-2 py-2 min-w-[180px]">Name</th>
-            <th className="px-2 py-2 w-28">Price</th>
-            <th className="px-2 py-2 w-32">Availability</th>
-            <th className="px-2 py-2 min-w-[200px]">Description</th>
-            <th className="px-2 py-2 w-16 text-center">Score</th>
+          <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+            <th
+              className={`${STICKY_CHECK} w-10 px-3 py-2 border-b border-slate-200`}
+              style={{ left: 0 }}
+            />
+            <th
+              className={`${STICKY_NAME} px-2 py-2 min-w-[200px] border-b border-r border-slate-200`}
+              style={{ left: NAME_LEFT }}
+            >
+              Name
+            </th>
+            {cols.map(c => (
+              <th
+                key={c.key}
+                className="px-3 py-2 whitespace-nowrap border-b border-slate-200"
+              >
+                {c.label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -674,6 +811,7 @@ function ProductGrid({
               key={p.id}
               product={p}
               categoryById={categoryById}
+              visibleCols={visibleCols}
               {...edit}
             />
           ))}
@@ -732,6 +870,7 @@ function InlineInput({
 function ProductRow({
   product,
   categoryById,
+  visibleCols,
   cellEdit,
   onStartEdit,
   onEditChange,
@@ -741,6 +880,7 @@ function ProductRow({
 }: {
   product: Product;
   categoryById: Map<string, Category>;
+  visibleCols: Set<ColKey>;
 } & GridEditProps) {
   const p = product;
   const img = p.image_url ? normalizeImageUrl(p.image_url) : null;
@@ -748,6 +888,7 @@ function ProductRow({
   const naDesc = p.na_fields?.includes("description");
   const priceMissing = isPriceOnEnquiry(p.price);
   const descMissing = !p.description?.trim() || p.description.trim().length < 15;
+  const cat = categoryById.get(p.category_id);
 
   const editingHere = (field: EditField) =>
     cellEdit?.productId === p.id && cellEdit.field === field;
@@ -759,57 +900,52 @@ function ProductRow({
     onCancel,
   };
 
-  return (
-    <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 align-middle">
-      <td className="px-3 py-2">
-        <input type="checkbox" disabled className="opacity-40" />
-      </td>
-      {/* Thumbnail — display only in this phase (image assign is Phase 3) */}
-      <td className="px-2 py-2">
-        <div
-          className={`w-10 h-10 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
-            img || naImage ? "bg-slate-50" : RED_CELL
-          }`}
-          title={img || naImage ? undefined : "No image"}
-        >
-          {img ? (
-            <img
-              src={img}
-              alt=""
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <ImageIcon
-              className={`w-4 h-4 ${naImage ? "text-slate-300" : "text-red-400"}`}
-            />
-          )}
-        </div>
-      </td>
-      {/* Name — click to edit */}
-      <td className="px-2 py-2">
-        {editingHere("name") ? (
-          <InlineInput {...editorProps} placeholder="Product name" />
-        ) : (
+  const cols = COLUMNS.filter(c => visibleCols.has(c.key));
+
+  const renderCell = (key: ColKey) => {
+    switch (key) {
+      case "sku":
+        return (
+          <span className="text-xs font-mono text-slate-500">
+            {p.sku || "—"}
+          </span>
+        );
+      case "category":
+        return (
+          <span className="text-xs text-slate-600">{cat?.name ?? "—"}</span>
+        );
+      case "group":
+        return (
+          <span className="text-xs text-slate-500">
+            {cat?.group_name ?? "—"}
+          </span>
+        );
+      case "unit":
+        return (
+          <span className="text-xs text-slate-600 whitespace-nowrap">
+            {p.unit_of_measure || "pcs"}
+            {p.quantity_in_unit ? ` · ${p.quantity_in_unit}/pack` : ""}
+          </span>
+        );
+      case "stock":
+        return (
           <button
-            onClick={() => onStartEdit(p.id, "name", p.name)}
-            className="text-left w-full group"
-            title="Click to edit"
+            onClick={() => onToggleAvailability(p)}
+            className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-1.5 py-1 hover:bg-slate-100 ${
+              p.is_active ? "text-emerald-700" : "text-slate-400"
+            }`}
+            title="Click to toggle availability"
           >
-            <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-red-600">
-              {p.name}
-            </span>
-            <span className="block text-[11px] text-slate-400 truncate">
-              {categoryById.get(p.category_id)?.name ?? "—"}
-            </span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                p.is_active ? "bg-emerald-500" : "bg-slate-300"
+              }`}
+            />
+            {p.is_active ? "Available" : "Unavailable"}
           </button>
-        )}
-      </td>
-      {/* Price — blank sets NULL (On Enquiry); never renders ₹0 as a price */}
-      <td
-        className={`px-2 py-2 ${priceMissing && !editingHere("price") ? RED_CELL : ""}`}
-      >
-        {editingHere("price") ? (
+        );
+      case "price":
+        return editingHere("price") ? (
           <InlineInput {...editorProps} numeric placeholder="blank = enquiry" />
         ) : (
           <button
@@ -827,35 +963,14 @@ function ProductRow({
               </span>
             )}
           </button>
-        )}
-      </td>
-      {/* Availability — click toggles is_active */}
-      <td className="px-2 py-2">
-        <button
-          onClick={() => onToggleAvailability(p)}
-          className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-1.5 py-1 hover:bg-slate-100 ${
-            p.is_active ? "text-emerald-700" : "text-slate-400"
-          }`}
-          title="Click to toggle availability"
-        >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              p.is_active ? "bg-emerald-500" : "bg-slate-300"
-            }`}
-          />
-          {p.is_active ? "Available" : "Unavailable"}
-        </button>
-      </td>
-      {/* Description — click to edit; blank sets NULL */}
-      <td
-        className={`px-2 py-2 ${descMissing && !naDesc && !editingHere("description") ? RED_CELL : ""}`}
-      >
-        {editingHere("description") ? (
+        );
+      case "description":
+        return editingHere("description") ? (
           <InlineInput {...editorProps} placeholder="Short description" />
         ) : (
           <button
             onClick={() => onStartEdit(p.id, "description", p.description)}
-            className="text-left w-full"
+            className="text-left w-full min-w-[180px]"
             title="Click to edit description"
           >
             {p.description?.trim() ? (
@@ -868,12 +983,112 @@ function ProductRow({
               </span>
             )}
           </button>
-        )}
+        );
+      case "status":
+        return (
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+              p.status === "published"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {p.status === "published" ? "Published" : "Draft"}
+          </span>
+        );
+      case "score": {
+        const { score } = productCompleteness(p);
+        return (
+          <span
+            className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${completenessColor(score)}`}
+          >
+            {score}
+          </span>
+        );
+      }
+      case "updated":
+        return (
+          <span className="text-xs text-slate-500 whitespace-nowrap">
+            {p.updated_at
+              ? new Date(p.updated_at).toLocaleDateString()
+              : "—"}
+          </span>
+        );
+    }
+  };
+
+  // Red-tint helper for the columns that flag missing data.
+  const cellTint = (key: ColKey) => {
+    if (key === "price" && priceMissing && !editingHere("price"))
+      return RED_CELL;
+    if (
+      key === "description" &&
+      descMissing &&
+      !naDesc &&
+      !editingHere("description")
+    )
+      return RED_CELL;
+    return "";
+  };
+
+  return (
+    <tr className="hover:bg-slate-50/60 align-middle group/row">
+      <td
+        className={`${STICKY_CHECK} group-hover/row:bg-slate-50 px-3 py-2 border-b border-slate-100`}
+        style={{ left: 0 }}
+      >
+        <input type="checkbox" disabled className="opacity-40" />
       </td>
-      {/* Score placeholder (Phase 1 — real score lands later) */}
-      <td className="px-2 py-2 text-center">
-        <span className="text-slate-300 text-xs">—</span>
+      {/* Name — sticky, thumbnail + click-to-edit */}
+      <td
+        className={`${STICKY_NAME} group-hover/row:bg-slate-50 px-2 py-2 border-b border-r border-slate-100`}
+        style={{ left: NAME_LEFT }}
+      >
+        <div className="flex items-center gap-2 min-w-[190px]">
+          <div
+            className={`w-8 h-8 flex-shrink-0 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
+              img || naImage ? "bg-slate-50" : RED_CELL
+            }`}
+            title={img || naImage ? undefined : "No image"}
+          >
+            {img ? (
+              <img
+                src={img}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <ImageIcon
+                className={`w-3.5 h-3.5 ${naImage ? "text-slate-300" : "text-red-400"}`}
+              />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            {editingHere("name") ? (
+              <InlineInput {...editorProps} placeholder="Product name" />
+            ) : (
+              <button
+                onClick={() => onStartEdit(p.id, "name", p.name)}
+                className="text-left w-full group"
+                title="Click to edit"
+              >
+                <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-red-600">
+                  {p.name}
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
       </td>
+      {cols.map(c => (
+        <td
+          key={c.key}
+          className={`px-3 py-2 border-b border-slate-100 ${cellTint(c.key)}`}
+        >
+          {renderCell(c.key)}
+        </td>
+      ))}
     </tr>
   );
 }
