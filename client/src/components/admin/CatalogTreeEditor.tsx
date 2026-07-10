@@ -21,6 +21,7 @@ import {
   MissingCounts,
 } from "@/lib/healthService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 
 const PAGE_SIZE = 50;
 
@@ -287,16 +288,14 @@ export default function CatalogTreeEditor({
     const patch: Record<string, unknown> = {};
     if (field === "price") {
       const t = value.trim();
-      if (t === "") {
-        patch.price = null; // NULL = Price on enquiry
-      } else {
-        const n = parseFloat(t);
-        if (isNaN(n) || n < 0) {
-          toast.error("Enter a valid price");
-          return;
-        }
-        patch.price = n;
+      const n = t === "" ? null : parseFloat(t);
+      if (n !== null && isNaN(n)) {
+        toast.error("Enter a valid price");
+        return;
       }
+      // Blank / 0 / negative all mean "on enquiry" → NULL, never a stored ₹0
+      // (shared rule with the storefront — see lib/priceUtils.ts).
+      patch.price = isPriceOnEnquiry(n) ? null : n;
     } else if (field === "name") {
       const t = value.trim();
       if (!t) {
@@ -747,7 +746,7 @@ function ProductRow({
   const img = p.image_url ? normalizeImageUrl(p.image_url) : null;
   const naImage = p.na_fields?.includes("image");
   const naDesc = p.na_fields?.includes("description");
-  const priceMissing = p.price == null;
+  const priceMissing = isPriceOnEnquiry(p.price);
   const descMissing = !p.description?.trim() || p.description.trim().length < 15;
 
   const editingHere = (field: EditField) =>
