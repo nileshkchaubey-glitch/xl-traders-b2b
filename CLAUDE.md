@@ -187,6 +187,18 @@ inquiries, orders, order_items, import_logs, business_settings
     (name/image/visibility); `AdminMasters` mobile cards → `MobileMasterSheet` (active toggle,
     variants + per-variant full-editor link, add/delete). All bottom sheets use the one vaul
     `Drawer` primitive (`ui/drawer`, swipe-to-close); 44px+ targets throughout.
+- **Catalog Tree Editor (Phase 1 of 3):** `/admin` → **Catalog Editor** tab — an
+  *additional* editing surface beside the Products table (does not replace it). Left
+  collapsible Group › Category tree (real `group_name`s; ungrouped bucket) with per-node
+  product counts + health dots (green/amber/red from `healthService.getCategoryHealth`, a
+  `v_product_health` rollup); selecting a node filters the main table server-side via
+  `productService.getAllAdmin` (`categoryIds[]` for groups, `.range()` pagination kept).
+  Main panel is an inline-editable table (Name / Price / Availability / Description; click
+  a cell, Enter/blur saves via `productService.update`, Esc cancels; blank/0 price → NULL
+  "On Enquiry" via shared `isPriceOnEnquiry` (never ₹0); missing price/desc/image render
+  red-tinted). Top "Fix Missing" chips (No price / No description / No image / Draft) with
+  live node-scoped counts filter the table. Thumbnails display-only (image assign = Phase
+  3); keyboard nav = Phase 2.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
