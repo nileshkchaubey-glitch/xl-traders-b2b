@@ -16,6 +16,14 @@ import { normalizeImageUrl } from "@/lib/imageUtils";
 
 const PAGE_SIZE = 50;
 
+// ── Inline editing ────────────────────────────────────────────────────────────
+type EditField = "name" | "price" | "description";
+interface CellEdit {
+  productId: string;
+  field: EditField;
+  value: string;
+}
+
 // ── Tree selection ────────────────────────────────────────────────────────────
 type TreeSelection =
   | { kind: "all" }
@@ -176,6 +184,88 @@ export default function CatalogTreeEditor({
       setLoading(false);
     }
   }, [page, scopedCategoryIds]);
+
+  // ── Inline cell editing ──────────────────────────────────────────────────────
+  const [cellEdit, setCellEdit] = useState<CellEdit | null>(null);
+
+  const startEdit = (
+    productId: string,
+    field: EditField,
+    current: string | number | null | undefined
+  ) => setCellEdit({ productId, field, value: current == null ? "" : String(current) });
+  const cancelEdit = () => setCellEdit(null);
+
+  // Persist one field via productService (service layer only) with an optimistic
+  // row patch. Blank price → NULL ("On Enquiry"), never 0. Tree aggregates are
+  // refreshed since completeness (and thus a category's health dot) can change.
+  const commitEdit = async () => {
+    if (!cellEdit) return;
+    const { productId, field, value } = cellEdit;
+    const prod = products.find(p => p.id === productId);
+    if (!prod) {
+      setCellEdit(null);
+      return;
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (field === "price") {
+      const t = value.trim();
+      if (t === "") {
+        patch.price = null; // NULL = Price on enquiry
+      } else {
+        const n = parseFloat(t);
+        if (isNaN(n) || n < 0) {
+          toast.error("Enter a valid price");
+          return;
+        }
+        patch.price = n;
+      }
+    } else if (field === "name") {
+      const t = value.trim();
+      if (!t) {
+        toast.error("Name can't be empty");
+        return;
+      }
+      patch.name = t;
+    } else {
+      patch.description = value.trim() || null;
+    }
+
+    // No-op guard
+    const current = (prod as unknown as Record<string, unknown>)[field] ?? "";
+    const nextVal = patch[field] ?? "";
+    if (String(current) === String(nextVal)) {
+      setCellEdit(null);
+      return;
+    }
+
+    setProducts(prev =>
+      prev.map(p => (p.id === productId ? { ...p, ...patch } : p))
+    );
+    setCellEdit(null);
+    try {
+      await productService.update(productId, patch as Partial<Product>);
+      toast.success("Saved");
+      loadAggregates();
+    } catch {
+      toast.error("Save failed");
+      loadProducts();
+    }
+  };
+
+  // Availability toggles is_active directly (there is no separate stock field).
+  const toggleAvailability = async (prod: Product) => {
+    const next = !prod.is_active;
+    setProducts(prev =>
+      prev.map(p => (p.id === prod.id ? { ...p, is_active: next } : p))
+    );
+    try {
+      await productService.update(prod.id, { is_active: next });
+    } catch {
+      toast.error("Update failed");
+      loadProducts();
+    }
+  };
 
   // Reset to page 1 whenever the selected node changes.
   const prevScope = useRef<string>("all");
@@ -361,6 +451,14 @@ export default function CatalogTreeEditor({
             products={products}
             loading={loading}
             categoryById={categoryById}
+            cellEdit={cellEdit}
+            onStartEdit={startEdit}
+            onEditChange={v =>
+              setCellEdit(prev => (prev ? { ...prev, value: v } : prev))
+            }
+            onCommit={commitEdit}
+            onCancel={cancelEdit}
+            onToggleAvailability={toggleAvailability}
           />
 
           {/* Pagination */}
@@ -399,15 +497,29 @@ export default function CatalogTreeEditor({
 }
 
 // ── Product table ─────────────────────────────────────────────────────────────
+interface GridEditProps {
+  cellEdit: CellEdit | null;
+  onStartEdit: (
+    productId: string,
+    field: EditField,
+    current: string | number | null | undefined
+  ) => void;
+  onEditChange: (value: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+  onToggleAvailability: (product: Product) => void;
+}
+
 function ProductGrid({
   products,
   loading,
   categoryById,
+  ...edit
 }: {
   products: Product[];
   loading: boolean;
   categoryById: Map<string, Category>;
-}) {
+} & GridEditProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-16 text-slate-400 bg-white border border-slate-200 rounded-xl">
@@ -439,7 +551,12 @@ function ProductGrid({
         </thead>
         <tbody>
           {products.map(p => (
-            <ProductRow key={p.id} product={p} categoryById={categoryById} />
+            <ProductRow
+              key={p.id}
+              product={p}
+              categoryById={categoryById}
+              {...edit}
+            />
           ))}
         </tbody>
       </table>
@@ -449,13 +566,63 @@ function ProductGrid({
 
 const RED_CELL = "bg-red-50/70";
 
+// Auto-focusing inline editor: Enter commits, Escape cancels, blur commits.
+function InlineInput({
+  value,
+  onChange,
+  onCommit,
+  onCancel,
+  numeric,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+  numeric?: boolean;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => ref.current?.focus(), 20);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <input
+      ref={ref}
+      type={numeric ? "number" : "text"}
+      step={numeric ? "0.01" : undefined}
+      value={value}
+      placeholder={placeholder}
+      onChange={e => onChange(e.target.value)}
+      onBlur={onCommit}
+      onKeyDown={e => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onCommit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+      }}
+      className="w-full h-8 rounded-md border border-red-300 bg-white px-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-200"
+    />
+  );
+}
+
 function ProductRow({
   product,
   categoryById,
+  cellEdit,
+  onStartEdit,
+  onEditChange,
+  onCommit,
+  onCancel,
+  onToggleAvailability,
 }: {
   product: Product;
   categoryById: Map<string, Category>;
-}) {
+} & GridEditProps) {
   const p = product;
   const img = p.image_url ? normalizeImageUrl(p.image_url) : null;
   const naImage = p.na_fields?.includes("image");
@@ -463,17 +630,28 @@ function ProductRow({
   const priceMissing = p.price == null;
   const descMissing = !p.description?.trim() || p.description.trim().length < 15;
 
+  const editingHere = (field: EditField) =>
+    cellEdit?.productId === p.id && cellEdit.field === field;
+
+  const editorProps = {
+    value: cellEdit?.value ?? "",
+    onChange: onEditChange,
+    onCommit,
+    onCancel,
+  };
+
   return (
     <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 align-middle">
       <td className="px-3 py-2">
         <input type="checkbox" disabled className="opacity-40" />
       </td>
-      {/* Thumbnail — display only in this phase */}
+      {/* Thumbnail — display only in this phase (image assign is Phase 3) */}
       <td className="px-2 py-2">
         <div
           className={`w-10 h-10 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
             img || naImage ? "bg-slate-50" : RED_CELL
           }`}
+          title={img || naImage ? undefined : "No image"}
         >
           {img ? (
             <img
@@ -489,31 +667,57 @@ function ProductRow({
           )}
         </div>
       </td>
-      {/* Name */}
+      {/* Name — click to edit */}
       <td className="px-2 py-2">
-        <div className="font-medium text-slate-800 truncate max-w-[260px]">
-          {p.name}
-        </div>
-        <div className="text-[11px] text-slate-400 truncate">
-          {categoryById.get(p.category_id)?.name ?? "—"}
-        </div>
-      </td>
-      {/* Price */}
-      <td className={`px-2 py-2 ${priceMissing ? RED_CELL : ""}`}>
-        {priceMissing ? (
-          <span className="text-amber-700 text-xs font-medium">On Enquiry</span>
+        {editingHere("name") ? (
+          <InlineInput {...editorProps} placeholder="Product name" />
         ) : (
-          <span className="font-semibold text-slate-800">
-            ₹{Number(p.price).toLocaleString()}
-          </span>
+          <button
+            onClick={() => onStartEdit(p.id, "name", p.name)}
+            className="text-left w-full group"
+            title="Click to edit"
+          >
+            <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-red-600">
+              {p.name}
+            </span>
+            <span className="block text-[11px] text-slate-400 truncate">
+              {categoryById.get(p.category_id)?.name ?? "—"}
+            </span>
+          </button>
         )}
       </td>
-      {/* Availability */}
+      {/* Price — blank sets NULL (On Enquiry); never renders ₹0 as a price */}
+      <td
+        className={`px-2 py-2 ${priceMissing && !editingHere("price") ? RED_CELL : ""}`}
+      >
+        {editingHere("price") ? (
+          <InlineInput {...editorProps} numeric placeholder="blank = enquiry" />
+        ) : (
+          <button
+            onClick={() => onStartEdit(p.id, "price", p.price)}
+            className="text-left w-full"
+            title="Click to edit price"
+          >
+            {priceMissing ? (
+              <span className="text-amber-700 text-xs font-semibold">
+                On Enquiry
+              </span>
+            ) : (
+              <span className="font-semibold text-slate-800">
+                ₹{Number(p.price).toLocaleString()}
+              </span>
+            )}
+          </button>
+        )}
+      </td>
+      {/* Availability — click toggles is_active */}
       <td className="px-2 py-2">
-        <span
-          className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+        <button
+          onClick={() => onToggleAvailability(p)}
+          className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-1.5 py-1 hover:bg-slate-100 ${
             p.is_active ? "text-emerald-700" : "text-slate-400"
           }`}
+          title="Click to toggle availability"
         >
           <span
             className={`w-1.5 h-1.5 rounded-full ${
@@ -521,21 +725,33 @@ function ProductRow({
             }`}
           />
           {p.is_active ? "Available" : "Unavailable"}
-        </span>
+        </button>
       </td>
-      {/* Description */}
-      <td className={`px-2 py-2 ${descMissing && !naDesc ? RED_CELL : ""}`}>
-        {p.description?.trim() ? (
-          <span className="text-slate-600 text-xs line-clamp-2">
-            {p.description}
-          </span>
+      {/* Description — click to edit; blank sets NULL */}
+      <td
+        className={`px-2 py-2 ${descMissing && !naDesc && !editingHere("description") ? RED_CELL : ""}`}
+      >
+        {editingHere("description") ? (
+          <InlineInput {...editorProps} placeholder="Short description" />
         ) : (
-          <span className="text-red-400 text-xs italic">
-            {naDesc ? "—" : "No description"}
-          </span>
+          <button
+            onClick={() => onStartEdit(p.id, "description", p.description)}
+            className="text-left w-full"
+            title="Click to edit description"
+          >
+            {p.description?.trim() ? (
+              <span className="text-slate-600 text-xs line-clamp-2">
+                {p.description}
+              </span>
+            ) : (
+              <span className="text-red-400 text-xs italic">
+                {naDesc ? "—" : "Add description"}
+              </span>
+            )}
+          </button>
         )}
       </td>
-      {/* Score placeholder (Phase 1) */}
+      {/* Score placeholder (Phase 1 — real score lands later) */}
       <td className="px-2 py-2 text-center">
         <span className="text-slate-300 text-xs">—</span>
       </td>
