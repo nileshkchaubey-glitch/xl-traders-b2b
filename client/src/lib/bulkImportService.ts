@@ -1,6 +1,7 @@
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { supabase } from "./supabase";
+import { isPriceOnEnquiry } from "./priceUtils";
 
 export interface ImportRow {
   master_name?: string;
@@ -151,15 +152,17 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
   if (!row.unit || typeof row.unit !== "string" || !row.unit.trim()) {
     throw new Error("Missing or invalid unit");
   }
-  const rawPrice =
+  const parsedPrice =
     row.price !== undefined &&
     row.price !== null &&
     String(row.price).trim() !== ""
       ? parseFloat(row.price)
       : null;
-  if (rawPrice !== null && (isNaN(rawPrice) || rawPrice < 0)) {
-    throw new Error("Invalid price — must be a positive number or left blank");
+  if (parsedPrice !== null && isNaN(parsedPrice)) {
+    throw new Error("Invalid price — must be a number or left blank");
   }
+  // 0 / negative mean "price on enquiry" → store NULL, never a literal ₹0.
+  const rawPrice = isPriceOnEnquiry(parsedPrice) ? null : parsedPrice;
   // quantity_in_unit is optional — blank defaults to 1 (matches the Google Sheets
   // path and the documented template). Only reject a value that is present but invalid.
   const hasQty =

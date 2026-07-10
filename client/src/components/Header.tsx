@@ -26,6 +26,7 @@ import {
 } from "@/lib/productService";
 import { Product } from "@/lib/supabase";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import { settingsService, FALLBACKS } from "@/lib/settingsService";
 
 const RECENTS_KEY = "xl-recent-searches";
@@ -173,9 +174,9 @@ export default function Header() {
                   .join(" · ")}
               </div>
             </div>
-            {isAuthenticated && p.price != null && (
+            {isAuthenticated && !isPriceOnEnquiry(p.price) && (
               <div className="text-[12.5px] font-bold text-red-600">
-                ₹{p.price.toLocaleString()}
+                ₹{p.price!.toLocaleString()}
               </div>
             )}
           </Link>

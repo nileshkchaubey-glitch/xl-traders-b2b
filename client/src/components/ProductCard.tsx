@@ -6,6 +6,7 @@ import { enquiryService, inquiriesService } from "@/lib/productService";
 import { useCartStore } from "@/stores/cartStore";
 import { ImagePlaceholder } from "./ImagePlaceholder";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { isPriceOnEnquiry, cartLinePrice } from "@/lib/priceUtils";
 import { toast } from "sonner";
 
 interface ProductCardProps {
@@ -54,8 +55,8 @@ export default function ProductCard({
       productId: product.id,
       sku: product.sku ?? product.id,
       name: product.name,
-      price: product.price ?? 0,
-      priceOnEnquiry: product.price == null ? true : undefined,
+      price: cartLinePrice(product.price),
+      priceOnEnquiry: isPriceOnEnquiry(product.price) ? true : undefined,
       unit: product.unit_of_measure ?? "pcs",
       imageUrl: product.image_url ?? undefined,
       moq,
@@ -77,7 +78,9 @@ export default function ProductCard({
   const handleEnquire = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const priceStr = product.price != null ? `Price: ₹${product.price}. ` : "";
+    const priceStr = !isPriceOnEnquiry(product.price)
+      ? `Price: ₹${product.price}. `
+      : "";
     const message = isAuthenticated
       ? `Hi, I'm interested in: ${product.name}. ${priceStr}Please provide more details.`
       : `Hi, I'm interested in: ${product.name}. Could you please share the price and more details?`;
@@ -131,11 +134,11 @@ export default function ProductCard({
     .join(" · ");
 
   const priceBlock = isAuthenticated ? (
-    product.price != null ? (
+    !isPriceOnEnquiry(product.price) ? (
       <>
         <div className="flex items-baseline gap-1.5">
           <span className="text-base font-extrabold text-red-600 tabular-nums">
-            ₹{product.price.toLocaleString()}
+            ₹{product.price!.toLocaleString()}
           </span>
           {product.quantity_in_unit ? (
             <span className="text-[11.5px] text-slate-500">
@@ -151,7 +154,7 @@ export default function ProductCard({
         </div>
         <div className="text-[11.5px] text-slate-500">
           {product.quantity_in_unit && product.quantity_in_unit > 1
-            ? `₹${(Math.round((product.price / product.quantity_in_unit) * 100) / 100).toLocaleString()}/pc · `
+            ? `₹${(Math.round((product.price! / product.quantity_in_unit) * 100) / 100).toLocaleString()}/pc · `
             : ""}
           {product.moq ? `MOQ ${product.moq}` : "No minimum"}
         </div>

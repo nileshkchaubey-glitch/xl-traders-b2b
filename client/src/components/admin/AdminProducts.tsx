@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { productService, categoryService } from "@/lib/productService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import { Product, Category, ProductStatus } from "@/lib/supabase";
 import {
   productCompleteness,
@@ -626,8 +627,9 @@ export default function AdminProducts({
 
     // Validate
     if (field === "price") {
-      const n = parseFloat(value);
-      if (isNaN(n) || n < 0) {
+      // Blank / 0 / negative are all valid — they mean "on enquiry" (→ NULL).
+      const t = value.trim();
+      if (t !== "" && isNaN(parseFloat(t))) {
         toast.error("Invalid price");
         return false;
       }
@@ -655,8 +657,12 @@ export default function AdminProducts({
     setCellSaving(true);
     try {
       const update: Record<string, any> = {};
-      if (field === "price") update.price = parseFloat(value);
-      else if (field === "mrp") update.mrp = value ? parseFloat(value) : null;
+      if (field === "price") {
+        const t = value.trim();
+        const n = t === "" ? null : parseFloat(t);
+        // Never store 0 — a zero/blank price is "on enquiry" (NULL).
+        update.price = isPriceOnEnquiry(n) ? null : n;
+      } else if (field === "mrp") update.mrp = value ? parseFloat(value) : null;
       else if (field === "quantity_in_unit")
         update.quantity_in_unit = value ? parseInt(value) : null;
       else update[field] = value || null;
@@ -798,10 +804,14 @@ export default function AdminProducts({
       const created = await productService.create({
         name: quickAdd.name.trim(),
         category_id: categoryId,
-        price:
-          quickAdd.price && !isNaN(parseFloat(quickAdd.price))
-            ? parseFloat(quickAdd.price)
-            : null,
+        price: (() => {
+          const n =
+            quickAdd.price && !isNaN(parseFloat(quickAdd.price))
+              ? parseFloat(quickAdd.price)
+              : null;
+          // 0 / blank → NULL ("on enquiry"), never a stored ₹0.
+          return isPriceOnEnquiry(n) ? null : n;
+        })(),
         mrp: quickAdd.mrp ? parseFloat(quickAdd.mrp) : undefined,
         unit_of_measure: quickAdd.unit_of_measure,
         quantity_in_unit: quickAdd.quantity_in_unit

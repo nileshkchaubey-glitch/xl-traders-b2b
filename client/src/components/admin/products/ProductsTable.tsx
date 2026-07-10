@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Product, ProductStatus } from "@/lib/supabase";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import { productCompleteness, completenessColor } from "@/lib/catalogHealth";
 import EditableCell from "@/components/admin/products/EditableCell";
 
@@ -85,7 +86,8 @@ export type ProductPatch = Omit<Partial<Product>, "price"> & {
 };
 
 function formatPrice(price: number): string {
-  if (price === 0) return "Free";
+  // 0 / null are "on enquiry", never ₹0 (and no longer "Free").
+  if (isPriceOnEnquiry(price)) return "Enquiry";
   return `₹${price.toLocaleString("en-IN")}`;
 }
 
@@ -274,9 +276,10 @@ export default function ProductsTable({
                           }
                           onCommit={raw => {
                             const trimmed = raw.trim();
-                            const price =
-                              trimmed === "" ? null : Number(trimmed);
-                            if (price !== null && Number.isNaN(price)) return;
+                            const parsed = trimmed === "" ? null : Number(trimmed);
+                            if (parsed !== null && Number.isNaN(parsed)) return;
+                            // 0 / negative means "on enquiry" → store NULL, never 0.
+                            const price = isPriceOnEnquiry(parsed) ? null : parsed;
                             onInlineUpdate(product.id, { price });
                           }}
                         />

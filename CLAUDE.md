@@ -49,7 +49,7 @@ Owner: Nilesh — solo operator, no staff.
 
 ```
 id, name, slug, category_id (NOT NULL FK),
-price (nullable — NULL=enquiry, 0=free), mrp (nullable),
+price (nullable — NULL or 0/negative = "on enquiry"; NEVER rendered as ₹0), mrp (nullable),
 moq (nullable — NULL=unknown), unit_of_measure, quantity_in_unit,
 brand, description, image_url, is_active,
 bulk_price, bulk_threshold, sku, barcode,
@@ -110,7 +110,10 @@ inquiries, orders, order_items, import_logs, business_settings
 
 - Product catalog, category browsing, search & filters
 - B2B price gate (prices hidden from anonymous users)
-- **Null-price safety:** "Price on enquiry" shown everywhere (cards, detail, cart, WhatsApp) — never ₹0
+- **Null-price safety:** "Price on enquiry" shown everywhere (cards, detail, cart, WhatsApp) — never ₹0.
+  The single rule lives in `lib/priceUtils.ts` — `isPriceOnEnquiry(price)` treats NULL **and 0/negative**
+  as on-enquiry (0 is no longer "free"); every render/consume site funnels through it, and all price-save
+  paths (inline edits, editor/drawer, quick-add, bulk import) coerce 0 → NULL so a ₹0 is never stored.
 - Cart → Place Order via WhatsApp (null-price items included as enquiry lines)
 - **Publish gate:** only status='published' AND is_active=true appear publicly
 - **Variant selector:** size buttons (250ml/500ml/1000ml) update price/SKU/MOQ/URL without reload
