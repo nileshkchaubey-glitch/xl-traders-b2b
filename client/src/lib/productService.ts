@@ -537,8 +537,7 @@ export const productService = {
   // query AdminProducts runs inline; kept here so service-only callers reuse it.)
   async getVariantIds(ids: string[]): Promise<Set<string>> {
     const variants = new Set<string>();
-    for (let i = 0; i < ids.length; i += 300) {
-      const part = ids.slice(i, i + 300);
+    for (const part of chunk(ids, BULK_CHUNK)) {
       const { data, error } = await supabase
         .from("products")
         .select("id")

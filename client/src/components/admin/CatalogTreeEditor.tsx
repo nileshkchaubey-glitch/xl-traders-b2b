@@ -240,6 +240,9 @@ export default function CatalogTreeEditor({
   const [bulkMoq, setBulkMoq] = useState("");
   const [naDialogOpen, setNaDialogOpen] = useState(false);
   const [naSelected, setNaSelected] = useState<string[]>([]);
+  // Bumped after a one-shot "Set unit" so the Select remounts back to its
+  // placeholder instead of sticking on the last picked value.
+  const [unitSelectKey, setUnitSelectKey] = useState(0);
 
   // Table state
   const [products, setProducts] = useState<Product[]>([]);
@@ -544,12 +547,14 @@ export default function CatalogTreeEditor({
 
   // Shared flow (mirrors AdminProducts): resolve ids → optional transform (e.g.
   // skip variants) → confirm with the EXACT final count → run → refresh.
+  // Returns true only when the action actually ran (false on empty targets, a
+  // cancelled confirm, or an error) so callers know whether to clear their input.
   const runBulk = async (
     confirmLabel: (n: number) => string,
     run: (ids: string[]) => Promise<number>,
     transform?: (ids: string[]) => Promise<{ ids: string[]; note?: string }>
-  ) => {
-    if (bulkBusy) return;
+  ): Promise<boolean> => {
+    if (bulkBusy) return false;
     setBulkBusy(true);
     try {
       let ids = await resolveTargetIds();
@@ -561,20 +566,22 @@ export default function CatalogTreeEditor({
       }
       if (!ids.length) {
         toast.error("No matching products");
-        return;
+        return false;
       }
       if (
         !window.confirm(confirmLabel(ids.length) + (note ? `\n\n${note}` : ""))
       )
-        return;
+        return false;
       const n = await run(ids);
       toast.success(`Updated ${n} product${n === 1 ? "" : "s"}`);
       clearSelection();
       loadProducts();
       loadAggregates();
       loadChipCounts();
+      return true;
     } catch {
       toast.error("Bulk action failed");
+      return false;
     } finally {
       setBulkBusy(false);
     }
@@ -603,11 +610,11 @@ export default function CatalogTreeEditor({
       toast.error("Enter a brand first");
       return;
     }
-    await runBulk(
+    const ok = await runBulk(
       n => `Set brand to "${value}" for ${n} products?`,
       ids => productService.bulkUpdateField(ids, "brand", value)
     );
-    setBulkBrand("");
+    if (ok) setBulkBrand("");
   };
 
   const doSetMoq = async () => {
@@ -616,18 +623,21 @@ export default function CatalogTreeEditor({
       toast.error("Enter a valid MOQ");
       return;
     }
-    await runBulk(
+    const ok = await runBulk(
       c => `Set MOQ to ${n} for ${c} products?`,
       ids => productService.bulkUpdateField(ids, "moq", n)
     );
-    setBulkMoq("");
+    if (ok) setBulkMoq("");
   };
 
-  const doSetUnit = (unit: string) =>
-    runBulk(
+  const doSetUnit = async (unit: string) => {
+    await runBulk(
       c => `Set unit to "${unit}" for ${c} products?`,
       ids => productService.bulkUpdateField(ids, "unit_of_measure", unit)
     );
+    // One-shot: reset the picker back to "Set unit…".
+    setUnitSelectKey(k => k + 1);
+  };
 
   const doSetCategory = (categoryId: string) => {
     const catName =
@@ -666,21 +676,38 @@ export default function CatalogTreeEditor({
     runBulk(
       c => `${on ? "Mark" : "Clear"} N/A (${labels}) for ${c} products?`,
       ids => productService.bulkSetNA(ids, naSelected, on)
-    ).finally(() => setNaSelected([]));
+    ).then(ok => {
+      if (ok) setNaSelected([]);
+    });
   };
 
   // ── Per-row: duplicate + feature toggle (same service methods as AdminProducts) ─
   const handleDuplicate = async (product: Product) => {
     try {
-      const { id, created_at, updated_at, sku, ...fields } = product;
+      // Drop identity + lineage fields: the copy is a fresh standalone product.
+      // Keeping master_id/variant_label would drop the copy back into the same
+      // master group under the same label (a duplicate variant).
+      const {
+        id,
+        created_at,
+        updated_at,
+        sku,
+        master_id,
+        variant_label,
+        ...fields
+      } = product;
       void id;
       void created_at;
       void updated_at;
       void sku;
+      void master_id;
+      void variant_label;
       await productService.create({
         ...fields,
         name: `${product.name} (Copy)`,
         sku: undefined,
+        master_id: null,
+        variant_label: null,
         is_active: false,
         status: "draft",
       } as Omit<Product, "id" | "created_at" | "updated_at">);
@@ -1338,7 +1365,11 @@ export default function CatalogTreeEditor({
                 Set
               </Button>
             </div>
-            <Select onValueChange={v => doSetUnit(v)} disabled={bulkBusy}>
+            <Select
+              key={unitSelectKey}
+              onValueChange={v => doSetUnit(v)}
+              disabled={bulkBusy}
+            >
               <SelectTrigger className="h-8 w-28 text-sm bg-slate-50">
                 <SelectValue placeholder="Set unit…" />
               </SelectTrigger>
