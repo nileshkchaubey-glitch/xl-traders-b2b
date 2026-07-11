@@ -531,6 +531,25 @@ export const productService = {
     return ((data ?? []) as { id: string }[]).map(r => r.id);
   },
 
+  // Of the given ids, returns the subset that are variants (master_id not null)
+  // so a bulk category change can skip them — a variant inherits its master's
+  // category. Chunked to keep the id list under the request URL limit. (Same
+  // query AdminProducts runs inline; kept here so service-only callers reuse it.)
+  async getVariantIds(ids: string[]): Promise<Set<string>> {
+    const variants = new Set<string>();
+    for (let i = 0; i < ids.length; i += 300) {
+      const part = ids.slice(i, i + 300);
+      const { data, error } = await supabase
+        .from("products")
+        .select("id")
+        .not("master_id", "is", null)
+        .in("id", part);
+      if (error) throw error;
+      ((data ?? []) as { id: string }[]).forEach(r => variants.add(r.id));
+    }
+    return variants;
+  },
+
   // Quick lookup for the admin command palette: matches name OR sku across
   // every status (drafts included — unlike the public search()). Returns only
   // the display columns the palette needs; price is intentionally excluded.
