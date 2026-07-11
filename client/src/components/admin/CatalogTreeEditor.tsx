@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useSearch, useLocation } from "wouter";
 import {
   FolderTree,
   ChevronRight,
@@ -8,21 +7,13 @@ import {
   ImageIcon,
   Boxes,
   RefreshCw,
-  Columns3,
-  Check,
   PanelRightOpen,
   Search,
   Plus,
   X,
 } from "lucide-react";
+import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { toast } from "sonner";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -31,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DataTable } from "@/components/ui/DataTable";
 import { Category, Product } from "@/lib/supabase";
 import {
   productService,
@@ -52,47 +44,12 @@ import CatalogProductPanel from "@/components/admin/CatalogProductPanel";
 
 const PAGE_SIZE = 50;
 
-// ── Columns ───────────────────────────────────────────────────────────────────
-type ColKey =
-  | "sku"
-  | "category"
-  | "group"
-  | "unit"
-  | "stock"
-  | "price"
-  | "description"
-  | "status"
-  | "score"
-  | "updated";
-
-interface ColDef {
-  key: ColKey;
-  label: string;
-  default: boolean;
-}
-
-// Name + checkbox are always shown (sticky-left) and so are not toggleable.
-const COLUMNS: ColDef[] = [
-  { key: "sku", label: "SKU", default: false },
-  { key: "category", label: "Category", default: true },
-  { key: "group", label: "Group", default: false },
-  { key: "unit", label: "Unit / Pack", default: true },
-  { key: "stock", label: "Stock", default: true },
-  { key: "price", label: "Price", default: true },
-  { key: "description", label: "Description", default: true },
-  { key: "status", label: "Status", default: true },
-  { key: "score", label: "Score", default: false },
-  { key: "updated", label: "Updated", default: false },
-];
-const COL_KEYS = COLUMNS.map(c => c.key);
-const DEFAULT_COLS = COLUMNS.filter(c => c.default).map(c => c.key);
-
-// Parse the `cols` URL param into a valid column set (falls back to defaults).
-function colsFromParam(raw: string | null): Set<ColKey> {
-  if (!raw) return new Set(DEFAULT_COLS);
-  const keys = raw.split(",").filter(k => (COL_KEYS as string[]).includes(k));
-  return new Set(keys as ColKey[]);
-}
+// Maps a sortable column id → the getAllAdmin sort field (server-side sort).
+const SORT_FIELD: Record<string, "name" | "price" | "updated_at"> = {
+  name: "name",
+  price: "price",
+  updated: "updated_at",
+};
 
 // ── Fix-Missing quick chips ───────────────────────────────────────────────────
 // The three most-common missing dimensions get a one-click chip (with a live
@@ -216,30 +173,12 @@ export default function CatalogTreeEditor({
     return m;
   }, [categories]);
 
-  // Column visibility — seeded from the `cols` URL param, persisted back to it
-  // (in-memory + URL only; localStorage is restricted in our stack).
-  const urlSearch = useSearch();
-  const [, setLocation] = useLocation();
-  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() =>
-    colsFromParam(new URLSearchParams(urlSearch).get("cols"))
-  );
-  const isCol = useCallback(
-    (key: ColKey) => visibleCols.has(key),
-    [visibleCols]
-  );
-  const toggleCol = (key: ColKey) =>
-    setVisibleCols(prev => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  // Persist the choice to the URL (merging, so ?tab / ?missing survive).
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("cols", COL_KEYS.filter(k => visibleCols.has(k)).join(","));
-    setLocation(`/admin?${params.toString()}`, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleCols]);
+  // Column visibility + density now live inside <DataTable> (persisted to the
+  // URL under the `cat` key). We only mirror the visible column ids here so the
+  // keyboard-nav helper knows which editable columns are on screen. Server-side
+  // sort state is owned here and passed down.
+  const [visibleColIds, setVisibleColIds] = useState<string[]>([]);
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   // Tree state
   const [selection, setSelection] = useState<TreeSelection>({ kind: "all" });
@@ -276,7 +215,6 @@ export default function CatalogTreeEditor({
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   // Resolve the category ids the current tree node covers. `undefined` = the
   // "All Products" root (no category constraint).
@@ -335,6 +273,7 @@ export default function CatalogTreeEditor({
           scopedCategoryIds
         );
       }
+      const sort = sorting[0];
       const { data, count } = await productService.getAllAdmin({
         page,
         pageSize: PAGE_SIZE,
@@ -342,6 +281,8 @@ export default function CatalogTreeEditor({
         ids,
         status: statusFilter,
         search: search || undefined,
+        sortField: sort ? SORT_FIELD[sort.id] : undefined,
+        sortAscending: sort ? !sort.desc : undefined,
       });
       setProducts(data);
       setTotalCount(count);
@@ -352,7 +293,7 @@ export default function CatalogTreeEditor({
     } finally {
       setLoading(false);
     }
-  }, [page, scopedCategoryIds, activeMissing, statusFilter, search]);
+  }, [page, scopedCategoryIds, activeMissing, statusFilter, search, sorting]);
 
   // Side-panel editor — holds the product being edited (null = closed).
   const [panelProduct, setPanelProduct] = useState<Product | null>(null);
@@ -367,10 +308,10 @@ export default function CatalogTreeEditor({
   );
   const editableFields = useMemo<EditField[]>(() => {
     const f: EditField[] = ["name"];
-    if (visibleCols.has("price")) f.push("price");
-    if (visibleCols.has("description")) f.push("description");
+    if (visibleColIds.includes("price")) f.push("price");
+    if (visibleColIds.includes("description")) f.push("description");
     return f;
-  }, [visibleCols]);
+  }, [visibleColIds]);
 
   const startEdit = (
     productId: string,
@@ -663,6 +604,7 @@ export default function CatalogTreeEditor({
       activeMissing,
       statusFilter,
       search,
+      sorting,
     ]);
     if (prevScope.current !== key) {
       prevScope.current = key;
@@ -674,7 +616,7 @@ export default function CatalogTreeEditor({
     }
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedCategoryIds, activeMissing, statusFilter, search, page]);
+  }, [scopedCategoryIds, activeMissing, statusFilter, search, sorting, page]);
 
   // ── Tree derived helpers ─────────────────────────────────────────────────────
   const groupCount = (g: TreeGroup) =>
@@ -724,6 +666,273 @@ export default function CatalogTreeEditor({
         ? selection.group
         : (categoryById.get(selection.categoryId)?.name ?? "Category");
 
+  // ── Column definitions for <DataTable> ────────────────────────────────────────
+  // Rebuilt each render so cell closures see the current edit/focus state (page
+  // size is 50, so recreation is cheap and keeps inline editing correct).
+  const editingHere = (id: string, field: EditField) =>
+    cellEdit?.productId === id && cellEdit.field === field;
+  const isFocusedHere = (id: string, field: EditField) =>
+    focused?.id === id && focused.field === field;
+  const focusRing = (id: string, field: EditField) =>
+    isFocusedHere(id, field) && !editingHere(id, field)
+      ? "ring-2 ring-red-400 ring-inset rounded-md"
+      : "";
+  const descMissing = (p: Product) =>
+    !p.description?.trim() || p.description.trim().length < 15;
+  const editorProps = {
+    value: cellEdit?.value ?? "",
+    onChange: (v: string) =>
+      setCellEdit(prev => (prev ? { ...prev, value: v } : prev)),
+    onCommit: commitEdit,
+    onCancel: cancelEdit,
+    managed: true,
+  };
+
+  const columns: ColumnDef<Product>[] = [
+    {
+      id: "name",
+      accessorFn: p => p.name,
+      header: "Name",
+      enableSorting: true,
+      size: 240,
+      meta: { sticky: true, hideable: false },
+      cell: ({ row }) => {
+        const p = row.original;
+        const img = p.image_url ? normalizeImageUrl(p.image_url) : null;
+        const naImage = p.na_fields?.includes("image");
+        return (
+          <div className="flex items-center gap-2 min-w-[190px]">
+            <div
+              className={`w-8 h-8 flex-shrink-0 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
+                img || naImage ? "bg-slate-50" : RED_CELL
+              }`}
+              title={img || naImage ? undefined : "No image"}
+            >
+              {img ? (
+                <img
+                  src={img}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <ImageIcon
+                  className={`w-3.5 h-3.5 ${naImage ? "text-slate-300" : "text-red-400"}`}
+                />
+              )}
+            </div>
+            <div className={`min-w-0 flex-1 ${focusRing(p.id, "name")}`}>
+              {editingHere(p.id, "name") ? (
+                <InlineInput {...editorProps} placeholder="Product name" />
+              ) : (
+                <button
+                  onClick={() => startEdit(p.id, "name", p.name)}
+                  className="text-left w-full group px-1"
+                  title="Click to edit"
+                >
+                  <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-red-600">
+                    {p.name}
+                  </span>
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setPanelProduct(p)}
+              className="flex-shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-500 hover:border-red-300 hover:text-red-600 opacity-0 group-hover/row:opacity-100 focus:opacity-100"
+              title="Open editor panel"
+            >
+              <PanelRightOpen className="w-3.5 h-3.5" />
+              Open
+            </button>
+          </div>
+        );
+      },
+    },
+    {
+      id: "sku",
+      header: "SKU",
+      enableSorting: false,
+      meta: { defaultHidden: true },
+      cell: ({ row }) => (
+        <span className="text-xs font-mono text-slate-500">
+          {row.original.sku || "—"}
+        </span>
+      ),
+    },
+    {
+      id: "category",
+      header: "Category",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="text-xs text-slate-600">
+          {categoryById.get(row.original.category_id)?.name ?? "—"}
+        </span>
+      ),
+    },
+    {
+      id: "group",
+      header: "Group",
+      enableSorting: false,
+      meta: { defaultHidden: true },
+      cell: ({ row }) => (
+        <span className="text-xs text-slate-500">
+          {categoryById.get(row.original.category_id)?.group_name ?? "—"}
+        </span>
+      ),
+    },
+    {
+      id: "unit",
+      header: "Unit / Pack",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <span className="text-xs text-slate-600 whitespace-nowrap">
+            {p.unit_of_measure || "pcs"}
+            {p.quantity_in_unit ? ` · ${p.quantity_in_unit}/pack` : ""}
+          </span>
+        );
+      },
+    },
+    {
+      id: "stock",
+      header: "Stock",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <button
+            onClick={() => toggleAvailability(p)}
+            className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-1.5 py-1 hover:bg-slate-100 ${
+              p.is_active ? "text-emerald-700" : "text-slate-400"
+            }`}
+            title="Click to toggle availability"
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                p.is_active ? "bg-emerald-500" : "bg-slate-300"
+              }`}
+            />
+            {p.is_active ? "Available" : "Unavailable"}
+          </button>
+        );
+      },
+    },
+    {
+      id: "price",
+      accessorFn: p => p.price ?? null,
+      header: "Price",
+      enableSorting: true,
+      meta: {
+        cellClassName: (p: Product) =>
+          `${isPriceOnEnquiry(p.price) && !editingHere(p.id, "price") ? RED_CELL : ""} ${focusRing(p.id, "price")}`,
+      },
+      cell: ({ row }) => {
+        const p = row.original;
+        return editingHere(p.id, "price") ? (
+          <InlineInput {...editorProps} numeric placeholder="blank = enquiry" />
+        ) : (
+          <button
+            onClick={() => startEdit(p.id, "price", p.price)}
+            className="text-left w-full"
+            title="Click to edit price"
+          >
+            {isPriceOnEnquiry(p.price) ? (
+              <span className="text-amber-700 text-xs font-semibold">
+                On Enquiry
+              </span>
+            ) : (
+              <span className="font-semibold text-slate-800">
+                ₹{Number(p.price).toLocaleString()}
+              </span>
+            )}
+          </button>
+        );
+      },
+    },
+    {
+      id: "description",
+      header: "Description",
+      enableSorting: false,
+      meta: {
+        cellClassName: (p: Product) =>
+          `${descMissing(p) && !p.na_fields?.includes("description") && !editingHere(p.id, "description") ? RED_CELL : ""} ${focusRing(p.id, "description")}`,
+      },
+      cell: ({ row }) => {
+        const p = row.original;
+        const naDesc = p.na_fields?.includes("description");
+        return editingHere(p.id, "description") ? (
+          <InlineInput {...editorProps} placeholder="Short description" />
+        ) : (
+          <button
+            onClick={() => startEdit(p.id, "description", p.description)}
+            className="text-left w-full min-w-[180px]"
+            title="Click to edit description"
+          >
+            {p.description?.trim() ? (
+              <span className="text-slate-600 text-xs line-clamp-2">
+                {p.description}
+              </span>
+            ) : (
+              <span className="text-red-400 text-xs italic">
+                {naDesc ? "—" : "Add description"}
+              </span>
+            )}
+          </button>
+        );
+      },
+    },
+    {
+      id: "status",
+      header: "Status",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+              p.status === "published"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {p.status === "published" ? "Published" : "Draft"}
+          </span>
+        );
+      },
+    },
+    {
+      id: "score",
+      header: "Score",
+      enableSorting: false,
+      meta: { align: "center", defaultHidden: true },
+      cell: ({ row }) => {
+        const { score } = productCompleteness(row.original);
+        return (
+          <span
+            className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${completenessColor(score)}`}
+          >
+            {score}
+          </span>
+        );
+      },
+    },
+    {
+      id: "updated",
+      accessorFn: p => p.updated_at,
+      header: "Updated",
+      enableSorting: true,
+      meta: { defaultHidden: true },
+      cell: ({ row }) => (
+        <span className="text-xs text-slate-500 whitespace-nowrap">
+          {row.original.updated_at
+            ? new Date(row.original.updated_at).toLocaleDateString()
+            : "—"}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -739,56 +948,18 @@ export default function CatalogTreeEditor({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Columns toggle */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                title="Columns"
-                className="inline-flex items-center gap-1.5 p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors text-sm"
-              >
-                <Columns3 className="w-4 h-4" />
-                <span className="hidden sm:inline">Columns</span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel className="text-xs">
-                Show columns
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <div className="px-1 py-0.5 text-[11px] text-slate-400">
-                Name is always shown
-              </div>
-              {COLUMNS.map(col => (
-                <button
-                  key={col.key}
-                  onClick={e => {
-                    e.preventDefault();
-                    toggleCol(col.key);
-                  }}
-                  className="w-full flex items-center justify-between px-2 py-1.5 text-sm rounded hover:bg-slate-100 text-slate-700"
-                >
-                  {col.label}
-                  {isCol(col.key) && (
-                    <Check className="w-3.5 h-3.5 text-red-600" />
-                  )}
-                </button>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <button
-            onClick={() => {
-              loadAggregates();
-              loadChipCounts();
-              loadProducts();
-            }}
-            disabled={loading}
-            title="Reload"
-            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            loadAggregates();
+            loadChipCounts();
+            loadProducts();
+          }}
+          disabled={loading}
+          title="Reload"
+          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+        </button>
       </div>
 
       {/* ── Toolbar: search · status · missing · add ───────────────────────── */}
@@ -1061,63 +1232,31 @@ export default function CatalogTreeEditor({
             </h2>
           </div>
 
-          <div
-            ref={gridRef}
-            tabIndex={0}
-            onKeyDown={handleGridKeyDown}
-            className="focus:outline-none"
-          >
-            <ProductGrid
-              products={products}
-              loading={loading}
-              categoryById={categoryById}
-              visibleCols={visibleCols}
-              selected={selected}
-              allPageSelected={allPageSelected}
-              onToggleAll={toggleAll}
-              onToggleRow={toggleRow}
-              focused={focused}
-              cellEdit={cellEdit}
-              onStartEdit={startEdit}
-              onEditChange={v =>
-                setCellEdit(prev => (prev ? { ...prev, value: v } : prev))
-              }
-              onCommit={commitEdit}
-              onCancel={cancelEdit}
-              onToggleAvailability={toggleAvailability}
-              onOpenPanel={setPanelProduct}
-            />
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 mt-3">
-              <p className="text-sm text-slate-500">
-                Showing {(page - 1) * PAGE_SIZE + 1}–
-                {Math.min(page * PAGE_SIZE, totalCount)} of{" "}
-                {totalCount.toLocaleString()}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-white disabled:opacity-40"
-                >
-                  Prev
-                </button>
-                <span className="text-sm font-medium text-slate-700 px-1">
-                  {page} / {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-white disabled:opacity-40"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+          <DataTable<Product>
+            data={products}
+            columns={columns}
+            getRowId={p => p.id}
+            loading={loading}
+            emptyMessage="No products in this selection."
+            persistKey="cat"
+            onVisibleColumnsChange={setVisibleColIds}
+            sorting={sorting}
+            onSortingChange={setSorting}
+            selection={{
+              isSelected: id => selected.has(id),
+              allPageSelected,
+              onToggleRow: toggleRow,
+              onToggleAll: toggleAll,
+            }}
+            pagination={{
+              page,
+              pageSize: PAGE_SIZE,
+              total: totalCount,
+              onPageChange: setPage,
+            }}
+            containerRef={gridRef}
+            containerProps={{ tabIndex: 0, onKeyDown: handleGridKeyDown }}
+          />
         </div>
       </div>
 
@@ -1135,111 +1274,6 @@ export default function CatalogTreeEditor({
           loadChipCounts();
         }}
       />
-    </div>
-  );
-}
-
-// ── Product table ─────────────────────────────────────────────────────────────
-interface GridEditProps {
-  cellEdit: CellEdit | null;
-  focused: { id: string; field: EditField } | null;
-  selected: Set<string>;
-  onToggleRow: (id: string) => void;
-  onStartEdit: (
-    productId: string,
-    field: EditField,
-    current: string | number | null | undefined
-  ) => void;
-  onEditChange: (value: string) => void;
-  onCommit: () => void;
-  onCancel: () => void;
-  onToggleAvailability: (product: Product) => void;
-  onOpenPanel: (product: Product) => void;
-}
-
-// Sticky-left offsets: checkbox column (40px) then Name column pinned after it.
-const STICKY_CHECK = "sticky left-0 z-20 bg-white";
-const STICKY_NAME = "sticky z-20 bg-white";
-const NAME_LEFT = 40; // px — width of the checkbox column
-
-function ProductGrid({
-  products,
-  loading,
-  categoryById,
-  visibleCols,
-  allPageSelected,
-  onToggleAll,
-  ...edit
-}: {
-  products: Product[];
-  loading: boolean;
-  categoryById: Map<string, Category>;
-  visibleCols: Set<ColKey>;
-  allPageSelected: boolean;
-  onToggleAll: () => void;
-} & GridEditProps) {
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-16 text-slate-400 bg-white border border-slate-200 rounded-xl">
-        <Loader2 className="w-5 h-5 animate-spin" /> Loading products…
-      </div>
-    );
-  }
-  if (products.length === 0) {
-    return (
-      <div className="py-16 text-center text-sm text-slate-400 bg-white border border-slate-200 rounded-xl">
-        No products in this selection.
-      </div>
-    );
-  }
-
-  const cols = COLUMNS.filter(c => visibleCols.has(c.key));
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto">
-      <table className="text-sm border-separate border-spacing-0 min-w-full">
-        <thead>
-          <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
-            <th
-              className={`${STICKY_CHECK} w-10 px-3 py-2 border-b border-slate-200`}
-              style={{ left: 0 }}
-            >
-              <input
-                type="checkbox"
-                checked={allPageSelected}
-                onChange={onToggleAll}
-                className="align-middle accent-red-600"
-                aria-label="Select all on page"
-              />
-            </th>
-            <th
-              className={`${STICKY_NAME} px-2 py-2 min-w-[200px] border-b border-r border-slate-200`}
-              style={{ left: NAME_LEFT }}
-            >
-              Name
-            </th>
-            {cols.map(c => (
-              <th
-                key={c.key}
-                className="px-3 py-2 whitespace-nowrap border-b border-slate-200"
-              >
-                {c.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {products.map(p => (
-            <ProductRow
-              key={p.id}
-              product={p}
-              categoryById={categoryById}
-              visibleCols={visibleCols}
-              {...edit}
-            />
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -1295,266 +1329,5 @@ function InlineInput({
       }
       className="w-full h-8 rounded-md border border-red-300 bg-white px-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-200"
     />
-  );
-}
-
-function ProductRow({
-  product,
-  categoryById,
-  visibleCols,
-  cellEdit,
-  focused,
-  selected,
-  onToggleRow,
-  onStartEdit,
-  onEditChange,
-  onCommit,
-  onCancel,
-  onToggleAvailability,
-  onOpenPanel,
-}: {
-  product: Product;
-  categoryById: Map<string, Category>;
-  visibleCols: Set<ColKey>;
-} & GridEditProps) {
-  const p = product;
-  const img = p.image_url ? normalizeImageUrl(p.image_url) : null;
-  const naImage = p.na_fields?.includes("image");
-  const naDesc = p.na_fields?.includes("description");
-  const priceMissing = isPriceOnEnquiry(p.price);
-  const descMissing = !p.description?.trim() || p.description.trim().length < 15;
-  const cat = categoryById.get(p.category_id);
-  const isChecked = selected.has(p.id);
-
-  const editingHere = (field: EditField) =>
-    cellEdit?.productId === p.id && cellEdit.field === field;
-  const isFocused = (field: EditField) =>
-    focused?.id === p.id && focused.field === field;
-  // Focus ring for keyboard navigation (only when not actively editing).
-  const focusRing = (field: EditField) =>
-    isFocused(field) && !editingHere(field)
-      ? "ring-2 ring-red-400 ring-inset rounded-md"
-      : "";
-
-  const editorProps = {
-    value: cellEdit?.value ?? "",
-    onChange: onEditChange,
-    onCommit,
-    onCancel,
-    managed: true,
-  };
-
-  const cols = COLUMNS.filter(c => visibleCols.has(c.key));
-
-  const renderCell = (key: ColKey) => {
-    switch (key) {
-      case "sku":
-        return (
-          <span className="text-xs font-mono text-slate-500">
-            {p.sku || "—"}
-          </span>
-        );
-      case "category":
-        return (
-          <span className="text-xs text-slate-600">{cat?.name ?? "—"}</span>
-        );
-      case "group":
-        return (
-          <span className="text-xs text-slate-500">
-            {cat?.group_name ?? "—"}
-          </span>
-        );
-      case "unit":
-        return (
-          <span className="text-xs text-slate-600 whitespace-nowrap">
-            {p.unit_of_measure || "pcs"}
-            {p.quantity_in_unit ? ` · ${p.quantity_in_unit}/pack` : ""}
-          </span>
-        );
-      case "stock":
-        return (
-          <button
-            onClick={() => onToggleAvailability(p)}
-            className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-1.5 py-1 hover:bg-slate-100 ${
-              p.is_active ? "text-emerald-700" : "text-slate-400"
-            }`}
-            title="Click to toggle availability"
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                p.is_active ? "bg-emerald-500" : "bg-slate-300"
-              }`}
-            />
-            {p.is_active ? "Available" : "Unavailable"}
-          </button>
-        );
-      case "price":
-        return editingHere("price") ? (
-          <InlineInput {...editorProps} numeric placeholder="blank = enquiry" />
-        ) : (
-          <button
-            onClick={() => onStartEdit(p.id, "price", p.price)}
-            className="text-left w-full"
-            title="Click to edit price"
-          >
-            {priceMissing ? (
-              <span className="text-amber-700 text-xs font-semibold">
-                On Enquiry
-              </span>
-            ) : (
-              <span className="font-semibold text-slate-800">
-                ₹{Number(p.price).toLocaleString()}
-              </span>
-            )}
-          </button>
-        );
-      case "description":
-        return editingHere("description") ? (
-          <InlineInput {...editorProps} placeholder="Short description" />
-        ) : (
-          <button
-            onClick={() => onStartEdit(p.id, "description", p.description)}
-            className="text-left w-full min-w-[180px]"
-            title="Click to edit description"
-          >
-            {p.description?.trim() ? (
-              <span className="text-slate-600 text-xs line-clamp-2">
-                {p.description}
-              </span>
-            ) : (
-              <span className="text-red-400 text-xs italic">
-                {naDesc ? "—" : "Add description"}
-              </span>
-            )}
-          </button>
-        );
-      case "status":
-        return (
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-              p.status === "published"
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-slate-100 text-slate-500"
-            }`}
-          >
-            {p.status === "published" ? "Published" : "Draft"}
-          </span>
-        );
-      case "score": {
-        const { score } = productCompleteness(p);
-        return (
-          <span
-            className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${completenessColor(score)}`}
-          >
-            {score}
-          </span>
-        );
-      }
-      case "updated":
-        return (
-          <span className="text-xs text-slate-500 whitespace-nowrap">
-            {p.updated_at
-              ? new Date(p.updated_at).toLocaleDateString()
-              : "—"}
-          </span>
-        );
-    }
-  };
-
-  // Red-tint helper for the columns that flag missing data.
-  const cellTint = (key: ColKey) => {
-    if (key === "price" && priceMissing && !editingHere("price"))
-      return RED_CELL;
-    if (
-      key === "description" &&
-      descMissing &&
-      !naDesc &&
-      !editingHere("description")
-    )
-      return RED_CELL;
-    return "";
-  };
-
-  return (
-    <tr className="hover:bg-slate-50/60 align-middle group/row">
-      <td
-        className={`${STICKY_CHECK} group-hover/row:bg-slate-50 px-3 py-2 border-b border-slate-100 ${isChecked ? "bg-red-50" : ""}`}
-        style={{ left: 0 }}
-      >
-        <input
-          type="checkbox"
-          checked={isChecked}
-          onChange={() => onToggleRow(p.id)}
-          className="align-middle accent-red-600"
-          aria-label={`Select ${p.name}`}
-        />
-      </td>
-      {/* Name — sticky, thumbnail + click-to-edit */}
-      <td
-        className={`${STICKY_NAME} group-hover/row:bg-slate-50 px-2 py-2 border-b border-r border-slate-100`}
-        style={{ left: NAME_LEFT }}
-      >
-        <div className="flex items-center gap-2 min-w-[190px]">
-          <div
-            className={`w-8 h-8 flex-shrink-0 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
-              img || naImage ? "bg-slate-50" : RED_CELL
-            }`}
-            title={img || naImage ? undefined : "No image"}
-          >
-            {img ? (
-              <img
-                src={img}
-                alt=""
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <ImageIcon
-                className={`w-3.5 h-3.5 ${naImage ? "text-slate-300" : "text-red-400"}`}
-              />
-            )}
-          </div>
-          <div className={`min-w-0 flex-1 ${focusRing("name")}`}>
-            {editingHere("name") ? (
-              <InlineInput {...editorProps} placeholder="Product name" />
-            ) : (
-              <button
-                onClick={() => onStartEdit(p.id, "name", p.name)}
-                className="text-left w-full group px-1"
-                title="Click to edit"
-              >
-                <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-red-600">
-                  {p.name}
-                </span>
-              </button>
-            )}
-          </div>
-          <button
-            onClick={() => onOpenPanel(p)}
-            className="flex-shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-500 hover:border-red-300 hover:text-red-600 opacity-0 group-hover/row:opacity-100 focus:opacity-100"
-            title="Open editor panel"
-          >
-            <PanelRightOpen className="w-3.5 h-3.5" />
-            Open
-          </button>
-        </div>
-      </td>
-      {cols.map(c => {
-        const ring =
-          c.key === "price"
-            ? focusRing("price")
-            : c.key === "description"
-              ? focusRing("description")
-              : "";
-        return (
-          <td
-            key={c.key}
-            className={`px-3 py-2 border-b border-slate-100 ${cellTint(c.key)} ${ring}`}
-          >
-            {renderCell(c.key)}
-          </td>
-        );
-      })}
-    </tr>
   );
 }
