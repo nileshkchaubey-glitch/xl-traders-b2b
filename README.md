@@ -78,7 +78,9 @@ VITE_ANTHROPIC_API_KEY=<key>
 ## Architecture
 
 The app is a Vite single-page app (`client/`) talking directly to Supabase — there is no
-custom backend server. See `CLAUDE.md` for the binding rules; this section is the map.
+custom backend server. See `CLAUDE.md` for the binding rules and
+[`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) for UI tokens, engineering standards, the
+component inventory, and the data-flow reference; this section is the map.
 
 ### Directory layout
 
