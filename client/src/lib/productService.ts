@@ -265,7 +265,12 @@ function applyAdminScalarFilters(
     status?: AdminStatusFilter;
   }
 ): any {
-  if (search?.trim()) query = query.ilike("name", `%${search.trim()}%`);
+  if (search?.trim()) {
+    // Match name OR sku. Strip commas/parens which would break PostgREST's
+    // or() filter syntax.
+    const q = search.trim().replace(/[,()]/g, " ").trim();
+    if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%`);
+  }
   if (categoryId && categoryId !== "all")
     query = query.eq("category_id", categoryId);
   if (categoryIds?.length) query = query.in("category_id", categoryIds);
