@@ -148,12 +148,11 @@ inquiries, orders, order_items, import_logs, business_settings
 ### Admin Panel (PIM)
 
 - Shopify-style dark sidebar; CATALOGUE / SALES / CONTENT & IMPORT / SYSTEM
-- **Products list redesign (Phase 1):** compact, virtualized list + side detail-drawer (no full-page navigation)
-  - **`ProductsTable`** — TanStack Table + virtualizer compact list (image, name, price, status, completeness); row click opens the drawer; per-row dropdown + right-click context menu (Edit, Images, Duplicate, Delete, Toggle status, Feature, View Live)
-  - **`ProductDrawer`** — slide-in side sheet to view/edit a product without leaving the list; shares save logic with the route editor (no fork) via `useProductForm`; "Save & Next" steps to the next row; embeds `ProductMediaSection` (product_images gallery + Image Library)
-  - **`EditableCell`** — click-to-edit inline cells on the list (price, status); commits on Enter/blur, cancels on Escape; doesn't open the drawer
-  - **`RapidEntryRow`** — single-line fast add (name, category, price, unit); Enter saves and refocuses name for the next entry; remaining fields live in the drawer
-  - **Bulk action bar** — appears on selection; select-all-matching-filter; set brand/MOQ/unit/category; Publish/Unpublish/Activate/Delete; N/A marking; confirm dialog
+- **Products list redesign (Phase 1)** — HISTORICAL, removed in Phase 2b: the old
+  AdminProducts surface (`ProductsTable` + `ProductDrawer` + `EditableCell` +
+  `RapidEntryRow` + its bulk bar) was deleted after the Catalog Editor reached
+  verified 100% parity (PR #98). Its behaviors live on in the Catalog Editor +
+  shared `<DataTable>`; recover the old code from git history if ever needed.
 - **Route-based editor** (`/admin/products/new`, `/admin/products/:id`): Save & Add Another, draft persistence (shares `useProductForm` with the drawer)
 - **Incomplete-first entry:** only `name` required; blank price/MOQ/category → NULL/Uncategorized; never blocked
 - **Draft/Published gate:** new products default draft; "Publish to website" button; Draft/Published badges
@@ -164,7 +163,7 @@ inquiries, orders, order_items, import_logs, business_settings
 - **Missing-data smart filters:** 8-dimension "Missing…" dropdown (no-price/moq/brand/image/specs/desc/seo/category); composable with search+category+status
 - **Dashboard chips:** 8 missing-count chips on Overview → deep-link to filtered list
 - **Bulk update:** select-all-matching-filter; set brand/MOQ/unit/category; Publish/Unpublish/Activate/Delete; confirm dialog; N/A marking
-- **Mobile-responsive ProductsTable** (PR #58): compact list layout adapts to small screens
+- **Mobile-responsive ProductsTable** (PR #58) — HISTORICAL, removed in Phase 2b with AdminProducts
 - **N/A marking:** bulk + per-product; na_fields[] prevents permanent false-missing noise
 - **Daily Admin Improvement widget:** rotating Quick Win/Medium/Major on Overview
 - Orders, Enquiries, SEO tabs
@@ -180,9 +179,10 @@ inquiries, orders, order_items, import_logs, business_settings
   chrome/presentation changes below `md` via `useIsMobile` (desktop admin unchanged).
   - **C1 shell** (`MobileAdminShell` + shared `adminNav.tsx`): fixed bottom tabs
     (Dashboard/Products/Images/More) + top bar; "More" lists every remaining section.
-  - **C2 products:** `MobileProductCard` list (price-on-enquiry safe) → `ProductQuickEditSheet`
-    (price / availability / publish) with "Open full editor"; shares the desktop table's
-    data/filters/pagination.
+  - **C2 products** — HISTORICAL, removed in Phase 2b: `MobileProductCard` /
+    `ProductQuickEditSheet` lived inside AdminProducts and were deleted with it.
+    Mobile products management now uses the responsive Catalog Editor (bottom-tab
+    "Products" → catalog-editor); a mobile-optimized pass is future work.
   - **C3 images:** `MobileImageLibrary` — camera capture (`capture="environment"`) + touch grid;
     reuses `mediaService.uploadGlobalImage` (bucket `product-images`, `products/global-*`) +
     `autoResizeImage`.
@@ -227,6 +227,19 @@ inquiries, orders, order_items, import_logs, business_settings
   brand/specs/description/image). Per-row **duplicate** (`productService.create`) and **feature
   toggle** (`productService.toggleFeatured`) added as name-cell actions. Every feature reuses the
   exact service method AdminProducts uses — no forked logic.
+- **Phase 2b — AdminProducts removed; Catalog Editor is THE products surface:** after parity
+  was verified live, `AdminProducts.tsx` and its exclusive components (`ProductsTable`,
+  `EditableCell`, `ProductDrawer`, `ProductQuickEditSheet`, `MobileProductCard`,
+  `RapidEntryRow`, `AdminImageGallery`) were deleted (grep-verified no other importers;
+  recover from git if needed — e.g. the Phase-2 image-QC roadmap referenced
+  `AdminImageGallery`). The sidebar/mobile "Products" entry, Overview KPI cards + chips
+  (`?tab=catalog-editor&missing=<key>`), quick actions, AdminMasters nav, and
+  AdminProductEditor back-navigation all point at `catalog-editor`; legacy
+  `tab=products` deep-links/sessionStorage are normalized to it. Overview missing-chips
+  now drive the Catalog Editor's filter via `attentionFilter`/`onAttentionChange` props.
+  The route editor (`/admin/products/new`, `/:id`) stays — the panel still links out to
+  it. Kept (still shared): `ProductMediaSection`, `useKeyboardShortcuts` +
+  `KeyboardShortcutsDialog` (route editor).
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
