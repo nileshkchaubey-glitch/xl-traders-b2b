@@ -217,7 +217,16 @@ inquiries, orders, order_items, import_logs, business_settings
   toolbar, a bulk bar (select-all-matching via `getAdminMatchingIds`, Publish/Unpublish via
   `bulkSetStatus`, Delete via `bulkDelete`), spreadsheet keyboard nav (↑↓←→ focus ring, Enter
   edit/save-down, Tab save-right, Esc cancel), and an "Add product" quick input (draft via
-  `productService.create`). Image assign stays Phase 3.
+  `productService.create`).
+- **Catalog Tree Editor — parity close:** the remaining AdminProducts gaps are now migrated in
+  (AdminProducts still stays put; removal = Phase 2b after live verification). Side panel gains
+  real **image assignment** (shared `ProductMediaSection`: primary + gallery via
+  `productImageService`, "Select from Library", image N/A). Bulk bar gains **set brand / MOQ /
+  unit / category** (`bulkUpdateField`; category skips variants via new
+  `productService.getVariantIds`), **Activate/Deactivate**, and **N/A marking** (`bulkSetNA`,
+  brand/specs/description/image). Per-row **duplicate** (`productService.create`) and **feature
+  toggle** (`productService.toggleFeatured`) added as name-cell actions. Every feature reuses the
+  exact service method AdminProducts uses — no forked logic.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
