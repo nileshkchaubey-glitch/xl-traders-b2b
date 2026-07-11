@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useSearch, useLocation } from "wouter";
 import {
   FolderTree,
   ChevronRight,
@@ -7,41 +8,107 @@ import {
   ImageIcon,
   Boxes,
   RefreshCw,
+  Columns3,
+  Check,
+  PanelRightOpen,
+  Search,
+  Plus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Category, Product } from "@/lib/supabase";
 import {
   productService,
   categoryService,
   AdminStatusFilter,
 } from "@/lib/productService";
-import {
-  healthService,
-  CategoryHealth,
-  MissingCounts,
-} from "@/lib/healthService";
+import { healthService, CategoryHealth } from "@/lib/healthService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry } from "@/lib/priceUtils";
+import {
+  productCompleteness,
+  completenessColor,
+  MISSING_FILTERS,
+  ATTENTION_LABELS,
+  ATTENTION_FIELD,
+  MissingFilter,
+} from "@/lib/catalogHealth";
+import CatalogProductPanel from "@/components/admin/CatalogProductPanel";
 
 const PAGE_SIZE = 50;
 
-// ── Fix-Missing chips ─────────────────────────────────────────────────────────
-type ChipKey = "no-price" | "no-description" | "no-image" | "draft";
-// The three health-backed chips map to a v_product_health missing_* field
-// (via healthService); "draft" is a plain status filter, not a health metric.
-const CHIP_FIELD: Record<
-  "no-price" | "no-description" | "no-image",
-  keyof MissingCounts
-> = {
-  "no-price": "price",
-  "no-description": "description",
-  "no-image": "image",
-};
-const CHIPS: { key: ChipKey; label: string }[] = [
-  { key: "no-price", label: "No price" },
-  { key: "no-description", label: "No description" },
-  { key: "no-image", label: "No image" },
-  { key: "draft", label: "Draft" },
+// ── Columns ───────────────────────────────────────────────────────────────────
+type ColKey =
+  | "sku"
+  | "category"
+  | "group"
+  | "unit"
+  | "stock"
+  | "price"
+  | "description"
+  | "status"
+  | "score"
+  | "updated";
+
+interface ColDef {
+  key: ColKey;
+  label: string;
+  default: boolean;
+}
+
+// Name + checkbox are always shown (sticky-left) and so are not toggleable.
+const COLUMNS: ColDef[] = [
+  { key: "sku", label: "SKU", default: false },
+  { key: "category", label: "Category", default: true },
+  { key: "group", label: "Group", default: false },
+  { key: "unit", label: "Unit / Pack", default: true },
+  { key: "stock", label: "Stock", default: true },
+  { key: "price", label: "Price", default: true },
+  { key: "description", label: "Description", default: true },
+  { key: "status", label: "Status", default: true },
+  { key: "score", label: "Score", default: false },
+  { key: "updated", label: "Updated", default: false },
+];
+const COL_KEYS = COLUMNS.map(c => c.key);
+const DEFAULT_COLS = COLUMNS.filter(c => c.default).map(c => c.key);
+
+// Parse the `cols` URL param into a valid column set (falls back to defaults).
+function colsFromParam(raw: string | null): Set<ColKey> {
+  if (!raw) return new Set(DEFAULT_COLS);
+  const keys = raw.split(",").filter(k => (COL_KEYS as string[]).includes(k));
+  return new Set(keys as ColKey[]);
+}
+
+// ── Fix-Missing quick chips ───────────────────────────────────────────────────
+// The three most-common missing dimensions get a one-click chip (with a live
+// count). The full 8-dimension set is reachable via the "Missing…" dropdown —
+// both drive the same `activeMissing` state, whose truth lives in
+// v_product_health (via catalogHealth's ATTENTION_FIELD map — no logic here).
+const QUICK_MISSING: MissingFilter[] = ["no-price", "no-description", "no-image"];
+
+// Status filter options — mirrors AdminProducts' StatusFilter exactly.
+const STATUS_OPTIONS: { value: AdminStatusFilter; label: string }[] = [
+  { value: "all", label: "All status" },
+  { value: "published", label: "Published" },
+  { value: "draft", label: "Draft" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "featured", label: "Featured" },
 ];
 
 // ── Inline editing ────────────────────────────────────────────────────────────
@@ -149,6 +216,31 @@ export default function CatalogTreeEditor({
     return m;
   }, [categories]);
 
+  // Column visibility — seeded from the `cols` URL param, persisted back to it
+  // (in-memory + URL only; localStorage is restricted in our stack).
+  const urlSearch = useSearch();
+  const [, setLocation] = useLocation();
+  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() =>
+    colsFromParam(new URLSearchParams(urlSearch).get("cols"))
+  );
+  const isCol = useCallback(
+    (key: ColKey) => visibleCols.has(key),
+    [visibleCols]
+  );
+  const toggleCol = (key: ColKey) =>
+    setVisibleCols(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  // Persist the choice to the URL (merging, so ?tab / ?missing survive).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("cols", COL_KEYS.filter(k => visibleCols.has(k)).join(","));
+    setLocation(`/admin?${params.toString()}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleCols]);
+
   // Tree state
   const [selection, setSelection] = useState<TreeSelection>({ kind: "all" });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -159,14 +251,25 @@ export default function CatalogTreeEditor({
     {}
   );
 
-  // Fix-Missing chips: active filter + live counts (scoped to the current node).
-  const [activeChip, setActiveChip] = useState<ChipKey | null>(null);
-  const [chipCounts, setChipCounts] = useState<Record<ChipKey, number>>({
-    "no-price": 0,
-    "no-description": 0,
-    "no-image": 0,
-    draft: 0,
-  });
+  // Filters (parity with AdminProducts): global search, status, missing-data.
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<AdminStatusFilter>("all");
+  const [activeMissing, setActiveMissing] = useState<MissingFilter | null>(null);
+  // Live counts for the quick chips (scoped to the current node).
+  const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
+
+  // Debounce the search box → server-side name/SKU search.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Bulk selection. `selected` = explicitly checked ids; `selectAllMatching`
+  // widens the scope to every id matching the active filters (not just the page).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectAllMatching, setSelectAllMatching] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // Table state
   const [products, setProducts] = useState<Product[]>([]);
@@ -206,20 +309,10 @@ export default function CatalogTreeEditor({
   // status='draft' HEAD count — no missing-logic re-derived here).
   const loadChipCounts = useCallback(async () => {
     try {
-      const [mc, draft] = await Promise.all([
-        healthService.getMissingCounts(scopedCategoryIds),
-        productService.getAllAdmin({
-          status: "draft",
-          categoryIds: scopedCategoryIds,
-          pageSize: 1,
-        }),
-      ]);
-      setChipCounts({
-        "no-price": mc.price,
-        "no-description": mc.description,
-        "no-image": mc.image,
-        draft: draft.count,
-      });
+      const mc = await healthService.getMissingCounts(scopedCategoryIds);
+      const next: Record<string, number> = {};
+      for (const f of QUICK_MISSING) next[f] = mc[ATTENTION_FIELD[f]];
+      setChipCounts(next);
     } catch {
       // Non-fatal — chips still render, just without counts.
     }
@@ -233,15 +326,12 @@ export default function CatalogTreeEditor({
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
-      // Missing-field chips intersect with v_product_health ids; "draft" is a
-      // plain status filter. Both AND with the node's category scope.
+      // A missing-data filter intersects with v_product_health ids; status +
+      // search + category scope AND on top (all server-side).
       let ids: string[] | undefined;
-      let status: AdminStatusFilter = "all";
-      if (activeChip === "draft") {
-        status = "draft";
-      } else if (activeChip) {
+      if (activeMissing) {
         ids = await healthService.getIdsMissing(
-          CHIP_FIELD[activeChip],
+          ATTENTION_FIELD[activeMissing],
           scopedCategoryIds
         );
       }
@@ -250,7 +340,8 @@ export default function CatalogTreeEditor({
         pageSize: PAGE_SIZE,
         categoryIds: scopedCategoryIds,
         ids,
-        status,
+        status: statusFilter,
+        search: search || undefined,
       });
       setProducts(data);
       setTotalCount(count);
@@ -261,17 +352,109 @@ export default function CatalogTreeEditor({
     } finally {
       setLoading(false);
     }
-  }, [page, scopedCategoryIds, activeChip]);
+  }, [page, scopedCategoryIds, activeMissing, statusFilter, search]);
+
+  // Side-panel editor — holds the product being edited (null = closed).
+  const [panelProduct, setPanelProduct] = useState<Product | null>(null);
 
   // ── Inline cell editing ──────────────────────────────────────────────────────
   const [cellEdit, setCellEdit] = useState<CellEdit | null>(null);
+
+  // Focused cell for keyboard navigation (independent of the edit state).
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [focused, setFocused] = useState<{ id: string; field: EditField } | null>(
+    null
+  );
+  const editableFields = useMemo<EditField[]>(() => {
+    const f: EditField[] = ["name"];
+    if (visibleCols.has("price")) f.push("price");
+    if (visibleCols.has("description")) f.push("description");
+    return f;
+  }, [visibleCols]);
 
   const startEdit = (
     productId: string,
     field: EditField,
     current: string | number | null | undefined
-  ) => setCellEdit({ productId, field, value: current == null ? "" : String(current) });
+  ) => {
+    setCellEdit({ productId, field, value: current == null ? "" : String(current) });
+    setFocused({ id: productId, field });
+  };
   const cancelEdit = () => setCellEdit(null);
+
+  const moveFocus = (dRow: number, dCol: number) =>
+    setFocused(cur => {
+      if (!products.length) return cur;
+      let r = cur ? products.findIndex(p => p.id === cur.id) : 0;
+      let c = cur ? editableFields.indexOf(cur.field) : 0;
+      if (r < 0) r = 0;
+      if (c < 0) c = 0;
+      r = Math.min(Math.max(r + dRow, 0), products.length - 1);
+      c = Math.min(Math.max(c + dCol, 0), editableFields.length - 1);
+      return { id: products[r].id, field: editableFields[c] };
+    });
+
+  const fieldValue = (prod: Product, field: EditField) =>
+    field === "price"
+      ? prod.price
+      : field === "name"
+        ? prod.name
+        : prod.description;
+
+  // Grid-level key handler: arrows move the focus ring, Enter edits (or, while
+  // editing, saves and drops down), Tab saves and moves right, Esc cancels.
+  const handleGridKeyDown = (e: React.KeyboardEvent) => {
+    if (cellEdit) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commitEdit();
+        moveFocus(1, 0);
+        gridRef.current?.focus();
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        commitEdit();
+        moveFocus(0, e.shiftKey ? -1 : 1);
+        gridRef.current?.focus();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancelEdit();
+        gridRef.current?.focus();
+      }
+      return;
+    }
+    const navKeys = [
+      "ArrowDown",
+      "ArrowUp",
+      "ArrowLeft",
+      "ArrowRight",
+      "Enter",
+    ];
+    if (!navKeys.includes(e.key)) return;
+    e.preventDefault();
+    if (!focused) {
+      if (products[0]) setFocused({ id: products[0].id, field: "name" });
+      return;
+    }
+    switch (e.key) {
+      case "ArrowDown":
+        moveFocus(1, 0);
+        break;
+      case "ArrowUp":
+        moveFocus(-1, 0);
+        break;
+      case "ArrowRight":
+        moveFocus(0, 1);
+        break;
+      case "ArrowLeft":
+        moveFocus(0, -1);
+        break;
+      case "Enter": {
+        const prod = products.find(p => p.id === focused.id);
+        if (prod) startEdit(prod.id, focused.field, fieldValue(prod, focused.field));
+        break;
+      }
+    }
+  };
 
   // Persist one field via productService (service layer only) with an optimistic
   // row patch. Blank price → NULL ("On Enquiry"), never 0. Tree aggregates are
@@ -344,12 +527,146 @@ export default function CatalogTreeEditor({
     }
   };
 
-  // Reset to page 1 whenever the selected node or active chip changes.
+  // ── Bulk selection ────────────────────────────────────────────────────────────
+  const clearSelection = () => {
+    setSelected(new Set());
+    setSelectAllMatching(false);
+  };
+  const allPageSelected =
+    products.length > 0 && products.every(p => selected.has(p.id));
+  const selectionCount = selectAllMatching ? totalCount : selected.size;
+  const canSelectAllMatching =
+    allPageSelected && !selectAllMatching && totalCount > products.length;
+
+  const toggleAll = () => {
+    if (allPageSelected) clearSelection();
+    else setSelected(new Set(products.map(p => p.id)));
+  };
+  const toggleRow = (id: string) => {
+    if (selectAllMatching) setSelectAllMatching(false);
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // ── Bulk actions (reuse the exact same services AdminProducts uses) ────────────
+  const resolveTargetIds = async (): Promise<string[]> => {
+    if (!selectAllMatching) return Array.from(selected);
+    // Same filter set as loadProducts so "all matching" never drifts.
+    let ids: string[] | undefined;
+    if (activeMissing) {
+      ids = await healthService.getIdsMissing(
+        ATTENTION_FIELD[activeMissing],
+        scopedCategoryIds
+      );
+    }
+    return productService.getAdminMatchingIds({
+      categoryIds: scopedCategoryIds,
+      ids,
+      status: statusFilter,
+      search: search || undefined,
+    });
+  };
+
+  const runBulk = async (
+    confirmLabel: (n: number) => string,
+    run: (ids: string[]) => Promise<number>
+  ) => {
+    if (bulkBusy) return;
+    setBulkBusy(true);
+    try {
+      const ids = await resolveTargetIds();
+      if (!ids.length) {
+        toast.error("No matching products");
+        return;
+      }
+      if (!window.confirm(confirmLabel(ids.length))) return;
+      const n = await run(ids);
+      toast.success(`Updated ${n} product${n === 1 ? "" : "s"}`);
+      clearSelection();
+      loadProducts();
+      loadAggregates();
+      loadChipCounts();
+    } catch {
+      toast.error("Bulk action failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const doPublish = () =>
+    runBulk(
+      n => `Publish ${n} product${n === 1 ? "" : "s"} to the website?`,
+      ids => productService.bulkSetStatus(ids, "published")
+    );
+  const doUnpublish = () =>
+    runBulk(
+      n => `Unpublish ${n} product${n === 1 ? "" : "s"}?`,
+      ids => productService.bulkSetStatus(ids, "draft")
+    );
+  const doDelete = () =>
+    runBulk(
+      n => `Delete ${n} product${n === 1 ? "" : "s"}? This cannot be undone.`,
+      ids => productService.bulkDelete(ids)
+    );
+
+  // ── Add product (quick draft row) ─────────────────────────────────────────────
+  const [addName, setAddName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const addNameRef = useRef<HTMLInputElement>(null);
+  const handleAddProduct = async () => {
+    const name = addName.trim();
+    if (!name) {
+      addNameRef.current?.focus();
+      return;
+    }
+    setAdding(true);
+    try {
+      // Category defaults to the selected category node, else Uncategorized.
+      let categoryId =
+        selection.kind === "category" ? selection.categoryId : "";
+      if (!categoryId) {
+        categoryId = (await categoryService.getOrCreateUncategorized()) ?? "";
+        if (!categoryId) {
+          toast.error("Could not assign a category");
+          return;
+        }
+      }
+      await productService.create({
+        name,
+        category_id: categoryId,
+        unit_of_measure: "pcs",
+        is_active: true,
+        is_featured: false,
+        status: "draft",
+        sku: `SKU-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      } as Omit<Product, "id" | "created_at" | "updated_at">);
+      toast.success(`"${name}" added as draft`);
+      setAddName("");
+      loadProducts();
+      loadAggregates();
+      setTimeout(() => addNameRef.current?.focus(), 50);
+    } catch {
+      toast.error("Failed to add product");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  // Reset to page 1 (and drop stale selection) whenever a filter changes.
   const prevScope = useRef<string>("");
   useEffect(() => {
-    const key = JSON.stringify([scopedCategoryIds ?? "all", activeChip]);
+    const key = JSON.stringify([
+      scopedCategoryIds ?? "all",
+      activeMissing,
+      statusFilter,
+      search,
+    ]);
     if (prevScope.current !== key) {
       prevScope.current = key;
+      clearSelection();
       if (page !== 1) {
         setPage(1);
         return;
@@ -357,7 +674,7 @@ export default function CatalogTreeEditor({
     }
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedCategoryIds, activeChip, page]);
+  }, [scopedCategoryIds, activeMissing, statusFilter, search, page]);
 
   // ── Tree derived helpers ─────────────────────────────────────────────────────
   const groupCount = (g: TreeGroup) =>
@@ -422,44 +739,159 @@ export default function CatalogTreeEditor({
             </p>
           </div>
         </div>
-        <button
-          onClick={() => {
-            loadAggregates();
-            loadChipCounts();
-            loadProducts();
-          }}
-          disabled={loading}
-          title="Reload"
-          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Columns toggle */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                title="Columns"
+                className="inline-flex items-center gap-1.5 p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors text-sm"
+              >
+                <Columns3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Columns</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="text-xs">
+                Show columns
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <div className="px-1 py-0.5 text-[11px] text-slate-400">
+                Name is always shown
+              </div>
+              {COLUMNS.map(col => (
+                <button
+                  key={col.key}
+                  onClick={e => {
+                    e.preventDefault();
+                    toggleCol(col.key);
+                  }}
+                  className="w-full flex items-center justify-between px-2 py-1.5 text-sm rounded hover:bg-slate-100 text-slate-700"
+                >
+                  {col.label}
+                  {isCol(col.key) && (
+                    <Check className="w-3.5 h-3.5 text-red-600" />
+                  )}
+                </button>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            onClick={() => {
+              loadAggregates();
+              loadChipCounts();
+              loadProducts();
+            }}
+            disabled={loading}
+            title="Reload"
+            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
-      {/* ── Fix-Missing chips ──────────────────────────────────────────────── */}
+      {/* ── Toolbar: search · status · missing · add ───────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-sm">
+        <div className="flex-1 min-w-[180px] relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <Input
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            placeholder="Search name or SKU…"
+            className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
+          />
+        </div>
+        <Select
+          value={statusFilter}
+          onValueChange={v => setStatusFilter(v as AdminStatusFilter)}
+        >
+          <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map(o => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {/* Full 8-dimension "Missing…" filter (parity with AdminProducts) */}
+        <Select
+          value={activeMissing ?? "none"}
+          onValueChange={v =>
+            setActiveMissing(v === "none" ? null : (v as MissingFilter))
+          }
+        >
+          <SelectTrigger
+            className={`w-40 h-9 border-slate-200 text-sm ${activeMissing ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
+          >
+            <SelectValue placeholder="Missing…" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Missing… (all)</SelectItem>
+            {MISSING_FILTERS.map(f => (
+              <SelectItem key={f} value={f}>
+                {ATTENTION_LABELS[f]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex-1" />
+        {/* Quick add — name auto-focused, saves as draft */}
+        <div className="flex items-center gap-1">
+          <Input
+            ref={addNameRef}
+            value={addName}
+            onChange={e => setAddName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddProduct();
+              }
+            }}
+            placeholder="New product name…"
+            className="h-9 w-44 text-sm"
+            disabled={adding}
+          />
+          <button
+            onClick={handleAddProduct}
+            disabled={adding}
+            className="inline-flex items-center gap-1 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-sm font-medium disabled:opacity-50"
+          >
+            {adding ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Plus className="w-3.5 h-3.5" />
+            )}
+            Add
+          </button>
+        </div>
+      </div>
+
+      {/* ── Fix-Missing quick chips (with live counts) ─────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide mr-1">
           Fix missing
         </span>
-        {CHIPS.map(chip => {
-          const active = activeChip === chip.key;
-          const count = chipCounts[chip.key];
+        {QUICK_MISSING.map(f => {
+          const active = activeMissing === f;
+          const count = chipCounts[f] ?? 0;
           return (
             <button
-              key={chip.key}
-              onClick={() => setActiveChip(active ? null : chip.key)}
+              key={f}
+              onClick={() => setActiveMissing(active ? null : f)}
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 active
                   ? "bg-red-600 border-red-600 text-white"
                   : "bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600"
               }`}
             >
-              {chip.label}
+              {ATTENTION_LABELS[f]}
               <span
                 className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full px-1 text-[11px] font-semibold ${
-                  active
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-100 text-slate-500"
+                  active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
                 }`}
               >
                 {count}
@@ -467,15 +899,78 @@ export default function CatalogTreeEditor({
             </button>
           );
         })}
-        {activeChip && (
+        {(activeMissing || statusFilter !== "all" || search) && (
           <button
-            onClick={() => setActiveChip(null)}
+            onClick={() => {
+              setActiveMissing(null);
+              setStatusFilter("all");
+              setSearchInput("");
+            }}
             className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 ml-1"
           >
-            Clear
+            Clear filters
           </button>
         )}
       </div>
+
+      {/* ── Bulk action bar ────────────────────────────────────────────────── */}
+      {selectionCount > 0 && (
+        <div className="bg-white border border-slate-300 rounded-xl px-4 py-3 shadow-sm flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-slate-800">
+            {selectAllMatching ? (
+              <>
+                All{" "}
+                <span className="text-red-600">
+                  {totalCount.toLocaleString()}
+                </span>{" "}
+                matching selected
+              </>
+            ) : (
+              `${selected.size} selected`
+            )}
+          </span>
+          {canSelectAllMatching && (
+            <>
+              <span className="text-slate-300">·</span>
+              <button
+                onClick={() => setSelectAllMatching(true)}
+                className="text-sm font-semibold text-red-600 hover:text-red-700 underline underline-offset-2"
+              >
+                Select all {totalCount.toLocaleString()} matching
+              </button>
+            </>
+          )}
+          <div className="flex-1" />
+          {bulkBusy && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+          <button
+            onClick={doPublish}
+            disabled={bulkBusy}
+            className="h-8 rounded-lg bg-green-600 hover:bg-green-700 text-white px-3 text-xs font-medium disabled:opacity-50"
+          >
+            Publish
+          </button>
+          <button
+            onClick={doUnpublish}
+            disabled={bulkBusy}
+            className="h-8 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 px-3 text-xs font-medium disabled:opacity-50"
+          >
+            Unpublish
+          </button>
+          <button
+            onClick={doDelete}
+            disabled={bulkBusy}
+            className="h-8 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-xs font-medium disabled:opacity-50"
+          >
+            Delete
+          </button>
+          <button
+            onClick={clearSelection}
+            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800"
+          >
+            <X className="w-3.5 h-3.5" /> Clear
+          </button>
+        </div>
+      )}
 
       {/* ── Two-pane layout ────────────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row gap-4 items-start">
@@ -566,19 +1061,33 @@ export default function CatalogTreeEditor({
             </h2>
           </div>
 
-          <ProductGrid
-            products={products}
-            loading={loading}
-            categoryById={categoryById}
-            cellEdit={cellEdit}
-            onStartEdit={startEdit}
-            onEditChange={v =>
-              setCellEdit(prev => (prev ? { ...prev, value: v } : prev))
-            }
-            onCommit={commitEdit}
-            onCancel={cancelEdit}
-            onToggleAvailability={toggleAvailability}
-          />
+          <div
+            ref={gridRef}
+            tabIndex={0}
+            onKeyDown={handleGridKeyDown}
+            className="focus:outline-none"
+          >
+            <ProductGrid
+              products={products}
+              loading={loading}
+              categoryById={categoryById}
+              visibleCols={visibleCols}
+              selected={selected}
+              allPageSelected={allPageSelected}
+              onToggleAll={toggleAll}
+              onToggleRow={toggleRow}
+              focused={focused}
+              cellEdit={cellEdit}
+              onStartEdit={startEdit}
+              onEditChange={v =>
+                setCellEdit(prev => (prev ? { ...prev, value: v } : prev))
+              }
+              onCommit={commitEdit}
+              onCancel={cancelEdit}
+              onToggleAvailability={toggleAvailability}
+              onOpenPanel={setPanelProduct}
+            />
+          </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -611,6 +1120,21 @@ export default function CatalogTreeEditor({
           )}
         </div>
       </div>
+
+      {/* Side-panel editor */}
+      <CatalogProductPanel
+        product={panelProduct}
+        open={!!panelProduct}
+        categories={categories}
+        onClose={() => setPanelProduct(null)}
+        onSaved={updated => {
+          setProducts(prev =>
+            prev.map(p => (p.id === updated.id ? { ...p, ...updated } : p))
+          );
+          loadAggregates();
+          loadChipCounts();
+        }}
+      />
     </div>
   );
 }
@@ -618,6 +1142,9 @@ export default function CatalogTreeEditor({
 // ── Product table ─────────────────────────────────────────────────────────────
 interface GridEditProps {
   cellEdit: CellEdit | null;
+  focused: { id: string; field: EditField } | null;
+  selected: Set<string>;
+  onToggleRow: (id: string) => void;
   onStartEdit: (
     productId: string,
     field: EditField,
@@ -627,17 +1154,29 @@ interface GridEditProps {
   onCommit: () => void;
   onCancel: () => void;
   onToggleAvailability: (product: Product) => void;
+  onOpenPanel: (product: Product) => void;
 }
+
+// Sticky-left offsets: checkbox column (40px) then Name column pinned after it.
+const STICKY_CHECK = "sticky left-0 z-20 bg-white";
+const STICKY_NAME = "sticky z-20 bg-white";
+const NAME_LEFT = 40; // px — width of the checkbox column
 
 function ProductGrid({
   products,
   loading,
   categoryById,
+  visibleCols,
+  allPageSelected,
+  onToggleAll,
   ...edit
 }: {
   products: Product[];
   loading: boolean;
   categoryById: Map<string, Category>;
+  visibleCols: Set<ColKey>;
+  allPageSelected: boolean;
+  onToggleAll: () => void;
 } & GridEditProps) {
   if (loading) {
     return (
@@ -654,18 +1193,39 @@ function ProductGrid({
     );
   }
 
+  const cols = COLUMNS.filter(c => visibleCols.has(c.key));
+
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="text-sm border-separate border-spacing-0 min-w-full">
         <thead>
-          <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-400">
-            <th className="w-10 px-3 py-2"></th>
-            <th className="w-14 px-2 py-2">Image</th>
-            <th className="px-2 py-2 min-w-[180px]">Name</th>
-            <th className="px-2 py-2 w-28">Price</th>
-            <th className="px-2 py-2 w-32">Availability</th>
-            <th className="px-2 py-2 min-w-[200px]">Description</th>
-            <th className="px-2 py-2 w-16 text-center">Score</th>
+          <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+            <th
+              className={`${STICKY_CHECK} w-10 px-3 py-2 border-b border-slate-200`}
+              style={{ left: 0 }}
+            >
+              <input
+                type="checkbox"
+                checked={allPageSelected}
+                onChange={onToggleAll}
+                className="align-middle accent-red-600"
+                aria-label="Select all on page"
+              />
+            </th>
+            <th
+              className={`${STICKY_NAME} px-2 py-2 min-w-[200px] border-b border-r border-slate-200`}
+              style={{ left: NAME_LEFT }}
+            >
+              Name
+            </th>
+            {cols.map(c => (
+              <th
+                key={c.key}
+                className="px-3 py-2 whitespace-nowrap border-b border-slate-200"
+              >
+                {c.label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -674,6 +1234,7 @@ function ProductGrid({
               key={p.id}
               product={p}
               categoryById={categoryById}
+              visibleCols={visibleCols}
               {...edit}
             />
           ))}
@@ -685,7 +1246,9 @@ function ProductGrid({
 
 const RED_CELL = "bg-red-50/70";
 
-// Auto-focusing inline editor: Enter commits, Escape cancels, blur commits.
+// Auto-focusing inline editor. Blur always commits. In `managed` mode the
+// enclosing grid owns Enter/Tab/Escape (so it can save-and-move); otherwise the
+// input handles Enter (commit) / Escape (cancel) itself.
 function InlineInput({
   value,
   onChange,
@@ -693,6 +1256,7 @@ function InlineInput({
   onCancel,
   numeric,
   placeholder,
+  managed,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -700,6 +1264,7 @@ function InlineInput({
   onCancel: () => void;
   numeric?: boolean;
   placeholder?: string;
+  managed?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -715,15 +1280,19 @@ function InlineInput({
       placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
       onBlur={onCommit}
-      onKeyDown={e => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          onCommit();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          onCancel();
-        }
-      }}
+      onKeyDown={
+        managed
+          ? undefined
+          : e => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onCommit();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                onCancel();
+              }
+            }
+      }
       className="w-full h-8 rounded-md border border-red-300 bg-white px-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-200"
     />
   );
@@ -732,15 +1301,21 @@ function InlineInput({
 function ProductRow({
   product,
   categoryById,
+  visibleCols,
   cellEdit,
+  focused,
+  selected,
+  onToggleRow,
   onStartEdit,
   onEditChange,
   onCommit,
   onCancel,
   onToggleAvailability,
+  onOpenPanel,
 }: {
   product: Product;
   categoryById: Map<string, Category>;
+  visibleCols: Set<ColKey>;
 } & GridEditProps) {
   const p = product;
   const img = p.image_url ? normalizeImageUrl(p.image_url) : null;
@@ -748,68 +1323,73 @@ function ProductRow({
   const naDesc = p.na_fields?.includes("description");
   const priceMissing = isPriceOnEnquiry(p.price);
   const descMissing = !p.description?.trim() || p.description.trim().length < 15;
+  const cat = categoryById.get(p.category_id);
+  const isChecked = selected.has(p.id);
 
   const editingHere = (field: EditField) =>
     cellEdit?.productId === p.id && cellEdit.field === field;
+  const isFocused = (field: EditField) =>
+    focused?.id === p.id && focused.field === field;
+  // Focus ring for keyboard navigation (only when not actively editing).
+  const focusRing = (field: EditField) =>
+    isFocused(field) && !editingHere(field)
+      ? "ring-2 ring-red-400 ring-inset rounded-md"
+      : "";
 
   const editorProps = {
     value: cellEdit?.value ?? "",
     onChange: onEditChange,
     onCommit,
     onCancel,
+    managed: true,
   };
 
-  return (
-    <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 align-middle">
-      <td className="px-3 py-2">
-        <input type="checkbox" disabled className="opacity-40" />
-      </td>
-      {/* Thumbnail — display only in this phase (image assign is Phase 3) */}
-      <td className="px-2 py-2">
-        <div
-          className={`w-10 h-10 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
-            img || naImage ? "bg-slate-50" : RED_CELL
-          }`}
-          title={img || naImage ? undefined : "No image"}
-        >
-          {img ? (
-            <img
-              src={img}
-              alt=""
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <ImageIcon
-              className={`w-4 h-4 ${naImage ? "text-slate-300" : "text-red-400"}`}
-            />
-          )}
-        </div>
-      </td>
-      {/* Name — click to edit */}
-      <td className="px-2 py-2">
-        {editingHere("name") ? (
-          <InlineInput {...editorProps} placeholder="Product name" />
-        ) : (
+  const cols = COLUMNS.filter(c => visibleCols.has(c.key));
+
+  const renderCell = (key: ColKey) => {
+    switch (key) {
+      case "sku":
+        return (
+          <span className="text-xs font-mono text-slate-500">
+            {p.sku || "—"}
+          </span>
+        );
+      case "category":
+        return (
+          <span className="text-xs text-slate-600">{cat?.name ?? "—"}</span>
+        );
+      case "group":
+        return (
+          <span className="text-xs text-slate-500">
+            {cat?.group_name ?? "—"}
+          </span>
+        );
+      case "unit":
+        return (
+          <span className="text-xs text-slate-600 whitespace-nowrap">
+            {p.unit_of_measure || "pcs"}
+            {p.quantity_in_unit ? ` · ${p.quantity_in_unit}/pack` : ""}
+          </span>
+        );
+      case "stock":
+        return (
           <button
-            onClick={() => onStartEdit(p.id, "name", p.name)}
-            className="text-left w-full group"
-            title="Click to edit"
+            onClick={() => onToggleAvailability(p)}
+            className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-1.5 py-1 hover:bg-slate-100 ${
+              p.is_active ? "text-emerald-700" : "text-slate-400"
+            }`}
+            title="Click to toggle availability"
           >
-            <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-red-600">
-              {p.name}
-            </span>
-            <span className="block text-[11px] text-slate-400 truncate">
-              {categoryById.get(p.category_id)?.name ?? "—"}
-            </span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                p.is_active ? "bg-emerald-500" : "bg-slate-300"
+              }`}
+            />
+            {p.is_active ? "Available" : "Unavailable"}
           </button>
-        )}
-      </td>
-      {/* Price — blank sets NULL (On Enquiry); never renders ₹0 as a price */}
-      <td
-        className={`px-2 py-2 ${priceMissing && !editingHere("price") ? RED_CELL : ""}`}
-      >
-        {editingHere("price") ? (
+        );
+      case "price":
+        return editingHere("price") ? (
           <InlineInput {...editorProps} numeric placeholder="blank = enquiry" />
         ) : (
           <button
@@ -827,35 +1407,14 @@ function ProductRow({
               </span>
             )}
           </button>
-        )}
-      </td>
-      {/* Availability — click toggles is_active */}
-      <td className="px-2 py-2">
-        <button
-          onClick={() => onToggleAvailability(p)}
-          className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-1.5 py-1 hover:bg-slate-100 ${
-            p.is_active ? "text-emerald-700" : "text-slate-400"
-          }`}
-          title="Click to toggle availability"
-        >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              p.is_active ? "bg-emerald-500" : "bg-slate-300"
-            }`}
-          />
-          {p.is_active ? "Available" : "Unavailable"}
-        </button>
-      </td>
-      {/* Description — click to edit; blank sets NULL */}
-      <td
-        className={`px-2 py-2 ${descMissing && !naDesc && !editingHere("description") ? RED_CELL : ""}`}
-      >
-        {editingHere("description") ? (
+        );
+      case "description":
+        return editingHere("description") ? (
           <InlineInput {...editorProps} placeholder="Short description" />
         ) : (
           <button
             onClick={() => onStartEdit(p.id, "description", p.description)}
-            className="text-left w-full"
+            className="text-left w-full min-w-[180px]"
             title="Click to edit description"
           >
             {p.description?.trim() ? (
@@ -868,12 +1427,134 @@ function ProductRow({
               </span>
             )}
           </button>
-        )}
+        );
+      case "status":
+        return (
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+              p.status === "published"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {p.status === "published" ? "Published" : "Draft"}
+          </span>
+        );
+      case "score": {
+        const { score } = productCompleteness(p);
+        return (
+          <span
+            className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${completenessColor(score)}`}
+          >
+            {score}
+          </span>
+        );
+      }
+      case "updated":
+        return (
+          <span className="text-xs text-slate-500 whitespace-nowrap">
+            {p.updated_at
+              ? new Date(p.updated_at).toLocaleDateString()
+              : "—"}
+          </span>
+        );
+    }
+  };
+
+  // Red-tint helper for the columns that flag missing data.
+  const cellTint = (key: ColKey) => {
+    if (key === "price" && priceMissing && !editingHere("price"))
+      return RED_CELL;
+    if (
+      key === "description" &&
+      descMissing &&
+      !naDesc &&
+      !editingHere("description")
+    )
+      return RED_CELL;
+    return "";
+  };
+
+  return (
+    <tr className="hover:bg-slate-50/60 align-middle group/row">
+      <td
+        className={`${STICKY_CHECK} group-hover/row:bg-slate-50 px-3 py-2 border-b border-slate-100 ${isChecked ? "bg-red-50" : ""}`}
+        style={{ left: 0 }}
+      >
+        <input
+          type="checkbox"
+          checked={isChecked}
+          onChange={() => onToggleRow(p.id)}
+          className="align-middle accent-red-600"
+          aria-label={`Select ${p.name}`}
+        />
       </td>
-      {/* Score placeholder (Phase 1 — real score lands later) */}
-      <td className="px-2 py-2 text-center">
-        <span className="text-slate-300 text-xs">—</span>
+      {/* Name — sticky, thumbnail + click-to-edit */}
+      <td
+        className={`${STICKY_NAME} group-hover/row:bg-slate-50 px-2 py-2 border-b border-r border-slate-100`}
+        style={{ left: NAME_LEFT }}
+      >
+        <div className="flex items-center gap-2 min-w-[190px]">
+          <div
+            className={`w-8 h-8 flex-shrink-0 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
+              img || naImage ? "bg-slate-50" : RED_CELL
+            }`}
+            title={img || naImage ? undefined : "No image"}
+          >
+            {img ? (
+              <img
+                src={img}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <ImageIcon
+                className={`w-3.5 h-3.5 ${naImage ? "text-slate-300" : "text-red-400"}`}
+              />
+            )}
+          </div>
+          <div className={`min-w-0 flex-1 ${focusRing("name")}`}>
+            {editingHere("name") ? (
+              <InlineInput {...editorProps} placeholder="Product name" />
+            ) : (
+              <button
+                onClick={() => onStartEdit(p.id, "name", p.name)}
+                className="text-left w-full group px-1"
+                title="Click to edit"
+              >
+                <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-red-600">
+                  {p.name}
+                </span>
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => onOpenPanel(p)}
+            className="flex-shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-500 hover:border-red-300 hover:text-red-600 opacity-0 group-hover/row:opacity-100 focus:opacity-100"
+            title="Open editor panel"
+          >
+            <PanelRightOpen className="w-3.5 h-3.5" />
+            Open
+          </button>
+        </div>
       </td>
+      {cols.map(c => {
+        const ring =
+          c.key === "price"
+            ? focusRing("price")
+            : c.key === "description"
+              ? focusRing("description")
+              : "";
+        return (
+          <td
+            key={c.key}
+            className={`px-3 py-2 border-b border-slate-100 ${cellTint(c.key)} ${ring}`}
+          >
+            {renderCell(c.key)}
+          </td>
+        );
+      })}
     </tr>
   );
 }
