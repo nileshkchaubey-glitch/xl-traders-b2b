@@ -198,7 +198,23 @@ inquiries, orders, order_items, import_logs, business_settings
   "On Enquiry" via shared `isPriceOnEnquiry` (never ₹0); missing price/desc/image render
   red-tinted). Top "Fix Missing" chips (No price / No description / No image / Draft) with
   live node-scoped counts filter the table. Thumbnails display-only (image assign = Phase
-  3); keyboard nav = Phase 2.
+  3).
+- **Catalog Tree Editor (Phase 2 of 3):** the Catalog Editor gains full data visibility +
+  feature parity with the Products table (AdminProducts stays untouched; its removal is a
+  later Phase 2b only after parity is verified live). **Columns**: a "Columns" dropdown
+  toggles SKU / Category / Group / Unit-Pack / Stock / Price / Description / Status / Score /
+  Updated (Name + checkbox always shown, sticky-left); the table horizontal-scrolls when
+  columns overflow; the choice persists in-memory + the `cols` URL param (no localStorage).
+  **Side panel**: a row "Open" button slides in `CatalogProductPanel` — a right drawer built
+  on the shared `useProductForm` (service-layer save; shared `ProductDrawer` untouched) with
+  Basic / Pricing (On-Enquiry toggle) / Availability / Description (+ AI Smart Paste) /
+  Specifications (key-value JSONB) / Images / SEO, a dirty-close guard, Esc-close, and a link
+  to the full route editor. **Parity**: global name/SKU search (`getAllAdmin`, whose admin
+  filter now ORs name/sku), a status filter + 8-dimension Missing… dropdown merged into the
+  toolbar, a bulk bar (select-all-matching via `getAdminMatchingIds`, Publish/Unpublish via
+  `bulkSetStatus`, Delete via `bulkDelete`), spreadsheet keyboard nav (↑↓←→ focus ring, Enter
+  edit/save-down, Tab save-right, Esc cancel), and an "Add product" quick input (draft via
+  `productService.create`). Image assign stays Phase 3.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
