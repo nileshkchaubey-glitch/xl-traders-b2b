@@ -11,7 +11,6 @@ import {
   Globe,
   Images,
   Layers,
-  FolderTree,
 } from "lucide-react";
 
 // Shared admin navigation config — the single source of truth for the desktop
@@ -34,8 +33,9 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Catalogue",
     items: [
       { id: "overview", label: "Overview", icon: LayoutDashboard },
-      { id: "products", label: "Products", icon: Package },
-      { id: "catalog-editor", label: "Catalog Editor", icon: FolderTree },
+      // Phase 2b: the Catalog Editor IS the products surface now (the old
+      // AdminProducts table was removed after parity was verified live).
+      { id: "catalog-editor", label: "Products", icon: Package },
       { id: "categories", label: "Catalogues", icon: Grid3x3 },
       { id: "image-library", label: "Image Library", icon: Images },
       { id: "masters", label: "Masters", icon: Layers },
@@ -65,8 +65,7 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const BREADCRUMB: Record<string, { parent: string; label: string }> = {
   overview: { parent: "Catalogue", label: "Overview" },
-  products: { parent: "Catalogue", label: "Products" },
-  "catalog-editor": { parent: "Catalogue", label: "Catalog Editor" },
+  "catalog-editor": { parent: "Catalogue", label: "Products" },
   categories: { parent: "Catalogue", label: "Catalogues" },
   "image-library": { parent: "Catalogue", label: "Image Library" },
   orders: { parent: "Sales", label: "Orders" },
@@ -80,4 +79,4 @@ export const BREADCRUMB: Record<string, { parent: string; label: string }> = {
 
 // Sections promoted to the mobile bottom tab bar. Everything else lives under
 // the "More" tab. `masters` opens its own route (/admin/masters).
-export const MOBILE_PRIMARY_IDS = ["overview", "products", "image-library"];
+export const MOBILE_PRIMARY_IDS = ["overview", "catalog-editor", "image-library"];

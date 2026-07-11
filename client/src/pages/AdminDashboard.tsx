@@ -5,7 +5,6 @@ import { LogOut, Menu, X, ChevronRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 import AdminOverview from "@/components/admin/AdminOverview";
-import AdminProducts from "@/components/admin/AdminProducts";
 import AdminCategories from "@/components/admin/AdminCategories";
 import AdminEnquiries from "@/components/admin/AdminEnquiries";
 import AdminSettings from "@/components/admin/AdminSettings";
@@ -27,8 +26,12 @@ export default function AdminDashboard() {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isAdmin, isLoading, refreshProfile, signOut } =
     useAuthStore();
-  const [activeTab, setActiveTab] = useState(
-    () => sessionStorage.getItem("admin-active-tab") || "overview"
+  // Legacy tab ids from before Phase 2b (AdminProducts removal) map onto the
+  // Catalog Editor so stale sessionStorage / bookmarks / deep-links keep working.
+  const normalizeTab = (tab: string) =>
+    tab === "products" ? "catalog-editor" : tab;
+  const [activeTab, setActiveTab] = useState(() =>
+    normalizeTab(sessionStorage.getItem("admin-active-tab") || "overview")
   );
   const [accessChecked, setAccessChecked] = useState(false);
   const redirectingRef = useRef(false);
@@ -42,7 +45,8 @@ export default function AdminDashboard() {
     useState<AttentionFilter>(null);
   const isMobile = useIsMobile();
 
-  // Deep-link support: dashboard chips link to /admin?tab=products&missing=<key>.
+  // Deep-link support: dashboard chips link to /admin?tab=catalog-editor&missing=<key>
+  // (legacy tab=products links are normalized onto the Catalog Editor).
   // Apply the tab + missing-data filter whenever those query params change.
   const search = useSearch();
   useEffect(() => {
@@ -50,12 +54,14 @@ export default function AdminDashboard() {
     const tab = params.get("tab");
     const missing = params.get("missing");
     if (tab) {
-      setActiveTab(tab);
-      sessionStorage.setItem("admin-active-tab", tab);
+      const normalized = normalizeTab(tab);
+      setActiveTab(normalized);
+      sessionStorage.setItem("admin-active-tab", normalized);
     }
     if (isMissingFilter(missing)) {
       setProductsAttention(missing);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -137,23 +143,19 @@ export default function AdminDashboard() {
   const initials = user?.email?.[0]?.toUpperCase() ?? "A";
 
   // The active admin section — shared verbatim between the desktop layout and
-  // the mobile shell so no section logic is forked. Products stays mounted
-  // (hidden) to preserve its table state / keyboard shortcuts across tabs.
+  // the mobile shell so no section logic is forked.
   const sectionContent = (
     <>
       {activeTab === "overview" && <AdminOverview onTabChange={setActiveTab} />}
 
-      <div className={activeTab !== "products" ? "hidden" : ""}>
-        <AdminProducts
-          keyboardShortcutsEnabled={activeTab === "products"}
+      {/* Phase 2b: the Catalog Editor is THE products surface (AdminProducts
+          removed after parity was verified live on PR #98). */}
+      {activeTab === "catalog-editor" && (
+        <CatalogTreeEditor
+          categories={categories}
           attentionFilter={productsAttention}
           onAttentionChange={setProductsAttention}
-          categories={categories}
         />
-      </div>
-
-      {activeTab === "catalog-editor" && (
-        <CatalogTreeEditor categories={categories} />
       )}
 
       {activeTab === "orders" && <AdminOrders />}
@@ -169,7 +171,7 @@ export default function AdminDashboard() {
       {activeTab === "enquiries" && <AdminEnquiries />}
       {activeTab === "seo" && <AdminSEO />}
       {activeTab === "bulk-import" && (
-        <AdminBulkImport onGoToProducts={() => setActiveTab("products")} />
+        <AdminBulkImport onGoToProducts={() => setActiveTab("catalog-editor")} />
       )}
       {activeTab === "google-sheets" && <AdminGoogleSheets />}
       {activeTab === "site-content" && <AdminSiteContent />}

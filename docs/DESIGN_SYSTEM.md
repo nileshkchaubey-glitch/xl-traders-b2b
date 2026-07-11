@@ -124,9 +124,10 @@ Service modules that exist today (`client/src/lib/`):
 | Stores | `authStore.ts` (`useAuthStore`), `stores/cartStore.ts` |
 
 > **Known discrepancy (flagged, not hidden):** `CLAUDE.md` Rule #1 states "components never
-> call Supabase directly," but several admin components still do — `AdminProducts.tsx`,
+> call Supabase directly," but several admin components still do —
 > `AdminCategories.tsx`, `AdminMasters.tsx`, `AdminOverview.tsx`, `AdminSEO.tsx` import the
-> `supabase` client and query it inline. The rule is the **target state**; these are debt to
+> `supabase` client and query it inline. (`AdminProducts.tsx` was the fifth offender until
+> its Phase 2b removal.) The rule is the **target state**; these are debt to
 > migrate into services. New code MUST follow the rule; touching one of these files is a good
 > moment to extract its queries. (The Catalog Editor is already service-only.)
 
@@ -182,20 +183,25 @@ Toasts use **`sonner`**. Bottom sheets use the single **`drawer`** (vaul) primit
 
 | Component / hook | Role |
 | --- | --- |
-| `useProductForm` + `lib/productForm.ts` (`saveProductForm`) | **Single source of truth for create/update.** Used by the route editor, `ProductDrawer`, and `CatalogProductPanel` so save logic never forks |
-| `ProductDrawer` | Shared right-side quick editor (used by AdminProducts) |
-| `CatalogProductPanel` | Catalog Editor's field editor (also on `useProductForm`) |
-| `ProductsTable` | Admin products list — **TanStack Table + `@tanstack/react-virtual`** (the only virtualized grid today) |
-| `CatalogTreeEditor` | Catalog Editor — group→category tree + a **plain HTML `<table>`** with column toggles, inline edit, bulk, keyboard nav |
-| `CategoryCombobox`, `AISmartPasteDialog`, `AdminImageGallery`, `ProductMediaSection`, `MobileAdminShell`, `adminNav.tsx` | Reusable admin building blocks |
+| `useProductForm` + `lib/productForm.ts` (`saveProductForm`) | **Single source of truth for create/update.** Used by the route editor and `CatalogProductPanel` so save logic never forks |
+| `CatalogProductPanel` | Catalog Editor's field editor (on `useProductForm`; embeds `ProductMediaSection` for image assign) |
+| `CatalogTreeEditor` | **THE products surface** (Phase 2b) — group→category tree + shared `<DataTable>` with inline edit, bulk, keyboard nav |
+| `CategoryCombobox`, `AISmartPasteDialog`, `ProductMediaSection`, `MobileAdminShell`, `adminNav.tsx` | Reusable admin building blocks |
 | `HealthDot` / `catalogHealth.ts` | Health color/label only (logic stays in the view) |
+
+> Removed in Phase 2b (recover from git if needed): `AdminProducts`, `ProductsTable`
+> (TanStack + `react-virtual` — the only virtualized grid), `ProductDrawer`,
+> `EditableCell`, `RapidEntryRow`, `ProductQuickEditSheet`, `MobileProductCard`,
+> `AdminImageGallery`. `@tanstack/react-virtual` is currently **unused** (kept as a
+> dependency for `<DataTable>`'s planned virtualization phase).
 
 ### 3.3 Shared `<DataTable>` — **Phase 1 built** (`client/src/components/ui/DataTable.tsx`)
 
 `<DataTable>` exists as of Phase 1, built on **`@tanstack/react-table`** (already a dependency,
 `^8.21.3` — no new dep, ~0 bundle delta). **`CatalogTreeEditor` is the first consumer** (its
-bespoke grid was removed). `ProductsTable` (TanStack + virtualized) has **not** migrated yet.
-Every admin table should eventually consume this one component — **no bespoke grids.**
+bespoke grid was removed). Phase 2b then deleted `ProductsTable` along with AdminProducts, so
+`<DataTable>` is now the **only** product grid. Every admin table should consume this one
+component — **no bespoke grids.**
 
 **Target feature set (20)** — `[DONE]` = live in `<DataTable>` Phase 1; the rest land in later
 phases per this contract:
@@ -209,12 +215,12 @@ phases per this contract:
 | 5 | Column pin | `[DONE]` — `meta.sticky`, sticky-left with cumulative offsets |
 | 6 | Multi-select rows | `[DONE]` — consumer-controlled selection; select-all-matching in Catalog Editor |
 | 7 | Bulk action bar | `[DONE]` — consumer slot; publish / unpublish / delete in Catalog Editor |
-| 8 | Infinite scroll (virtualization) | `[deferred]` — `react-virtual` used by `ProductsTable`; DataTable paginates |
+| 8 | Infinite scroll (virtualization) | `[deferred]` — `react-virtual` installed but unused since Phase 2b; DataTable paginates |
 | 9 | Sticky header | `[DONE]` — `thead` sticky top |
 | 10 | Sticky first column | `[DONE]` — checkbox + first `meta.sticky` column |
 | 11 | Keyboard navigation | `[DONE]` — consumer via `containerProps` + `managed` inline inputs (↑↓←→, Enter, Tab, Esc) |
 | 12 | Copy/paste (Excel) | `[deferred]` |
-| 13 | Right-click menu | `[deferred]` — pattern exists in `ProductsTable` (`context-menu`); not in DataTable yet |
+| 13 | Right-click menu | `[deferred]` — `ui/context-menu` primitive exists; not in DataTable yet (old pattern in removed `ProductsTable`, see git history) |
 | 14 | Row grouping | `[deferred]` — the tree gives group→category filtering, not in-table grouping |
 | 15 | Export CSV | `[deferred]` — import exists; export doesn't |
 | 16 | Save layout | `[DONE]` — columns + density persisted to URL (`persistKey`); no localStorage |
@@ -226,8 +232,8 @@ phases per this contract:
 **Phase 1 live: 13 / 20.** Deferred to later phases: per-column filter, column resize,
 virtualization/infinite scroll, copy-paste, right-click menu, row grouping, export CSV.
 
-> Next: migrate `ProductsTable` onto `<DataTable>` (folding in virtualization) so there is
-> exactly one grid implementation.
+> Phase 2b removed `ProductsTable`, so `<DataTable>` is the single grid implementation.
+> Virtualization (folding `react-virtual` into `<DataTable>`) remains a later-phase item.
 
 ---
 

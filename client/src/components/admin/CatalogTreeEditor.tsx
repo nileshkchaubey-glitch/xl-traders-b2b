@@ -179,18 +179,23 @@ interface CatalogTreeEditorProps {
   // Lifted from AdminDashboard (shared with the Products/Categories tabs) so
   // edits made elsewhere appear here without a reload.
   categories?: Category[];
+  // Missing-data filter set from outside (Overview chips deep-link with
+  // ?tab=catalog-editor&missing=<key>). One-way sync: applied when the prop
+  // CHANGES; internal changes report back via onAttentionChange.
+  attentionFilter?: MissingFilter | null;
+  onAttentionChange?: (filter: MissingFilter | null) => void;
 }
 
 /**
- * Catalog Tree Editor — an additional catalogue editing surface that sits
- * alongside the existing AdminProducts table (it does NOT replace it). Layout:
- * a left collapsible Group › Category tree with health dots, a main
- * inline-editable product table, and top "Fix Missing" filter chips.
- *
- * Phase 1 of 3. Keyboard navigation is intentionally out of scope here.
+ * Catalog Tree Editor — THE admin products surface (Phase 2b: it replaced the
+ * old AdminProducts table after parity was verified live). Layout: a left
+ * collapsible Group › Category tree with health dots, a main inline-editable
+ * product table (shared <DataTable>), and top "Fix Missing" filter chips.
  */
 export default function CatalogTreeEditor({
   categories = [],
+  attentionFilter = null,
+  onAttentionChange,
 }: CatalogTreeEditorProps) {
   const groups = useMemo(() => buildGroups(categories), [categories]);
   const categoryById = useMemo(() => {
@@ -220,9 +225,28 @@ export default function CatalogTreeEditor({
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<AdminStatusFilter>("all");
-  const [activeMissing, setActiveMissing] = useState<MissingFilter | null>(null);
+  const [activeMissing, setActiveMissing] = useState<MissingFilter | null>(
+    attentionFilter
+  );
   // Live counts for the quick chips (scoped to the current node).
   const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
+
+  // Apply an external attention change (Overview deep-link) without clobbering
+  // internal filter changes: only sync when the PROP itself changes.
+  const prevAttentionProp = useRef(attentionFilter);
+  useEffect(() => {
+    if (attentionFilter !== prevAttentionProp.current) {
+      prevAttentionProp.current = attentionFilter;
+      setActiveMissing(attentionFilter);
+    }
+  }, [attentionFilter]);
+
+  // All UI changes to the missing filter go through this so the parent
+  // (AdminDashboard) stays in sync for future deep-links.
+  const applyMissing = (f: MissingFilter | null) => {
+    setActiveMissing(f);
+    onAttentionChange?.(f);
+  };
 
   // Debounce the search box → server-side name/SKU search.
   useEffect(() => {
@@ -1192,7 +1216,7 @@ export default function CatalogTreeEditor({
         <Select
           value={activeMissing ?? "none"}
           onValueChange={v =>
-            setActiveMissing(v === "none" ? null : (v as MissingFilter))
+            applyMissing(v === "none" ? null : (v as MissingFilter))
           }
         >
           <SelectTrigger
@@ -1252,7 +1276,7 @@ export default function CatalogTreeEditor({
           return (
             <button
               key={f}
-              onClick={() => setActiveMissing(active ? null : f)}
+              onClick={() => applyMissing(active ? null : f)}
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 active
                   ? "bg-red-600 border-red-600 text-white"
@@ -1273,7 +1297,7 @@ export default function CatalogTreeEditor({
         {(activeMissing || statusFilter !== "all" || search) && (
           <button
             onClick={() => {
-              setActiveMissing(null);
+              applyMissing(null);
               setStatusFilter("all");
               setSearchInput("");
             }}
