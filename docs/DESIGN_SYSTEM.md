@@ -190,42 +190,44 @@ Toasts use **`sonner`**. Bottom sheets use the single **`drawer`** (vaul) primit
 | `CategoryCombobox`, `AISmartPasteDialog`, `AdminImageGallery`, `ProductMediaSection`, `MobileAdminShell`, `adminNav.tsx` | Reusable admin building blocks |
 | `HealthDot` / `catalogHealth.ts` | Health color/label only (logic stays in the view) |
 
-### 3.3 Planned shared `<DataTable>` — **contract (spec only, not built yet)**
+### 3.3 Shared `<DataTable>` — **Phase 1 built** (`client/src/components/ui/DataTable.tsx`)
 
-There is **no `DataTable` component today.** Two admin grids exist in parallel: `ProductsTable`
-(TanStack + virtualized) and `CatalogTreeEditor` (plain table, richer toolbar). Phase 2 of the
-table work will build **one** `<DataTable>` on **`@tanstack/react-table`** — which is **already
-a dependency** (`^8.21.3`, alongside `@tanstack/react-virtual ^3.14.3`), so **no new dep is
-needed**. Every admin table should eventually consume this one component — **no bespoke grids.**
+`<DataTable>` exists as of Phase 1, built on **`@tanstack/react-table`** (already a dependency,
+`^8.21.3` — no new dep, ~0 bundle delta). **`CatalogTreeEditor` is the first consumer** (its
+bespoke grid was removed). `ProductsTable` (TanStack + virtualized) has **not** migrated yet.
+Every admin table should eventually consume this one component — **no bespoke grids.**
 
-**Target feature set (20)** — status is relative to what the Catalog Editor already proves out:
+**Target feature set (20)** — `[DONE]` = live in `<DataTable>` Phase 1; the rest land in later
+phases per this contract:
 
 | # | Feature | Status |
 | --- | --- | --- |
-| 1 | Column sort | `[quick]` — `getAllAdmin` already accepts `sortField`/`sortAscending`; needs header UI |
-| 2 | Per-column filter | `[medium]` |
-| 3 | Column resize | `[medium]` |
-| 4 | Hide/show columns | `[DONE in Catalog Editor]` — Columns dropdown + `cols` URL param |
-| 5 | Column pin | `[DONE in Catalog Editor]` — Name + checkbox sticky-left |
-| 6 | Multi-select rows | `[DONE in Catalog Editor]` — checkboxes + select-all-matching |
-| 7 | Bulk action bar | `[DONE in Catalog Editor]` — publish / unpublish / delete |
-| 8 | Infinite scroll (virtualization) | `[deferred]` — `react-virtual` installed & used by `ProductsTable`; Catalog Editor paginates instead |
-| 9 | Sticky header | `[quick]` |
-| 10 | Sticky first column | `[DONE in Catalog Editor]` — Name/checkbox sticky-left |
-| 11 | Keyboard navigation | `[DONE in Catalog Editor]` — ↑↓←→, Enter edit/save-down, Tab save-right, Esc |
+| 1 | Column sort | `[DONE]` — per-column sort headers → `getAllAdmin` `sortField`/`sortAscending` (server-side) |
+| 2 | Per-column filter | `[medium]` — deferred |
+| 3 | Column resize | `[medium]` — deferred |
+| 4 | Hide/show columns | `[DONE]` — Columns menu (from `meta.hideable`/`defaultHidden`) |
+| 5 | Column pin | `[DONE]` — `meta.sticky`, sticky-left with cumulative offsets |
+| 6 | Multi-select rows | `[DONE]` — consumer-controlled selection; select-all-matching in Catalog Editor |
+| 7 | Bulk action bar | `[DONE]` — consumer slot; publish / unpublish / delete in Catalog Editor |
+| 8 | Infinite scroll (virtualization) | `[deferred]` — `react-virtual` used by `ProductsTable`; DataTable paginates |
+| 9 | Sticky header | `[DONE]` — `thead` sticky top |
+| 10 | Sticky first column | `[DONE]` — checkbox + first `meta.sticky` column |
+| 11 | Keyboard navigation | `[DONE]` — consumer via `containerProps` + `managed` inline inputs (↑↓←→, Enter, Tab, Esc) |
 | 12 | Copy/paste (Excel) | `[deferred]` |
-| 13 | Right-click menu | `[medium]` — pattern exists in `ProductsTable` (`context-menu`), not yet in Catalog Editor |
+| 13 | Right-click menu | `[deferred]` — pattern exists in `ProductsTable` (`context-menu`); not in DataTable yet |
 | 14 | Row grouping | `[deferred]` — the tree gives group→category filtering, not in-table grouping |
-| 15 | Export CSV | `[medium]` — import exists; export doesn't |
-| 16 | Save layout | `[quick]` — column choice already persists via URL; extend to full layout |
-| 17 | Search | `[DONE in Catalog Editor]` — server-side name/SKU |
-| 18 | Pagination | `[DONE in Catalog Editor]` — `.range()` |
-| 19 | Density toggle | `[quick]` |
-| 20 | Loading skeleton | `[quick]` — `ui/skeleton` exists; grids currently show a spinner |
+| 15 | Export CSV | `[deferred]` — import exists; export doesn't |
+| 16 | Save layout | `[DONE]` — columns + density persisted to URL (`persistKey`); no localStorage |
+| 17 | Search | `[DONE]` — `search` hook (Catalog Editor keeps its own toolbar box; server-side name/SKU) |
+| 18 | Pagination | `[DONE]` — server-side `.range()` footer |
+| 19 | Density toggle | `[DONE]` — compact / comfortable, persisted to URL |
+| 20 | Loading skeleton | `[DONE]` — reuses `ui/skeleton` |
 
-> When `<DataTable>` is built, `ProductsTable` and `CatalogTreeEditor` should both migrate onto
-> it (consolidating the virtualization from one and the toolbar/keyboard/column work from the
-> other) so there is exactly one grid implementation.
+**Phase 1 live: 13 / 20.** Deferred to later phases: per-column filter, column resize,
+virtualization/infinite scroll, copy-paste, right-click menu, row grouping, export CSV.
+
+> Next: migrate `ProductsTable` onto `<DataTable>` (folding in virtualization) so there is
+> exactly one grid implementation.
 
 ---
 
