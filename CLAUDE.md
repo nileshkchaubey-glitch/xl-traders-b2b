@@ -12,6 +12,9 @@
 - **Update ritual:** After each merged PR → update Shipped + Roadmap. Agent does this in the PR.
 - **`/admin-v2` is GONE.** The parallel admin-v2 experience (PRs #62–#79) was removed in July 2026 —
   the original `/admin` PIM is the only admin. Do not recreate admin-v2 code, routes, or specs.
+- **Design System & standards:** see [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) for UI tokens,
+  engineering/service-layer rules, the component inventory + planned `<DataTable>` contract, and
+  the architecture/data-flow reference.
 
 ---
 
