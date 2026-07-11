@@ -55,7 +55,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Catalogue",
     items: [
       { id: "overview", label: "Overview", icon: LayoutDashboard },
-      { id: "products", label: "Products", icon: Package },
+      // Phase 2b: products = the Catalog Editor tab (AdminProducts removed).
+      { id: "catalog-editor", label: "Products", icon: Package },
       { id: "categories", label: "Catalogues", icon: Grid3x3 },
       { id: "image-library", label: "Image Library", icon: Images },
       { id: "masters", label: "Masters", icon: Layers },

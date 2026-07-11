@@ -321,7 +321,7 @@ export default function AdminOverview({ onTabChange }: AdminOverviewProps) {
           value={stats.totalProducts}
           sub={`${activePercent}% live`}
           accent="bg-slate-700"
-          onClick={() => onTabChange?.("products")}
+          onClick={() => onTabChange?.("catalog-editor")}
         />
         <KpiCard
           icon={CheckCircle}
@@ -329,7 +329,7 @@ export default function AdminOverview({ onTabChange }: AdminOverviewProps) {
           value={stats.activeProducts}
           sub="Live in catalogue"
           accent="bg-emerald-500"
-          onClick={() => onTabChange?.("products")}
+          onClick={() => onTabChange?.("catalog-editor")}
         />
         <KpiCard
           icon={XCircle}
@@ -499,7 +499,7 @@ export default function AdminOverview({ onTabChange }: AdminOverviewProps) {
               return (
                 <Link
                   key={item.filter}
-                  to={`/admin?tab=products&missing=${item.filter}`}
+                  to={`/admin?tab=catalog-editor&missing=${item.filter}`}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm transition-all hover:shadow-sm hover:-translate-y-0.5 cursor-pointer ${item.color}`}
                 >
                   {content}
@@ -517,7 +517,7 @@ export default function AdminOverview({ onTabChange }: AdminOverviewProps) {
               {[
                 {
                   label: "Add Product",
-                  tab: "products",
+                  tab: "catalog-editor",
                   bg: "bg-slate-800 hover:bg-slate-700 text-white",
                 },
                 {
@@ -560,7 +560,7 @@ export default function AdminOverview({ onTabChange }: AdminOverviewProps) {
               </h3>
             </div>
             <button
-              onClick={() => onTabChange?.("products")}
+              onClick={() => onTabChange?.("catalog-editor")}
               className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-semibold"
             >
               View all <ArrowRight className="w-3 h-3" />

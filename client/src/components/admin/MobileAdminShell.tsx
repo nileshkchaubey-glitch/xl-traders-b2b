@@ -21,7 +21,8 @@ import {
 // from the shared adminNav config; these are just the four promoted entries.
 const PRIMARY_TABS = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard },
-  { id: "products", label: "Products", icon: Package },
+  // Phase 2b: products tab now opens the Catalog Editor (AdminProducts removed).
+  { id: "catalog-editor", label: "Products", icon: Package },
   { id: "image-library", label: "Images", icon: Images },
 ];
 

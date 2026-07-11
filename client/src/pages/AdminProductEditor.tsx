@@ -174,7 +174,7 @@ export default function AdminProductEditor() {
       return;
     sessionStorage.removeItem(draftKey);
     sessionStorage.removeItem(RETAINED_VALUES_KEY);
-    sessionStorage.setItem("admin-active-tab", "products");
+    sessionStorage.setItem("admin-active-tab", "catalog-editor");
     setLocation("/admin");
   }, [dirty, draftKey, setLocation]);
 
@@ -270,7 +270,7 @@ export default function AdminProductEditor() {
           }
           setTimeout(() => nameRef.current?.focus(), 0);
         } else {
-          sessionStorage.setItem("admin-active-tab", "products");
+          sessionStorage.setItem("admin-active-tab", "catalog-editor");
           setLocation("/admin");
         }
       } catch {
@@ -493,7 +493,7 @@ export default function AdminProductEditor() {
             <Link
               href="/admin"
               onClick={() =>
-                sessionStorage.setItem("admin-active-tab", "products")
+                sessionStorage.setItem("admin-active-tab", "catalog-editor")
               }
               className="text-slate-500 hover:text-slate-900"
             >
