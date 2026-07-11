@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
+import ProductMediaSection from "@/components/admin/products/ProductMediaSection";
 import { useProductForm } from "@/hooks/useProductForm";
 import { productToForm, EMPTY_PRODUCT_FORM } from "@/lib/productForm";
 import { normalizeImageUrl } from "@/lib/imageUtils";
@@ -91,7 +92,8 @@ export default function CatalogProductPanel({
   onSaved,
 }: CatalogProductPanelProps) {
   const [, setLocation] = useLocation();
-  const { formData, updateForm, load, saving, save } = useProductForm(product);
+  const { formData, updateForm, load, saving, save, isNA, toggleNA } =
+    useProductForm(product);
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [specs, setSpecs] = useState<SpecRow[]>([]);
@@ -421,32 +423,17 @@ export default function CatalogProductPanel({
               )}
             </Section>
 
-            {/* Images — display + link to full assign (Phase 3) */}
+            {/* Images — primary + gallery, assigned from the Image Library
+                (the exact same ProductMediaSection flow the products drawer uses). */}
             <Section title="Images">
-              <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded-lg border border-slate-200 overflow-hidden bg-slate-50 flex items-center justify-center flex-shrink-0">
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-[10px] text-slate-400">No image</span>
-                  )}
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  Image assignment lives in the full editor (Phase 3 here).
-                  {product && (
-                    <button
-                      onClick={() => setLocation(`/admin/products/${product.id}`)}
-                      className="mt-1 flex items-center gap-1 text-red-600 hover:text-red-700 font-semibold"
-                    >
-                      Manage images <ExternalLink className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
+              <ProductMediaSection
+                product={product}
+                imageUrl={formData.image_url}
+                previewUrl={previewUrl}
+                onImageUrlChange={v => updateForm("image_url", v)}
+                isNA={isNA}
+                toggleNA={toggleNA}
+              />
             </Section>
 
             {/* SEO */}

@@ -11,10 +11,15 @@ import {
   Search,
   Plus,
   X,
+  Ban,
+  Copy,
+  Star,
 } from "lucide-react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -22,7 +27,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { DataTable } from "@/components/ui/DataTable";
+import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import { Category, Product } from "@/lib/supabase";
 import {
   productService,
@@ -43,6 +56,19 @@ import {
 import CatalogProductPanel from "@/components/admin/CatalogProductPanel";
 
 const PAGE_SIZE = 50;
+const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
+
+// Fields that can be marked "not applicable" (must match the na_fields values
+// v_product_health checks). Same list AdminProducts uses. Label → stored key.
+const NA_FIELDS: Array<{ key: string; label: string }> = [
+  { key: "brand", label: "Brand" },
+  { key: "specifications", label: "Specs" },
+  { key: "description", label: "Description" },
+  { key: "image", label: "Image" },
+];
+const NA_FIELD_LABELS: Record<string, string> = Object.fromEntries(
+  NA_FIELDS.map(f => [f.key, f.label])
+);
 
 // Maps a sortable column id → the getAllAdmin sort field (server-side sort).
 const SORT_FIELD: Record<string, "name" | "price" | "updated_at"> = {
@@ -209,6 +235,14 @@ export default function CatalogTreeEditor({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectAllMatching, setSelectAllMatching] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Bulk field-setters (brand/MOQ) + the N/A dialog — same behavior as AdminProducts.
+  const [bulkBrand, setBulkBrand] = useState("");
+  const [bulkMoq, setBulkMoq] = useState("");
+  const [naDialogOpen, setNaDialogOpen] = useState(false);
+  const [naSelected, setNaSelected] = useState<string[]>([]);
+  // Bumped after a one-shot "Set unit" so the Select remounts back to its
+  // placeholder instead of sticking on the last picked value.
+  const [unitSelectKey, setUnitSelectKey] = useState(0);
 
   // Table state
   const [products, setProducts] = useState<Product[]>([]);
@@ -511,27 +545,43 @@ export default function CatalogTreeEditor({
     });
   };
 
+  // Shared flow (mirrors AdminProducts): resolve ids → optional transform (e.g.
+  // skip variants) → confirm with the EXACT final count → run → refresh.
+  // Returns true only when the action actually ran (false on empty targets, a
+  // cancelled confirm, or an error) so callers know whether to clear their input.
   const runBulk = async (
     confirmLabel: (n: number) => string,
-    run: (ids: string[]) => Promise<number>
-  ) => {
-    if (bulkBusy) return;
+    run: (ids: string[]) => Promise<number>,
+    transform?: (ids: string[]) => Promise<{ ids: string[]; note?: string }>
+  ): Promise<boolean> => {
+    if (bulkBusy) return false;
     setBulkBusy(true);
     try {
-      const ids = await resolveTargetIds();
+      let ids = await resolveTargetIds();
+      let note = "";
+      if (transform) {
+        const t = await transform(ids);
+        ids = t.ids;
+        note = t.note ?? "";
+      }
       if (!ids.length) {
         toast.error("No matching products");
-        return;
+        return false;
       }
-      if (!window.confirm(confirmLabel(ids.length))) return;
+      if (
+        !window.confirm(confirmLabel(ids.length) + (note ? `\n\n${note}` : ""))
+      )
+        return false;
       const n = await run(ids);
       toast.success(`Updated ${n} product${n === 1 ? "" : "s"}`);
       clearSelection();
       loadProducts();
       loadAggregates();
       loadChipCounts();
+      return true;
     } catch {
       toast.error("Bulk action failed");
+      return false;
     } finally {
       setBulkBusy(false);
     }
@@ -552,6 +602,135 @@ export default function CatalogTreeEditor({
       n => `Delete ${n} product${n === 1 ? "" : "s"}? This cannot be undone.`,
       ids => productService.bulkDelete(ids)
     );
+
+  // ── Bulk field setters (same service methods AdminProducts uses) ───────────────
+  const doSetBrand = async () => {
+    const value = bulkBrand.trim();
+    if (!value) {
+      toast.error("Enter a brand first");
+      return;
+    }
+    const ok = await runBulk(
+      n => `Set brand to "${value}" for ${n} products?`,
+      ids => productService.bulkUpdateField(ids, "brand", value)
+    );
+    if (ok) setBulkBrand("");
+  };
+
+  const doSetMoq = async () => {
+    const n = parseInt(bulkMoq);
+    if (isNaN(n) || n < 1) {
+      toast.error("Enter a valid MOQ");
+      return;
+    }
+    const ok = await runBulk(
+      c => `Set MOQ to ${n} for ${c} products?`,
+      ids => productService.bulkUpdateField(ids, "moq", n)
+    );
+    if (ok) setBulkMoq("");
+  };
+
+  const doSetUnit = async (unit: string) => {
+    await runBulk(
+      c => `Set unit to "${unit}" for ${c} products?`,
+      ids => productService.bulkUpdateField(ids, "unit_of_measure", unit)
+    );
+    // One-shot: reset the picker back to "Set unit…".
+    setUnitSelectKey(k => k + 1);
+  };
+
+  const doSetCategory = (categoryId: string) => {
+    const catName =
+      categories.find(c => c.id === categoryId)?.name ?? "category";
+    return runBulk(
+      c => `Set category to "${catName}" for ${c} products?`,
+      ids => productService.bulkUpdateField(ids, "category_id", categoryId),
+      // Variants inherit their master's category — skip them (same as AdminProducts).
+      async ids => {
+        const variants = await productService.getVariantIds(ids);
+        const standalone = ids.filter(id => !variants.has(id));
+        const skipped = ids.length - standalone.length;
+        return {
+          ids: standalone,
+          note: skipped
+            ? `${skipped} variant${skipped > 1 ? "s" : ""} skipped — variants inherit their master's category.`
+            : "",
+        };
+      }
+    );
+  };
+
+  const doSetActive = (activate: boolean) =>
+    runBulk(
+      c => `${activate ? "Activate" : "Deactivate"} ${c} products?`,
+      ids => productService.bulkUpdateField(ids, "is_active", activate)
+    );
+
+  const doSetNA = (on: boolean) => {
+    if (!naSelected.length) {
+      toast.error("Pick at least one field");
+      return;
+    }
+    const labels = naSelected.map(f => NA_FIELD_LABELS[f] ?? f).join(", ");
+    setNaDialogOpen(false);
+    runBulk(
+      c => `${on ? "Mark" : "Clear"} N/A (${labels}) for ${c} products?`,
+      ids => productService.bulkSetNA(ids, naSelected, on)
+    ).then(ok => {
+      if (ok) setNaSelected([]);
+    });
+  };
+
+  // ── Per-row: duplicate + feature toggle (same service methods as AdminProducts) ─
+  const handleDuplicate = async (product: Product) => {
+    try {
+      // Drop identity + lineage fields: the copy is a fresh standalone product.
+      // Keeping master_id/variant_label would drop the copy back into the same
+      // master group under the same label (a duplicate variant).
+      const {
+        id,
+        created_at,
+        updated_at,
+        sku,
+        master_id,
+        variant_label,
+        ...fields
+      } = product;
+      void id;
+      void created_at;
+      void updated_at;
+      void sku;
+      void master_id;
+      void variant_label;
+      await productService.create({
+        ...fields,
+        name: `${product.name} (Copy)`,
+        sku: undefined,
+        master_id: null,
+        variant_label: null,
+        is_active: false,
+        status: "draft",
+      } as Omit<Product, "id" | "created_at" | "updated_at">);
+      toast.success("Product duplicated");
+      loadProducts();
+      loadAggregates();
+    } catch {
+      toast.error("Failed to duplicate");
+    }
+  };
+
+  const handleToggleFeatured = async (prod: Product) => {
+    const next = !prod.is_featured;
+    setProducts(prev =>
+      prev.map(p => (p.id === prod.id ? { ...p, is_featured: next } : p))
+    );
+    try {
+      await productService.toggleFeatured(prod.id, next);
+    } catch {
+      toast.error("Failed to update");
+      loadProducts();
+    }
+  };
 
   // ── Add product (quick draft row) ─────────────────────────────────────────────
   const [addName, setAddName] = useState("");
@@ -736,6 +915,27 @@ export default function CatalogTreeEditor({
                 </button>
               )}
             </div>
+            {/* Feature toggle — always visible (star reflects state) */}
+            <button
+              onClick={() => handleToggleFeatured(p)}
+              className={`flex-shrink-0 p-1 rounded-md hover:bg-slate-100 ${
+                p.is_featured ? "text-amber-500" : "text-slate-300 hover:text-slate-400"
+              }`}
+              title={p.is_featured ? "Featured — click to unfeature" : "Feature"}
+            >
+              <Star
+                className="w-3.5 h-3.5"
+                fill={p.is_featured ? "currentColor" : "none"}
+              />
+            </button>
+            {/* Duplicate — hover reveal */}
+            <button
+              onClick={() => handleDuplicate(p)}
+              className="flex-shrink-0 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover/row:opacity-100 focus:opacity-100"
+              title="Duplicate product"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
             <button
               onClick={() => setPanelProduct(p)}
               className="flex-shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-500 hover:border-red-300 hover:text-red-600 opacity-0 group-hover/row:opacity-100 focus:opacity-100"
@@ -1086,60 +1286,171 @@ export default function CatalogTreeEditor({
 
       {/* ── Bulk action bar ────────────────────────────────────────────────── */}
       {selectionCount > 0 && (
-        <div className="bg-white border border-slate-300 rounded-xl px-4 py-3 shadow-sm flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-slate-800">
-            {selectAllMatching ? (
+        <div className="bg-white border border-slate-300 rounded-xl px-4 py-3 shadow-sm space-y-3">
+          {/* Selection scope */}
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-semibold text-slate-800">
+              {selectAllMatching ? (
+                <>
+                  All{" "}
+                  <span className="text-red-600">
+                    {totalCount.toLocaleString()}
+                  </span>{" "}
+                  matching selected
+                </>
+              ) : (
+                `${selected.size} selected`
+              )}
+            </span>
+            {canSelectAllMatching && (
               <>
-                All{" "}
-                <span className="text-red-600">
-                  {totalCount.toLocaleString()}
-                </span>{" "}
-                matching selected
+                <span className="text-slate-300">·</span>
+                <button
+                  onClick={() => setSelectAllMatching(true)}
+                  className="font-semibold text-red-600 hover:text-red-700 underline underline-offset-2"
+                >
+                  Select all {totalCount.toLocaleString()} matching
+                </button>
               </>
-            ) : (
-              `${selected.size} selected`
             )}
-          </span>
-          {canSelectAllMatching && (
-            <>
-              <span className="text-slate-300">·</span>
-              <button
-                onClick={() => setSelectAllMatching(true)}
-                className="text-sm font-semibold text-red-600 hover:text-red-700 underline underline-offset-2"
+            <div className="flex-1" />
+            {bulkBusy && (
+              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+            )}
+            <button
+              onClick={clearSelection}
+              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800"
+            >
+              <X className="w-3.5 h-3.5" /> Clear
+            </button>
+          </div>
+
+          {/* Actions — each confirms with the exact target count before writing */}
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+            <div className="flex items-center gap-1">
+              <Input
+                value={bulkBrand}
+                onChange={e => setBulkBrand(e.target.value)}
+                placeholder="Brand…"
+                className="h-8 w-28 text-sm"
+                disabled={bulkBusy}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                disabled={bulkBusy}
+                onClick={doSetBrand}
               >
-                Select all {totalCount.toLocaleString()} matching
-              </button>
-            </>
-          )}
-          <div className="flex-1" />
-          {bulkBusy && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
-          <button
-            onClick={doPublish}
-            disabled={bulkBusy}
-            className="h-8 rounded-lg bg-green-600 hover:bg-green-700 text-white px-3 text-xs font-medium disabled:opacity-50"
-          >
-            Publish
-          </button>
-          <button
-            onClick={doUnpublish}
-            disabled={bulkBusy}
-            className="h-8 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 px-3 text-xs font-medium disabled:opacity-50"
-          >
-            Unpublish
-          </button>
-          <button
-            onClick={doDelete}
-            disabled={bulkBusy}
-            className="h-8 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-xs font-medium disabled:opacity-50"
-          >
-            Delete
-          </button>
-          <button
-            onClick={clearSelection}
-            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800"
-          >
-            <X className="w-3.5 h-3.5" /> Clear
-          </button>
+                Set
+              </Button>
+            </div>
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min="1"
+                value={bulkMoq}
+                onChange={e => setBulkMoq(e.target.value)}
+                placeholder="MOQ…"
+                className="h-8 w-20 text-sm"
+                disabled={bulkBusy}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                disabled={bulkBusy}
+                onClick={doSetMoq}
+              >
+                Set
+              </Button>
+            </div>
+            <Select
+              key={unitSelectKey}
+              onValueChange={v => doSetUnit(v)}
+              disabled={bulkBusy}
+            >
+              <SelectTrigger className="h-8 w-28 text-sm bg-slate-50">
+                <SelectValue placeholder="Set unit…" />
+              </SelectTrigger>
+              <SelectContent>
+                {UNITS.map(u => (
+                  <SelectItem key={u} value={u}>
+                    {u}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="w-44">
+              <CategoryCombobox
+                categories={categories}
+                value=""
+                onChange={id => {
+                  if (id) doSetCategory(id);
+                }}
+                placeholder="Set category…"
+                className="h-8 text-sm"
+              />
+            </div>
+            <span className="w-px h-6 bg-slate-200" />
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+              disabled={bulkBusy}
+              onClick={doPublish}
+            >
+              Publish
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              disabled={bulkBusy}
+              onClick={doUnpublish}
+            >
+              Unpublish
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              disabled={bulkBusy}
+              onClick={() => doSetActive(true)}
+            >
+              Activate
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              disabled={bulkBusy}
+              onClick={() => doSetActive(false)}
+            >
+              Deactivate
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs gap-1"
+              disabled={bulkBusy}
+              onClick={() => {
+                setNaSelected([]);
+                setNaDialogOpen(true);
+              }}
+            >
+              <Ban className="w-3.5 h-3.5" /> N/A
+            </Button>
+            <span className="w-px h-6 bg-slate-200" />
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-8 text-xs"
+              disabled={bulkBusy}
+              onClick={doDelete}
+            >
+              Delete
+            </Button>
+          </div>
         </div>
       )}
 
@@ -1274,6 +1585,80 @@ export default function CatalogTreeEditor({
           loadChipCounts();
         }}
       />
+
+      {/* ── Bulk "Not applicable" dialog (same behavior as AdminProducts) ─────── */}
+      <Dialog
+        open={naDialogOpen}
+        onOpenChange={open => {
+          if (!open) {
+            setNaDialogOpen(false);
+            setNaSelected([]);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark fields “Not applicable”</DialogTitle>
+            <DialogDescription>
+              Pick which fields don’t apply to {selectionCount.toLocaleString()}{" "}
+              selected product{selectionCount === 1 ? "" : "s"}. Marking N/A stops
+              these from showing as “missing data”.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            {NA_FIELDS.map(f => {
+              const checked = naSelected.includes(f.key);
+              return (
+                <label
+                  key={f.key}
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() =>
+                      setNaSelected(prev =>
+                        prev.includes(f.key)
+                          ? prev.filter(k => k !== f.key)
+                          : [...prev, f.key]
+                      )
+                    }
+                  />
+                  <span className="text-sm text-slate-700">{f.label}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={bulkBusy}
+              onClick={() => {
+                setNaDialogOpen(false);
+                setNaSelected([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={bulkBusy || !naSelected.length}
+              onClick={() => doSetNA(false)}
+            >
+              Clear N/A
+            </Button>
+            <Button
+              size="sm"
+              className="bg-slate-800 hover:bg-slate-900 text-white gap-1"
+              disabled={bulkBusy || !naSelected.length}
+              onClick={() => doSetNA(true)}
+            >
+              <Ban className="w-3.5 h-3.5" /> Mark N/A
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
