@@ -33,6 +33,34 @@ export interface CategoryHealth {
   incomplete: number;
 }
 
+// Supabase/PostgREST caps a single response at 1000 rows by default. A plain
+// unranged .select() silently truncates past that, which is fine for a
+// single-row lookup but wrong for "every id matching X" — so these two id
+// lookups page through in chunks (same pattern productService.getAllAdmin
+// uses for its own .range() calls) until a page comes back short, guaranteeing
+// the full result set even once the catalogue grows past 1000 products.
+// Ordered by id for a stable sort across the separate paged requests.
+const ID_PAGE_SIZE = 1000;
+
+async function fetchAllIds(
+  buildPage: (
+    from: number,
+    to: number
+  ) => PromiseLike<{ data: { id: string }[] | null; error: { message: string } | null }>
+): Promise<string[]> {
+  const ids: string[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await buildPage(from, from + ID_PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    for (const r of rows) ids.push(r.id);
+    if (rows.length < ID_PAGE_SIZE) break;
+    from += ID_PAGE_SIZE;
+  }
+  return ids;
+}
+
 export const healthService = {
   // `categoryIds` (optional) scopes the counts to a group/category node in the
   // Catalog Tree Editor. Omit for a catalogue-wide total (Overview/Products).
@@ -84,12 +112,15 @@ export const healthService = {
   ): Promise<string[]> {
     if (categoryIds && categoryIds.length === 0) return [];
     const col = `missing_${field}`;
-    let q = supabase.from("v_product_health").select("id").eq(col, true);
-    if (categoryIds?.length) q = q.in("category_id", categoryIds);
-    const { data, error } = await q;
-
-    if (error) throw error;
-    return (data ?? []).map((r: { id: string }) => r.id);
+    return fetchAllIds((from, to) => {
+      let q = supabase
+        .from("v_product_health")
+        .select("id")
+        .eq(col, true)
+        .order("id");
+      if (categoryIds?.length) q = q.in("category_id", categoryIds);
+      return q.range(from, to);
+    });
   },
 
   // Ids of every product missing ANY dimension (missing_count > 0) — backs the
@@ -97,12 +128,15 @@ export const healthService = {
   // existing view/column (same one getCategoryHealth rolls up); no new logic.
   async getIdsIncomplete(categoryIds?: string[]): Promise<string[]> {
     if (categoryIds && categoryIds.length === 0) return [];
-    let q = supabase.from("v_product_health").select("id").gt("missing_count", 0);
-    if (categoryIds?.length) q = q.in("category_id", categoryIds);
-    const { data, error } = await q;
-
-    if (error) throw error;
-    return (data ?? []).map((r: { id: string }) => r.id);
+    return fetchAllIds((from, to) => {
+      let q = supabase
+        .from("v_product_health")
+        .select("id")
+        .gt("missing_count", 0)
+        .order("id");
+      if (categoryIds?.length) q = q.in("category_id", categoryIds);
+      return q.range(from, to);
+    });
   },
 
   // Aggregates the view into { total, incomplete } per category_id so the tree
