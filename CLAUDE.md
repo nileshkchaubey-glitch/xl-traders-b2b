@@ -277,6 +277,22 @@ inquiries, orders, order_items, import_logs, business_settings
   auto table layout redistribute any slack space proportionally across columns, silently
   undoing a drag on wide viewports. `CatalogTreeEditor` (the only consumer) sets a `size`/
   `minSize` per column to match its previous auto-layout width. No new deps.
+- **Dukaan-style Catalog Editor re-skin (July 2026):** visual-only pass modeled on
+  web.mydukaan.io's product list — every feature (tree, inline edit, chips, saved views,
+  bulk bar, keyboard nav, panel, Ctrl+K, context menu) unchanged. **Name cell:** brand-red
+  link-look name (click still = inline edit) with a gray subtitle underneath showing
+  category/SKU whenever that dedicated column is hidden in the Columns menu; hover-only
+  Duplicate/Open buttons dropped (redundant with the row menu). **Status:** the badge became
+  a one-click shadcn `Switch` + Published(green)/Draft(gray) label, wired to the existing
+  `handleTogglePublish` which now offers Undo on its success toast (Phase A pattern; no
+  confirm — a switch flip is reversible). **Actions column:** new always-visible row-end
+  icon set — Open panel / View live (Eye) / "⋯" menu (moved out of the Name cell), same
+  handlers, not hideable/resizable. **Pagination:** footer is now "Viewing 1–50 of N
+  results" + Previous / numbered pages with ellipsis / Next (red current page), same
+  pagination state. **Chrome:** quiet `bg-slate-50` header band (STICKY_CELL no longer
+  hardcodes a bg), lighter sticky-column divider (`border-r-slate-100`), white footer.
+  Screenshots: `docs/screenshots/catalog-editor-{before,after,after-status,after-compact}.png`
+  (captured locally via demo data + a temporary never-committed auth bypass).
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
