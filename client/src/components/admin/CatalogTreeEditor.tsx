@@ -19,6 +19,7 @@ import {
   Power,
   PowerOff,
   Globe,
+  Eye,
   EyeOff,
   PackageOpen,
   MoreHorizontal,
@@ -34,6 +35,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -1059,7 +1061,27 @@ export default function CatalogTreeEditor({
     );
     try {
       await productService.update(prod.id, { status: next });
-      toast.success(next === "published" ? "Published" : "Unpublished");
+      // Same Undo-on-toast pattern the reversible bulk actions use (Phase A) —
+      // a one-click switch flip shouldn't need a confirm, just an easy way back.
+      toast.success(next === "published" ? "Published" : "Unpublished", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            setProducts(prev =>
+              prev.map(p => (p.id === prod.id ? { ...p, status: prod.status } : p))
+            );
+            try {
+              await productService.update(prod.id, { status: prod.status });
+              toast.success("Undone");
+            } catch {
+              toast.error("Undo failed");
+              loadProducts();
+            }
+            loadAggregates();
+            loadChipCounts();
+          },
+        },
+      });
       loadAggregates();
       loadChipCounts();
     } catch {
@@ -1370,11 +1392,21 @@ export default function CatalogTreeEditor({
         const p = row.original;
         const img = p.image_url ? normalizeImageUrl(p.image_url) : null;
         const naImage = p.na_fields?.includes("image");
-        // Comfortable rows get a bigger, more scannable thumbnail (Shopify-
-        // style ~40-44px); compact stays tight for power entry.
+        // Comfortable rows get a bigger, more scannable thumbnail (Dukaan/
+        // Shopify-style ~40-44px); compact stays tight for power entry.
         const thumbSize = density === "compact" ? "w-8 h-8" : "w-10 h-10";
+        // Dukaan-style subtitle under the name — surfaces category/SKU inline
+        // when their dedicated column is hidden (the Columns menu default hides
+        // SKU); when a column is shown, its own cell keeps the job.
+        const subtitle = [
+          !visibleColIds.includes("category") &&
+            categoryById.get(p.category_id)?.name,
+          !visibleColIds.includes("sku") && p.sku,
+        ]
+          .filter(Boolean)
+          .join(" · ");
         return (
-          <div className="flex items-center gap-2 min-w-[190px]">
+          <div className="flex items-center gap-2.5 min-w-[190px]">
             <div
               className={`${thumbSize} flex-shrink-0 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
                 img || naImage ? "bg-slate-50" : RED_CELL
@@ -1400,12 +1432,20 @@ export default function CatalogTreeEditor({
               ) : (
                 <button
                   onClick={() => startEdit(p.id, "name", p.name)}
-                  className="text-left w-full group px-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                  className="text-left w-full px-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
                   title="Click to edit"
                 >
-                  <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-red-600">
+                  {/* Link-look (brand red), but the click stays inline-edit —
+                      re-skin only; opening the panel lives in the actions
+                      column / row menu. */}
+                  <span className="font-medium text-red-600 hover:underline line-clamp-1">
                     {p.name}
                   </span>
+                  {subtitle && (
+                    <span className="block text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                      {subtitle}
+                    </span>
+                  )}
                 </button>
               )}
             </div>
@@ -1422,38 +1462,6 @@ export default function CatalogTreeEditor({
                 fill={p.is_featured ? "currentColor" : "none"}
               />
             </button>
-            {/* Duplicate — hover reveal */}
-            <button
-              onClick={() => handleDuplicate(p)}
-              className="flex-shrink-0 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-              title="Duplicate product"
-            >
-              <Copy className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setPanelProduct(p)}
-              className="flex-shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-500 hover:border-red-300 hover:text-red-600 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-              title="Open editor panel"
-            >
-              <PanelRightOpen className="w-3.5 h-3.5" />
-              Open
-            </button>
-            {/* "⋯" menu — always visible (not hover-reveal) so the same actions
-                the right-click context menu offers are reachable on touch. */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  onClick={e => e.stopPropagation()}
-                  className="flex-shrink-0 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-                  title="More actions"
-                >
-                  <MoreHorizontal className="w-3.5 h-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                {renderRowMenuItems(p, DropdownMenuItem, DropdownMenuSeparator)}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         );
       },
@@ -1610,20 +1618,31 @@ export default function CatalogTreeEditor({
       id: "status",
       header: "Status",
       enableSorting: false,
-      size: 110,
-      minSize: 90,
+      size: 150,
+      minSize: 130,
       cell: ({ row }) => {
         const p = row.original;
+        const published = p.status === "published";
+        // Dukaan-style one-click toggle — same handleTogglePublish the row
+        // menu uses (optimistic flip + Undo toast), just a switch instead of
+        // a static badge.
         return (
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-              p.status === "published"
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-slate-100 text-slate-500"
-            }`}
-          >
-            {p.status === "published" ? "Published" : "Draft"}
-          </span>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={published}
+              onCheckedChange={() => handleTogglePublish(p)}
+              className="data-[state=checked]:bg-emerald-500"
+              aria-label={published ? "Unpublish" : "Publish to website"}
+              title={published ? "Click to unpublish" : "Click to publish"}
+            />
+            <span
+              className={`text-xs font-medium ${
+                published ? "text-emerald-600" : "text-slate-400"
+              }`}
+            >
+              {published ? "Published" : "Draft"}
+            </span>
+          </div>
         );
       },
     },
@@ -1660,6 +1679,53 @@ export default function CatalogTreeEditor({
             : "—"}
         </span>
       ),
+    },
+    {
+      // Dukaan-style quiet row-end icon set. Replaces the name cell's old
+      // hover-reveal Duplicate/Open buttons and its "⋯" — always visible so
+      // everything stays reachable on touch. Same handlers as before.
+      id: "actions",
+      header: "",
+      enableSorting: false,
+      enableResizing: false,
+      size: 110,
+      minSize: 110,
+      meta: { hideable: false, align: "right" },
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <div className="flex items-center justify-end gap-0.5">
+            <button
+              onClick={() => setPanelProduct(p)}
+              className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+              title="Open editor panel"
+            >
+              <PanelRightOpen className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleViewLive(p)}
+              className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+              title="View live on website"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={e => e.stopPropagation()}
+                  className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                  title="More actions"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {renderRowMenuItems(p, DropdownMenuItem, DropdownMenuSeparator)}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
     },
   ];
 

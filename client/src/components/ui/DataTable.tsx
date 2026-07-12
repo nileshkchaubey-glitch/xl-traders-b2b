@@ -143,7 +143,27 @@ export interface DataTableProps<T> {
   containerRef?: React.Ref<HTMLDivElement>;
 }
 
-const STICKY_CELL = "sticky z-20 bg-white";
+// Background is added per use-site: body cells stay white, header cells share
+// the quiet-gray header band (Dukaan-style), so it can't live in this constant.
+const STICKY_CELL = "sticky z-20";
+
+// Numbered-page window for the footer: always 1 and last, current ±1, "…" for
+// gaps — e.g. page 7 of 20 → [1, …, 6, 7, 8, …, 20]. Small totals list fully.
+function pageNumbers(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = new Set<number>([1, total, current - 1, current, current + 1]);
+  const sorted = [...pages]
+    .filter(n => n >= 1 && n <= total)
+    .sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  let prev = 0;
+  for (const n of sorted) {
+    if (n - prev > 1) out.push("…");
+    out.push(n);
+    prev = n;
+  }
+  return out;
+}
 
 export function DataTable<T>({
   data,
@@ -423,7 +443,7 @@ export function DataTable<T>({
               >
                 {selection && (
                   <th
-                    className={`${STICKY_CELL} sticky top-0 z-30 w-10 ${headPad} border-b border-slate-200`}
+                    className={`${STICKY_CELL} bg-slate-50 sticky top-0 z-30 w-10 ${headPad} border-b border-slate-200`}
                     style={{ left: 0 }}
                   >
                     <input
@@ -445,8 +465,8 @@ export function DataTable<T>({
                   return (
                     <th
                       key={header.id}
-                      className={`${headPad} relative whitespace-nowrap border-b border-slate-200 sticky top-0 ${
-                        sticky ? `${STICKY_CELL} z-30 border-r` : "z-10 bg-white"
+                      className={`${headPad} relative whitespace-nowrap border-b border-slate-200 sticky top-0 bg-slate-50 ${
+                        sticky ? `${STICKY_CELL} z-30 border-r border-r-slate-100` : "z-10"
                       } ${meta.align === "center" ? "text-center" : ""} ${meta.headerClassName ?? ""}`}
                       style={{
                         width: header.getSize(),
@@ -524,7 +544,7 @@ export function DataTable<T>({
                   >
                     {selection && (
                       <td
-                        className={`${STICKY_CELL} group-hover/row:bg-slate-50 ${pad} border-b border-slate-100 ${checked ? "bg-red-50" : ""}`}
+                        className={`${STICKY_CELL} bg-white group-hover/row:bg-slate-50 ${pad} border-b border-slate-100 ${checked ? "bg-red-50" : ""}`}
                         style={{ left: 0 }}
                       >
                         <input
@@ -548,7 +568,7 @@ export function DataTable<T>({
                           key={cell.id}
                           className={`${pad} border-b border-slate-100 ${
                             sticky
-                              ? `${STICKY_CELL} group-hover/row:bg-slate-50 border-r`
+                              ? `${STICKY_CELL} bg-white group-hover/row:bg-slate-50 border-r border-r-slate-100`
                               : ""
                           } ${meta.align === "center" ? "text-center" : ""} ${extra}`}
                           style={{
@@ -579,31 +599,49 @@ export function DataTable<T>({
         </table>
       </div>
 
-      {/* ── Pagination footer ───────────────────────────────────────────────── */}
+      {/* ── Pagination footer (Dukaan-style: results text left, Previous /
+             numbered pages / Next right) — same pagination state, visual only. */}
       {pagination && pageCount > 1 && (
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
           <p className="text-sm text-slate-500">
-            Showing {(pagination.page - 1) * pagination.pageSize + 1}–
+            Viewing {(pagination.page - 1) * pagination.pageSize + 1}–
             {Math.min(pagination.page * pagination.pageSize, pagination.total)} of{" "}
-            {pagination.total.toLocaleString()}
+            {pagination.total.toLocaleString()} results
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => pagination.onPageChange(Math.max(1, pagination.page - 1))}
               disabled={pagination.page === 1}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-white disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
             >
-              <ChevronLeft className="w-4 h-4" /> Prev
+              <ChevronLeft className="w-4 h-4" /> Previous
             </button>
-            <span className="text-sm font-medium text-slate-700 px-1">
-              {pagination.page} / {pageCount}
-            </span>
+            {pageNumbers(pagination.page, pageCount).map((n, i) =>
+              n === "…" ? (
+                <span key={`gap-${i}`} className="px-1.5 text-sm text-slate-400">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={n}
+                  onClick={() => pagination.onPageChange(n)}
+                  aria-current={n === pagination.page ? "page" : undefined}
+                  className={`min-w-[32px] px-2 py-1.5 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+                    n === pagination.page
+                      ? "bg-red-600 text-white font-semibold"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {n}
+                </button>
+              )
+            )}
             <button
               onClick={() =>
                 pagination.onPageChange(Math.min(pageCount, pagination.page + 1))
               }
               disabled={pagination.page >= pageCount}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-white disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
             >
               Next <ChevronRight className="w-4 h-4" />
             </button>
