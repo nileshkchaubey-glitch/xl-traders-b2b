@@ -1,7 +1,7 @@
 # XL Traders B2B — Master Project Blueprint
 
 **Single source of truth. Lives as `CLAUDE.md` at repo root AND in the Claude Project.**
-**Last updated: July 5, 2026** · Update after every merged PR (Shipped + Roadmap only).
+**Last updated: July 12, 2026** · Update after every merged PR (Shipped + Roadmap only).
 
 ---
 
@@ -240,6 +240,28 @@ inquiries, orders, order_items, import_logs, business_settings
   The route editor (`/admin/products/new`, `/:id`) stays — the panel still links out to
   it. Kept (still shared): `ProductMediaSection`, `useKeyboardShortcuts` +
   `KeyboardShortcutsDialog` (route editor).
+- **Admin polish Phase B (July 2026):** presentation-layer only, on top of Phase A (PR #101).
+  **Row context menu:** `<DataTable>` gained a generic `rowContextMenu` render-prop (fulfills
+  the DataTable contract's item #13, previously `[deferred]`) — right-click any Catalog Editor
+  row for Open / Edit full / Duplicate / Feature / Publish-Unpublish / View live / Copy name /
+  Copy SKU / Delete, each calling the exact existing handler (Publish-toggle, View live, Copy,
+  and per-row Delete are new thin wrappers around the same `productService` methods the bulk bar
+  already used). The same item list also renders in an always-visible "⋯" `DropdownMenu` button
+  on the Name cell, for touch/discoverability. **Floating bulk bar:** the selection action bar is
+  now `fixed` and docked to the viewport bottom (Shopify pattern) instead of pushing the table
+  down — `bottom-16 md:bottom-0` clears `MobileAdminShell`'s bottom tab bar, `lg:left-[220px]`
+  clears the static sidebar; a `ResizeObserver`-driven spacer keeps the page from covering
+  itself. Same actions/handlers/icons, layout-only change. **Ctrl+K command palette:** global
+  shortcut (guarded so it never engages mid inline-cell-edit) opens a `cmdk` `CommandDialog`
+  searching products via `productService.searchAdmin` (name/SKU, drafts included); selecting a
+  result re-fetches the full row via `getById(id, {includeUnpublished:true})` before opening the
+  side panel, so a save never blanks fields the search result didn't carry. Also lists nav
+  actions (Go to Orders/Enquiries/Masters/Site Content, Add product). Scoped to the Catalog
+  Editor tab (not app-wide) — a documented judgment call, since `panelProduct` state lives there;
+  `AdminDashboard` passes `onTabChange` down for the sibling-tab nav actions. No new deps (`cmdk`
+  + the Radix context-menu/dropdown-menu primitives were already in `package.json`); mobile admin
+  gets the same row menu/"⋯" button/floating bar (all already responsive) — the palette is a
+  keyboard shortcut, so it's reachable but not the primary mobile interaction pattern.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
