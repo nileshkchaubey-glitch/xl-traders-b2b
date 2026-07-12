@@ -7,6 +7,7 @@ import {
   type ColumnDef,
   type SortingState,
   type VisibilityState,
+  type ColumnSizingState,
   type Column,
   type RowData,
 } from "@tanstack/react-table";
@@ -169,6 +170,7 @@ export function DataTable<T>({
   const [, setLocation] = useLocation();
   const colsParam = persistKey ? `${persistKey}Cols` : undefined;
   const densityParam = persistKey ? `${persistKey}Density` : undefined;
+  const sizingParam = persistKey ? `${persistKey}Sizing` : undefined;
 
   // Which columns are hideable (appear in the Columns menu).
   const hideableIds = useMemo(
@@ -212,26 +214,28 @@ export function DataTable<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [density]);
 
-  // Persist layout → URL (merge so other params survive). No localStorage.
-  useEffect(() => {
-    if (!persistKey) return;
-    const params = new URLSearchParams(window.location.search);
-    if (colsParam) {
-      const shown = hideableIds.filter(id => columnVisibility[id] !== false);
-      params.set(colsParam, shown.join(","));
+  // ── Column resize widths (seeded from URL when persisted) ──────────────────
+  // Format: "colId:widthPx,colId:widthPx,…". Only columns the user has
+  // actually dragged appear here — everything else falls back to its
+  // columnDef default size.
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
+    if (!sizingParam) return {};
+    const raw = new URLSearchParams(urlSearch).get(sizingParam);
+    if (!raw) return {};
+    const sizing: ColumnSizingState = {};
+    for (const pair of raw.split(",")) {
+      const [id, w] = pair.split(":");
+      const n = Number(w);
+      if (id && Number.isFinite(n) && n > 0) sizing[id] = n;
     }
-    if (densityParam) params.set(densityParam, density);
-    setLocation(`${window.location.pathname}?${params.toString()}`, {
-      replace: true,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnVisibility, density]);
+    return sizing;
+  });
 
   const table = useReactTable({
     data,
     columns,
     getRowId,
-    state: { sorting, columnVisibility },
+    state: { sorting, columnVisibility, columnSizing },
     onSortingChange: updater => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
       onSortingChange?.(next);
@@ -241,6 +245,14 @@ export function DataTable<T>({
         typeof updater === "function" ? updater(prev) : updater
       );
     },
+    onColumnSizingChange: updater => {
+      setColumnSizing(prev =>
+        typeof updater === "function" ? updater(prev) : updater
+      );
+    },
+    columnResizeMode: "onChange",
+    enableColumnResizing: true,
+    defaultColumn: { size: 160, minSize: 60, maxSize: 800 },
     manualSorting: true,
     manualPagination: true,
     enableSortingRemoval: false,
@@ -258,6 +270,8 @@ export function DataTable<T>({
   }, [visibleLeafIds]);
 
   // Sticky-left offsets: checkbox (40px) then each sticky data column in order.
+  // Depends on columnSizing too — resizing an earlier sticky column shifts the
+  // offset of every sticky column after it.
   const stickyLeft = useMemo(() => {
     const map: Record<string, number> = {};
     let running = selection ? 40 : 0;
@@ -269,7 +283,40 @@ export function DataTable<T>({
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleLeafIds, selection]);
+  }, [visibleLeafIds, selection, columnSizing]);
+
+  // Drag-in-progress column id (if any) — gates URL persistence below so a
+  // resize drag doesn't write to history on every pixel of movement.
+  const resizingColumnId = table.getState().columnSizingInfo.isResizingColumn;
+
+  // Persist layout → URL (merge so other params survive). No localStorage.
+  useEffect(() => {
+    if (!persistKey) return;
+    if (resizingColumnId) return;
+    const params = new URLSearchParams(window.location.search);
+    if (colsParam) {
+      const shown = hideableIds.filter(id => columnVisibility[id] !== false);
+      params.set(colsParam, shown.join(","));
+    }
+    if (densityParam) params.set(densityParam, density);
+    if (sizingParam) {
+      const entries = Object.entries(columnSizing).filter(
+        (e): e is [string, number] => typeof e[1] === "number"
+      );
+      if (entries.length) {
+        params.set(
+          sizingParam,
+          entries.map(([id, w]) => `${id}:${Math.round(w)}`).join(",")
+        );
+      } else {
+        params.delete(sizingParam);
+      }
+    }
+    setLocation(`${window.location.pathname}?${params.toString()}`, {
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnVisibility, density, columnSizing, resizingColumnId]);
 
   // Comfortable targets a Shopify-like ~56-64px row (with a 40-44px thumbnail
   // in the Name cell, sized by the consumer via onDensityChange). The header
@@ -360,7 +407,14 @@ export function DataTable<T>({
         {...containerProps}
         className={`bg-white border border-slate-200 rounded-xl overflow-x-auto focus:outline-none ${containerProps?.className ?? ""}`}
       >
-        <table className="text-sm border-separate border-spacing-0 min-w-full">
+        {/* Explicit width = sum of visible column sizes (not min-w-full) so a
+            dragged width actually holds — `min-w-full` would let the browser's
+            auto table layout redistribute any leftover space proportionally
+            across columns, silently undoing a resize on wide viewports. */}
+        <table
+          className="text-sm border-separate border-spacing-0"
+          style={{ width: table.getTotalSize() + (selection ? 40 : 0) }}
+        >
           <thead>
             {table.getHeaderGroups().map(hg => (
               <tr
@@ -386,13 +440,18 @@ export function DataTable<T>({
                   const sticky = meta.sticky;
                   const canSort = header.column.getCanSort();
                   const sorted = header.column.getIsSorted();
+                  const canResize = header.column.getCanResize();
+                  const isResizing = header.column.getIsResizing();
                   return (
                     <th
                       key={header.id}
-                      className={`${headPad} whitespace-nowrap border-b border-slate-200 sticky top-0 ${
+                      className={`${headPad} relative whitespace-nowrap border-b border-slate-200 sticky top-0 ${
                         sticky ? `${STICKY_CELL} z-30 border-r` : "z-10 bg-white"
                       } ${meta.align === "center" ? "text-center" : ""} ${meta.headerClassName ?? ""}`}
-                      style={sticky ? { left: stickyLeft[header.column.id] } : undefined}
+                      style={{
+                        width: header.getSize(),
+                        ...(sticky ? { left: stickyLeft[header.column.id] } : {}),
+                      }}
                     >
                       {header.isPlaceholder ? null : canSort ? (
                         <button
@@ -416,6 +475,17 @@ export function DataTable<T>({
                           header.column.columnDef.header,
                           header.getContext()
                         )
+                      )}
+                      {canResize && (
+                        <div
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          onDoubleClick={() => header.column.resetSize()}
+                          title="Drag to resize — double-click to reset"
+                          className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize touch-none select-none ${
+                            isResizing ? "bg-red-400" : "hover:bg-slate-300"
+                          }`}
+                        />
                       )}
                     </th>
                   );
@@ -481,7 +551,10 @@ export function DataTable<T>({
                               ? `${STICKY_CELL} group-hover/row:bg-slate-50 border-r`
                               : ""
                           } ${meta.align === "center" ? "text-center" : ""} ${extra}`}
-                          style={sticky ? { left: stickyLeft[cell.column.id] } : undefined}
+                          style={{
+                            width: cell.column.getSize(),
+                            ...(sticky ? { left: stickyLeft[cell.column.id] } : {}),
+                          }}
                         >
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
