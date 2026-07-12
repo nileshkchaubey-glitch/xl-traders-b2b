@@ -109,3 +109,6 @@ temp/
 .webdev/
 .project-config.json
 desktop.ini
+
+# Local catalogue-entry working files (contain purchase/cost prices — repo is public)
+images and file/
