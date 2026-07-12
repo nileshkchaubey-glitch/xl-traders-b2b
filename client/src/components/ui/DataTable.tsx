@@ -91,7 +91,7 @@ export interface DataTableProps<T> {
   getRowId: (row: T) => string;
 
   loading?: boolean;
-  emptyMessage?: string;
+  emptyMessage?: React.ReactNode;
   rowClassName?: (row: T) => string;
 
   /** Server-side (manual) sorting — DataTable only renders indicators. */
@@ -117,6 +117,9 @@ export interface DataTableProps<T> {
   persistKey?: string;
   /** Notified with the visible column ids (initial + on change). */
   onVisibleColumnsChange?: (visibleIds: string[]) => void;
+  /** Notified with the current density (initial + on toggle) — lets a
+   * consumer's cell renderers scale things like thumbnails to match. */
+  onDensityChange?: (density: DataTableDensity) => void;
   defaultDensity?: DataTableDensity;
 
   /** Spread onto the scroll container (e.g. tabIndex/onKeyDown for grid nav). */
@@ -141,6 +144,7 @@ export function DataTable<T>({
   toolbarActions,
   persistKey,
   onVisibleColumnsChange,
+  onDensityChange,
   defaultDensity = "comfortable",
   containerProps,
   containerRef,
@@ -186,6 +190,11 @@ export function DataTable<T>({
     const raw = new URLSearchParams(urlSearch).get(densityParam);
     return raw === "compact" || raw === "comfortable" ? raw : defaultDensity;
   });
+
+  useEffect(() => {
+    onDensityChange?.(density);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [density]);
 
   // Persist layout → URL (merge so other params survive). No localStorage.
   useEffect(() => {
@@ -246,7 +255,11 @@ export function DataTable<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleLeafIds, selection]);
 
-  const pad = density === "compact" ? "px-2 py-1.5" : "px-3 py-2.5";
+  // Comfortable targets a Shopify-like ~56-64px row (with a 40-44px thumbnail
+  // in the Name cell, sized by the consumer via onDensityChange). The header
+  // stays a bit shorter than data rows even in comfortable mode.
+  const pad = density === "compact" ? "px-2 py-1.5" : "px-3.5 py-3";
+  const headPad = density === "compact" ? "px-2 py-1.5" : "px-3.5 py-2.5";
   const visibleCount = table.getVisibleLeafColumns().length + (selection ? 1 : 0);
 
   const pageCount = pagination
@@ -277,7 +290,7 @@ export function DataTable<T>({
             setDensity(d => (d === "compact" ? "comfortable" : "compact"))
           }
           title={density === "compact" ? "Comfortable rows" : "Compact rows"}
-          className="inline-flex items-center gap-1.5 p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors text-sm"
+          className="inline-flex items-center gap-1.5 p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
         >
           {density === "compact" ? (
             <Rows3 className="w-4 h-4" />
@@ -291,7 +304,7 @@ export function DataTable<T>({
           <DropdownMenuTrigger asChild>
             <button
               title="Columns"
-              className="inline-flex items-center gap-1.5 p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors text-sm"
+              className="inline-flex items-center gap-1.5 p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
             >
               <Columns3 className="w-4 h-4" />
               <span className="hidden sm:inline">Columns</span>
@@ -340,7 +353,7 @@ export function DataTable<T>({
               >
                 {selection && (
                   <th
-                    className={`${STICKY_CELL} sticky top-0 z-30 w-10 ${pad} border-b border-slate-200`}
+                    className={`${STICKY_CELL} sticky top-0 z-30 w-10 ${headPad} border-b border-slate-200`}
                     style={{ left: 0 }}
                   >
                     <input
@@ -360,7 +373,7 @@ export function DataTable<T>({
                   return (
                     <th
                       key={header.id}
-                      className={`${pad} whitespace-nowrap border-b border-slate-200 sticky top-0 ${
+                      className={`${headPad} whitespace-nowrap border-b border-slate-200 sticky top-0 ${
                         sticky ? `${STICKY_CELL} z-30 border-r` : "z-10 bg-white"
                       } ${meta.align === "center" ? "text-center" : ""} ${meta.headerClassName ?? ""}`}
                       style={sticky ? { left: stickyLeft[header.column.id] } : undefined}
@@ -368,7 +381,7 @@ export function DataTable<T>({
                       {header.isPlaceholder ? null : canSort ? (
                         <button
                           onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1 hover:text-slate-700"
+                          className="inline-flex items-center gap-1 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded"
                         >
                           {flexRender(
                             header.column.columnDef.header,
@@ -478,7 +491,7 @@ export function DataTable<T>({
             <button
               onClick={() => pagination.onPageChange(Math.max(1, pagination.page - 1))}
               disabled={pagination.page === 1}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-white disabled:opacity-40"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-white disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
             >
               <ChevronLeft className="w-4 h-4" /> Prev
             </button>
@@ -490,7 +503,7 @@ export function DataTable<T>({
                 pagination.onPageChange(Math.min(pageCount, pagination.page + 1))
               }
               disabled={pagination.page >= pageCount}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-white disabled:opacity-40"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-white disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
             >
               Next <ChevronRight className="w-4 h-4" />
             </button>

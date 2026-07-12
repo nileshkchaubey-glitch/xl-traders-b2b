@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import KeyboardShortcutsDialog from "@/components/admin/KeyboardShortcutsDialog";
+import { confirm } from "@/components/ui/confirm-dialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAuthStore } from "@/lib/authStore";
 import { generateDescription } from "@/lib/aiService";
@@ -169,8 +170,15 @@ export default function AdminProductEditor() {
     </button>
   );
 
-  const goBack = useCallback(() => {
-    if (dirty && !window.confirm("Discard your unsaved product changes?"))
+  const goBack = useCallback(async () => {
+    if (
+      dirty &&
+      !(await confirm({
+        title: "Discard your unsaved product changes?",
+        destructive: true,
+        confirmLabel: "Discard",
+      }))
+    )
       return;
     sessionStorage.removeItem(draftKey);
     sessionStorage.removeItem(RETAINED_VALUES_KEY);

@@ -25,6 +25,7 @@ import {
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
 import ProductMediaSection from "@/components/admin/products/ProductMediaSection";
+import { confirm } from "@/components/ui/confirm-dialog";
 import { useProductForm } from "@/hooks/useProductForm";
 import { productToForm, EMPTY_PRODUCT_FORM } from "@/lib/productForm";
 import { normalizeImageUrl } from "@/lib/imageUtils";
@@ -120,8 +121,16 @@ export default function CatalogProductPanel({
     return false;
   }, [formData, metaTitle, metaDescription, specs, product]);
 
-  const guardedClose = () => {
-    if (dirty && !window.confirm("Discard unsaved changes?")) return;
+  const guardedClose = async () => {
+    if (
+      dirty &&
+      !(await confirm({
+        title: "Discard unsaved changes?",
+        destructive: true,
+        confirmLabel: "Discard",
+      }))
+    )
+      return;
     onClose();
   };
 
