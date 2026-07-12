@@ -210,7 +210,7 @@ phases per this contract:
 | --- | --- | --- |
 | 1 | Column sort | `[DONE]` — per-column sort headers → `getAllAdmin` `sortField`/`sortAscending` (server-side) |
 | 2 | Per-column filter | `[medium]` — deferred |
-| 3 | Column resize | `[medium]` — deferred |
+| 3 | Column resize | `[DONE]` — TanStack's built-in resize API (`columnResizeMode: "onChange"`); drag handle on each resizable column's right edge, per-column `minSize`/`maxSize`, widths persisted to URL (`${persistKey}Sizing`) on drag-end only |
 | 4 | Hide/show columns | `[DONE]` — Columns menu (from `meta.hideable`/`defaultHidden`) |
 | 5 | Column pin | `[DONE]` — `meta.sticky`, sticky-left with cumulative offsets |
 | 6 | Multi-select rows | `[DONE]` — consumer-controlled selection; select-all-matching in Catalog Editor |

@@ -262,6 +262,21 @@ inquiries, orders, order_items, import_logs, business_settings
   + the Radix context-menu/dropdown-menu primitives were already in `package.json`); mobile admin
   gets the same row menu/"⋯" button/floating bar (all already responsive) — the palette is a
   keyboard shortcut, so it's reachable but not the primary mobile interaction pattern.
+- **Admin polish Phase C — column resize (July 2026):** `<DataTable>` gains TanStack's built-in
+  column resizing (fulfills the DataTable contract's item #3, previously `[deferred]`) —
+  `columnResizeMode: "onChange"` for a live drag preview, a thin drag handle on the right edge
+  of every resizable column header (`cursor-col-resize`, red highlight while dragging,
+  double-click resets to default), and a per-column `minSize`/`maxSize` so nothing can be
+  dragged unreadably narrow. Widths persist to the URL (`${persistKey}Sizing`, same no-
+  localStorage pattern as column visibility/density) but only written on drag-end — `onChange`
+  mode fires every pixel, so the URL write is gated on
+  `columnSizingInfo.isResizingColumn` returning to `null`. The sticky Name column stays sticky
+  while resizable (`stickyLeft` now also depends on `columnSizing`, so a later sticky column
+  would shift correctly — today Name is the only one). The table's width switched from
+  `min-w-full` to an explicit `table.getTotalSize()`, since `min-w-full` lets the browser's
+  auto table layout redistribute any slack space proportionally across columns, silently
+  undoing a drag on wide viewports. `CatalogTreeEditor` (the only consumer) sets a `size`/
+  `minSize` per column to match its previous auto-layout width. No new deps.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px

@@ -1364,6 +1364,7 @@ export default function CatalogTreeEditor({
       header: "Name",
       enableSorting: true,
       size: 240,
+      minSize: 200,
       meta: { sticky: true, hideable: false },
       cell: ({ row }) => {
         const p = row.original;
@@ -1461,6 +1462,8 @@ export default function CatalogTreeEditor({
       id: "sku",
       header: "SKU",
       enableSorting: false,
+      size: 120,
+      minSize: 90,
       meta: { defaultHidden: true },
       cell: ({ row }) => (
         <span className="text-xs font-mono text-slate-500">
@@ -1472,6 +1475,8 @@ export default function CatalogTreeEditor({
       id: "category",
       header: "Category",
       enableSorting: false,
+      size: 170,
+      minSize: 100,
       cell: ({ row }) => (
         <span className="text-xs text-slate-600">
           {categoryById.get(row.original.category_id)?.name ?? "—"}
@@ -1482,6 +1487,8 @@ export default function CatalogTreeEditor({
       id: "group",
       header: "Group",
       enableSorting: false,
+      size: 170,
+      minSize: 100,
       meta: { defaultHidden: true },
       cell: ({ row }) => (
         <span className="text-xs text-slate-500">
@@ -1493,6 +1500,8 @@ export default function CatalogTreeEditor({
       id: "unit",
       header: "Unit / Pack",
       enableSorting: false,
+      size: 140,
+      minSize: 90,
       cell: ({ row }) => {
         const p = row.original;
         return (
@@ -1507,6 +1516,8 @@ export default function CatalogTreeEditor({
       id: "stock",
       header: "Stock",
       enableSorting: false,
+      size: 140,
+      minSize: 100,
       cell: ({ row }) => {
         const p = row.original;
         return (
@@ -1532,6 +1543,8 @@ export default function CatalogTreeEditor({
       accessorFn: p => p.price ?? null,
       header: "Price",
       enableSorting: true,
+      size: 120,
+      minSize: 90,
       meta: {
         cellClassName: (p: Product) =>
           `${isPriceOnEnquiry(p.price) && !editingHere(p.id, "price") ? RED_CELL : ""} ${focusRing(p.id, "price")}`,
@@ -1563,6 +1576,8 @@ export default function CatalogTreeEditor({
       id: "description",
       header: "Description",
       enableSorting: false,
+      size: 260,
+      minSize: 160,
       meta: {
         cellClassName: (p: Product) =>
           `${descMissing(p) && !p.na_fields?.includes("description") && !editingHere(p.id, "description") ? RED_CELL : ""} ${focusRing(p.id, "description")}`,
@@ -1595,6 +1610,8 @@ export default function CatalogTreeEditor({
       id: "status",
       header: "Status",
       enableSorting: false,
+      size: 110,
+      minSize: 90,
       cell: ({ row }) => {
         const p = row.original;
         return (
@@ -1614,6 +1631,8 @@ export default function CatalogTreeEditor({
       id: "score",
       header: "Score",
       enableSorting: false,
+      size: 90,
+      minSize: 70,
       meta: { align: "center", defaultHidden: true },
       cell: ({ row }) => {
         const { score } = productCompleteness(row.original);
@@ -1631,6 +1650,8 @@ export default function CatalogTreeEditor({
       accessorFn: p => p.updated_at,
       header: "Updated",
       enableSorting: true,
+      size: 110,
+      minSize: 90,
       meta: { defaultHidden: true },
       cell: ({ row }) => (
         <span className="text-xs text-slate-500 whitespace-nowrap">
