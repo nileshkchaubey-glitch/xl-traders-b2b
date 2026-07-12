@@ -1,5 +1,6 @@
 import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmDialogHost } from "@/components/ui/confirm-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
@@ -81,6 +82,7 @@ function App() {
       >
         <TooltipProvider>
           <Toaster />
+          <ConfirmDialogHost />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

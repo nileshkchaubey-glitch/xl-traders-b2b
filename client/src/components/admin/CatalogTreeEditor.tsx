@@ -14,6 +14,12 @@ import {
   Ban,
   Copy,
   Star,
+  Trash2,
+  Power,
+  PowerOff,
+  Globe,
+  EyeOff,
+  PackageOpen,
 } from "lucide-react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { toast } from "sonner";
@@ -34,13 +40,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { DataTable } from "@/components/ui/DataTable";
+import { DataTable, DataTableDensity } from "@/components/ui/DataTable";
+import { confirm } from "@/components/ui/confirm-dialog";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
-import { Category, Product } from "@/lib/supabase";
+import { Category, Product, ProductStatus } from "@/lib/supabase";
 import {
   productService,
   categoryService,
   AdminStatusFilter,
+  BulkEditableField,
 } from "@/lib/productService";
 import { healthService, CategoryHealth } from "@/lib/healthService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
@@ -93,6 +101,43 @@ const STATUS_OPTIONS: { value: AdminStatusFilter; label: string }[] = [
   { value: "inactive", label: "Inactive" },
   { value: "featured", label: "Featured" },
 ];
+
+// activeMissing widens to this sentinel for the "Needs attention" saved view
+// (any missing dimension, not one specific one). It never leaves this
+// component — the Overview deep-link contract only knows the 8 specific
+// MissingFilter values, so "any" is not reported upstream via onAttentionChange.
+type ActiveMissing = MissingFilter | "any" | null;
+
+// ── Saved-view tabs ────────────────────────────────────────────────────────────
+// Presets over the EXISTING status/missing filter state — no new filtering
+// logic, just one-click combinations a Shopify-style tab strip would offer.
+interface SavedView {
+  id: string;
+  label: string;
+  status: AdminStatusFilter;
+  missing: ActiveMissing;
+}
+const SAVED_VIEWS: SavedView[] = [
+  { id: "all", label: "All", status: "all", missing: null },
+  { id: "published", label: "Published", status: "published", missing: null },
+  { id: "draft", label: "Draft", status: "draft", missing: null },
+  { id: "unavailable", label: "Unavailable", status: "inactive", missing: null },
+  {
+    id: "needs-attention",
+    label: "Needs attention",
+    status: "all",
+    missing: "any",
+  },
+];
+
+// Fields a reversible bulk action can snapshot + restore for Undo. "status" is
+// a synthetic key (bulkSetStatus, not bulkUpdateField) alongside the real
+// BulkEditableField columns.
+type UndoField = BulkEditableField | "status";
+// Beyond this many targeted ids, skip the pre-write snapshot (and thus the
+// Undo offer) — the action still runs normally, just without the safety net,
+// bounding the extra read + in-memory snapshot to a sane size.
+const UNDO_SNAPSHOT_CAP = 500;
 
 // ── Inline editing ────────────────────────────────────────────────────────────
 type EditField = "name" | "price" | "description";
@@ -225,11 +270,14 @@ export default function CatalogTreeEditor({
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<AdminStatusFilter>("all");
-  const [activeMissing, setActiveMissing] = useState<MissingFilter | null>(
+  const [activeMissing, setActiveMissing] = useState<ActiveMissing>(
     attentionFilter
   );
   // Live counts for the quick chips (scoped to the current node).
   const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
+  // Current DataTable density, mirrored here so cell renderers (thumbnail
+  // size) can match it — see onDensityChange on <DataTable> below.
+  const [density, setDensity] = useState<DataTableDensity>("comfortable");
 
   // Apply an external attention change (Overview deep-link) without clobbering
   // internal filter changes: only sync when the PROP itself changes.
@@ -242,10 +290,20 @@ export default function CatalogTreeEditor({
   }, [attentionFilter]);
 
   // All UI changes to the missing filter go through this so the parent
-  // (AdminDashboard) stays in sync for future deep-links.
-  const applyMissing = (f: MissingFilter | null) => {
+  // (AdminDashboard) stays in sync for future deep-links. "any" (the Needs
+  // attention saved view) is a local-only concept — never reported upstream.
+  const applyMissing = (f: ActiveMissing) => {
     setActiveMissing(f);
-    onAttentionChange?.(f);
+    if (f !== "any") onAttentionChange?.(f);
+  };
+
+  // Saved-view tabs — presets over status + missing. A view is "active" when
+  // both pieces of state match it exactly; manual combos deselect all tabs.
+  const isActiveView = (v: SavedView) =>
+    statusFilter === v.status && activeMissing === v.missing;
+  const applyView = (v: SavedView) => {
+    setStatusFilter(v.status);
+    applyMissing(v.missing);
   };
 
   // Debounce the search box → server-side name/SKU search.
@@ -319,18 +377,21 @@ export default function CatalogTreeEditor({
   }, [loadChipCounts]);
 
   // ── Load the table for the active node + page + chip ──────────────────────────
+  // "any" (Needs attention) pulls every id with missing_count > 0 straight
+  // from the view; a specific dimension pulls just that column — both stay
+  // pure reads against v_product_health, no missing-logic re-derived here.
+  const resolveMissingIds = (m: ActiveMissing): Promise<string[]> | null => {
+    if (m === "any") return healthService.getIdsIncomplete(scopedCategoryIds);
+    if (m) return healthService.getIdsMissing(ATTENTION_FIELD[m], scopedCategoryIds);
+    return null;
+  };
+
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
       // A missing-data filter intersects with v_product_health ids; status +
       // search + category scope AND on top (all server-side).
-      let ids: string[] | undefined;
-      if (activeMissing) {
-        ids = await healthService.getIdsMissing(
-          ATTENTION_FIELD[activeMissing],
-          scopedCategoryIds
-        );
-      }
+      const ids = (await resolveMissingIds(activeMissing)) ?? undefined;
       const sort = sorting[0];
       const { data, count } = await productService.getAllAdmin({
         page,
@@ -554,13 +615,7 @@ export default function CatalogTreeEditor({
   const resolveTargetIds = async (): Promise<string[]> => {
     if (!selectAllMatching) return Array.from(selected);
     // Same filter set as loadProducts so "all matching" never drifts.
-    let ids: string[] | undefined;
-    if (activeMissing) {
-      ids = await healthService.getIdsMissing(
-        ATTENTION_FIELD[activeMissing],
-        scopedCategoryIds
-      );
-    }
+    const ids = (await resolveMissingIds(activeMissing)) ?? undefined;
     return productService.getAdminMatchingIds({
       categoryIds: scopedCategoryIds,
       ids,
@@ -569,22 +624,90 @@ export default function CatalogTreeEditor({
     });
   };
 
+  // ── Undo support for reversible bulk actions ────────────────────────────────
+  // Snapshots the CURRENT value of `field` for the given ids fresh from the
+  // server (not from local state) — correct regardless of whether the target
+  // set spans multiple pages or "select all matching". Capped so a huge bulk
+  // action just skips the Undo offer rather than snapshotting thousands of rows.
+  const snapshotField = async (
+    ids: string[],
+    field: UndoField
+  ): Promise<{ id: string; prevValue: unknown }[] | null> => {
+    if (!ids.length || ids.length > UNDO_SNAPSHOT_CAP) return null;
+    try {
+      const { data } = await productService.getAllAdmin({
+        ids,
+        pageSize: ids.length,
+      });
+      return data.map(p => ({
+        id: p.id,
+        prevValue: (p as unknown as Record<string, unknown>)[field],
+      }));
+    } catch {
+      return null;
+    }
+  };
+
+  // Groups snapshot rows by their previous value so a mixed starting state
+  // (e.g. some already published, some draft, before "Publish" ran) restores
+  // correctly with the minimum number of writes — one per distinct value.
+  const groupByPrevValue = (snap: { id: string; prevValue: unknown }[]) => {
+    const map = new Map<string, { value: unknown; ids: string[] }>();
+    for (const { id, prevValue } of snap) {
+      const key = JSON.stringify(prevValue);
+      if (!map.has(key)) map.set(key, { value: prevValue, ids: [] });
+      map.get(key)!.ids.push(id);
+    }
+    return Array.from(map.values());
+  };
+
+  const undoField = async (
+    field: UndoField,
+    snap: { id: string; prevValue: unknown }[]
+  ) => {
+    try {
+      for (const g of groupByPrevValue(snap)) {
+        if (field === "status") {
+          await productService.bulkSetStatus(g.ids, g.value as ProductStatus);
+        } else {
+          await productService.bulkUpdateField(
+            g.ids,
+            field,
+            g.value as string | number | boolean | null
+          );
+        }
+      }
+      toast.success("Undone");
+      loadProducts();
+      loadAggregates();
+      loadChipCounts();
+    } catch {
+      toast.error("Undo failed");
+    }
+  };
+
   // Shared flow (mirrors AdminProducts): resolve ids → optional transform (e.g.
-  // skip variants) → confirm with the EXACT final count → run → refresh.
-  // Returns true only when the action actually ran (false on empty targets, a
-  // cancelled confirm, or an error) so callers know whether to clear their input.
+  // skip variants) → confirm (AlertDialog) with the EXACT final count → snapshot
+  // (when undoField given) → run → success toast, with an Undo action when a
+  // snapshot was captured. Returns true only when the action actually ran
+  // (false on empty targets, a cancelled confirm, or an error) so callers know
+  // whether to clear their input.
   const runBulk = async (
-    confirmLabel: (n: number) => string,
+    confirmTitle: (n: number) => string,
     run: (ids: string[]) => Promise<number>,
-    transform?: (ids: string[]) => Promise<{ ids: string[]; note?: string }>
+    opts?: {
+      transform?: (ids: string[]) => Promise<{ ids: string[]; note?: string }>;
+      undoField?: UndoField;
+      destructive?: boolean;
+    }
   ): Promise<boolean> => {
     if (bulkBusy) return false;
     setBulkBusy(true);
     try {
       let ids = await resolveTargetIds();
       let note = "";
-      if (transform) {
-        const t = await transform(ids);
+      if (opts?.transform) {
+        const t = await opts.transform(ids);
         ids = t.ids;
         note = t.note ?? "";
       }
@@ -592,12 +715,29 @@ export default function CatalogTreeEditor({
         toast.error("No matching products");
         return false;
       }
-      if (
-        !window.confirm(confirmLabel(ids.length) + (note ? `\n\n${note}` : ""))
-      )
-        return false;
+      const ok = await confirm({
+        title: confirmTitle(ids.length),
+        description: note || undefined,
+        destructive: opts?.destructive,
+      });
+      if (!ok) return false;
+
+      const snapshot = opts?.undoField
+        ? await snapshotField(ids, opts.undoField)
+        : null;
+
       const n = await run(ids);
-      toast.success(`Updated ${n} product${n === 1 ? "" : "s"}`);
+      toast.success(
+        `Updated ${n} product${n === 1 ? "" : "s"}`,
+        snapshot
+          ? {
+              action: {
+                label: "Undo",
+                onClick: () => undoField(opts!.undoField!, snapshot),
+              },
+            }
+          : undefined
+      );
       clearSelection();
       loadProducts();
       loadAggregates();
@@ -614,17 +754,24 @@ export default function CatalogTreeEditor({
   const doPublish = () =>
     runBulk(
       n => `Publish ${n} product${n === 1 ? "" : "s"} to the website?`,
-      ids => productService.bulkSetStatus(ids, "published")
+      ids => productService.bulkSetStatus(ids, "published"),
+      { undoField: "status" }
     );
   const doUnpublish = () =>
     runBulk(
       n => `Unpublish ${n} product${n === 1 ? "" : "s"}?`,
-      ids => productService.bulkSetStatus(ids, "draft")
+      ids => productService.bulkSetStatus(ids, "draft"),
+      { undoField: "status" }
     );
   const doDelete = () =>
     runBulk(
-      n => `Delete ${n} product${n === 1 ? "" : "s"}? This cannot be undone.`,
-      ids => productService.bulkDelete(ids)
+      n => `Delete ${n} product${n === 1 ? "" : "s"}?`,
+      ids => productService.bulkDelete(ids),
+      {
+        destructive: true,
+        // No undoField — a hard delete can't be snapshotted-and-restored via
+        // the update-based services; the destructive confirm is the safety net.
+      }
     );
 
   // ── Bulk field setters (same service methods AdminProducts uses) ───────────────
@@ -636,7 +783,8 @@ export default function CatalogTreeEditor({
     }
     const ok = await runBulk(
       n => `Set brand to "${value}" for ${n} products?`,
-      ids => productService.bulkUpdateField(ids, "brand", value)
+      ids => productService.bulkUpdateField(ids, "brand", value),
+      { undoField: "brand" }
     );
     if (ok) setBulkBrand("");
   };
@@ -649,7 +797,8 @@ export default function CatalogTreeEditor({
     }
     const ok = await runBulk(
       c => `Set MOQ to ${n} for ${c} products?`,
-      ids => productService.bulkUpdateField(ids, "moq", n)
+      ids => productService.bulkUpdateField(ids, "moq", n),
+      { undoField: "moq" }
     );
     if (ok) setBulkMoq("");
   };
@@ -657,7 +806,8 @@ export default function CatalogTreeEditor({
   const doSetUnit = async (unit: string) => {
     await runBulk(
       c => `Set unit to "${unit}" for ${c} products?`,
-      ids => productService.bulkUpdateField(ids, "unit_of_measure", unit)
+      ids => productService.bulkUpdateField(ids, "unit_of_measure", unit),
+      { undoField: "unit_of_measure" }
     );
     // One-shot: reset the picker back to "Set unit…".
     setUnitSelectKey(k => k + 1);
@@ -669,17 +819,20 @@ export default function CatalogTreeEditor({
     return runBulk(
       c => `Set category to "${catName}" for ${c} products?`,
       ids => productService.bulkUpdateField(ids, "category_id", categoryId),
-      // Variants inherit their master's category — skip them (same as AdminProducts).
-      async ids => {
-        const variants = await productService.getVariantIds(ids);
-        const standalone = ids.filter(id => !variants.has(id));
-        const skipped = ids.length - standalone.length;
-        return {
-          ids: standalone,
-          note: skipped
-            ? `${skipped} variant${skipped > 1 ? "s" : ""} skipped — variants inherit their master's category.`
-            : "",
-        };
+      {
+        undoField: "category_id",
+        // Variants inherit their master's category — skip them (same as AdminProducts).
+        transform: async ids => {
+          const variants = await productService.getVariantIds(ids);
+          const standalone = ids.filter(id => !variants.has(id));
+          const skipped = ids.length - standalone.length;
+          return {
+            ids: standalone,
+            note: skipped
+              ? `${skipped} variant${skipped > 1 ? "s" : ""} skipped — variants inherit their master's category.`
+              : "",
+          };
+        },
       }
     );
   };
@@ -687,9 +840,15 @@ export default function CatalogTreeEditor({
   const doSetActive = (activate: boolean) =>
     runBulk(
       c => `${activate ? "Activate" : "Deactivate"} ${c} products?`,
-      ids => productService.bulkUpdateField(ids, "is_active", activate)
+      ids => productService.bulkUpdateField(ids, "is_active", activate),
+      { undoField: "is_active" }
     );
 
+  // N/A undo is intentionally NOT offered: bulkSetNA adds/removes fields from
+  // each row's existing na_fields array (set semantics), so a naive "toggle
+  // back" could clear a field a row had marked N/A for unrelated reasons
+  // before this action ever ran — a real correctness risk, not just missing
+  // polish. The AlertDialog confirm below is the safety net for this one.
   const doSetNA = (on: boolean) => {
     if (!naSelected.length) {
       toast.error("Pick at least one field");
@@ -697,9 +856,8 @@ export default function CatalogTreeEditor({
     }
     const labels = naSelected.map(f => NA_FIELD_LABELS[f] ?? f).join(", ");
     setNaDialogOpen(false);
-    runBulk(
-      c => `${on ? "Mark" : "Clear"} N/A (${labels}) for ${c} products?`,
-      ids => productService.bulkSetNA(ids, naSelected, on)
+    runBulk(c => `${on ? "Mark" : "Clear"} N/A (${labels}) for ${c} products?`, ids =>
+      productService.bulkSetNA(ids, naSelected, on)
     ).then(ok => {
       if (ok) setNaSelected([]);
     });
@@ -855,7 +1013,7 @@ export default function CatalogTreeEditor({
   };
 
   const nodeCls = (active: boolean) =>
-    `w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-left transition-colors ${
+    `w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
       active
         ? "bg-red-600 text-white font-semibold"
         : "text-slate-600 hover:bg-slate-100"
@@ -868,6 +1026,48 @@ export default function CatalogTreeEditor({
       : selection.kind === "group"
         ? selection.group
         : (categoryById.get(selection.categoryId)?.name ?? "Category");
+
+  // Richer, Shopify-style empty state: a true "nothing here yet" (All
+  // Products, no filters, zero rows) gets a CTA; a filtered-to-zero result
+  // gets a "clear filters" escape hatch instead.
+  const hasActiveFilters = !!(activeMissing || statusFilter !== "all" || search);
+  const emptyState =
+    selection.kind === "all" && !hasActiveFilters ? (
+      <div className="flex flex-col items-center gap-3 py-6">
+        <PackageOpen className="w-9 h-9 text-slate-300" />
+        <div>
+          <p className="font-medium text-slate-700">No products yet</p>
+          <p className="text-sm text-slate-400 mt-0.5">
+            Add your first product to get started.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => addNameRef.current?.focus()}
+          className="bg-red-600 hover:bg-red-700 text-white gap-1"
+        >
+          <Plus className="w-3.5 h-3.5" /> Add product
+        </Button>
+      </div>
+    ) : (
+      <div className="flex flex-col items-center gap-2 py-6">
+        <p className="text-slate-400 text-sm">
+          No products match this selection.
+        </p>
+        {hasActiveFilters && (
+          <button
+            onClick={() => {
+              applyMissing(null);
+              setStatusFilter("all");
+              setSearchInput("");
+            }}
+            className="text-xs text-red-600 hover:text-red-700 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+    );
 
   // ── Column definitions for <DataTable> ────────────────────────────────────────
   // Rebuilt each render so cell closures see the current edit/focus state (page
@@ -903,10 +1103,13 @@ export default function CatalogTreeEditor({
         const p = row.original;
         const img = p.image_url ? normalizeImageUrl(p.image_url) : null;
         const naImage = p.na_fields?.includes("image");
+        // Comfortable rows get a bigger, more scannable thumbnail (Shopify-
+        // style ~40-44px); compact stays tight for power entry.
+        const thumbSize = density === "compact" ? "w-8 h-8" : "w-10 h-10";
         return (
           <div className="flex items-center gap-2 min-w-[190px]">
             <div
-              className={`w-8 h-8 flex-shrink-0 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
+              className={`${thumbSize} flex-shrink-0 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
                 img || naImage ? "bg-slate-50" : RED_CELL
               }`}
               title={img || naImage ? undefined : "No image"}
@@ -930,7 +1133,7 @@ export default function CatalogTreeEditor({
               ) : (
                 <button
                   onClick={() => startEdit(p.id, "name", p.name)}
-                  className="text-left w-full group px-1"
+                  className="text-left w-full group px-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
                   title="Click to edit"
                 >
                   <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-red-600">
@@ -942,7 +1145,7 @@ export default function CatalogTreeEditor({
             {/* Feature toggle — always visible (star reflects state) */}
             <button
               onClick={() => handleToggleFeatured(p)}
-              className={`flex-shrink-0 p-1 rounded-md hover:bg-slate-100 ${
+              className={`flex-shrink-0 p-1 rounded-md hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
                 p.is_featured ? "text-amber-500" : "text-slate-300 hover:text-slate-400"
               }`}
               title={p.is_featured ? "Featured — click to unfeature" : "Feature"}
@@ -955,14 +1158,14 @@ export default function CatalogTreeEditor({
             {/* Duplicate — hover reveal */}
             <button
               onClick={() => handleDuplicate(p)}
-              className="flex-shrink-0 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover/row:opacity-100 focus:opacity-100"
+              className="flex-shrink-0 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
               title="Duplicate product"
             >
               <Copy className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setPanelProduct(p)}
-              className="flex-shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-500 hover:border-red-300 hover:text-red-600 opacity-0 group-hover/row:opacity-100 focus:opacity-100"
+              className="flex-shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-500 hover:border-red-300 hover:text-red-600 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
               title="Open editor panel"
             >
               <PanelRightOpen className="w-3.5 h-3.5" />
@@ -1180,10 +1383,33 @@ export default function CatalogTreeEditor({
           }}
           disabled={loading}
           title="Reload"
-          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
+          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </button>
+      </div>
+
+      {/* ── Saved views ────────────────────────────────────────────────────── */}
+      {/* Presets over the status/missing filters above — one click to jump to
+          a common view, Shopify-tab style. Not a new filter dimension. */}
+      <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+        {SAVED_VIEWS.map(v => {
+          const active = isActiveView(v);
+          return (
+            <button
+              key={v.id}
+              onClick={() => applyView(v)}
+              aria-current={active ? "true" : undefined}
+              className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded-t ${
+                active
+                  ? "border-red-600 text-red-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-200"
+              }`}
+            >
+              {v.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Toolbar: search · status · missing · add ───────────────────────── */}
@@ -1212,15 +1438,17 @@ export default function CatalogTreeEditor({
             ))}
           </SelectContent>
         </Select>
-        {/* Full 8-dimension "Missing…" filter (parity with AdminProducts) */}
+        {/* Full 8-dimension "Missing…" filter (parity with AdminProducts).
+            "any" (Needs attention tab) has no single matching item here — it
+            falls back to the placeholder rather than a phantom selection. */}
         <Select
-          value={activeMissing ?? "none"}
+          value={activeMissing && activeMissing !== "any" ? activeMissing : "none"}
           onValueChange={v =>
             applyMissing(v === "none" ? null : (v as MissingFilter))
           }
         >
           <SelectTrigger
-            className={`w-40 h-9 border-slate-200 text-sm ${activeMissing ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
+            className={`w-40 h-9 border-slate-200 text-sm ${activeMissing && activeMissing !== "any" ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
           >
             <SelectValue placeholder="Missing…" />
           </SelectTrigger>
@@ -1253,7 +1481,7 @@ export default function CatalogTreeEditor({
           <button
             onClick={handleAddProduct}
             disabled={adding}
-            className="inline-flex items-center gap-1 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-sm font-medium disabled:opacity-50"
+            className="inline-flex items-center gap-1 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-sm font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-1"
           >
             {adding ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1277,7 +1505,7 @@ export default function CatalogTreeEditor({
             <button
               key={f}
               onClick={() => applyMissing(active ? null : f)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
                 active
                   ? "bg-red-600 border-red-600 text-white"
                   : "bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600"
@@ -1419,38 +1647,38 @@ export default function CatalogTreeEditor({
             <span className="w-px h-6 bg-slate-200" />
             <Button
               size="sm"
-              className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+              className="h-8 text-xs gap-1 bg-green-600 hover:bg-green-700 text-white"
               disabled={bulkBusy}
               onClick={doPublish}
             >
-              Publish
+              <Globe className="w-3.5 h-3.5" /> Publish
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="h-8 text-xs"
+              className="h-8 text-xs gap-1"
               disabled={bulkBusy}
               onClick={doUnpublish}
             >
-              Unpublish
+              <EyeOff className="w-3.5 h-3.5" /> Unpublish
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="h-8 text-xs"
+              className="h-8 text-xs gap-1"
               disabled={bulkBusy}
               onClick={() => doSetActive(true)}
             >
-              Activate
+              <Power className="w-3.5 h-3.5" /> Activate
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="h-8 text-xs"
+              className="h-8 text-xs gap-1"
               disabled={bulkBusy}
               onClick={() => doSetActive(false)}
             >
-              Deactivate
+              <PowerOff className="w-3.5 h-3.5" /> Deactivate
             </Button>
             <Button
               size="sm"
@@ -1468,11 +1696,11 @@ export default function CatalogTreeEditor({
             <Button
               size="sm"
               variant="destructive"
-              className="h-8 text-xs"
+              className="h-8 text-xs gap-1"
               disabled={bulkBusy}
               onClick={doDelete}
             >
-              Delete
+              <Trash2 className="w-3.5 h-3.5" /> Delete
             </Button>
           </div>
         </div>
@@ -1572,9 +1800,10 @@ export default function CatalogTreeEditor({
             columns={columns}
             getRowId={p => p.id}
             loading={loading}
-            emptyMessage="No products in this selection."
+            emptyMessage={emptyState}
             persistKey="cat"
             onVisibleColumnsChange={setVisibleColIds}
+            onDensityChange={setDensity}
             sorting={sorting}
             onSortingChange={setSorting}
             selection={{

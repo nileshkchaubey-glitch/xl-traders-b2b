@@ -92,6 +92,19 @@ export const healthService = {
     return (data ?? []).map((r: { id: string }) => r.id);
   },
 
+  // Ids of every product missing ANY dimension (missing_count > 0) — backs the
+  // Catalog Editor's "Needs attention" saved view. Pure read against the
+  // existing view/column (same one getCategoryHealth rolls up); no new logic.
+  async getIdsIncomplete(categoryIds?: string[]): Promise<string[]> {
+    if (categoryIds && categoryIds.length === 0) return [];
+    let q = supabase.from("v_product_health").select("id").gt("missing_count", 0);
+    if (categoryIds?.length) q = q.in("category_id", categoryIds);
+    const { data, error } = await q;
+
+    if (error) throw error;
+    return (data ?? []).map((r: { id: string }) => r.id);
+  },
+
   // Aggregates the view into { total, incomplete } per category_id so the tree
   // can colour a health dot without re-deriving "what is missing" in TS —
   // incomplete = missing_count > 0, straight from v_product_health.

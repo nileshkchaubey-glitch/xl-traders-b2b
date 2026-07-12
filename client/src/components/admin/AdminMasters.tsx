@@ -38,6 +38,7 @@ import MasterDialog from "./MasterDialog";
 import VariantRow from "./VariantRow";
 import MobileMasterSheet from "@/components/admin/MobileMasterSheet";
 import { Button } from "@/components/ui/button";
+import { confirm } from "@/components/ui/confirm-dialog";
 
 interface NavItem {
   id: string;
@@ -171,9 +172,11 @@ export default function AdminMasters() {
 
   const handleDeleteMaster = async (id: string) => {
     if (
-      !window.confirm(
-        "Are you sure you want to delete this product master? Variants will be unlinked but NOT deleted."
-      )
+      !(await confirm({
+        title: "Delete this product master?",
+        description: "Variants will be unlinked but NOT deleted.",
+        destructive: true,
+      }))
     )
       return;
     try {
@@ -188,7 +191,8 @@ export default function AdminMasters() {
   };
 
   const handleDeleteVariant = async (id: string) => {
-    if (!window.confirm("Delete this variant product?")) return;
+    if (!(await confirm({ title: "Delete this variant product?", destructive: true })))
+      return;
     try {
       await masterService.deleteVariant(id);
       toast.success("Variant deleted ✓");
