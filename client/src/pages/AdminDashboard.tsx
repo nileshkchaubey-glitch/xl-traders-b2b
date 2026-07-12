@@ -155,6 +155,7 @@ export default function AdminDashboard() {
           categories={categories}
           attentionFilter={productsAttention}
           onAttentionChange={setProductsAttention}
+          onTabChange={setActiveTab}
         />
       )}
 

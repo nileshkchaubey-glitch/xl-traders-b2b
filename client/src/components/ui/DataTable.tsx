@@ -30,6 +30,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -111,6 +116,16 @@ export interface DataTableProps<T> {
   toolbarActions?: React.ReactNode;
 
   /**
+   * When provided, wraps each row in a right-click context menu — the render
+   * prop returns the menu's contents (e.g. a list of <ContextMenuItem>s) for
+   * that row. Right-click anywhere on the row opens it; DataTable itself
+   * doesn't render a trigger button (a per-row "⋯" button is a consumer
+   * concern, typically placed in one of the cell renderers, sharing the same
+   * item list for touch/discoverability).
+   */
+  rowContextMenu?: (row: T) => React.ReactNode;
+
+  /**
    * Save layout to the URL under this key (columns → `${key}Cols`, density →
    * `${key}Density`). Omit to keep layout in-memory only. Never localStorage.
    */
@@ -142,6 +157,7 @@ export function DataTable<T>({
   search,
   pagination,
   toolbarActions,
+  rowContextMenu,
   persistKey,
   onVisibleColumnsChange,
   onDensityChange,
@@ -431,9 +447,9 @@ export function DataTable<T>({
               table.getRowModel().rows.map(row => {
                 const id = getRowId(row.original);
                 const checked = selection?.isSelected(id) ?? false;
-                return (
+                const tr = (
                   <tr
-                    key={row.id}
+                    key={rowContextMenu ? undefined : row.id}
                     className={`hover:bg-slate-50/60 align-middle group/row ${rowClassName?.(row.original) ?? ""}`}
                   >
                     {selection && (
@@ -472,6 +488,17 @@ export function DataTable<T>({
                       );
                     })}
                   </tr>
+                );
+                if (!rowContextMenu) return tr;
+                // asChild forwards ref + onContextMenu straight onto the <tr>
+                // (no extra wrapping DOM node, so table layout stays valid).
+                return (
+                  <ContextMenu key={row.id}>
+                    <ContextMenuTrigger asChild>{tr}</ContextMenuTrigger>
+                    <ContextMenuContent className="w-52">
+                      {rowContextMenu(row.original)}
+                    </ContextMenuContent>
+                  </ContextMenu>
                 );
               })
             )}

@@ -220,7 +220,7 @@ phases per this contract:
 | 10 | Sticky first column | `[DONE]` — checkbox + first `meta.sticky` column |
 | 11 | Keyboard navigation | `[DONE]` — consumer via `containerProps` + `managed` inline inputs (↑↓←→, Enter, Tab, Esc) |
 | 12 | Copy/paste (Excel) | `[deferred]` |
-| 13 | Right-click menu | `[deferred]` — `ui/context-menu` primitive exists; not in DataTable yet (old pattern in removed `ProductsTable`, see git history) |
+| 13 | Right-click menu | `[DONE]` — `rowContextMenu` render-prop wraps each row in `ContextMenu`/`ContextMenuTrigger` (`asChild` onto the `<tr>`); Catalog Editor also exposes the same item list via an always-visible "⋯" `DropdownMenu` button for touch |
 | 14 | Row grouping | `[deferred]` — the tree gives group→category filtering, not in-table grouping |
 | 15 | Export CSV | `[deferred]` — import exists; export doesn't |
 | 16 | Save layout | `[DONE]` — columns + density persisted to URL (`persistKey`); no localStorage |

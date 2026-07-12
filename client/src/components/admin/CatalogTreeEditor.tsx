@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useLocation } from "wouter";
 import {
   FolderTree,
   ChevronRight,
@@ -20,6 +21,13 @@ import {
   Globe,
   EyeOff,
   PackageOpen,
+  MoreHorizontal,
+  ExternalLink,
+  Pencil,
+  ShoppingBag,
+  MessageSquare,
+  Layers,
+  FileText,
 } from "lucide-react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { toast } from "sonner";
@@ -40,6 +48,23 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import {
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandSeparator,
+} from "@/components/ui/command";
 import { DataTable, DataTableDensity } from "@/components/ui/DataTable";
 import { confirm } from "@/components/ui/confirm-dialog";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
@@ -229,6 +254,10 @@ interface CatalogTreeEditorProps {
   // CHANGES; internal changes report back via onAttentionChange.
   attentionFilter?: MissingFilter | null;
   onAttentionChange?: (filter: MissingFilter | null) => void;
+  // Lets the Ctrl+K palette's "Go to X" nav actions switch AdminDashboard's
+  // active tab (Orders/Enquiries/Site Content are sibling tabs there, not
+  // sub-routes — Masters IS a sub-route and navigates via wouter instead).
+  onTabChange?: (tab: string) => void;
 }
 
 /**
@@ -241,7 +270,9 @@ export default function CatalogTreeEditor({
   categories = [],
   attentionFilter = null,
   onAttentionChange,
+  onTabChange,
 }: CatalogTreeEditorProps) {
+  const [, setLocation] = useLocation();
   const groups = useMemo(() => buildGroups(categories), [categories]);
   const categoryById = useMemo(() => {
     const m = new Map<string, Category>();
@@ -417,11 +448,29 @@ export default function CatalogTreeEditor({
   // Side-panel editor — holds the product being edited (null = closed).
   const [panelProduct, setPanelProduct] = useState<Product | null>(null);
 
+  // ── Command palette (Ctrl+K) ──────────────────────────────────────────────────
+  // Scoped to this tab rather than lifted app-wide — panelProduct/addNameRef
+  // already live here, so this keeps the diff self-contained. A judgement call:
+  // documented in the PR rather than a silent gap, since every item in the
+  // manual-test checklist is reachable from the Catalog Editor tab already.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const [paletteResults, setPaletteResults] = useState<Product[]>([]);
+  const [paletteLoading, setPaletteLoading] = useState(false);
+
   // ── Inline cell editing ──────────────────────────────────────────────────────
   const [cellEdit, setCellEdit] = useState<CellEdit | null>(null);
 
   // Focused cell for keyboard navigation (independent of the edit state).
   const gridRef = useRef<HTMLDivElement>(null);
+
+  // ── Floating bulk bar height tracking ────────────────────────────────────────
+  // The bar is `fixed` (Shopify-style dock at the viewport bottom, see the JSX
+  // below) so it no longer occupies space in normal flow; a spacer of matching
+  // height is rendered where it used to sit, sized via ResizeObserver since the
+  // action row's flex-wrap makes its height vary with viewport width.
+  const bulkBarRef = useRef<HTMLDivElement>(null);
+  const [bulkBarHeight, setBulkBarHeight] = useState(0);
   const [focused, setFocused] = useState<{ id: string; field: EditField } | null>(
     null
   );
@@ -516,6 +565,77 @@ export default function CatalogTreeEditor({
     }
   };
 
+  // Global Ctrl+K / Cmd+K toggle. Guarded the same way handleGridKeyDown guards
+  // its own nav keys — while a cell is mid-edit, Enter/Tab/Esc belong to that
+  // editor, so the palette must not engage (its own Escape would otherwise race
+  // the cell's).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (cellEdit) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen(open => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [cellEdit]);
+
+  useEffect(() => {
+    if (!paletteOpen) {
+      setPaletteQuery("");
+      setPaletteResults([]);
+      return;
+    }
+    const q = paletteQuery.trim();
+    if (!q) {
+      setPaletteResults([]);
+      return;
+    }
+    setPaletteLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const results = await productService.searchAdmin(q);
+        setPaletteResults(results);
+      } catch {
+        setPaletteResults([]);
+      } finally {
+        setPaletteLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [paletteQuery, paletteOpen]);
+
+  // Re-fetches the full row before opening the side panel — searchAdmin only
+  // returns id/name/sku/image_url/status/variant_label, and handing that
+  // partial shape straight to useProductForm would silently blank every other
+  // field on the next save.
+  const handlePaletteSelectProduct = async (id: string) => {
+    setPaletteOpen(false);
+    try {
+      const full = await productService.getById(id, { includeUnpublished: true });
+      if (full) setPanelProduct(full);
+      else toast.error("Product not found");
+    } catch {
+      toast.error("Couldn't open product");
+    }
+  };
+
+  const handlePaletteGoTo = (tab: string) => {
+    setPaletteOpen(false);
+    onTabChange?.(tab);
+  };
+
+  const handlePaletteGoToMasters = () => {
+    setPaletteOpen(false);
+    setLocation("/admin/masters");
+  };
+
+  const handlePaletteAddProduct = () => {
+    setPaletteOpen(false);
+    setTimeout(() => addNameRef.current?.focus(), 50);
+  };
+
   // Persist one field via productService (service layer only) with an optimistic
   // row patch. Blank price → NULL ("On Enquiry"), never 0. Tree aggregates are
   // refreshed since completeness (and thus a category's health dot) can change.
@@ -597,6 +717,19 @@ export default function CatalogTreeEditor({
   const selectionCount = selectAllMatching ? totalCount : selected.size;
   const canSelectAllMatching =
     allPageSelected && !selectAllMatching && totalCount > products.length;
+
+  useEffect(() => {
+    const el = bulkBarRef.current;
+    if (!el || selectionCount === 0) {
+      setBulkBarHeight(0);
+      return;
+    }
+    const observer = new ResizeObserver(entries => {
+      setBulkBarHeight(entries[0].contentRect.height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [selectionCount > 0]);
 
   const toggleAll = () => {
     if (allPageSelected) clearSelection();
@@ -914,6 +1047,70 @@ export default function CatalogTreeEditor({
     }
   };
 
+  // ── Row menu: publish toggle, view live, copy, delete ───────────────────────────
+  // Same optimistic-update-via-productService.update() pattern toggleAvailability
+  // already uses (just a different field) — no new service method, no new logic,
+  // only the single-row status flip AdminProducts used to expose didn't survive
+  // Phase 2b's removal, so it's re-added here the same way.
+  const handleTogglePublish = async (prod: Product) => {
+    const next: ProductStatus = prod.status === "published" ? "draft" : "published";
+    setProducts(prev =>
+      prev.map(p => (p.id === prod.id ? { ...p, status: next } : p))
+    );
+    try {
+      await productService.update(prod.id, { status: next });
+      toast.success(next === "published" ? "Published" : "Unpublished");
+      loadAggregates();
+      loadChipCounts();
+    } catch {
+      toast.error("Failed to update");
+      loadProducts();
+    }
+  };
+
+  const handleViewLive = (prod: Product) => {
+    window.open(`${window.location.origin}/product/${prod.id}`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleCopyName = async (prod: Product) => {
+    try {
+      await navigator.clipboard.writeText(prod.name);
+      toast.success("Name copied");
+    } catch {
+      toast.error("Couldn't copy — clipboard access denied");
+    }
+  };
+
+  const handleCopySku = async (prod: Product) => {
+    if (!prod.sku) return;
+    try {
+      await navigator.clipboard.writeText(prod.sku);
+      toast.success("SKU copied");
+    } catch {
+      toast.error("Couldn't copy — clipboard access denied");
+    }
+  };
+
+  // Per-row delete — same confirm() dialog as every other destructive action
+  // in this file, same productService.delete() the removed AdminProducts used
+  // (its bulk sibling, bulkDelete, is already reused by the bulk bar).
+  const handleDeleteOne = async (prod: Product) => {
+    const ok = await confirm({
+      title: `Delete "${prod.name}"?`,
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await productService.delete(prod.id);
+      toast.success("Product deleted");
+      loadProducts();
+      loadAggregates();
+      loadChipCounts();
+    } catch {
+      toast.error("Failed to delete");
+    }
+  };
+
   // ── Add product (quick draft row) ─────────────────────────────────────────────
   const [addName, setAddName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -1091,6 +1288,75 @@ export default function CatalogTreeEditor({
     managed: true,
   };
 
+  // ── Row menu (right-click + "⋯" button) ──────────────────────────────────────
+  // Same item list rendered into both a ContextMenu (right-click, desktop) and a
+  // DropdownMenu (⋯ button, touch/discoverable everywhere) — `Item`/`Separator`
+  // are injected so the JSX below doesn't fork between the two menu families.
+  // Every action calls the EXACT existing handler already wired elsewhere in
+  // this file (Open/Duplicate/Feature/N/A dialog etc.); only Publish-toggle,
+  // View live, Copy, and per-row Delete are new — and those are thin wrappers
+  // around productService.update()/.delete(), the same service methods already
+  // used by toggleAvailability and the bulk bar (see the handlers above).
+  type MenuItemComp = React.ComponentType<{
+    onClick?: () => void;
+    variant?: "default" | "destructive";
+    disabled?: boolean;
+    className?: string;
+    children?: React.ReactNode;
+  }>;
+  type MenuSeparatorComp = React.ComponentType<Record<string, never>>;
+  const renderRowMenuItems = (
+    p: Product,
+    Item: MenuItemComp,
+    Separator: MenuSeparatorComp
+  ) => (
+    <>
+      <Item onClick={() => setPanelProduct(p)} className="gap-2">
+        <PanelRightOpen className="w-3.5 h-3.5" /> Open
+      </Item>
+      <Item
+        onClick={() => setLocation(`/admin/products/${p.id}`)}
+        className="gap-2"
+      >
+        <Pencil className="w-3.5 h-3.5" /> Edit full
+      </Item>
+      <Item onClick={() => handleDuplicate(p)} className="gap-2">
+        <Copy className="w-3.5 h-3.5" /> Duplicate
+      </Item>
+      <Separator />
+      <Item onClick={() => handleToggleFeatured(p)} className="gap-2">
+        <Star className="w-3.5 h-3.5" />
+        {p.is_featured ? "Unfeature" : "Feature"}
+      </Item>
+      <Item onClick={() => handleTogglePublish(p)} className="gap-2">
+        {p.status === "published" ? (
+          <EyeOff className="w-3.5 h-3.5" />
+        ) : (
+          <Globe className="w-3.5 h-3.5" />
+        )}
+        {p.status === "published" ? "Unpublish" : "Publish"}
+      </Item>
+      <Item onClick={() => handleViewLive(p)} className="gap-2">
+        <ExternalLink className="w-3.5 h-3.5" /> View live
+      </Item>
+      <Separator />
+      <Item onClick={() => handleCopyName(p)} className="gap-2">
+        <Copy className="w-3.5 h-3.5" /> Copy name
+      </Item>
+      <Item onClick={() => handleCopySku(p)} disabled={!p.sku} className="gap-2">
+        <Copy className="w-3.5 h-3.5" /> Copy SKU
+      </Item>
+      <Separator />
+      <Item
+        onClick={() => handleDeleteOne(p)}
+        variant="destructive"
+        className="gap-2"
+      >
+        <Trash2 className="w-3.5 h-3.5" /> Delete
+      </Item>
+    </>
+  );
+
   const columns: ColumnDef<Product>[] = [
     {
       id: "name",
@@ -1171,6 +1437,22 @@ export default function CatalogTreeEditor({
               <PanelRightOpen className="w-3.5 h-3.5" />
               Open
             </button>
+            {/* "⋯" menu — always visible (not hover-reveal) so the same actions
+                the right-click context menu offers are reachable on touch. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={e => e.stopPropagation()}
+                  className="flex-shrink-0 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                  title="More actions"
+                >
+                  <MoreHorizontal className="w-3.5 h-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {renderRowMenuItems(p, DropdownMenuItem, DropdownMenuSeparator)}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         );
       },
@@ -1536,9 +1818,19 @@ export default function CatalogTreeEditor({
         )}
       </div>
 
-      {/* ── Bulk action bar ────────────────────────────────────────────────── */}
+      {/* ── Bulk action bar ────────────────────────────────────────────────────────
+          Docked to the viewport bottom (Shopify pattern) instead of pushing the
+          table down — the same actions/handlers/icons as before, layout only.
+          bottom-16 clears MobileAdminShell's 64px bottom tab bar below `md`;
+          lg:left-[220px] clears AdminDashboard's static sidebar at that width. */}
       {selectionCount > 0 && (
-        <div className="bg-white border border-slate-300 rounded-xl px-4 py-3 shadow-sm space-y-3">
+        <div style={{ height: bulkBarHeight }} aria-hidden="true" />
+      )}
+      {selectionCount > 0 && (
+        <div
+          ref={bulkBarRef}
+          className="fixed z-40 left-0 right-0 bottom-16 md:bottom-0 lg:left-[220px] bg-white border-t border-slate-300 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] px-4 py-3 space-y-3"
+        >
           {/* Selection scope */}
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="font-semibold text-slate-800">
@@ -1820,6 +2112,9 @@ export default function CatalogTreeEditor({
             }}
             containerRef={gridRef}
             containerProps={{ tabIndex: 0, onKeyDown: handleGridKeyDown }}
+            rowContextMenu={p =>
+              renderRowMenuItems(p, ContextMenuItem, ContextMenuSeparator)
+            }
           />
         </div>
       </div>
@@ -1838,6 +2133,77 @@ export default function CatalogTreeEditor({
           loadChipCounts();
         }}
       />
+
+      {/* ── Command palette (Ctrl+K) ─────────────────────────────────────────── */}
+      <CommandDialog
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        shouldFilter={false}
+      >
+        <CommandInput
+          placeholder="Search products by name or SKU…"
+          value={paletteQuery}
+          onValueChange={setPaletteQuery}
+        />
+        <CommandList>
+          {paletteQuery.trim() && !paletteLoading && paletteResults.length === 0 && (
+            <CommandEmpty>No products found.</CommandEmpty>
+          )}
+          {paletteResults.length > 0 && (
+            <CommandGroup heading="Products">
+              {paletteResults.map(p => (
+                <CommandItem
+                  key={p.id}
+                  value={p.id}
+                  onSelect={() => handlePaletteSelectProduct(p.id)}
+                  className="gap-2"
+                >
+                  <ImageIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <span className="flex-1 truncate">
+                    {p.name}
+                    {p.variant_label ? ` — ${p.variant_label}` : ""}
+                  </span>
+                  {p.sku && (
+                    <span className="text-xs font-mono text-slate-400">{p.sku}</span>
+                  )}
+                  {p.status === "draft" && (
+                    <span className="text-[10px] uppercase font-semibold text-amber-600">
+                      Draft
+                    </span>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+          <CommandSeparator />
+          <CommandGroup heading="Actions">
+            <CommandItem onSelect={handlePaletteAddProduct} className="gap-2">
+              <Plus className="w-3.5 h-3.5" /> Add product
+            </CommandItem>
+            <CommandItem
+              onSelect={() => handlePaletteGoTo("orders")}
+              className="gap-2"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" /> Go to Orders
+            </CommandItem>
+            <CommandItem
+              onSelect={() => handlePaletteGoTo("enquiries")}
+              className="gap-2"
+            >
+              <MessageSquare className="w-3.5 h-3.5" /> Go to Enquiries
+            </CommandItem>
+            <CommandItem onSelect={handlePaletteGoToMasters} className="gap-2">
+              <Layers className="w-3.5 h-3.5" /> Go to Masters
+            </CommandItem>
+            <CommandItem
+              onSelect={() => handlePaletteGoTo("site-content")}
+              className="gap-2"
+            >
+              <FileText className="w-3.5 h-3.5" /> Go to Site Content
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
 
       {/* ── Bulk "Not applicable" dialog (same behavior as AdminProducts) ─────── */}
       <Dialog
