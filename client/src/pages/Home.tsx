@@ -16,6 +16,8 @@ import {
   Plus,
   Minus,
   MapPin,
+  Building2,
+  Calendar,
 } from "lucide-react";
 import { productService } from "@/lib/productService";
 import { useAuthStore } from "@/lib/authStore";
@@ -67,6 +69,11 @@ export default function Home() {
   }, []);
 
   const bulkQuoteHref = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent("Hi XL Traders, I need a bulk / custom order quote.")}`;
+
+  // Slim trust strip below the hero — condensed from the same admin-managed
+  // trust_badge/trust_stats content as the full Trust section further down
+  // (Site Content → Trust); no separate admin control needed.
+  const yearsStat = trustStats.find(s => /year/i.test(s.label));
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900">
@@ -141,6 +148,26 @@ export default function Home() {
             >
               <HeroMotionTiles />
             </motion.div>
+          </div>
+        </section>
+
+        {/* ── TRUST STRIP — slim, below the hero ── */}
+        <section className="bg-white border-b border-slate-100">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-[12.5px] font-semibold text-slate-600">
+            <span className="flex items-center gap-1.5">
+              <Star size={13} className="fill-amber-500 text-amber-500" />
+              {trustBadge.rating}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Building2 size={13} className="text-red-600" />
+              {trustBadge.businesses}
+            </span>
+            {yearsStat && (
+              <span className="flex items-center gap-1.5">
+                <Calendar size={13} className="text-red-600" />
+                {yearsStat.value} {yearsStat.label}
+              </span>
+            )}
           </div>
         </section>
 
