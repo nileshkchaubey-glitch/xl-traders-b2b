@@ -375,7 +375,15 @@ export default function Header() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 ml-auto md:ml-0">
+          <div className="flex items-center gap-1.5 md:gap-2 ml-auto md:ml-0 min-w-0">
+            <a
+              href={`tel:${phone1}`}
+              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition"
+            >
+              <Phone size={16} />
+              Call
+            </a>
+
             <a
               href={`https://wa.me/${whatsappNumber}`}
               target="_blank"
@@ -415,11 +423,35 @@ export default function Header() {
               </Link>
             )}
 
-            {/* Same-day pill — mobile header per prototype (cart lives in the bottom nav) */}
-            <span className="md:hidden flex items-center gap-1.5 h-[34px] px-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[11px] font-bold whitespace-nowrap">
-              <Truck size={11} />
-              {announcement.mobilePill}
+            {/* Same-day delivery — icon-only on mobile so it sits alongside the
+                new Call/WhatsApp icons without crowding or truncating (full text
+                still on the desktop utility bar). */}
+            <span
+              className="md:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex-shrink-0"
+              title={announcement.mobilePill}
+              aria-label={announcement.mobilePill}
+            >
+              <Truck size={14} />
             </span>
+
+            {/* Compact Call + WhatsApp icons — mobile header only. Lives in the
+                top bar so it never competes with the fixed-bottom CartBar. */}
+            <a
+              href={`tel:${phone1}`}
+              aria-label="Call us"
+              className="md:hidden flex items-center justify-center w-8 h-8 bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition flex-shrink-0"
+            >
+              <Phone size={14} />
+            </a>
+            <a
+              href={`https://wa.me/${whatsappNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Chat on WhatsApp"
+              className="md:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 rounded-full hover:bg-emerald-100 transition flex-shrink-0"
+            >
+              <MessageCircle size={14} />
+            </a>
 
             <Link
               href="/cart"
