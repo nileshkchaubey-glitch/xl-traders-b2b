@@ -237,6 +237,29 @@ export default function AdminSiteContent() {
     }
   }
 
+  // Retail / Ordering saves two keys together, same pattern as Tax / GST.
+  async function saveMinOrder() {
+    if (!content) return;
+    setSaving("min_order");
+    try {
+      await settingsService.updateContent(
+        "min_order_enabled",
+        content.min_order_enabled
+      );
+      await settingsService.updateContent(
+        "min_order_value",
+        content.min_order_value
+      );
+      toast.success("Retail / Ordering saved");
+    } catch {
+      toast.error(
+        "Couldn't save Retail / Ordering — make sure you're signed in."
+      );
+    } finally {
+      setSaving(null);
+    }
+  }
+
   if (!content) {
     return <div className="text-center py-8 text-slate-500">Loading…</div>;
   }
@@ -572,6 +595,36 @@ export default function AdminSiteContent() {
             value={String(content.gst_percentage)}
             onChange={e =>
               patch("gst_percentage", Number(e.target.value) || 0)
+            }
+          />
+        </Field>
+      </SectionCard>
+
+      {/* ── RETAIL / ORDERING ── */}
+      <GroupHeading>Retail / Ordering</GroupHeading>
+      <SectionCard
+        title="Minimum order value"
+        description="When enabled, the storefront's floating cart bar shows progress toward this amount and the cart checkout is blocked until it's met. Off by default — nothing changes until you turn this on."
+        onSave={saveMinOrder}
+        saving={saving === "min_order"}
+      >
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={content.min_order_enabled}
+            onCheckedChange={v => patch("min_order_enabled", v)}
+          />
+          <Label className="text-sm text-slate-700">
+            Enforce a minimum order value
+          </Label>
+        </div>
+        <Field label="Minimum order value (₹)">
+          <Input
+            type="number"
+            min={0}
+            className="max-w-[160px]"
+            value={String(content.min_order_value)}
+            onChange={e =>
+              patch("min_order_value", Math.max(0, Number(e.target.value) || 0))
             }
           />
         </Field>

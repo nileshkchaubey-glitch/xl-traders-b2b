@@ -19,6 +19,7 @@ import {
 import { useAuthStore } from "@/lib/authStore";
 import { useCartStore } from "@/stores/cartStore";
 import MobileNav from "@/components/MobileNav";
+import CartBar from "@/components/cart/CartBar";
 import {
   categoryService,
   productService,
@@ -556,8 +557,11 @@ export default function Header() {
         <div className="fixed inset-0 z-30" onClick={closeOverlays} />
       )}
 
-      {/* Mobile bottom nav + floating cart FAB */}
+      {/* Mobile bottom nav */}
       <MobileNav />
+
+      {/* Floating cart bar — mobile (above bottom nav) + desktop (bottom-right) */}
+      <CartBar />
     </>
   );
 }

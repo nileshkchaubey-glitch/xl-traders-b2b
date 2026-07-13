@@ -82,6 +82,8 @@ export interface SiteContentMap {
   footer: FooterContent;
   gst_enabled: boolean;
   gst_percentage: number;
+  min_order_enabled: boolean;
+  min_order_value: number;
 }
 
 export type SiteContentKey = keyof SiteContentMap;
@@ -177,6 +179,8 @@ export const FALLBACKS: SiteContentMap = {
   },
   gst_enabled: false,
   gst_percentage: 0,
+  min_order_enabled: false,
+  min_order_value: 0,
 };
 
 // ── Session cache ────────────────────────────────────────────────────────────

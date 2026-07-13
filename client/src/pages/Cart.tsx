@@ -12,6 +12,7 @@ import {
 import { useCartStore } from "@/stores/cartStore";
 import { orderService } from "@/lib/orderService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
+import { useMinOrder } from "@/hooks/useMinOrder";
 import { toast } from "sonner";
 
 const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
@@ -30,11 +31,18 @@ export default function Cart() {
   } = useCartStore();
   const [placing, setPlacing] = useState(false);
   const [notes, setNotes] = useState("");
+  const minOrder = useMinOrder();
 
   const total = getTotal();
   const count = getItemCount();
   const allEnquiry = items.length > 0 && items.every(i => i.priceOnEnquiry);
   const anyMoqWarn = items.some(i => i.quantity < i.moq);
+  const belowMinOrder =
+    minOrder.enabled && !allEnquiry && total < minOrder.value;
+  const minOrderRemaining = belowMinOrder ? minOrder.value - total : 0;
+  // Block checkout until the real setting has loaded — otherwise a genuine
+  // ON setting can be bypassed by submitting before the fetch resolves.
+  const checkoutBlocked = minOrder.loading || belowMinOrder;
 
   const handlePlaceOrder = async () => {
     if (items.length === 0) {
@@ -43,6 +51,16 @@ export default function Cart() {
     }
     if (anyMoqWarn) {
       toast.error("Some items are below MOQ — fix them to proceed");
+      return;
+    }
+    if (minOrder.loading) {
+      toast.error("Checking order settings — try again in a moment");
+      return;
+    }
+    if (belowMinOrder) {
+      toast.error(
+        `Add ₹${minOrderRemaining.toLocaleString()} more to meet the minimum order value`
+      );
       return;
     }
     if (!customer.name.trim()) {
@@ -263,6 +281,13 @@ export default function Cart() {
                   </div>
                 )}
 
+                {belowMinOrder && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-2.5 rounded-lg mb-3">
+                    Add ₹{minOrderRemaining.toLocaleString()} more to meet the
+                    minimum order value of ₹{minOrder.value.toLocaleString()}.
+                  </div>
+                )}
+
                 {/* Customer details */}
                 <div className="space-y-2 mb-3.5">
                   <input
@@ -286,9 +311,9 @@ export default function Cart() {
 
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={placing || anyMoqWarn}
+                  disabled={placing || anyMoqWarn || checkoutBlocked}
                   className={`w-full h-[50px] rounded-xl text-[15px] font-bold text-white transition flex items-center justify-center gap-2 ${
-                    anyMoqWarn
+                    anyMoqWarn || checkoutBlocked
                       ? "bg-slate-300 cursor-not-allowed"
                       : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_18px_rgba(5,150,105,0.25)]"
                   }`}
