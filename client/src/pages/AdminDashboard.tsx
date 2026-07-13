@@ -337,7 +337,21 @@ export default function AdminDashboard() {
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-screen-xl mx-auto px-6 py-6">{sectionContent}</div>
+          {/* max-w-screen-xl centers/caps the width — fits reading-width forms
+              (Overview, Settings, etc.) but was capping the Catalog Editor's
+              data table to 1280px and centering it, leaving dead space on
+              both sides on wide screens. The table itself already fills
+              whatever width it's given (DataTable's fillWidth), so this tab
+              alone skips the cap. */}
+          <div
+            className={
+              activeTab === "catalog-editor"
+                ? "px-6 py-6"
+                : "max-w-screen-xl mx-auto px-6 py-6"
+            }
+          >
+            {sectionContent}
+          </div>
         </main>
       </div>
     </div>

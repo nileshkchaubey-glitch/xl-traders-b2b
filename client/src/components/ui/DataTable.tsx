@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -17,7 +17,6 @@ import {
   ChevronUp,
   ChevronsUpDown,
   Columns3,
-  Check,
   Search as SearchIcon,
   Rows2,
   Rows3,
@@ -27,6 +26,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -70,7 +70,24 @@ declare module "@tanstack/react-table" {
     align?: "left" | "center" | "right";
     /** Label in the Columns menu (defaults to the header text). */
     toggleLabel?: string;
+    /**
+     * Absorbs leftover width when the visible columns' sizes sum to less
+     * than the container (rather than leaving it as dead space to the
+     * right). At most one column should set this — the first visible one
+     * found wins. Falls back to distributing proportionally across all
+     * non-sticky columns when none is marked.
+     */
+    flex?: boolean;
   }
+}
+
+// Sets a ref value regardless of whether it's a callback ref or a RefObject —
+// lets DataTable measure the scroll container internally (for the fill-width
+// calculation below) while still forwarding a consumer's own `containerRef`.
+function setRef<T>(ref: React.Ref<T> | undefined, node: T | null) {
+  if (!ref) return;
+  if (typeof ref === "function") ref(node);
+  else (ref as React.MutableRefObject<T | null>).current = node;
 }
 
 function colMeta<T>(col: Column<T, unknown>) {
@@ -349,6 +366,74 @@ export function DataTable<T>({
     ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
     : 1;
 
+  // ── Fill-width: absorb leftover space instead of leaving it empty ──────────
+  // table.getTotalSize() is the columns' natural (resized/default) width sum.
+  // When the scroll container is wider than that, the difference used to sit
+  // as dead space to the right of the table (min-w-full was removed in the
+  // resize PR for the opposite reason — it silently ate INTO a drag). Instead,
+  // measure the container and hand any extra pixels to one flexible column
+  // (meta.flex, e.g. Description) so the table always fills the available
+  // width; when columns genuinely need more room than the container has, nothing
+  // changes here and the container's overflow-x-auto scrolls as before.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      setContainerWidth(entries[0].contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const visibleLeafColumns = table.getVisibleLeafColumns();
+  const naturalTotal = table.getTotalSize() + (selection ? 40 : 0);
+  const extraWidth = Math.max(0, containerWidth - naturalTotal);
+
+  // Prefer a column the consumer marked meta.flex (Description, typically);
+  // otherwise spread the extra proportionally across non-sticky columns so a
+  // consumer that hasn't opted in still gets a filled-out table.
+  // Once the user manually resizes the flex column, its dragged width must
+  // win: extraWidth already includes that column's own base size, so keeping
+  // it in the auto-fill would algebraically cancel the drag (the column
+  // snaps back to the same on-screen width no matter where it's dropped).
+  const flexColumnId = useMemo(
+    () => {
+      const id = visibleLeafColumns.find(c => colMeta(c).flex)?.id ?? null;
+      return id && columnSizing[id] == null ? id : null;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleLeafIds, columnSizing]
+  );
+  // Fixed-width utility columns (e.g. a row-actions icon cluster) opt out via
+  // enableResizing: false — they shouldn't stretch to soak up leftover space
+  // any more than a sticky column should. Manually-resized columns are
+  // likewise excluded (same drag-cancellation as the flex column above), so
+  // leftover space only goes to columns the user hasn't touched.
+  const proportionalBase = useMemo(() => {
+    if (flexColumnId) return 0;
+    return visibleLeafColumns
+      .filter(
+        c => !colMeta(c).sticky && c.getCanResize() && columnSizing[c.id] == null
+      )
+      .reduce((sum, c) => sum + c.getSize(), 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleLeafIds, columnSizing, flexColumnId]);
+
+  function fillWidth(
+    columnId: string,
+    base: number,
+    sticky: boolean | undefined,
+    canResize: boolean
+  ) {
+    if (extraWidth <= 0) return base;
+    if (columnSizing[columnId] != null) return base;
+    if (flexColumnId) return columnId === flexColumnId ? base + extraWidth : base;
+    if (sticky || !canResize || proportionalBase <= 0) return base;
+    return base + extraWidth * (base / proportionalBase);
+  }
+
   return (
     <div className="space-y-2">
       {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
@@ -400,22 +485,25 @@ export function DataTable<T>({
               .getAllLeafColumns()
               .filter(c => colMeta(c).hideable !== false && c.id !== "__select__")
               .map(col => (
-                <button
+                <DropdownMenuCheckboxItem
                   key={col.id}
-                  onClick={e => {
+                  checked={col.getIsVisible()}
+                  // Stay open across multiple toggles — picking several
+                  // columns shouldn't mean reopening the menu after each
+                  // click (and a raw <button> here previously meant a
+                  // slightly-off click could dismiss the menu without
+                  // registering the toggle at all).
+                  onSelect={e => {
                     e.preventDefault();
                     col.toggleVisibility();
                   }}
-                  className="w-full flex items-center justify-between px-2 py-1.5 text-sm rounded hover:bg-slate-100 text-slate-700"
+                  className="text-sm text-slate-700"
                 >
                   {colMeta(col).toggleLabel ??
                     (typeof col.columnDef.header === "string"
                       ? col.columnDef.header
                       : col.id)}
-                  {col.getIsVisible() && (
-                    <Check className="w-3.5 h-3.5 text-red-600" />
-                  )}
-                </button>
+                </DropdownMenuCheckboxItem>
               ))}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -423,17 +511,22 @@ export function DataTable<T>({
 
       {/* ── Table ───────────────────────────────────────────────────────────── */}
       <div
-        ref={containerRef}
+        ref={node => {
+          wrapRef.current = node;
+          setRef(containerRef, node);
+        }}
         {...containerProps}
         className={`bg-white border border-slate-200 rounded-xl overflow-x-auto focus:outline-none ${containerProps?.className ?? ""}`}
       >
-        {/* Explicit width = sum of visible column sizes (not min-w-full) so a
-            dragged width actually holds — `min-w-full` would let the browser's
-            auto table layout redistribute any leftover space proportionally
-            across columns, silently undoing a resize on wide viewports. */}
+        {/* Width = max(natural column-size sum, container width) — never
+            min-w-full (which let auto layout silently redistribute a dragged
+            width away, see the resize PR) and never a bare sum either (which
+            left dead space when the container is wider — see fillWidth
+            above). Only scrolls when columns genuinely need more room than
+            the container has. */}
         <table
           className="text-sm border-separate border-spacing-0"
-          style={{ width: table.getTotalSize() + (selection ? 40 : 0) }}
+          style={{ width: Math.max(naturalTotal, containerWidth) }}
         >
           <thead>
             {table.getHeaderGroups().map(hg => (
@@ -469,7 +562,7 @@ export function DataTable<T>({
                         sticky ? `${STICKY_CELL} z-30 border-r border-r-slate-100` : "z-10"
                       } ${meta.align === "center" ? "text-center" : ""} ${meta.headerClassName ?? ""}`}
                       style={{
-                        width: header.getSize(),
+                        width: fillWidth(header.column.id, header.getSize(), sticky, canResize),
                         ...(sticky ? { left: stickyLeft[header.column.id] } : {}),
                       }}
                     >
@@ -572,7 +665,12 @@ export function DataTable<T>({
                               : ""
                           } ${meta.align === "center" ? "text-center" : ""} ${extra}`}
                           style={{
-                            width: cell.column.getSize(),
+                            width: fillWidth(
+                              cell.column.id,
+                              cell.column.getSize(),
+                              sticky,
+                              cell.column.getCanResize()
+                            ),
                             ...(sticky ? { left: stickyLeft[cell.column.id] } : {}),
                           }}
                         >

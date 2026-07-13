@@ -293,6 +293,42 @@ inquiries, orders, order_items, import_logs, business_settings
   hardcodes a bg), lighter sticky-column divider (`border-r-slate-100`), white footer.
   Screenshots: `docs/screenshots/catalog-editor-{before,after,after-status,after-compact}.png`
   (captured locally via demo data + a temporary never-committed auth bypass).
+- **Catalog Editor layout fixes (July 2026):** two bugs surfaced right after the Dukaan
+  re-skin. **Dead space on wide screens:** `AdminDashboard`'s content wrapper caps every
+  tab at `max-w-screen-xl` (1280px) and centers it — fine for reading-width forms
+  (Overview, Settings) but was capping the Catalog Editor's data table too, leaving equal
+  margins on both sides at 1440px/1920px. The Catalog Editor tab now skips that cap.
+  `<DataTable>` also gained a `fillWidth` calculation (ResizeObserver on the scroll
+  container + `table.getTotalSize()`): when the columns' natural width sums to less than
+  the container, the leftover pixels go to a column the consumer marks `meta.flex`
+  (`CatalogTreeEditor` marks Description) instead of sitting empty; falls back to
+  distributing proportionally across non-sticky, resizable columns if none is marked.
+  When columns genuinely need more room than the container has, nothing changes — the
+  container still scrolls horizontally exactly as the Phase C resize work left it. The
+  `<table>`'s width is now `Math.max(naturalTotal, containerWidth)`, replacing the fixed
+  `table.getTotalSize()` from Phase C. **Columns-menu reliability:** the "Show columns"
+  list was raw `<button>`s inside `DropdownMenuContent`, not real Radix menu items — an
+  imprecise click could dismiss the menu without registering the toggle, and every pick
+  required reopening the menu. Swapped for `DropdownMenuCheckboxItem` (already in
+  `ui/dropdown-menu.tsx`, unused until now): proper `role="menuitemcheckbox"` semantics,
+  and `onSelect={e => e.preventDefault()}` keeps the menu open so multiple columns can be
+  checked in one pass. No column-visibility *state* bug was found — `columnVisibility` and
+  the render were always in sync once React finished a render pass; the dead-space bug
+  (columns scrolled out of the container to the right of a sticky Name column) is the far
+  more likely explanation for what looked like "selected columns not rendering."
+- **Catalog Editor blank-scroll fix (July 2026):** the admin window scrolled thousands
+  of blank pixels past the pagination footer. Culprit was NOT the bulk-bar spacer /
+  fillWidth / max-w suspects — it was `CommandDialog` (`ui/command.tsx`) rendering its
+  a11y `DialogHeader className="sr-only"` as a direct `<Dialog>` child, i.e. inline at
+  the mount point even while closed. Tailwind `sr-only` = `position:absolute`; with no
+  positioned ancestor its containing block is the document root, so `<main>`'s
+  `overflow-y-auto` couldn't clip it, and its static flow position (below the entire
+  table) stretched `documentElement.scrollHeight` — dead window scroll that grew with
+  table length. Fix: moved the sr-only header inside `DialogContent`, which is also
+  where Radix needs Title/Description for the dialog to be announced (aria-labelledby/
+  describedby now resolve). Verified at 1440/1920, 0 and 50 selected, both densities,
+  short and long lists; screenshots
+  `docs/screenshots/catalog-editor-blank-scroll-{before,after}.png`.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px

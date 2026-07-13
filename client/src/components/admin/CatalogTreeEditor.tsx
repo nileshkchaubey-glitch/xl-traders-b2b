@@ -1587,6 +1587,9 @@ export default function CatalogTreeEditor({
       size: 260,
       minSize: 160,
       meta: {
+        // Absorbs leftover width so the table fills the container instead of
+        // leaving dead space on the right (see DataTable's fillWidth).
+        flex: true,
         cellClassName: (p: Product) =>
           `${descMissing(p) && !p.na_fields?.includes("description") && !editingHere(p.id, "description") ? RED_CELL : ""} ${focusRing(p.id, "description")}`,
       },
