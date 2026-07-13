@@ -1618,38 +1618,6 @@ export default function CatalogTreeEditor({
       },
     },
     {
-      id: "status",
-      header: "Status",
-      enableSorting: false,
-      size: 150,
-      minSize: 130,
-      cell: ({ row }) => {
-        const p = row.original;
-        const published = p.status === "published";
-        // Dukaan-style one-click toggle — same handleTogglePublish the row
-        // menu uses (optimistic flip + Undo toast), just a switch instead of
-        // a static badge.
-        return (
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={published}
-              onCheckedChange={() => handleTogglePublish(p)}
-              className="data-[state=checked]:bg-emerald-500"
-              aria-label={published ? "Unpublish" : "Publish to website"}
-              title={published ? "Click to unpublish" : "Click to publish"}
-            />
-            <span
-              className={`text-xs font-medium ${
-                published ? "text-emerald-600" : "text-slate-400"
-              }`}
-            >
-              {published ? "Published" : "Draft"}
-            </span>
-          </div>
-        );
-      },
-    },
-    {
       id: "score",
       header: "Score",
       enableSorting: false,
@@ -1684,6 +1652,47 @@ export default function CatalogTreeEditor({
       ),
     },
     {
+      id: "status",
+      header: "Status",
+      enableSorting: false,
+      size: 150,
+      minSize: 130,
+      // Pinned to the right (with the actions column) so the publish toggle
+      // stays reachable without scrolling all the way across a wide table.
+      // Kept immediately before "actions" in column order (score/updated
+      // were moved ahead of it) — CSS sticky can only hold a pinned column
+      // flush against another pinned one up to how far you've actually
+      // scrolled, so any non-sticky column sitting between two stickyRight
+      // columns can leave a gap on a table that doesn't overflow by much.
+      // Keeping the two stickyRight columns adjacent sidesteps that.
+      meta: { stickyRight: true },
+      cell: ({ row }) => {
+        const p = row.original;
+        const published = p.status === "published";
+        // Dukaan-style one-click toggle — same handleTogglePublish the row
+        // menu uses (optimistic flip + Undo toast), just a switch instead of
+        // a static badge.
+        return (
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={published}
+              onCheckedChange={() => handleTogglePublish(p)}
+              className="data-[state=checked]:bg-emerald-500"
+              aria-label={published ? "Unpublish" : "Publish to website"}
+              title={published ? "Click to unpublish" : "Click to publish"}
+            />
+            <span
+              className={`text-xs font-medium ${
+                published ? "text-emerald-600" : "text-slate-400"
+              }`}
+            >
+              {published ? "Published" : "Draft"}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
       // Dukaan-style quiet row-end icon set. Replaces the name cell's old
       // hover-reveal Duplicate/Open buttons and its "⋯" — always visible so
       // everything stays reachable on touch. Same handlers as before.
@@ -1693,7 +1702,9 @@ export default function CatalogTreeEditor({
       enableResizing: false,
       size: 110,
       minSize: 110,
-      meta: { hideable: false, align: "right" },
+      // Rightmost pinned column — always reachable regardless of how many
+      // columns are visible or how far the table scrolls.
+      meta: { hideable: false, align: "right", stickyRight: true },
       cell: ({ row }) => {
         const p = row.original;
         return (

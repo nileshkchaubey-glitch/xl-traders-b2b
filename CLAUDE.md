@@ -329,6 +329,42 @@ inquiries, orders, order_items, import_logs, business_settings
   describedby now resolve). Verified at 1440/1920, 0 and 50 selected, both densities,
   short and long lists; screenshots
   `docs/screenshots/catalog-editor-blank-scroll-{before,after}.png`.
+- **Catalog Editor sticky-right columns + scroll ergonomics (July 2026):** with
+  several columns visible, Status and the row-actions (⋯/Open panel/View live)
+  scrolled off past the right edge — reaching them meant scrolling all the way
+  down to the bottom horizontal scrollbar first. **`<DataTable>` gains a
+  generic `meta.stickyRight`** (mirror of the existing `meta.sticky` for the
+  left edge): Status and the actions column now pin to the right with the same
+  border-separator treatment sticky-left already has, computed the same way —
+  offsets walked from the right edge, accumulating only for stickyRight
+  columns so hidden/shown columns in between don't disturb the pinning.
+  `score`/`updated` (hidden by default) were reordered to sit *before* Status
+  in the column array rather than between Status and Actions — CSS sticky can
+  only hold a pinned column flush against another pinned one up to how far
+  you've actually scrolled, so a non-sticky column wedged between two
+  stickyRight columns left a gap on tables that didn't overflow by much;
+  keeping the two stickyRight columns adjacent in DOM order sidesteps that
+  entirely (verified both ways live before landing on the reorder). **Flex-fill
+  cap:** the Description auto-fill (from the prior fillWidth fix) could
+  balloon to absurd widths on a wide screen with few other columns visible —
+  now capped at `min(480px, 40% of container)`; any leftover past the cap
+  flows into the existing proportional distribution across other untouched,
+  unpinned columns instead of being wasted. **Sticky bottom scrollbar:** a
+  thin synced scrollbar (`scrollLeft` mirrored both ways, guarded against
+  feedback loops) now sits `position: sticky; bottom: 0` right below the table
+  — bounded to the table's own height via a shared `relative` wrapper, so it
+  shows only while the table itself is in view, not the whole page — so the
+  real scrollbar is reachable without scrolling to the bottom of a 50-row
+  table first; only rendered when the columns genuinely overflow the
+  container. Shift+wheel horizontal scroll already worked natively (browser
+  default over any `overflow-x: auto` container) — verified live, no code
+  needed. Verified live (headless Chrome, real mouse/scroll events) at 1440px
+  and 1920px, default and many-columns-revealed, both densities: Status/
+  actions stay flush at the right edge regardless of scroll position or which
+  optional columns are shown; sticky-left Name unaffected; Description never
+  exceeds its cap; the bottom scrollbar drags the main table and vice versa.
+  Screenshots `docs/screenshots/catalog-editor-{sticky-right-1440,
+  sticky-right-many-cols,flex-cap-1920}.png`.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
