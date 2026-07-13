@@ -447,6 +447,26 @@ inquiries, orders, order_items, import_logs, business_settings
 
 ---
 
+## 🤖 Autonomous Merge Policy
+
+After opening/updating a PR: self-verify fully — CI green, CodeRabbit has no
+open findings, and a manual test via demo-mode/preview confirms the feature
+actually works — then **merge autonomously, without waiting for explicit
+confirmation.**
+
+**Exception — stop and wait for explicit go-ahead even if all checks pass**
+when the PR touches any of:
+
+- Payment / checkout money logic (cart totals, pricing, order submission gating)
+- Database schema or migrations
+- Deletion of an existing feature
+- Authentication / security
+
+For an excepted PR, still do the full self-verify and report the result —
+just don't click merge until the go-ahead is given.
+
+---
+
 ## Custom commands
 
 (actual files in `.claude/commands/`)
