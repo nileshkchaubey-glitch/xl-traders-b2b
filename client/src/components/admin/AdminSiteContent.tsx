@@ -624,7 +624,7 @@ export default function AdminSiteContent() {
             className="max-w-[160px]"
             value={String(content.min_order_value)}
             onChange={e =>
-              patch("min_order_value", Number(e.target.value) || 0)
+              patch("min_order_value", Math.max(0, Number(e.target.value) || 0))
             }
           />
         </Field>

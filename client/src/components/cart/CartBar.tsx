@@ -50,7 +50,7 @@ export default function CartBar() {
   return (
     <>
       {/* Mobile — full-width bar above the bottom tab nav */}
-      <div className="md:hidden fixed bottom-[calc(60px+env(safe-area-inset-bottom))] inset-x-0 z-40 shadow-[0_-4px_18px_rgba(0,0,0,0.08)] animate-in fade-in slide-in-from-bottom-2">
+      <div className="md:hidden fixed bottom-[calc(60px+env(safe-area-inset-bottom))] inset-x-0 z-40 shadow-[0_-4px_18px_rgba(0,0,0,0.08)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
         {ProgressStrip}
         <Link
           href="/cart"
@@ -75,7 +75,7 @@ export default function CartBar() {
       </div>
 
       {/* Desktop — bottom-right bar */}
-      <div className="hidden md:block fixed bottom-6 right-6 z-40 w-80 bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+      <div className="hidden md:block fixed bottom-6 right-6 z-40 w-80 bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-slate-200 overflow-hidden motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
         {ProgressStrip}
         <Link
           href="/cart"
