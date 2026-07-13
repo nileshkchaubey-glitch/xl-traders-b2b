@@ -60,6 +60,12 @@ declare module "@tanstack/react-table" {
   interface ColumnMeta<TData extends RowData, TValue> {
     /** Pin this column to the left (after the selection checkbox). */
     sticky?: boolean;
+    /**
+     * Pin this column to the right edge (e.g. Status, row actions) — mirror
+     * of `sticky`. Multiple stickyRight columns stack right-to-left in
+     * column order, so the last one sits flush against the edge.
+     */
+    stickyRight?: boolean;
     /** Show in the Columns menu. Defaults to true; false = always visible. */
     hideable?: boolean;
     /** Hidden by default when there is no saved layout in the URL. */
@@ -322,6 +328,26 @@ export function DataTable<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleLeafIds, selection, columnSizing]);
 
+  // Sticky-right offsets: mirror of stickyLeft, walked from the right edge
+  // inward. Only stickyRight columns accumulate into `running` — any regular
+  // (scrolling) columns between two pinned ones don't affect the offset,
+  // since position:sticky positions each pinned column relative to the
+  // container's right edge regardless of what's between them in the DOM.
+  const stickyRightOffsets = useMemo(() => {
+    const map: Record<string, number> = {};
+    let running = 0;
+    const cols = table.getVisibleLeafColumns();
+    for (let i = cols.length - 1; i >= 0; i--) {
+      const col = cols[i];
+      if (colMeta(col).stickyRight) {
+        map[col.id] = running;
+        running += col.getSize();
+      }
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleLeafIds, columnSizing]);
+
   // Drag-in-progress column id (if any) — gates URL persistence below so a
   // resize drag doesn't write to history on every pixel of movement.
   const resizingColumnId = table.getState().columnSizingInfo.isResizingColumn;
@@ -390,6 +416,40 @@ export function DataTable<T>({
   const visibleLeafColumns = table.getVisibleLeafColumns();
   const naturalTotal = table.getTotalSize() + (selection ? 40 : 0);
   const extraWidth = Math.max(0, containerWidth - naturalTotal);
+  // True horizontal overflow (columns need more room than the container has)
+  // — gates the sticky bottom scrollbar below. The +1 absorbs sub-pixel
+  // ResizeObserver rounding so it doesn't flicker in at the exact boundary.
+  const hasHorizontalOverflow = naturalTotal > containerWidth + 1;
+
+  // ── Sticky bottom scrollbar ─────────────────────────────────────────────────
+  // A 50-row table only exposes its native horizontal scrollbar at the very
+  // bottom of the table — reaching a mid-scroll column meant scrolling the
+  // whole page down first. This mirrors the real scrollbar in a thin bar
+  // pinned to the bottom of the viewport (via position:sticky on a sibling of
+  // the scroll container, so it's naturally bounded to the table's own
+  // height — see the JSX below) and keeps scrollLeft in sync both ways.
+  const bottomScrollRef = useRef<HTMLDivElement>(null);
+  const syncingFrom = useRef<"main" | "bottom" | null>(null);
+  const handleMainScroll = () => {
+    if (syncingFrom.current === "bottom") {
+      syncingFrom.current = null;
+      return;
+    }
+    const bottom = bottomScrollRef.current;
+    if (!wrapRef.current || !bottom) return;
+    syncingFrom.current = "main";
+    bottom.scrollLeft = wrapRef.current.scrollLeft;
+  };
+  const handleBottomScroll = () => {
+    if (syncingFrom.current === "main") {
+      syncingFrom.current = null;
+      return;
+    }
+    const bottom = bottomScrollRef.current;
+    if (!wrapRef.current || !bottom) return;
+    syncingFrom.current = "bottom";
+    wrapRef.current.scrollLeft = bottom.scrollLeft;
+  };
 
   // Prefer a column the consumer marked meta.flex (Description, typically);
   // otherwise spread the extra proportionally across non-sticky columns so a
@@ -406,16 +466,42 @@ export function DataTable<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visibleLeafIds, columnSizing]
   );
+
+  // Cap how far the flex column may auto-grow — on a very wide screen with
+  // few other columns visible, handing it ALL the leftover space made it
+  // balloon past readable width and crowd everything else out. 480px (or 40%
+  // of the container on narrower screens, whichever is smaller) keeps it
+  // proportionate; any leftover past the cap flows to the proportional
+  // distribution below instead of being lost.
+  const FLEX_MAX_PX = 480;
+  const flexColumnBase = flexColumnId
+    ? (visibleLeafColumns.find(c => c.id === flexColumnId)?.getSize() ?? 0)
+    : 0;
+  const flexCap = Math.max(
+    flexColumnBase,
+    Math.min(FLEX_MAX_PX, containerWidth * 0.4)
+  );
+  const flexGrowth = flexColumnId
+    ? Math.min(extraWidth, flexCap - flexColumnBase)
+    : 0;
+  const leftoverWidth = extraWidth - flexGrowth;
+
   // Fixed-width utility columns (e.g. a row-actions icon cluster) opt out via
   // enableResizing: false — they shouldn't stretch to soak up leftover space
-  // any more than a sticky column should. Manually-resized columns are
-  // likewise excluded (same drag-cancellation as the flex column above), so
-  // leftover space only goes to columns the user hasn't touched.
+  // any more than a pinned column should. Manually-resized columns are
+  // likewise excluded (same drag-cancellation as the flex column above), and
+  // the flex column itself is excluded here since it already got its share
+  // (capped) above — so any leftover past that cap goes only to columns the
+  // user hasn't touched and that aren't pinned to either edge.
   const proportionalBase = useMemo(() => {
-    if (flexColumnId) return 0;
     return visibleLeafColumns
       .filter(
-        c => !colMeta(c).sticky && c.getCanResize() && columnSizing[c.id] == null
+        c =>
+          c.id !== flexColumnId &&
+          !colMeta(c).sticky &&
+          !colMeta(c).stickyRight &&
+          c.getCanResize() &&
+          columnSizing[c.id] == null
       )
       .reduce((sum, c) => sum + c.getSize(), 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -425,13 +511,15 @@ export function DataTable<T>({
     columnId: string,
     base: number,
     sticky: boolean | undefined,
+    stickyRight: boolean | undefined,
     canResize: boolean
   ) {
     if (extraWidth <= 0) return base;
     if (columnSizing[columnId] != null) return base;
-    if (flexColumnId) return columnId === flexColumnId ? base + extraWidth : base;
-    if (sticky || !canResize || proportionalBase <= 0) return base;
-    return base + extraWidth * (base / proportionalBase);
+    if (columnId === flexColumnId) return base + flexGrowth;
+    if (leftoverWidth <= 0) return base;
+    if (sticky || stickyRight || !canResize || proportionalBase <= 0) return base;
+    return base + leftoverWidth * (base / proportionalBase);
   }
 
   return (
@@ -510,14 +598,26 @@ export function DataTable<T>({
       </div>
 
       {/* ── Table ───────────────────────────────────────────────────────────── */}
-      <div
-        ref={node => {
-          wrapRef.current = node;
-          setRef(containerRef, node);
-        }}
-        {...containerProps}
-        className={`bg-white border border-slate-200 rounded-xl overflow-x-auto focus:outline-none ${containerProps?.className ?? ""}`}
-      >
+      {/* The relative wrapper is the sticky bottom scrollbar's containing
+          block — its height equals the scroll container's height, so the bar
+          sticks to the viewport bottom only while the table itself is still
+          in view (see the bar below), the same way sticky columns/header
+          bound themselves to this component rather than the whole page. */}
+      <div className="relative">
+        <div
+          ref={node => {
+            wrapRef.current = node;
+            setRef(containerRef, node);
+          }}
+          {...containerProps}
+          onScroll={e => {
+            containerProps?.onScroll?.(e);
+            handleMainScroll();
+          }}
+          className={`bg-white border border-slate-200 overflow-x-auto focus:outline-none ${
+            hasHorizontalOverflow ? "rounded-t-xl border-b-0" : "rounded-xl"
+          } ${containerProps?.className ?? ""}`}
+        >
         {/* Width = max(natural column-size sum, container width) — never
             min-w-full (which let auto layout silently redistribute a dragged
             width away, see the resize PR) and never a bare sum either (which
@@ -551,6 +651,7 @@ export function DataTable<T>({
                 {hg.headers.map(header => {
                   const meta = colMeta(header.column);
                   const sticky = meta.sticky;
+                  const stickyRight = meta.stickyRight;
                   const canSort = header.column.getCanSort();
                   const sorted = header.column.getIsSorted();
                   const canResize = header.column.getCanResize();
@@ -559,11 +660,24 @@ export function DataTable<T>({
                     <th
                       key={header.id}
                       className={`${headPad} relative whitespace-nowrap border-b border-slate-200 sticky top-0 bg-slate-50 ${
-                        sticky ? `${STICKY_CELL} z-30 border-r border-r-slate-100` : "z-10"
+                        sticky
+                          ? `${STICKY_CELL} z-30 border-r border-r-slate-100`
+                          : stickyRight
+                            ? `${STICKY_CELL} z-30 border-l border-l-slate-100`
+                            : "z-10"
                       } ${meta.align === "center" ? "text-center" : ""} ${meta.headerClassName ?? ""}`}
                       style={{
-                        width: fillWidth(header.column.id, header.getSize(), sticky, canResize),
+                        width: fillWidth(
+                          header.column.id,
+                          header.getSize(),
+                          sticky,
+                          stickyRight,
+                          canResize
+                        ),
                         ...(sticky ? { left: stickyLeft[header.column.id] } : {}),
+                        ...(stickyRight
+                          ? { right: stickyRightOffsets[header.column.id] }
+                          : {}),
                       }}
                     >
                       {header.isPlaceholder ? null : canSort ? (
@@ -652,6 +766,7 @@ export function DataTable<T>({
                     {row.getVisibleCells().map(cell => {
                       const meta = colMeta(cell.column);
                       const sticky = meta.sticky;
+                      const stickyRight = meta.stickyRight;
                       const extra =
                         typeof meta.cellClassName === "function"
                           ? meta.cellClassName(row.original)
@@ -662,16 +777,22 @@ export function DataTable<T>({
                           className={`${pad} border-b border-slate-100 ${
                             sticky
                               ? `${STICKY_CELL} bg-white group-hover/row:bg-slate-50 border-r border-r-slate-100`
-                              : ""
+                              : stickyRight
+                                ? `${STICKY_CELL} bg-white group-hover/row:bg-slate-50 border-l border-l-slate-100`
+                                : ""
                           } ${meta.align === "center" ? "text-center" : ""} ${extra}`}
                           style={{
                             width: fillWidth(
                               cell.column.id,
                               cell.column.getSize(),
                               sticky,
+                              stickyRight,
                               cell.column.getCanResize()
                             ),
                             ...(sticky ? { left: stickyLeft[cell.column.id] } : {}),
+                            ...(stickyRight
+                              ? { right: stickyRightOffsets[cell.column.id] }
+                              : {}),
                           }}
                         >
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -695,6 +816,17 @@ export function DataTable<T>({
             )}
           </tbody>
         </table>
+        </div>
+        {hasHorizontalOverflow && (
+          <div
+            ref={bottomScrollRef}
+            onScroll={handleBottomScroll}
+            aria-hidden="true"
+            className="sticky bottom-0 z-20 h-4 overflow-x-auto overflow-y-hidden rounded-b-xl border border-slate-200 bg-white"
+          >
+            <div style={{ width: Math.max(naturalTotal, containerWidth), height: 1 }} />
+          </div>
+        )}
       </div>
 
       {/* ── Pagination footer (Dukaan-style: results text left, Previous /
