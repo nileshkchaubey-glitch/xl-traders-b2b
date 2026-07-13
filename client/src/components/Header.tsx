@@ -378,7 +378,7 @@ export default function Header() {
           <div className="flex items-center gap-1.5 md:gap-2 ml-auto md:ml-0 min-w-0">
             <a
               href={`tel:${phone1}`}
-              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition"
+              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition motion-reduce:transition-none"
             >
               <Phone size={16} />
               Call
@@ -388,7 +388,7 @@ export default function Header() {
               href={`https://wa.me/${whatsappNumber}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-[13px] font-semibold hover:bg-emerald-100 transition"
+              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-[13px] font-semibold hover:bg-emerald-100 transition motion-reduce:transition-none"
             >
               <MessageCircle size={16} />
               WhatsApp
@@ -429,9 +429,9 @@ export default function Header() {
             <span
               className="md:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex-shrink-0"
               title={announcement.mobilePill}
-              aria-label={announcement.mobilePill}
             >
-              <Truck size={14} />
+              <Truck size={14} aria-hidden="true" />
+              <span className="sr-only">{announcement.mobilePill}</span>
             </span>
 
             {/* Compact Call + WhatsApp icons — mobile header only. Lives in the
@@ -439,7 +439,7 @@ export default function Header() {
             <a
               href={`tel:${phone1}`}
               aria-label="Call us"
-              className="md:hidden flex items-center justify-center w-8 h-8 bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition flex-shrink-0"
+              className="md:hidden flex items-center justify-center w-8 h-8 bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition motion-reduce:transition-none flex-shrink-0"
             >
               <Phone size={14} />
             </a>
@@ -448,7 +448,7 @@ export default function Header() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Chat on WhatsApp"
-              className="md:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 rounded-full hover:bg-emerald-100 transition flex-shrink-0"
+              className="md:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 rounded-full hover:bg-emerald-100 transition motion-reduce:transition-none flex-shrink-0"
             >
               <MessageCircle size={14} />
             </a>
