@@ -394,18 +394,29 @@ export function DataTable<T>({
   // Prefer a column the consumer marked meta.flex (Description, typically);
   // otherwise spread the extra proportionally across non-sticky columns so a
   // consumer that hasn't opted in still gets a filled-out table.
+  // Once the user manually resizes the flex column, its dragged width must
+  // win: extraWidth already includes that column's own base size, so keeping
+  // it in the auto-fill would algebraically cancel the drag (the column
+  // snaps back to the same on-screen width no matter where it's dropped).
   const flexColumnId = useMemo(
-    () => visibleLeafColumns.find(c => colMeta(c).flex)?.id ?? null,
+    () => {
+      const id = visibleLeafColumns.find(c => colMeta(c).flex)?.id ?? null;
+      return id && columnSizing[id] == null ? id : null;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visibleLeafIds]
+    [visibleLeafIds, columnSizing]
   );
   // Fixed-width utility columns (e.g. a row-actions icon cluster) opt out via
   // enableResizing: false — they shouldn't stretch to soak up leftover space
-  // any more than a sticky column should.
+  // any more than a sticky column should. Manually-resized columns are
+  // likewise excluded (same drag-cancellation as the flex column above), so
+  // leftover space only goes to columns the user hasn't touched.
   const proportionalBase = useMemo(() => {
     if (flexColumnId) return 0;
     return visibleLeafColumns
-      .filter(c => !colMeta(c).sticky && c.getCanResize())
+      .filter(
+        c => !colMeta(c).sticky && c.getCanResize() && columnSizing[c.id] == null
+      )
       .reduce((sum, c) => sum + c.getSize(), 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleLeafIds, columnSizing, flexColumnId]);
@@ -417,6 +428,7 @@ export function DataTable<T>({
     canResize: boolean
   ) {
     if (extraWidth <= 0) return base;
+    if (columnSizing[columnId] != null) return base;
     if (flexColumnId) return columnId === flexColumnId ? base + extraWidth : base;
     if (sticky || !canResize || proportionalBase <= 0) return base;
     return base + extraWidth * (base / proportionalBase);
