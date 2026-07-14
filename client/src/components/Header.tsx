@@ -20,6 +20,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { useCartStore } from "@/stores/cartStore";
 import MobileNav from "@/components/MobileNav";
 import CartBar from "@/components/cart/CartBar";
+import InstallPrompt from "@/components/InstallPrompt";
 import {
   categoryService,
   productService,
@@ -251,6 +252,9 @@ export default function Header() {
 
   return (
     <>
+      {/* PWA install banner — dismissible, shown at most once (see InstallPrompt) */}
+      <InstallPrompt />
+
       {/* Utility bar */}
       <div className="bg-slate-900 text-slate-300 text-xs hidden md:block">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-1.5 flex items-center gap-5">
