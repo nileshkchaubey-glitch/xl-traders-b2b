@@ -53,6 +53,9 @@ export default defineConfig({
         navigateFallback: "/offline.html",
         navigateFallbackDenylist: [/^\/admin/],
         cleanupOutdatedCaches: true,
+        // Workbox's 2MiB default hard-fails the build once a chunk crosses it
+        // (the admin bundle is already ~750KB); give real headroom.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
   ],

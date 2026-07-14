@@ -73,14 +73,14 @@ export default function InstallPrompt() {
         </span>
         <button
           onClick={install}
-          className="flex-shrink-0 bg-red-600 text-white px-3 py-1.5 rounded-lg text-[12px] font-bold hover:bg-red-700 transition"
+          className="flex-shrink-0 bg-red-600 text-white px-3 py-1.5 rounded-lg text-[12px] font-bold hover:bg-red-700 transition motion-reduce:transition-none"
         >
           Install
         </button>
         <button
           onClick={dismiss}
           aria-label="Dismiss"
-          className="flex-shrink-0 p-1 text-slate-400 hover:text-slate-600 transition"
+          className="flex-shrink-0 p-1 text-slate-400 hover:text-slate-600 transition motion-reduce:transition-none"
         >
           <X size={15} />
         </button>
