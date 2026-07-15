@@ -277,10 +277,12 @@ export default function ProductDetail() {
     const priceStr = !isPriceOnEnquiry(currentProd.price)
       ? `\nPrice: ₹${currentProd.price}`
       : "\nPrice: On enquiry";
-    // Omit the quantity line entirely when pack size is missing — never print "null".
+    // Omit the quantity line entirely when pack size is missing — never print
+    // "null". When only the unit is missing, fall back to "pcs" (same fallback
+    // the cart line uses) so the message never reads "Quantity: 100 null".
     const quantityStr =
       currentProd.quantity_in_unit != null
-        ? `\nQuantity: ${currentProd.quantity_in_unit} ${currentProd.unit_of_measure}`
+        ? `\nQuantity: ${currentProd.quantity_in_unit} ${currentProd.unit_of_measure ?? "pcs"}`
         : "";
     const message = isAuthenticated
       ? `Hi, I'm interested in: ${currentProd.name}${priceStr}${quantityStr}\n\nPlease provide more details and availability.`
@@ -522,7 +524,7 @@ export default function ProductDetail() {
                         {currentProd.quantity_in_unit ? (
                           <span className="text-body-sm text-slate-500">
                             / pack of {currentProd.quantity_in_unit}{" "}
-                            {currentProd.unit_of_measure}
+                            {currentProd.unit_of_measure ?? "pcs"}
                           </span>
                         ) : (
                           currentProd.unit_of_measure && (

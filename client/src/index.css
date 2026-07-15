@@ -38,6 +38,9 @@
   .xl-marquee {
     animation: none;
   }
+  /* Hero tile images swap without a fade. Their hover *scale* is guarded at
+     the call site with Tailwind's motion-safe: variant (HeroMotionTiles), so
+     under reduced motion the image neither fades nor scales. */
   .xl-hero-crossfade {
     transition: none;
   }
