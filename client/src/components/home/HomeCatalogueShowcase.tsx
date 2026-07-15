@@ -166,70 +166,75 @@ export default function HomeCatalogueShowcase({
           ))}
         </div>
 
-        {/* Product grid — loading / empty / results */}
-        {loading ? (
-          <div className={gridClass}>
-            {Array.from({ length: PRODUCTS_PER_VIEW }).map((_, i) => (
-              <div
-                key={i}
-                className={i >= MOBILE_VISIBLE ? "hidden md:block" : ""}
-              >
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                  <Skeleton className="aspect-square rounded-none" />
-                  <div className="p-3 space-y-2">
-                    <Skeleton className="h-3 w-1/3" />
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                    <Skeleton className="h-9 w-full rounded-lg" />
+        {/* Product grid — loading / empty / results. The whole ternary lives
+            inside ONE always-mounted AnimatePresence keyed by chip, so the
+            exit-then-enter crossfade actually plays on chip switches (a
+            branch-level AnimatePresence would be unmounted by the loading
+            branch before its exit transition could run). */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeChip?.label ?? "all"}
+            initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -8 }}
+            transition={{ duration: prefersReducedMotion ? 0.01 : 0.25 }}
+          >
+            {loading ? (
+              <div className={gridClass}>
+                {Array.from({ length: PRODUCTS_PER_VIEW }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={i >= MOBILE_VISIBLE ? "hidden md:block" : ""}
+                  >
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                      <Skeleton className="aspect-square rounded-none" />
+                      <div className="p-3 space-y-2">
+                        <Skeleton className="h-3 w-1/3" />
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-9 w-full rounded-lg" />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : products.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
-            <p className="text-slate-600 font-semibold mb-1">
-              More arriving here soon
-            </p>
-            <p className="text-slate-500 text-sm mb-4">
-              We probably stock it — ask us directly and we'll add it to your
-              order.
-            </p>
-            <a
-              href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-                activeChip
-                  ? `Hi XL Traders, what do you have in ${activeChip.label}?`
-                  : "Hi XL Traders, I'm looking for a product — can you help?"
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-body-sm font-semibold hover:bg-emerald-700 transition"
-            >
-              <MessageCircle size={14} />
-              Ask on WhatsApp
-            </a>
-          </div>
-        ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeChip?.label ?? "all"}
-              initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -8 }}
-              transition={{ duration: prefersReducedMotion ? 0.01 : 0.25 }}
-              className={gridClass}
-            >
-              {products.map((product, i) => (
-                <div
-                  key={product.id}
-                  className={i >= MOBILE_VISIBLE ? "hidden md:block" : ""}
+            ) : products.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
+                <p className="text-slate-600 font-semibold mb-1">
+                  More arriving here soon
+                </p>
+                <p className="text-slate-500 text-sm mb-4">
+                  We probably stock it — ask us directly and we'll add it to
+                  your order.
+                </p>
+                <a
+                  href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+                    activeChip
+                      ? `Hi XL Traders, what do you have in ${activeChip.label}?`
+                      : "Hi XL Traders, I'm looking for a product — can you help?"
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-body-sm font-semibold hover:bg-emerald-700 transition"
                 >
-                  <ProductCard product={product} view="grid" />
-                </div>
-              ))}
-            </motion.div>
-          </AnimatePresence>
-        )}
+                  <MessageCircle size={14} />
+                  Ask on WhatsApp
+                </a>
+              </div>
+            ) : (
+              <div className={gridClass}>
+                {products.map((product, i) => (
+                  <div
+                    key={product.id}
+                    className={i >= MOBILE_VISIBLE ? "hidden md:block" : ""}
+                  >
+                    <ProductCard product={product} view="grid" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
 
         {/* Taster guardrail — always route into the real catalogue */}
         <div className="text-center mt-7">
