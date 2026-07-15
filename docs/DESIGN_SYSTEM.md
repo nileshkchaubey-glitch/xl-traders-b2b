@@ -221,6 +221,7 @@ Toasts use **`sonner`**. Bottom sheets use the single **`drawer`** (vaul) primit
 | `CategoryCombobox`, `AISmartPasteDialog`, `ProductMediaSection`, `MobileAdminShell`, `adminNav.tsx` | Reusable admin building blocks |
 | `HealthDot` / `catalogHealth.ts` | Health color/label only (logic stays in the view) |
 | `SectionEyebrow` (`client/src/components/SectionEyebrow.tsx`) | Storefront-only: the small uppercase/tracked label above a section `<h2>` (`tone="light"` red-600 on white/slate-50, `tone="dark"` red-400 on a dark card). Standardizes a pattern that used to be re-typed per section — reuse it for any new section eyebrow rather than hand-rolling the classes again |
+| `HomeCatalogueShowcase` (`client/src/components/home/HomeCatalogueShowcase.tsx`) | Home-page catalogue taster: category chips + chip-filtered `ProductCard` grid on the same paginated `productService.getAll` call `/catalog` uses (pageSize 10). Replaced `HomeFeaturedProducts` (removed — its tabs were a client-side heuristic over an unpaginated full-catalogue fetch; recover from git if needed). Not a second catalogue: capped per view, always links into `/catalog` |
 
 > Removed in Phase 2b (recover from git if needed): `AdminProducts`, `ProductsTable`
 > (TanStack + `react-virtual` — the only virtualized grid), `ProductDrawer`,

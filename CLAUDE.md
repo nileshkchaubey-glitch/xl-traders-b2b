@@ -160,6 +160,22 @@ inquiries, orders, order_items, import_logs, business_settings
     framer-motion entrance animation now skip translate/scale (opacity-only) under
     `prefers-reduced-motion`. See `docs/DESIGN_SYSTEM.md` §1.2/§1.4 for the token
     reference.
+  - **Interactive catalogue showcase (July 2026, PR2 of `docs/STOREFRONT_DESIGN_PROPOSALS.md`):**
+    `HomeFeaturedProducts` (fake Best-Sellers/Trending/New tabs — a client-side
+    heuristic that fetched the ENTIRE catalogue unpaginated on every Home load)
+    replaced by `HomeCatalogueShowcase`: category chips (group chips from
+    `getCategoriesGroupedByGroup`, flat-category fallback when no groups exist) +
+    a chip-filtered grid of the real `ProductCard` (price gate / On-Enquiry / cart
+    stepper all inherited), fed by the same paginated `productService.getAll`
+    call `/catalog` uses (`pageSize: 10`, `sort: "newest"`); 10 products desktop
+    (2×5), first 6 on mobile via CSS; `ui/skeleton` loading grid; WhatsApp-CTA
+    empty state; always ends in a "View all in [group] →" link into `/catalog`
+    (taster, not a second catalogue). Plus: ProductCard hover micro-interactions
+    (`motion-safe:` image zoom + `hover:border-red-200` + motion-safe lift),
+    Catalog's plain "Loading products..." text replaced with a
+    ProductCard-footprint skeleton grid, and Catalog's mobile Filters/group-chip
+    row is now sticky below the mobile header (`top-[116px]`, z-20) so filtering
+    stays reachable while scrolling long lists.
 
 ### Admin Panel (PIM)
 

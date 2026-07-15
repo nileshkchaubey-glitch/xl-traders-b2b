@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HeroMotionTiles from "@/components/home/HeroMotionTiles";
 import HomeCategoryGrid from "@/components/home/HomeCategoryGrid";
-import HomeFeaturedProducts from "@/components/home/HomeFeaturedProducts";
+import HomeCatalogueShowcase from "@/components/home/HomeCatalogueShowcase";
 import HomeDailySuggestion from "@/components/home/HomeDailySuggestion";
 import SectionEyebrow from "@/components/SectionEyebrow";
 import {
@@ -245,8 +245,8 @@ export default function Home() {
         {/* ── CATEGORIES (existing data-wired grid) ── */}
         <HomeCategoryGrid />
 
-        {/* ── FEATURED PRODUCTS ── */}
-        <HomeFeaturedProducts whatsappNumber={whatsappNumber} />
+        {/* ── CATALOGUE SHOWCASE — chip-filtered product taster ── */}
+        <HomeCatalogueShowcase whatsappNumber={whatsappNumber} />
 
         {/* ── BULK BANNER ── */}
         <motion.section

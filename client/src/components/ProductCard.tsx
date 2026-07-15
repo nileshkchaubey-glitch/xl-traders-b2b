@@ -229,7 +229,7 @@ export default function ProductCard({
         ref={revealIfComplete}
         src={imageUrl}
         alt={product.image_alt_text || product.name}
-        className="w-full h-full object-contain p-2 opacity-0 transition duration-300"
+        className="w-full h-full object-contain p-2 opacity-0 transition duration-300 motion-safe:group-hover:scale-[1.04]"
         loading="lazy"
         decoding="async"
         onLoad={handleImgLoad}
@@ -245,10 +245,10 @@ export default function ProductCard({
 
   if (view === "list") {
     return (
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg transition flex">
+      <div className="group bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-red-200 transition flex">
         <Link
           href={`/product/${product.id}`}
-          className="w-[120px] sm:w-[150px] flex-shrink-0 bg-slate-50 relative"
+          className="w-[120px] sm:w-[150px] flex-shrink-0 bg-slate-50 relative overflow-hidden"
         >
           {image}
           {product.is_featured && (
@@ -277,9 +277,9 @@ export default function ProductCard({
 
   // Grid view
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition h-full flex flex-col">
+    <div className="group bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-red-200 motion-safe:hover:-translate-y-0.5 transition h-full flex flex-col">
       <Link href={`/product/${product.id}`} className="block">
-        <div className="aspect-square relative bg-slate-50">
+        <div className="aspect-square relative bg-slate-50 overflow-hidden">
           {image}
           {product.is_featured && (
             <span className="absolute top-2.5 left-2.5 bg-red-600 text-white text-caption font-bold px-2 py-0.5 rounded-full">
