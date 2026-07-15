@@ -12,6 +12,7 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   categoryService,
   productService,
@@ -481,8 +482,11 @@ export default function Catalog() {
                 </div>
               </div>
 
-              {/* ── Mobile: Filters button + quick group chips (bottom sheet holds the rest) ── */}
-              <div className="lg:hidden mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {/* ── Mobile: Filters button + quick group chips (bottom sheet holds
+                  the rest). Sticky below the mobile header (logo row + search =
+                  ~116px) so filtering stays reachable while scrolling a long
+                  list; z-20 sits under the header (z-40) and above the cards. ── */}
+              <div className="lg:hidden mb-4 flex gap-2 overflow-x-auto py-1 scrollbar-hide sticky top-[116px] z-20 bg-slate-50">
                 <button
                   onClick={() => setSheetOpen(true)}
                   className={`flex-shrink-0 flex items-center gap-1.5 h-10 px-3.5 rounded-full text-body-sm font-bold border-[1.5px] transition ${
@@ -521,8 +525,24 @@ export default function Catalog() {
 
               {/* Products Grid/List */}
               {isLoading ? (
-                <div className="text-center py-12">
-                  <p className="text-slate-500">Loading products...</p>
+                // Skeleton grid matching the ProductCard footprint (image +
+                // brand line + name + price + button) so the page doesn't
+                // jump when real cards replace it.
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
+                    >
+                      <Skeleton className="aspect-square rounded-none" />
+                      <div className="p-3 space-y-2">
+                        <Skeleton className="h-3 w-1/3" />
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-9 w-full rounded-lg" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : products.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
