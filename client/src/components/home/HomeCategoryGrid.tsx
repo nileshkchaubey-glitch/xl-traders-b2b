@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   Package2,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { categoryService } from "@/lib/productService";
 import { Category } from "@/lib/supabase";
+import SectionEyebrow from "@/components/SectionEyebrow";
 
 // ─── Visual constants ────────────────────────────────────────────────────────
 
@@ -183,9 +184,7 @@ function SectionHeader() {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-8">
       <div>
-        <p className="text-red-600 text-xs font-bold uppercase tracking-widest mb-1">
-          Our Range
-        </p>
+        <SectionEyebrow className="mb-1">Our Range</SectionEyebrow>
         <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
           Browse by Category
         </h2>
@@ -207,6 +206,7 @@ function SectionHeader() {
 
 export default function HomeCategoryGrid() {
   const [cats, setCats] = useState<Category[]>([]);
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     categoryService
@@ -225,7 +225,7 @@ export default function HomeCategoryGrid() {
 
     return (
       <section className="py-12 md:py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="container">
           <SectionHeader />
 
           <div className="space-y-10 md:space-y-14">
@@ -267,10 +267,10 @@ export default function HomeCategoryGrid() {
                       <motion.div
                         key={cat.id}
                         className="flex-shrink-0 w-44 xl:w-48"
-                        initial={{ opacity: 0, y: 12 }}
+                        initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 12 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        transition={{ delay: i * 0.05 }}
+                        transition={{ delay: prefersReducedMotion ? 0 : i * 0.05 }}
                       >
                         <MosaicCard category={cat} idx={startIdx + i} />
                       </motion.div>
@@ -288,7 +288,7 @@ export default function HomeCategoryGrid() {
   // ── Flat fallback (no group_name set on any category yet) ───────────────────
   return (
     <section className="py-12 md:py-16 bg-white">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="container">
         <SectionHeader />
 
         {/* Mobile scroll */}
@@ -303,10 +303,10 @@ export default function HomeCategoryGrid() {
           {cats.map((cat, i) => (
             <motion.div
               key={cat.id}
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.04 }}
+              transition={{ delay: prefersReducedMotion ? 0 : i * 0.04 }}
             >
               <MosaicCard category={cat} idx={i} />
             </motion.div>

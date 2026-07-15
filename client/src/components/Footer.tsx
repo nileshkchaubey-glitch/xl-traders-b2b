@@ -48,21 +48,21 @@ export default function Footer() {
 
   return (
     <footer className="bg-slate-900 text-slate-400 mt-auto">
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] gap-8">
+      <div className="container py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] gap-8">
         {/* Brand */}
         <div>
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white font-extrabold text-[15px]">
+            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white font-extrabold text-body-md">
               XL
             </div>
-            <span className="font-extrabold text-[15px] tracking-[0.08em] text-white">
+            <span className="font-extrabold text-body-md tracking-[0.08em] text-white">
               TRADERS
             </span>
           </div>
-          <p className="text-[13px] leading-relaxed mb-3.5">
+          <p className="text-body-sm leading-relaxed mb-3.5">
             {footer.description}
           </p>
-          <div className="text-[12.5px] leading-loose">
+          <div className="text-body-sm leading-loose">
             {footer.address}
             <br />
             <a href={`tel:${phone1}`} className="hover:text-white transition">
@@ -80,7 +80,7 @@ export default function Footer() {
           <div className="text-xs font-bold tracking-widest uppercase text-white mb-3">
             Categories
           </div>
-          <div className="flex flex-col gap-2 text-[13px]">
+          <div className="flex flex-col gap-2 text-body-sm">
             {categoryLinks.map(l => (
               <Link
                 key={l.label}
@@ -101,7 +101,7 @@ export default function Footer() {
           <div className="text-xs font-bold tracking-widest uppercase text-white mb-3">
             Company
           </div>
-          <div className="flex flex-col gap-2 text-[13px]">
+          <div className="flex flex-col gap-2 text-body-sm">
             <Link href="/" className="hover:text-white transition">
               Why XL Traders
             </Link>
@@ -127,7 +127,7 @@ export default function Footer() {
           <div className="text-xs font-bold tracking-widest uppercase text-white mb-3">
             Ordering
           </div>
-          <div className="flex flex-col gap-2 text-[13px]">
+          <div className="flex flex-col gap-2 text-body-sm">
             {footer.ordering.map(line => (
               <span key={line}>{line}</span>
             ))}
@@ -136,7 +136,7 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 text-xs flex flex-col sm:flex-row gap-1 sm:justify-between">
+        <div className="container py-4 text-xs flex flex-col sm:flex-row gap-1 sm:justify-between">
           <span>© {currentYear} XL Traders. All rights reserved.</span>
           <span>{footer.tagline}</span>
         </div>

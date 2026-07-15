@@ -1,7 +1,7 @@
 # XL Traders B2B — Master Project Blueprint
 
 **Single source of truth. Lives as `CLAUDE.md` at repo root AND in the Claude Project.**
-**Last updated: July 12, 2026** · Update after every merged PR (Shipped + Roadmap only).
+**Last updated: July 15, 2026** · Update after every merged PR (Shipped + Roadmap only).
 
 ---
 
@@ -144,6 +144,22 @@ inquiries, orders, order_items, import_logs, business_settings
     search shares the live-suggestion panel; catalog mobile = Filters chip + group quick chips +
     slide-up Filters & Sort bottom sheet ("Show N products"); PDP mobile = sticky WhatsApp +
     Add-to-Cart·₹total action bar above the nav (anon: "Sign in for wholesale price")
+  - **Storefront design system foundation (July 2026, PR1 of `docs/STOREFRONT_DESIGN_PROPOSALS.md`):**
+    presentation-only pass across Home/Header/Footer/ProductCard/Catalog/ProductDetail —
+    4 new `@theme` type-scale tokens (`text-caption`/`text-body-sm`/`text-body-md`/
+    `text-display`, `client/src/index.css`) replace ~90 one-off `text-[Npx]` arbitrary
+    values sitewide; a documented 3-step section-spacing rhythm (`py-8` /
+    `py-12 md:py-16` / `py-14 md:py-20`); the ~14 hand-rolled
+    `max-w-7xl mx-auto px-4 lg:px-8` occurrences consolidated onto the existing
+    `.container` utility. New shared `SectionEyebrow` component standardizes the
+    section-label pattern (light/dark tone). Removed the duplicate rating/businesses
+    trust badge (was rendered in both the hero and the trust strip directly below it —
+    now only the trust strip). Catalog's "No products found" empty state gained the
+    same WhatsApp-fallback CTA the header search empty state already had. Reduced-motion
+    audit: `HeroMotionTiles`' image crossfade and every Home/`HomeCategoryGrid`
+    framer-motion entrance animation now skip translate/scale (opacity-only) under
+    `prefers-reduced-motion`. See `docs/DESIGN_SYSTEM.md` §1.2/§1.4 for the token
+    reference.
 
 ### Admin Panel (PIM)
 

@@ -38,6 +38,9 @@
   .xl-marquee {
     animation: none;
   }
+  .xl-hero-crossfade {
+    transition: none;
+  }
 }
 
 /* ============================================================
@@ -62,7 +65,32 @@
      inline call-site shadows migrate onto these in a later pass. */
   --shadow-red: 0 10px 15px -3px rgb(220 38 38 / 0.25);
   --shadow-emerald: 0 10px 15px -3px rgb(5 150 105 / 0.3);
+
+  /* Storefront type scale (docs/STOREFRONT_DESIGN_PROPOSALS.md §4). Named
+     sizes for the four jobs Tailwind's default scale doesn't already cover
+     cleanly — everything else keeps using text-xs/sm/base/lg/xl/2xl/4xl.
+     `--text-*--line-height` is the only companion Tailwind v4 recognizes on
+     this namespace; font-weight stays a separate utility at each call site
+     (font-bold/extrabold), matching how Tailwind's own scale works. */
+  --text-caption: 0.6875rem; /* 11px — smallest meta/label text */
+  --text-caption--line-height: 1.35;
+  --text-body-sm: 0.8125rem; /* 13px — secondary body/UI text */
+  --text-body-sm--line-height: 1.45;
+  --text-body-md: 0.9375rem; /* 15px — emphasized inline text, CTAs */
+  --text-body-md--line-height: 1.4;
+  --text-display: 2.875rem; /* 46px — hero-scale headline */
+  --text-display--line-height: 1.08;
 }
+
+/* Section vertical-spacing rhythm (docs/DESIGN_SYSTEM.md §1.4). Tailwind's
+   numeric spacing scale already covers every step we need (py-8, py-12,
+   py-14, py-16, py-20 are all plain multiples of --spacing), so this is a
+   documented convention rather than another custom token layer:
+     section-sm  → py-8            (utility strips: trust strip, marquee)
+     section-md  → py-12 md:py-16  (standard content sections)
+     section-lg  → py-14 md:py-20  (hero only)
+   Pick the step matching a section's visual weight instead of a one-off
+   number. */
 
 @custom-variant dark (&:is(.dark *));
 

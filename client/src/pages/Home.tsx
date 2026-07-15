@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HeroMotionTiles from "@/components/home/HeroMotionTiles";
 import HomeCategoryGrid from "@/components/home/HomeCategoryGrid";
 import HomeFeaturedProducts from "@/components/home/HomeFeaturedProducts";
 import HomeDailySuggestion from "@/components/home/HomeDailySuggestion";
+import SectionEyebrow from "@/components/SectionEyebrow";
 import {
   MessageCircle,
   ArrowRight,
@@ -24,17 +25,23 @@ import { useAuthStore } from "@/lib/authStore";
 import { settingsService, FALLBACKS } from "@/lib/settingsService";
 
 // Shared scroll-reveal: sections fade up once as they enter the viewport.
-const fadeUp = {
-  initial: { opacity: 0, y: 18 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: "-60px" },
-  transition: { duration: 0.5, ease: "easeOut" as const },
-};
+// Skips the y-translate (opacity-only) when the visitor prefers reduced
+// motion — framer-motion doesn't apply that preference automatically.
+function getFadeUp(reduced: boolean) {
+  return {
+    initial: { opacity: 0, y: reduced ? 0 : 18 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true, margin: "-60px" },
+    transition: { duration: reduced ? 0.01 : 0.5, ease: "easeOut" as const },
+  };
+}
 
 export default function Home() {
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
   const isDev = import.meta.env.DEV;
   const { isAuthenticated } = useAuthStore();
+  const prefersReducedMotion = useReducedMotion();
+  const fadeUp = getFadeUp(!!prefersReducedMotion);
   const [brands, setBrands] = useState<string[]>([]);
   const [openFaq, setOpenFaq] = useState(-1);
 
@@ -91,21 +98,13 @@ export default function Home() {
             aria-hidden
             className="pointer-events-none absolute -bottom-32 left-1/3 w-80 h-80 rounded-full bg-amber-100/40 blur-3xl"
           />
-          <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-12 lg:py-14 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-12 items-center">
+          <div className="relative container py-14 md:py-20 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-12 items-center">
             <motion.div
-              initial={{ opacity: 0, y: 22 }}
+              initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 22 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease: "easeOut" }}
             >
-              <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-3.5 py-1.5 text-xs font-semibold text-slate-600 mb-5 shadow-sm">
-                <span className="flex items-center gap-1 text-amber-700">
-                  <Star size={13} className="fill-amber-500 text-amber-500" />
-                  {trustBadge.rating}
-                </span>
-                <span className="text-slate-300">·</span>
-                <span>{trustBadge.businesses}</span>
-              </div>
-              <h1 className="text-4xl lg:text-[46px] font-extrabold tracking-tight leading-[1.08] mb-4">
+              <h1 className="text-4xl lg:text-display font-extrabold tracking-tight mb-4">
                 {hero.titleLead}{" "}
                 <span className="text-red-600">{hero.titleAccent}</span>
               </h1>
@@ -115,7 +114,7 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-3 mb-7">
                 <Link
                   href="/catalog"
-                  className="inline-flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3.5 rounded-xl text-[15px] font-bold hover:bg-red-700 transition shadow-[0_6px_20px_rgba(220,38,38,0.28)]"
+                  className="inline-flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3.5 rounded-xl text-body-md font-bold hover:bg-red-700 transition shadow-[0_6px_20px_rgba(220,38,38,0.28)]"
                 >
                   Browse Products
                   <ArrowRight size={16} />
@@ -124,13 +123,13 @@ export default function Home() {
                   href={bulkQuoteHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 bg-white text-emerald-700 border-[1.5px] border-emerald-200 px-6 py-3.5 rounded-xl text-[15px] font-bold hover:bg-emerald-50 transition"
+                  className="inline-flex items-center justify-center gap-2 bg-white text-emerald-700 border-[1.5px] border-emerald-200 px-6 py-3.5 rounded-xl text-body-md font-bold hover:bg-emerald-50 transition"
                 >
                   <MessageCircle size={16} />
                   Get Quote on WhatsApp
                 </a>
               </div>
-              <div className="flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-medium text-slate-700">
+              <div className="flex flex-wrap gap-x-5 gap-y-2 text-body-sm font-medium text-slate-700">
                 {hero.bullets.map(t => (
                   <span key={t} className="flex items-center gap-1.5">
                     <Check size={14} className="text-emerald-600" strokeWidth={3} />
@@ -142,7 +141,7 @@ export default function Home() {
 
             {/* Hero motion tiles — auto-rotating product imagery */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.97 }}
+              initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.55, delay: 0.15, ease: "easeOut" }}
             >
@@ -153,7 +152,7 @@ export default function Home() {
 
         {/* ── TRUST STRIP — slim, below the hero ── */}
         <section className="bg-white border-b border-slate-100">
-          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-[12.5px] font-semibold text-slate-600">
+          <div className="container py-2.5 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-body-sm font-semibold text-slate-600">
             <span className="flex items-center gap-1.5">
               <Star size={13} className="fill-amber-500 text-amber-500" />
               {trustBadge.rating}
@@ -203,7 +202,7 @@ export default function Home() {
                   <Link
                     key={`${e.label}-${i}`}
                     href={e.href}
-                    className="flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-slate-400 hover:text-red-600 transition whitespace-nowrap uppercase"
+                    className="flex items-center gap-2.5 text-body-sm font-extrabold tracking-wide text-slate-400 hover:text-red-600 transition whitespace-nowrap uppercase"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-red-300" />
                     {e.label}
@@ -218,24 +217,24 @@ export default function Home() {
         {!isAuthenticated && (
           <motion.section
             {...fadeUp}
-            className="max-w-7xl mx-auto px-4 lg:px-8 pt-7 w-full"
+            className="container pt-7 w-full"
           >
             <div className="bg-slate-900 rounded-2xl px-5 py-5 md:px-6 flex flex-col md:flex-row md:items-center gap-4">
               <div className="w-10 h-10 bg-red-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Lock size={19} className="text-red-400" />
               </div>
               <div className="flex-1">
-                <div className="text-white text-[15px] font-bold">
+                <div className="text-white text-body-md font-bold">
                   Unlock exact wholesale prices in 10 seconds
                 </div>
-                <div className="text-slate-400 text-[13px]">
+                <div className="text-slate-400 text-body-sm">
                   Sign in to see exact prices and order with one tap on
                   WhatsApp.
                 </div>
               </div>
               <Link
                 href="/auth"
-                className="inline-flex items-center justify-center bg-red-600 text-white px-5 py-3 rounded-xl text-[13.5px] font-bold hover:bg-red-700 transition flex-shrink-0"
+                className="inline-flex items-center justify-center bg-red-600 text-white px-5 py-3 rounded-xl text-body-sm font-bold hover:bg-red-700 transition flex-shrink-0"
               >
                 Sign In
               </Link>
@@ -252,14 +251,14 @@ export default function Home() {
         {/* ── BULK BANNER ── */}
         <motion.section
           {...fadeUp}
-          className="max-w-7xl mx-auto px-4 lg:px-8 py-6 w-full"
+          className="container py-6 w-full"
         >
           <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl px-6 py-8 md:px-9 flex flex-col md:flex-row md:items-center gap-6">
             <div className="flex-1">
-              <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-red-400 mb-2">
+              <SectionEyebrow tone="dark" className="mb-2">
                 {bulkBanner.eyebrow}
-              </div>
-              <div className="text-white text-xl md:text-[22px] font-extrabold tracking-tight mb-1.5">
+              </SectionEyebrow>
+              <div className="text-white text-xl md:text-2xl font-extrabold tracking-tight mb-1.5">
                 {bulkBanner.title}
               </div>
               <div className="text-slate-400 text-sm">{bulkBanner.body}</div>
@@ -268,7 +267,7 @@ export default function Home() {
               href={bulkQuoteHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3.5 rounded-xl text-[14.5px] font-bold hover:bg-red-700 transition shadow-[0_6px_20px_rgba(220,38,38,0.35)] flex-shrink-0"
+              className="inline-flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3.5 rounded-xl text-body-md font-bold hover:bg-red-700 transition shadow-[0_6px_20px_rgba(220,38,38,0.35)] flex-shrink-0"
             >
               Get Bulk Quote
               <ArrowRight size={16} />
@@ -279,12 +278,12 @@ export default function Home() {
         {/* ── TRUST ── */}
         <motion.section
           {...fadeUp}
-          className="max-w-7xl mx-auto px-4 lg:px-8 py-8 w-full"
+          className="container py-12 md:py-16 w-full"
         >
           <div className="text-center mb-6">
-            <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-red-600 mb-1">
+            <SectionEyebrow className="mb-1">
               Why XL Traders
-            </div>
+            </SectionEyebrow>
             <h2 className="text-2xl font-extrabold tracking-tight">
               Built For Repeat Wholesale Buying
             </h2>
@@ -295,10 +294,10 @@ export default function Home() {
                 key={s.label}
                 className="bg-white border border-slate-200 rounded-2xl p-5 text-center"
               >
-                <div className="text-[26px] font-extrabold text-red-600 tracking-tight">
+                <div className="text-2xl font-extrabold text-red-600 tracking-tight">
                   {s.value}
                 </div>
-                <div className="text-[13px] font-semibold mt-0.5">
+                <div className="text-body-sm font-semibold mt-0.5">
                   {s.label}
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">{s.sub}</div>
@@ -311,12 +310,12 @@ export default function Home() {
                 key={tp.title}
                 className="flex gap-3.5 bg-white border border-slate-200 rounded-2xl p-5"
               >
-                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0 text-red-600 font-extrabold text-[15px]">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0 text-red-600 font-extrabold text-body-md">
                   {tp.glyph}
                 </div>
                 <div>
                   <div className="text-sm font-bold">{tp.title}</div>
-                  <div className="text-[12.5px] text-slate-500 mt-0.5">
+                  <div className="text-body-sm text-slate-500 mt-0.5">
                     {tp.body}
                   </div>
                 </div>
@@ -328,14 +327,14 @@ export default function Home() {
         {/* ── SERVICE AREAS + BRANDS ── */}
         <motion.section
           {...fadeUp}
-          className="max-w-7xl mx-auto px-4 lg:px-8 py-4 w-full grid md:grid-cols-2 gap-3.5"
+          className="container py-4 w-full grid md:grid-cols-2 gap-3.5"
         >
           <div className="bg-white border border-slate-200 rounded-2xl p-5">
-            <div className="flex items-center gap-2 text-[14.5px] font-bold mb-3">
+            <div className="flex items-center gap-2 text-body-md font-bold mb-3">
               <MapPin size={16} className="text-red-600" />
               Service Areas
             </div>
-            <div className="text-[13px] text-slate-600 mb-3">
+            <div className="text-body-sm text-slate-600 mb-3">
               <strong className="text-emerald-700">Same-day:</strong> Surat
               city · <strong>Next-day:</strong> South Gujarat ·{" "}
               <strong>2–4 days:</strong> Pan-India
@@ -352,21 +351,21 @@ export default function Home() {
             </div>
           </div>
           <div className="bg-white border border-slate-200 rounded-2xl p-5">
-            <div className="text-[14.5px] font-bold mb-3">Brands We Stock</div>
+            <div className="text-body-md font-bold mb-3">Brands We Stock</div>
             {brands.length > 0 ? (
               <div className="flex flex-wrap gap-2.5">
                 {brands.map(b => (
                   <Link
                     key={b}
                     href={`/catalog?brand=${encodeURIComponent(b)}`}
-                    className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[13.5px] font-bold text-slate-600 hover:border-red-300 hover:text-red-600 transition"
+                    className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-body-sm font-bold text-slate-600 hover:border-red-300 hover:text-red-600 transition"
                   >
                     {b}
                   </Link>
                 ))}
               </div>
             ) : (
-              <div className="text-[13px] text-slate-500">
+              <div className="text-body-sm text-slate-500">
                 Trusted brands plus our own XL value range at the lowest
                 per-piece prices.
               </div>
@@ -379,7 +378,7 @@ export default function Home() {
           {...fadeUp}
           className="max-w-3xl mx-auto px-4 lg:px-8 py-10 w-full"
         >
-          <h2 className="text-[22px] font-extrabold tracking-tight text-center mb-5">
+          <h2 className="text-2xl font-extrabold tracking-tight text-center mb-5">
             Common Questions
           </h2>
           <div className="flex flex-col gap-2.5">
@@ -400,7 +399,7 @@ export default function Home() {
                   )}
                 </button>
                 {openFaq === i && (
-                  <div className="px-5 pb-4 text-[13.5px] text-slate-600">
+                  <div className="px-5 pb-4 text-body-sm text-slate-600">
                     {f.a}
                   </div>
                 )}

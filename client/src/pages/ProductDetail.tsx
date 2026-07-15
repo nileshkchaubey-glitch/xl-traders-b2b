@@ -396,9 +396,9 @@ export default function ProductDetail() {
       <Header />
 
       <main className="flex-1 pb-40 md:pb-0">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
+        <div className="container py-6">
           {/* Breadcrumb */}
-          <div className="text-[12.5px] text-slate-500 mb-4">
+          <div className="text-body-sm text-slate-500 mb-4">
             <Link href="/" className="hover:text-red-600 transition">
               Home
             </Link>
@@ -464,12 +464,12 @@ export default function ProductDetail() {
             {/* Product Details */}
             <div className="lg:sticky lg:top-24 self-start">
               <div>
-                <div className="text-[12.5px] font-semibold text-slate-500 mb-1">
+                <div className="text-body-sm font-semibold text-slate-500 mb-1">
                   {[currentProd.brand, currentProd.sku && `SKU ${currentProd.sku}`]
                     .filter(Boolean)
                     .join(" · ") || "XL Traders"}
                 </div>
-                <h1 className="text-2xl lg:text-[26px] font-extrabold tracking-tight leading-tight text-slate-900 mb-4">
+                <h1 className="text-2xl font-extrabold tracking-tight leading-tight text-slate-900 mb-4">
                   {currentProd.name}
                 </h1>
 
@@ -502,7 +502,7 @@ export default function ProductDetail() {
                           >
                             {v.variant_label || v.name}
                             {isSelected && (
-                              <span className="ml-1 text-[10px]">✓</span>
+                              <span className="ml-1 text-caption">✓</span>
                             )}
                           </button>
                         );
@@ -516,24 +516,24 @@ export default function ProductDetail() {
                   {isAuthenticated ? (
                     !isPriceOnEnquiry(currentProd.price) ? (
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-[26px] font-extrabold text-red-600 tabular-nums">
+                        <span className="text-2xl font-extrabold text-red-600 tabular-nums">
                           ₹{currentProd.price!.toLocaleString()}
                         </span>
                         {currentProd.quantity_in_unit ? (
-                          <span className="text-[13px] text-slate-500">
+                          <span className="text-body-sm text-slate-500">
                             / pack of {currentProd.quantity_in_unit}{" "}
                             {currentProd.unit_of_measure}
                           </span>
                         ) : (
                           currentProd.unit_of_measure && (
-                            <span className="text-[13px] text-slate-500">
+                            <span className="text-body-sm text-slate-500">
                               / {currentProd.unit_of_measure}
                             </span>
                           )
                         )}
                         {currentProd.quantity_in_unit &&
                           currentProd.quantity_in_unit > 1 && (
-                            <span className="text-[13px] font-semibold text-slate-600 ml-auto">
+                            <span className="text-body-sm font-semibold text-slate-600 ml-auto">
                               ₹
                               {(
                                 Math.round(
@@ -558,7 +558,7 @@ export default function ProductDetail() {
                       </div>
                       <button
                         onClick={() => setLocation("/auth")}
-                        className="text-[12.5px] font-semibold text-red-600 underline mt-0.5"
+                        className="text-body-sm font-semibold text-red-600 underline mt-0.5"
                       >
                         Sign in to see your exact wholesale price
                       </button>
@@ -572,7 +572,7 @@ export default function ProductDetail() {
                   <div className="mb-4">
                     <div className="flex gap-3 items-end flex-wrap mb-1.5">
                       <div>
-                        <div className="text-[12.5px] font-bold mb-2">
+                        <div className="text-body-sm font-bold mb-2">
                           Quantity{" "}
                           {currentProd.unit_of_measure && (
                             <span className="font-medium text-slate-500">
@@ -594,7 +594,7 @@ export default function ProductDetail() {
                               const v = parseInt(e.target.value, 10);
                               if (!isNaN(v)) setQty(Math.max(1, v));
                             }}
-                            className="flex-1 w-12 text-center text-[15px] font-bold tabular-nums outline-none"
+                            className="flex-1 w-12 text-center text-body-md font-bold tabular-nums outline-none"
                             inputMode="numeric"
                           />
                           <button
@@ -611,7 +611,7 @@ export default function ProductDetail() {
                           <button
                             key={n}
                             onClick={() => setQty(q => q + n)}
-                            className="px-3.5 py-3 border border-slate-200 bg-white rounded-lg text-[12.5px] font-bold text-slate-600 hover:border-red-600 hover:text-red-600 transition"
+                            className="px-3.5 py-3 border border-slate-200 bg-white rounded-lg text-body-sm font-bold text-slate-600 hover:border-red-600 hover:text-red-600 transition"
                           >
                             +{n}
                           </button>
@@ -634,7 +634,7 @@ export default function ProductDetail() {
                     <div className="flex gap-2.5 mt-2">
                       <button
                         onClick={handleAddToCart}
-                        className="flex-1 flex items-center justify-center gap-2 h-[50px] bg-red-600 text-white rounded-xl text-[15px] font-bold hover:bg-red-700 transition shadow-[0_6px_18px_rgba(220,38,38,0.28)]"
+                        className="flex-1 flex items-center justify-center gap-2 h-[50px] bg-red-600 text-white rounded-xl text-body-md font-bold hover:bg-red-700 transition shadow-[0_6px_18px_rgba(220,38,38,0.28)]"
                       >
                         <ShoppingCart size={17} />
                         Add to Cart
@@ -656,7 +656,7 @@ export default function ProductDetail() {
                 {!isAuthenticated && (
                   <button
                     onClick={handleEnquire}
-                    className="w-full flex items-center justify-center gap-2 h-[50px] bg-emerald-600 text-white rounded-xl text-[15px] font-bold hover:bg-emerald-700 transition mb-4"
+                    className="w-full flex items-center justify-center gap-2 h-[50px] bg-emerald-600 text-white rounded-xl text-body-md font-bold hover:bg-emerald-700 transition mb-4"
                   >
                     <MessageCircle size={18} />
                     Enquire on WhatsApp
@@ -665,7 +665,7 @@ export default function ProductDetail() {
 
                 {/* Delivery pincode check */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-4">
-                  <div className="flex items-center gap-2 mb-2.5 text-[13px] font-bold">
+                  <div className="flex items-center gap-2 mb-2.5 text-body-sm font-bold">
                     <Truck size={15} className="text-emerald-600" />
                     Check delivery
                   </div>
@@ -677,17 +677,17 @@ export default function ProductDetail() {
                       }
                       placeholder="Enter pincode"
                       inputMode="numeric"
-                      className="flex-1 h-10 border border-slate-300 rounded-lg px-3 text-[13.5px] outline-none focus:border-red-600 bg-white"
+                      className="flex-1 h-10 border border-slate-300 rounded-lg px-3 text-body-sm outline-none focus:border-red-600 bg-white"
                     />
                     <button
                       onClick={handleCheckPin}
-                      className="h-10 px-4 bg-slate-900 text-white rounded-lg text-[12.5px] font-bold hover:bg-slate-800 transition"
+                      className="h-10 px-4 bg-slate-900 text-white rounded-lg text-body-sm font-bold hover:bg-slate-800 transition"
                     >
                       Check
                     </button>
                   </div>
                   {pinResult && (
-                    <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-emerald-700 mt-2">
+                    <div className="flex items-center gap-1.5 text-body-sm font-semibold text-emerald-700 mt-2">
                       <Check size={13} strokeWidth={3} />
                       {pinResult}
                     </div>
@@ -731,7 +731,7 @@ export default function ProductDetail() {
                           ([key, value]) => (
                             <div
                               key={key}
-                              className="grid grid-cols-[150px_1fr] gap-3 py-2 border-b border-slate-100 last:border-0 text-[13px]"
+                              className="grid grid-cols-[150px_1fr] gap-3 py-2 border-b border-slate-100 last:border-0 text-body-sm"
                             >
                               <span className="text-slate-500 font-medium capitalize">
                                 {key}
@@ -752,7 +752,7 @@ export default function ProductDetail() {
                     <h3 className="font-extrabold text-slate-900 mb-2.5">
                       Description
                     </h3>
-                    <p className="text-[13.5px] text-slate-600 leading-relaxed">
+                    <p className="text-body-sm text-slate-600 leading-relaxed">
                       {currentProd.description}
                     </p>
                   </div>
@@ -789,7 +789,7 @@ export default function ProductDetail() {
         {isAuthenticated ? (
           <button
             onClick={handleAddToCart}
-            className="flex-1 h-[52px] bg-red-600 text-white rounded-xl text-[15px] font-extrabold shadow-[0_6px_16px_rgba(220,38,38,0.28)] flex items-center justify-center gap-2"
+            className="flex-1 h-[52px] bg-red-600 text-white rounded-xl text-body-md font-extrabold shadow-[0_6px_16px_rgba(220,38,38,0.28)] flex items-center justify-center gap-2"
           >
             <ShoppingCart size={17} />
             Add to Cart
@@ -799,7 +799,7 @@ export default function ProductDetail() {
         ) : (
           <button
             onClick={() => setLocation("/auth")}
-            className="flex-1 h-[52px] bg-slate-900 text-white rounded-xl text-[14px] font-bold flex items-center justify-center"
+            className="flex-1 h-[52px] bg-slate-900 text-white rounded-xl text-sm font-bold flex items-center justify-center"
           >
             Sign in for wholesale price
           </button>

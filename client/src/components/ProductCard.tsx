@@ -141,18 +141,18 @@ export default function ProductCard({
             ₹{product.price!.toLocaleString()}
           </span>
           {product.quantity_in_unit ? (
-            <span className="text-[11.5px] text-slate-500">
+            <span className="text-caption text-slate-500">
               / pack of {product.quantity_in_unit}
             </span>
           ) : (
             product.unit_of_measure && (
-              <span className="text-[11.5px] text-slate-500">
+              <span className="text-caption text-slate-500">
                 / {product.unit_of_measure}
               </span>
             )
           )}
         </div>
-        <div className="text-[11.5px] text-slate-500">
+        <div className="text-caption text-slate-500">
           {product.quantity_in_unit && product.quantity_in_unit > 1
             ? `₹${(Math.round((product.price! / product.quantity_in_unit) * 100) / 100).toLocaleString()}/pc · `
             : ""}
@@ -161,22 +161,22 @@ export default function ProductCard({
       </>
     ) : (
       <>
-        <div className="text-[13px] font-bold text-slate-600 italic">
+        <div className="text-body-sm font-bold text-slate-600 italic">
           Price on enquiry
         </div>
-        <div className="text-[11.5px] text-slate-500">
+        <div className="text-caption text-slate-500">
           {product.moq ? `MOQ ${product.moq}` : "Ask for best rate"}
         </div>
       </>
     )
   ) : (
     <>
-      <div className="text-[13px] font-bold text-slate-600">
+      <div className="text-body-sm font-bold text-slate-600">
         Wholesale price
       </div>
       <Link
         href="/auth"
-        className="text-[11.5px] font-semibold text-red-600 underline"
+        className="text-caption font-semibold text-red-600 underline"
         onClick={e => e.stopPropagation()}
       >
         Sign in for exact price
@@ -194,7 +194,7 @@ export default function ProductCard({
         >
           <Minus size={14} />
         </button>
-        <div className="flex-1 text-center text-[13px] font-bold tabular-nums">
+        <div className="flex-1 text-center text-body-sm font-bold tabular-nums">
           {cartLine.quantity}
         </div>
         <button
@@ -208,7 +208,7 @@ export default function ProductCard({
     ) : (
       <button
         onClick={handleAdd}
-        className="w-full h-9 bg-white text-red-600 border-[1.5px] border-red-600 rounded-lg text-[13px] font-bold hover:bg-red-600 hover:text-white transition"
+        className="w-full h-9 bg-white text-red-600 border-[1.5px] border-red-600 rounded-lg text-body-sm font-bold hover:bg-red-600 hover:text-white transition"
       >
         Add to Cart
       </button>
@@ -216,7 +216,7 @@ export default function ProductCard({
   ) : (
     <button
       onClick={handleEnquire}
-      className="w-full h-9 bg-white text-red-600 border-[1.5px] border-red-600 rounded-lg text-[13px] font-bold hover:bg-red-600 hover:text-white transition flex items-center justify-center gap-1.5"
+      className="w-full h-9 bg-white text-red-600 border-[1.5px] border-red-600 rounded-lg text-body-sm font-bold hover:bg-red-600 hover:text-white transition flex items-center justify-center gap-1.5"
     >
       <MessageCircle size={13} />
       Enquire
@@ -252,7 +252,7 @@ export default function ProductCard({
         >
           {image}
           {product.is_featured && (
-            <span className="absolute top-2.5 left-2.5 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+            <span className="absolute top-2.5 left-2.5 bg-red-600 text-white text-caption font-bold px-2 py-0.5 rounded-full">
               Featured
             </span>
           )}
@@ -260,7 +260,7 @@ export default function ProductCard({
         <div className="flex-1 p-3.5 flex flex-col min-w-0">
           <Link href={`/product/${product.id}`}>
             {brandLine && (
-              <div className="text-[11.5px] font-semibold text-slate-500 mb-0.5">
+              <div className="text-caption font-semibold text-slate-500 mb-0.5">
                 {brandLine}
               </div>
             )}
@@ -282,7 +282,7 @@ export default function ProductCard({
         <div className="aspect-square relative bg-slate-50">
           {image}
           {product.is_featured && (
-            <span className="absolute top-2.5 left-2.5 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+            <span className="absolute top-2.5 left-2.5 bg-red-600 text-white text-caption font-bold px-2 py-0.5 rounded-full">
               Featured
             </span>
           )}
@@ -291,11 +291,11 @@ export default function ProductCard({
       <div className="p-3 flex-1 flex flex-col">
         <Link href={`/product/${product.id}`} className="block flex-1">
           {brandLine && (
-            <div className="text-[11px] font-semibold text-slate-500 mb-0.5 truncate">
+            <div className="text-caption font-semibold text-slate-500 mb-0.5 truncate">
               {brandLine}
             </div>
           )}
-          <h3 className="text-[13px] font-bold text-slate-900 leading-snug line-clamp-2 hover:text-red-600 transition">
+          <h3 className="text-body-sm font-bold text-slate-900 leading-snug line-clamp-2 hover:text-red-600 transition">
             {product.name}
           </h3>
         </Link>
