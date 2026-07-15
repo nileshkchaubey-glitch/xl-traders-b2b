@@ -32,6 +32,17 @@ Named tokens added in the "Phase A" pass (`client/src/index.css`):
 | `--color-admin-sidebar` | `#1a1d27` | Admin dark sidebar (`bg-admin-sidebar`, 220px) |
 | `--shadow-red` | `0 10px 15px -3px rgb(220 38 38 / 0.25)` | Red CTA glow (`shadow-red`) |
 | `--shadow-emerald` | `0 10px 15px -3px rgb(5 150 105 / 0.3)` | Emerald CTA glow (`shadow-emerald`) |
+| `--text-caption` | `0.6875rem` (11px), line-height `1.35` | Smallest meta/label text (`text-caption`) |
+| `--text-body-sm` | `0.8125rem` (13px), line-height `1.45` | Secondary body/UI text (`text-body-sm`) |
+| `--text-body-md` | `0.9375rem` (15px), line-height `1.4` | Emphasized inline text, CTAs (`text-body-md`) |
+| `--text-display` | `2.875rem` (46px), line-height `1.08` | Hero-scale headline (`text-display`) |
+
+Added in the "Foundation" pass (`docs/STOREFRONT_DESIGN_PROPOSALS.md` §4, PR1): four named
+type-scale tokens filling the gaps in Tailwind's default scale (which already covers
+xs/sm/base/lg/xl/2xl/4xl natively — those keep being used as-is). Tailwind v4 only
+recognizes a `--text-*--line-height` companion on this namespace; font-weight stays a
+separate utility at the call site (`font-bold`/`font-extrabold`), same as Tailwind's own
+scale. See `docs/STOREFRONT_DESIGN_PROPOSALS.md` §4 for the full rationale.
 
 shadcn/ui theme variables live in `:root` as **OKLCH** values mapped through `@theme inline`
 (`--background`, `--foreground`, `--card`, `--primary`, `--border`, `--ring`, `--radius`,
@@ -57,16 +68,37 @@ the `--chart-*` and `--sidebar-*` ramps, etc.). Notable:
 ### 1.4 Typography & spacing
 
 - **Font:** Inter (`--font-sans`), preloaded in `index.html`, applied on `<body>`.
-- There is **no formal type scale token set yet** — the `@theme` header comment explicitly
-  defers "the full type scale … to a later pass." In practice components use Tailwind text
-  utilities directly (`text-2xl font-bold` headings, `text-sm` body, `text-xs`/`text-[11px]`
-  metadata, `tabular-nums` for prices).
-- **Spacing/radius:** Tailwind's default spacing scale; radii come from `--radius` (0.65rem)
-  via `rounded-lg`/`rounded-xl`. Cards are typically `rounded-xl border border-slate-200`.
+- **Type scale (storefront, since the Foundation pass):** Tailwind's native
+  `text-xs/sm/base/lg/xl/2xl/4xl` for anything that already fits, plus the four custom
+  tokens in §1.2 (`text-caption`/`text-body-sm`/`text-body-md`/`text-display`) for the sizes
+  Tailwind's scale doesn't cover. The storefront (`Home.tsx`, `Header.tsx`, `Footer.tsx`,
+  `ProductCard.tsx`, `Catalog.tsx`, `ProductDetail.tsx`) has been migrated off one-off
+  `text-[Npx]` arbitrary values onto this set — new storefront work should reach for a named
+  size first and only fall back to an arbitrary value for a genuinely one-off case. Admin
+  screens haven't been migrated yet (out of scope for the storefront pass); they still use
+  ad hoc Tailwind text utilities.
+- **Spacing rhythm (storefront sections):** a documented convention, not a new token layer —
+  Tailwind's numeric spacing scale already covers every step needed:
+  - `py-8` — compact utility strips (kept distinct; not part of the 3-step "section" rhythm)
+  - `py-12 md:py-16` — standard content sections (category grid, featured/showcase, trust)
+  - `py-14 md:py-20` — hero only
+  New full-width Home sections should pick the step matching their visual weight instead of
+  a one-off `py-*` value. See `client/src/index.css`'s comment block above `@layer base` and
+  `docs/STOREFRONT_DESIGN_PROPOSALS.md` §4 for the full rationale (including why the two
+  slim utility strips — trust strip, marquee — are deliberately excluded from this rhythm
+  rather than forced into it).
+- **Radii:** come from `--radius` (0.65rem) via `rounded-lg`/`rounded-xl`. Cards are
+  typically `rounded-xl border border-slate-200`.
+- **Container:** `client/src/index.css`'s `.container` utility (responsive padding, caps at
+  1280px above 1024px) is now the single mechanism for page-width sections — storefront
+  pages previously hand-rolled `max-w-7xl mx-auto px-4 lg:px-8` inline in ~14 places; those
+  now all use `className="container"` instead. Use `.container` for any new full-width
+  section rather than reintroducing the inline pattern.
 
-> Discrepancy to close later: the token comment promises a brand color ramp, WhatsApp colors,
-> and a type scale "in a later pass." Those are **not** in `@theme` yet — call sites use
-> palette utilities. Treat the table above as the source of truth until that pass lands.
+> Still open: the token comment in `client/src/index.css` originally promised a brand color
+> ramp and WhatsApp colors "in a later pass" — those remain **not** in `@theme` yet; call
+> sites still use plain Tailwind palette utilities (`red-600`, `emerald-600`, etc.) per §1.3.
+> The type-scale piece of that promise is now delivered (above).
 
 ### 1.5 Mobile: one system, layout switch (not a fork)
 
@@ -188,6 +220,7 @@ Toasts use **`sonner`**. Bottom sheets use the single **`drawer`** (vaul) primit
 | `CatalogTreeEditor` | **THE products surface** (Phase 2b) — group→category tree + shared `<DataTable>` with inline edit, bulk, keyboard nav |
 | `CategoryCombobox`, `AISmartPasteDialog`, `ProductMediaSection`, `MobileAdminShell`, `adminNav.tsx` | Reusable admin building blocks |
 | `HealthDot` / `catalogHealth.ts` | Health color/label only (logic stays in the view) |
+| `SectionEyebrow` (`client/src/components/SectionEyebrow.tsx`) | Storefront-only: the small uppercase/tracked label above a section `<h2>` (`tone="light"` red-600 on white/slate-50, `tone="dark"` red-400 on a dark card). Standardizes a pattern that used to be re-typed per section — reuse it for any new section eyebrow rather than hand-rolling the classes again |
 
 > Removed in Phase 2b (recover from git if needed): `AdminProducts`, `ProductsTable`
 > (TanStack + `react-virtual` — the only virtualized grid), `ProductDrawer`,

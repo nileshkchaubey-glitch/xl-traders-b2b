@@ -78,7 +78,7 @@ export default function HeroMotionTiles() {
                 src={s.src}
                 alt={idx === active ? s.label : ""}
                 loading={i === 0 && idx === active ? "eager" : "lazy"}
-                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 group-hover:scale-105 ${
+                className={`xl-hero-crossfade absolute inset-0 h-full w-full object-cover transition-opacity duration-700 motion-safe:group-hover:scale-105 ${
                   idx === active ? "opacity-100 xl-kenburns" : "opacity-0"
                 }`}
                 style={{ transitionDelay: `${i * 90}ms` }}

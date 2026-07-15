@@ -98,7 +98,7 @@ export default function Cart() {
       <Header />
 
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 w-full">
+        <div className="container py-6 w-full">
           <h1 className="text-2xl font-extrabold tracking-tight mb-5">
             Your Cart{" "}
             {count > 0 && (

@@ -30,6 +30,7 @@ import { Product } from "@/lib/supabase";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import { settingsService, FALLBACKS } from "@/lib/settingsService";
+import SectionEyebrow from "@/components/SectionEyebrow";
 
 const RECENTS_KEY = "xl-recent-searches";
 const POPULAR_SEARCHES = [
@@ -167,17 +168,17 @@ export default function Header() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[13.5px] font-semibold text-slate-900 truncate">
+              <div className="text-body-sm font-semibold text-slate-900 truncate">
                 {p.name}
               </div>
-              <div className="text-[11.5px] text-slate-500 truncate">
+              <div className="text-caption text-slate-500 truncate">
                 {[p.brand, p.moq ? `MOQ ${p.moq}` : null]
                   .filter(Boolean)
                   .join(" · ")}
               </div>
             </div>
             {isAuthenticated && !isPriceOnEnquiry(p.price) && (
-              <div className="text-[12.5px] font-bold text-red-600">
+              <div className="text-body-sm font-bold text-red-600">
                 ₹{p.price!.toLocaleString()}
               </div>
             )}
@@ -185,7 +186,7 @@ export default function Header() {
         ))}
         <button
           onClick={() => goSearch(searchQuery)}
-          className="text-left px-2.5 py-2 text-[13px] font-semibold text-red-600 hover:underline"
+          className="text-left px-2.5 py-2 text-body-sm font-semibold text-red-600 hover:underline"
         >
           See all results for "{searchQuery.trim()}" →
         </button>
@@ -194,10 +195,10 @@ export default function Header() {
       <div className="py-4 text-center text-sm text-slate-400">Searching…</div>
     ) : (
       <div className="py-3.5 px-2.5 text-center">
-        <div className="text-[13.5px] font-semibold text-slate-900 mb-1">
+        <div className="text-body-sm font-semibold text-slate-900 mb-1">
           No matches for "{searchQuery.trim()}"
         </div>
-        <div className="text-[12.5px] text-slate-500 mb-3">
+        <div className="text-body-sm text-slate-500 mb-3">
           We probably stock it — ask us directly and we'll add it to your
           order.
         </div>
@@ -205,7 +206,7 @@ export default function Header() {
           href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi XL Traders, do you stock "${searchQuery.trim()}"?`)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-emerald-700 transition"
+          className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-body-sm font-semibold hover:bg-emerald-700 transition"
         >
           <MessageCircle size={14} />
           Ask on WhatsApp
@@ -216,7 +217,7 @@ export default function Header() {
     <div>
       {recents.length > 0 && (
         <>
-          <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2">
+          <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2">
             Recent searches
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
@@ -224,7 +225,7 @@ export default function Header() {
               <button
                 key={r}
                 onClick={() => goSearch(r)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-[12.5px] font-medium text-slate-700 hover:border-red-600 hover:text-red-600 transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-body-sm font-medium text-slate-700 hover:border-red-600 hover:text-red-600 transition"
               >
                 <Clock size={12} />
                 {r}
@@ -233,7 +234,7 @@ export default function Header() {
           </div>
         </>
       )}
-      <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2">
+      <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2">
         Popular right now
       </div>
       <div className="flex flex-wrap gap-2">
@@ -241,7 +242,7 @@ export default function Header() {
           <button
             key={t}
             onClick={() => goSearch(t)}
-            className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-full text-[12.5px] font-semibold text-red-700 hover:bg-red-100 transition"
+            className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-full text-body-sm font-semibold text-red-700 hover:bg-red-100 transition"
           >
             {t}
           </button>
@@ -257,7 +258,7 @@ export default function Header() {
 
       {/* Utility bar */}
       <div className="bg-slate-900 text-slate-300 text-xs hidden md:block">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-1.5 flex items-center gap-5">
+        <div className="container py-1.5 flex items-center gap-5">
           <span className="flex items-center gap-1.5">
             <ShieldCheck size={13} className="text-emerald-400" />
             {announcement.gstLine}
@@ -282,7 +283,7 @@ export default function Header() {
 
       {/* Main header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex items-center gap-3 lg:gap-5">
+        <div className="container py-3 flex items-center gap-3 lg:gap-5">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
             <div className="w-9 h-9 md:w-10 md:h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-extrabold text-lg tracking-tight">
@@ -292,7 +293,7 @@ export default function Header() {
               <div className="font-extrabold text-slate-900 text-base tracking-[0.08em]">
                 TRADERS
               </div>
-              <div className="text-[10px] text-slate-500 tracking-wide hidden sm:block">
+              <div className="text-caption text-slate-500 tracking-wide hidden sm:block">
                 Wholesale Packaging · Surat
               </div>
             </div>
@@ -317,16 +318,16 @@ export default function Header() {
               <div className="absolute top-[52px] left-0 w-[720px] bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 grid grid-cols-3 gap-6 z-50">
                 {categoryGroups.slice(0, 6).map(group => (
                   <div key={group.group_name}>
-                    <div className="text-[11px] font-bold tracking-widest uppercase text-red-600 mb-2.5">
+                    <SectionEyebrow className="mb-2.5">
                       {group.group_name}
-                    </div>
+                    </SectionEyebrow>
                     <div className="flex flex-col gap-0.5">
                       {group.categories.slice(0, 8).map(cat => (
                         <Link
                           key={cat.id}
                           href={`/catalog?category=${cat.slug}`}
                           onClick={closeOverlays}
-                          className="px-2.5 py-1.5 -mx-2.5 rounded-lg text-[13.5px] font-medium text-slate-700 hover:bg-red-50 hover:text-red-600 transition"
+                          className="px-2.5 py-1.5 -mx-2.5 rounded-lg text-body-sm font-medium text-slate-700 hover:bg-red-50 hover:text-red-600 transition"
                         >
                           {cat.name}
                         </Link>
@@ -382,7 +383,7 @@ export default function Header() {
           <div className="flex items-center gap-1.5 md:gap-2 ml-auto md:ml-0 min-w-0">
             <a
               href={`tel:${phone1}`}
-              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition motion-reduce:transition-none"
+              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition motion-reduce:transition-none"
             >
               <Phone size={16} />
               Call
@@ -392,7 +393,7 @@ export default function Header() {
               href={`https://wa.me/${whatsappNumber}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-[13px] font-semibold hover:bg-emerald-100 transition motion-reduce:transition-none"
+              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-body-sm font-semibold hover:bg-emerald-100 transition motion-reduce:transition-none"
             >
               <MessageCircle size={16} />
               WhatsApp
@@ -403,7 +404,7 @@ export default function Header() {
                 {isAdmin && (
                   <Link
                     href="/admin"
-                    className="h-11 px-3.5 flex items-center bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition"
+                    className="h-11 px-3.5 flex items-center bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition"
                   >
                     Admin
                   </Link>
@@ -411,7 +412,7 @@ export default function Header() {
                 <button
                   onClick={handleSignOut}
                   title={user?.email || "Sign out"}
-                  className="flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition"
+                  className="flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition"
                 >
                   <LogOut size={16} />
                   Sign Out
@@ -420,7 +421,7 @@ export default function Header() {
             ) : (
               <Link
                 href="/auth"
-                className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-[13px] font-semibold hover:border-slate-400 transition"
+                className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition"
               >
                 <User size={16} />
                 Sign In
@@ -459,12 +460,12 @@ export default function Header() {
 
             <Link
               href="/cart"
-              className="relative hidden md:flex items-center gap-2 h-11 px-4 bg-red-600 text-white rounded-xl text-[13.5px] font-bold hover:bg-red-700 transition shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
+              className="relative hidden md:flex items-center gap-2 h-11 px-4 bg-red-600 text-white rounded-xl text-body-sm font-bold hover:bg-red-700 transition shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
             >
               <ShoppingCart size={17} />
               <span>Cart</span>
               {cartCount > 0 && (
-                <span className="bg-white text-red-600 text-[11px] font-extrabold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5">
+                <span className="bg-white text-red-600 text-caption font-extrabold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5">
                   {cartCount > 99 ? "99+" : cartCount}
                 </span>
               )}
@@ -508,7 +509,7 @@ export default function Header() {
               {searchPanelBody}
               <button
                 onClick={closeOverlays}
-                className="mt-3.5 w-full h-10 bg-slate-100 rounded-lg text-[12.5px] font-semibold text-slate-500"
+                className="mt-3.5 w-full h-10 bg-slate-100 rounded-lg text-body-sm font-semibold text-slate-500"
               >
                 Close
               </button>

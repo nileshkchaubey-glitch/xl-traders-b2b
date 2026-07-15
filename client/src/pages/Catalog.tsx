@@ -7,6 +7,7 @@ import {
   Package,
   Loader2,
   SlidersHorizontal,
+  MessageCircle,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -49,6 +50,7 @@ export default function Catalog() {
   const [, setLocation] = useLocation();
   const searchParams = useSearch();
   const params = new URLSearchParams(searchParams);
+  const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
@@ -231,9 +233,9 @@ export default function Catalog() {
       <Header />
 
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
+        <div className="container py-6">
           {/* Breadcrumb */}
-          <div className="text-[12.5px] text-slate-500 mb-3.5">
+          <div className="text-body-sm text-slate-500 mb-3.5">
             <Link href="/" className="hover:text-red-600 transition">
               Home
             </Link>
@@ -249,7 +251,7 @@ export default function Catalog() {
               <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
                 {activeFilterLabel || "All Products"}
               </h1>
-              <p className="text-[13px] text-slate-500 mt-0.5">
+              <p className="text-body-sm text-slate-500 mt-0.5">
                 {totalCount.toLocaleString()} products
               </p>
             </div>
@@ -258,7 +260,7 @@ export default function Catalog() {
                 <select
                   value={sortBy}
                   onChange={e => setSortBy(e.target.value as PublicProductSort)}
-                  className="appearance-none h-10 pl-3 pr-8 border border-slate-200 rounded-lg text-[13px] font-semibold bg-white cursor-pointer outline-none"
+                  className="appearance-none h-10 pl-3 pr-8 border border-slate-200 rounded-lg text-body-sm font-semibold bg-white cursor-pointer outline-none"
                 >
                   <option value="newest">Sort: Newest</option>
                   <option value="name">Name (A–Z)</option>
@@ -483,7 +485,7 @@ export default function Catalog() {
               <div className="lg:hidden mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 <button
                   onClick={() => setSheetOpen(true)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 h-10 px-3.5 rounded-full text-[12.5px] font-bold border-[1.5px] transition ${
+                  className={`flex-shrink-0 flex items-center gap-1.5 h-10 px-3.5 rounded-full text-body-sm font-bold border-[1.5px] transition ${
                     activeFilterLabel
                       ? "bg-slate-900 text-white border-slate-900"
                       : "bg-white text-slate-900 border-slate-200"
@@ -494,7 +496,7 @@ export default function Catalog() {
                 </button>
                 <button
                   onClick={() => handleGroupChange(null)}
-                  className={`flex-shrink-0 h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                  className={`flex-shrink-0 h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
                     isNothingSelected
                       ? "bg-red-50 text-red-600 border-red-600"
                       : "bg-white text-slate-600 border-slate-200"
@@ -506,7 +508,7 @@ export default function Catalog() {
                   <button
                     key={group.group_name}
                     onClick={() => handleGroupChange(group.group_name)}
-                    className={`flex-shrink-0 h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                    className={`flex-shrink-0 h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
                       selectedGroup === group.group_name
                         ? "bg-red-50 text-red-600 border-red-600"
                         : "bg-white text-slate-600 border-slate-200"
@@ -525,9 +527,23 @@ export default function Catalog() {
               ) : products.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
                   <p className="text-slate-500 text-lg">No products found</p>
-                  <p className="text-slate-400 text-sm mt-2">
-                    Try adjusting your filters or search query
+                  <p className="text-slate-400 text-sm mt-2 mb-4">
+                    Try adjusting your filters or search query — or we
+                    probably stock it and just haven't listed it yet.
                   </p>
+                  <a
+                    href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+                      searchQuery
+                        ? `Hi XL Traders, do you stock "${searchQuery}"?`
+                        : "Hi XL Traders, I couldn't find what I'm looking for on the site — can you help?"
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-body-sm font-semibold hover:bg-emerald-700 transition"
+                  >
+                    <MessageCircle size={14} />
+                    Ask on WhatsApp
+                  </a>
                 </div>
               ) : (
                 <>
@@ -587,7 +603,7 @@ export default function Catalog() {
           <div className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-[20px] max-h-[75vh] overflow-auto animate-in slide-in-from-bottom duration-300">
             <div className="sticky top-0 bg-white px-5 pt-3.5 pb-2.5 border-b border-slate-100 flex items-center justify-between">
               <div className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 bg-slate-200 rounded-full" />
-              <span className="text-[15px] font-extrabold mt-1.5">
+              <span className="text-body-md font-extrabold mt-1.5">
                 Filters &amp; Sort
               </span>
               <button
@@ -595,7 +611,7 @@ export default function Catalog() {
                   handleCategoryChange(null);
                   setSortBy("newest");
                 }}
-                className="text-[12.5px] font-bold text-red-600 mt-1.5"
+                className="text-body-sm font-bold text-red-600 mt-1.5"
               >
                 Clear all
               </button>
@@ -603,7 +619,7 @@ export default function Catalog() {
 
             <div className="px-5 py-4 pb-24">
               {/* Sort */}
-              <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
+              <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2.5">
                 Sort
               </div>
               <div className="flex flex-wrap gap-2 mb-5">
@@ -618,7 +634,7 @@ export default function Catalog() {
                   <button
                     key={value}
                     onClick={() => setSortBy(value)}
-                    className={`h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                    className={`h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
                       sortBy === value
                         ? "bg-red-50 text-red-600 border-red-600"
                         : "bg-white text-slate-600 border-slate-200"
@@ -630,7 +646,7 @@ export default function Catalog() {
               </div>
 
               {/* Categories */}
-              <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
+              <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2.5">
                 Category
               </div>
               <div className="flex flex-wrap gap-2 mb-5">
@@ -646,7 +662,7 @@ export default function Catalog() {
                         selectedCategory === cat.slug ? null : cat.slug
                       )
                     }
-                    className={`h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                    className={`h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
                       selectedCategory === cat.slug
                         ? "bg-red-50 text-red-600 border-red-600"
                         : "bg-white text-slate-600 border-slate-200"
@@ -660,7 +676,7 @@ export default function Catalog() {
               {/* Brands */}
               {brands.length > 0 && (
                 <>
-                  <div className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
+                  <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2.5">
                     Brand
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -672,7 +688,7 @@ export default function Catalog() {
                             selectedBrand === brand ? null : brand
                           )
                         }
-                        className={`h-10 px-3.5 rounded-full text-[12.5px] font-semibold border-[1.5px] transition ${
+                        className={`h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
                           selectedBrand === brand
                             ? "bg-red-50 text-red-600 border-red-600"
                             : "bg-white text-slate-600 border-slate-200"
@@ -689,7 +705,7 @@ export default function Catalog() {
             <div className="sticky bottom-0 bg-white border-t border-slate-100 px-5 py-3">
               <button
                 onClick={() => setSheetOpen(false)}
-                className="w-full h-[50px] bg-red-600 text-white rounded-xl text-[14.5px] font-extrabold hover:bg-red-700 transition"
+                className="w-full h-[50px] bg-red-600 text-white rounded-xl text-body-md font-extrabold hover:bg-red-700 transition"
               >
                 Show {totalCount.toLocaleString()} products
               </button>
