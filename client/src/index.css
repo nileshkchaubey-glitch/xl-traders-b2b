@@ -26,7 +26,8 @@
 }
 
 .xl-marquee {
-  animation: xl-marquee 28s linear infinite;
+  /* 34s: slow enough to read each entry at typical reading speed */
+  animation: xl-marquee 34s linear infinite;
 }
 
 .xl-marquee:hover {

@@ -33,28 +33,21 @@ const FALLBACK_ICONS = [
   Printer,
 ];
 
+// Curated 4-tone rotation drawn from the brand palette (red / amber /
+// emerald / slate — docs/DESIGN_SYSTEM.md §1.3) instead of the old 10
+// arbitrary hue pairs, so category tiles read as designed, not randomized.
 const GRADIENT_PAIRS = [
   ["from-red-50", "to-orange-50"],
-  ["from-blue-50", "to-cyan-50"],
-  ["from-green-50", "to-emerald-50"],
-  ["from-purple-50", "to-pink-50"],
   ["from-amber-50", "to-yellow-50"],
-  ["from-teal-50", "to-green-50"],
-  ["from-indigo-50", "to-blue-50"],
-  ["from-rose-50", "to-red-50"],
-  ["from-sky-50", "to-indigo-50"],
-  ["from-lime-50", "to-teal-50"],
+  ["from-emerald-50", "to-teal-50"],
+  ["from-slate-100", "to-slate-50"],
 ];
 
 const ICON_COLORS = [
   "text-red-400",
-  "text-blue-400",
-  "text-green-400",
-  "text-purple-400",
-  "text-amber-400",
-  "text-teal-400",
-  "text-indigo-400",
-  "text-rose-400",
+  "text-amber-500",
+  "text-emerald-500",
+  "text-slate-400",
 ];
 
 const CROP = [
