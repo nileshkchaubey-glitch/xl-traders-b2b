@@ -422,6 +422,17 @@ inquiries, orders, order_items, import_logs, business_settings
   exceeds its cap; the bottom scrollbar drags the main table and vice versa.
   Screenshots `docs/screenshots/catalog-editor-{sticky-right-1440,
   sticky-right-many-cols,flex-cap-1920}.png`.
+- **DataTable viewport scroll fix (July 2026):** PR #115 had switched the `<DataTable>`
+  viewport from `overflow-x-auto` to `overflow-x-hidden` plus a manual `onWheel` handler
+  (sticky bottom bar as sole horizontal control). That silently broke touch panning —
+  `overflow-x: hidden` disables native swipe-to-scroll and the handler only covered wheel
+  events — which matters because the Catalog Editor is also the *mobile* products surface;
+  the handler's `preventDefault()` was also a no-op (React registers wheel listeners as
+  passive), risking macOS swipe-back navigation mid-scroll, and it ignored `deltaMode`
+  (Firefox line-mode wheels crawled). Reverted to `overflow-x-auto` with the existing
+  `.scrollbar-hide` utility instead: same visual outcome (no duplicate native scrollbar;
+  the sticky bottom bar remains the one visible control) while touch panning, Shift+wheel,
+  momentum, and deltaMode normalization stay native. The wheel handler is deleted.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
