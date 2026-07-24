@@ -451,6 +451,37 @@ export function DataTable<T>({
     wrapRef.current.scrollLeft = bottom.scrollLeft;
   };
 
+  // The sticky scrollbar is the sole user-facing horizontal control. The table
+  // viewport still needs to be a scroll container (rather than a translated
+  // inner element) so CSS sticky left/right columns keep their native
+  // behaviour, but it no longer exposes a second native scrollbar. Preserve
+  // the old Shift+wheel / horizontal-wheel interaction by routing it through
+  // that same viewport scroll position.
+  const handleViewportWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    containerProps?.onWheel?.(event);
+    if (
+      event.defaultPrevented ||
+      !hasHorizontalOverflow ||
+      !wrapRef.current
+    ) {
+      return;
+    }
+
+    const horizontalDelta = event.deltaX || (event.shiftKey ? event.deltaY : 0);
+    if (!horizontalDelta) return;
+
+    event.preventDefault();
+    const viewport = wrapRef.current;
+    const next = Math.max(
+      0,
+      Math.min(
+        viewport.scrollLeft + horizontalDelta,
+        viewport.scrollWidth - viewport.clientWidth
+      )
+    );
+    viewport.scrollLeft = next;
+  };
+
   // Prefer a column the consumer marked meta.flex (Description, typically);
   // otherwise spread the extra proportionally across non-sticky columns so a
   // consumer that hasn't opted in still gets a filled-out table.
@@ -614,7 +645,8 @@ export function DataTable<T>({
             containerProps?.onScroll?.(e);
             handleMainScroll();
           }}
-          className={`bg-white border border-slate-200 overflow-x-auto focus:outline-none ${
+          onWheel={handleViewportWheel}
+          className={`bg-white border border-slate-200 overflow-x-hidden focus:outline-none ${
             hasHorizontalOverflow ? "rounded-t-xl border-b-0" : "rounded-xl"
           } ${containerProps?.className ?? ""}`}
         >

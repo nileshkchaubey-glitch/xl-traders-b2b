@@ -487,6 +487,40 @@ inquiries, orders, order_items, import_logs, business_settings
 
 ---
 
+## 📝 Deferred Admin & PIM Review Follow-ups (July 17, 2026)
+
+Recorded for later planning; none of the items below are implemented or approved as a
+roadmap commitment yet.
+
+1. **Authorization / RLS hardening (highest priority):** replace broad
+   `authenticated`-role write access with true admin-only RLS for catalogue, orders,
+   imports, settings, enquiries, masters, and Storage. The frontend `isAdmin` route
+   guard is UX only and must not be the authorization boundary. Preserve public
+   product/category read access and protect the `uncategorized` sentinel from deletion.
+2. **Move trusted operations to Supabase Edge Functions:** remove the browser-exposed
+   Anthropic key; enforce authenticated-admin access, rate limits, input limits, and
+   audit logging. Move order creation server-side too, so product status, MOQ, price,
+   totals, and order-item snapshots are calculated from trusted database data.
+3. **Import reliability:** evolve CSV/Google Sheets imports into a staged, resumable
+   import job with a full preflight, accurate insert-versus-update counts, idempotency,
+   row-level results, and atomic/compensating image updates. Avoid a browser/network
+   interruption leaving a partial catalogue change.
+4. **Resolve import contract drift:** `tags` is displayed in the import UI/template but
+   is not stored; the UI says matching falls back to name while current upsert is SKU
+   based. Either implement a tracked `tags` schema + controlled vocabulary and defined
+   matching policy, or remove/defer those promises from the UI/template.
+5. **Service-layer consolidation:** move remaining direct Supabase calls out of admin
+   components (Overview, SEO, Enquiries, Settings, Categories upload, Masters) into
+   focused `*Service.ts` modules, matching the existing architecture rule.
+6. **Data-quality workflow:** add category-specific specification templates, a
+   publish-ready review queue, SKU/barcode validation, audit history/undo, and health
+   reporting. The planned Image QC grid remains the first practical improvement here.
+7. **Schema discipline and performance:** track every production schema change in a
+   versioned migration ledger; lazy-load admin tabs/tools to reduce the currently large
+   production JavaScript bundles.
+
+---
+
 ## ⚠️ Critical Rules
 
 1. **Price security** — `productSelectCols()` gates price. Cache invalidates on auth change. Null price not public.
