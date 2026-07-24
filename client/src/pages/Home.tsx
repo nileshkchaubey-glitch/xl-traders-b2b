@@ -369,43 +369,48 @@ export default function Home() {
             gradient accent within the red/amber palette, kept subtle) ── */}
         <motion.section
           {...fadeUp}
-          className="relative py-10 w-full overflow-hidden"
+          className="relative py-12 md:py-16 w-full overflow-hidden"
         >
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(600px_300px_at_15%_20%,rgb(254_242_242/0.9)_0%,transparent_60%),radial-gradient(500px_280px_at_85%_80%,rgb(255_251_235/0.8)_0%,transparent_60%)]"
           />
-          <div className="relative max-w-3xl mx-auto px-4 lg:px-8">
-            <h2 className="text-2xl font-extrabold tracking-tight text-center mb-5">
-              Common Questions
-            </h2>
-            <div className="flex flex-col gap-2.5">
-              {faqs.map((f, i) => (
-                <div
-                  key={f.q}
-                  className="bg-white border border-slate-200 rounded-xl overflow-hidden"
-                >
-                  <button
-                    onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
-                    className="w-full flex items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-left"
+          <div className="relative container">
+            <div className="max-w-3xl mx-auto">
+              <h2 className="text-2xl font-extrabold tracking-tight text-center mb-5">
+                Common Questions
+              </h2>
+              <div className="flex flex-col gap-2.5">
+                {faqs.map((f, i) => (
+                  <div
+                    key={f.q}
+                    className="bg-white border border-slate-200 rounded-xl overflow-hidden"
                   >
-                    {f.q}
-                    {openFaq === i ? (
-                      <Minus
-                        size={16}
-                        className="text-slate-400 flex-shrink-0"
-                      />
-                    ) : (
-                      <Plus size={16} className="text-slate-400 flex-shrink-0" />
+                    <button
+                      onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
+                      className="w-full flex items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-left"
+                    >
+                      {f.q}
+                      {openFaq === i ? (
+                        <Minus
+                          size={16}
+                          className="text-slate-400 flex-shrink-0"
+                        />
+                      ) : (
+                        <Plus
+                          size={16}
+                          className="text-slate-400 flex-shrink-0"
+                        />
+                      )}
+                    </button>
+                    {openFaq === i && (
+                      <div className="px-5 pb-4 text-body-sm text-slate-600">
+                        {f.a}
+                      </div>
                     )}
-                  </button>
-                  {openFaq === i && (
-                    <div className="px-5 pb-4 text-body-sm text-slate-600">
-                      {f.a}
-                    </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </motion.section>

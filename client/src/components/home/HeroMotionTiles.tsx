@@ -61,6 +61,18 @@ export default function HeroMotionTiles() {
     products: number;
     categories: number;
   } | null>(null);
+  // The wildcard overlay is CSS-hidden below md, but wildcardOn also drives
+  // the tile's href/caption — without this, a mobile tap during the beat
+  // would route to /catalog instead of the visible photo's slide search.
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     const id = setInterval(
@@ -88,8 +100,11 @@ export default function HeroMotionTiles() {
         const active = (step + i) % SLIDES.length;
         const slide = SLIDES[active];
         // Wildcard beat: once per WILDCARD_EVERY rotations, the last tile
-        // shows the stats card instead of a photo (md+ only, via CSS).
+        // shows the stats card instead of a photo — desktop only, gated by
+        // isDesktop (not just CSS) so the href/caption on mobile always
+        // match the visible photo rather than routing to plain /catalog.
         const wildcardOn =
+          isDesktop &&
           stats !== null &&
           i === WILDCARD_TILE &&
           step % WILDCARD_EVERY === WILDCARD_EVERY - 1;

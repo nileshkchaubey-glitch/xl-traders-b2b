@@ -190,8 +190,9 @@ inquiries, orders, order_items, import_logs, business_settings
     (blue/purple/indigo/lime, outside the documented palette) replaced with a curated
     4-tone rotation from the actual brand palette (red/amber/emerald/slate, per
     `docs/DESIGN_SYSTEM.md` §1.3). **FAQ mesh accent** (touch #8): a single subtle
-    red↔amber radial-gradient wash behind the FAQ section — the only gradient treatment
-    on the page besides the hero, applied once and kept quiet. **Marquee refinement**
+    red↔amber radial-gradient wash behind the FAQ section — the only page-level
+    ambient/background gradient besides the hero (distinct from the per-tile category
+    mosaic gradients above), applied once and kept quiet. **Marquee refinement**
     (touch #11): brand/value-prop entries now render as bordered pill chips (icon dot +
     label) instead of plain text, animation slowed 28s → 34s for readability. Skipped:
     touch #9 (glassmorphism) — deferred with hero Concept B, not built this pass.
