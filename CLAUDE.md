@@ -176,6 +176,31 @@ inquiries, orders, order_items, import_logs, business_settings
     ProductCard-footprint skeleton grid, and Catalog's mobile Filters/group-chip
     row is now sticky below the mobile header (`top-[116px]`, z-20) so filtering
     stays reachable while scrolling long lists.
+  - **Hero evolution + polish (July 2026, PR3 of `docs/STOREFRONT_DESIGN_PROPOSALS.md`,
+    hero Concept C):** the ambient red/amber blob glows behind the hero (`bg-red-100/50`
+    and `bg-amber-100/40` blurred circles) are removed — `HeroMotionTiles` is now the
+    sole focal point against a quiet gradient wash. `HeroMotionTiles` gains a **wildcard
+    beat** (desktop only): once every 5 rotations the last tile swaps its photo for a
+    live stats card (`{published product count}+ products across {category count}
+    categories` → links to `/catalog`), sourced from the same public
+    `productService.countPublished()` / `categoryService.getAll()` calls used elsewhere;
+    silently absent if either call fails or returns 0, mobile stays purely photographic
+    via `hidden md:flex`. Tiles gain a `hover:ring-1 hover:ring-white/40` + motion-safe
+    lift. **HomeCategoryGrid mosaic palette** (touch #7): the old 10 arbitrary hue pairs
+    (blue/purple/indigo/lime, outside the documented palette) replaced with a curated
+    4-tone rotation from the actual brand palette (red/amber/emerald/slate, per
+    `docs/DESIGN_SYSTEM.md` §1.3). **FAQ mesh accent** (touch #8): a single subtle
+    red↔amber radial-gradient wash behind the FAQ section — the only page-level
+    ambient/background gradient besides the hero (distinct from the per-tile category
+    mosaic gradients above), applied once and kept quiet. **Marquee refinement**
+    (touch #11): brand/value-prop entries now render as bordered pill chips (icon dot +
+    label) instead of plain text, animation slowed 28s → 34s for readability. Skipped:
+    touch #9 (glassmorphism) — deferred with hero Concept B, not built this pass.
+    **Dead-code cleanup:** the 7 unused `home/` components identified during the design
+    audit (`HomeHero`, `HeroBrandsSlider`, `HeroTrustStrip`, `HomeUseCases`,
+    `HomeBrandSection`, `HeroProductShowcase`, `HeroTopBar` — never imported by any route)
+    plus their two orphaned support files (`heroConfig.ts`, `useAnimatedCounter.ts`)
+    deleted after grep-verifying zero importers; recover from git history if ever needed.
 
 ### Admin Panel (PIM)
 

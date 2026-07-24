@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ArrowRight } from "lucide-react";
+import { categoryService, productService } from "@/lib/productService";
 
 // Local hero showcase images (client/public/images/hero). Each tile cycles
 // through this list with a crossfade + slow Ken Burns zoom so the hero is
@@ -46,18 +47,51 @@ const SLIDES = [
 
 const TILE_COUNT = 4;
 const ROTATE_MS = 4000;
+// The last tile swaps to a live catalogue-stats card once per full rotation
+// cycle (Concept C's "data-driven beat" — docs/STOREFRONT_DESIGN_PROPOSALS.md
+// §2C). Desktop only: on mobile the 2×2 grid stays purely photographic.
+const WILDCARD_TILE = TILE_COUNT - 1;
+const WILDCARD_EVERY = 5;
 
 export default function HeroMotionTiles() {
   // One global step; tile i shows SLIDES[(step + i) % 6], so the four tiles
   // are always showing four different images while the set "conveys" along.
   const [step, setStep] = useState(0);
+  const [stats, setStats] = useState<{
+    products: number;
+    categories: number;
+  } | null>(null);
+  // The wildcard overlay is CSS-hidden below md, but wildcardOn also drives
+  // the tile's href/caption — without this, a mobile tap during the beat
+  // would route to /catalog instead of the visible photo's slide search.
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     const id = setInterval(
-      () => setStep(s => (s + 1) % SLIDES.length),
+      () => setStep(s => (s + 1) % (SLIDES.length * WILDCARD_EVERY)),
       ROTATE_MS
     );
     return () => clearInterval(id);
+  }, []);
+
+  // Live counts for the wildcard tile — the same public calls the rest of
+  // the storefront makes. If either fails, the tile simply never appears.
+  useEffect(() => {
+    Promise.all([productService.countPublished(), categoryService.getAll()])
+      .then(([products, cats]) => {
+        if (products > 0 && cats.length > 0) {
+          setStats({ products, categories: cats.length });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -65,11 +99,24 @@ export default function HeroMotionTiles() {
       {Array.from({ length: TILE_COUNT }, (_, i) => {
         const active = (step + i) % SLIDES.length;
         const slide = SLIDES[active];
+        // Wildcard beat: once per WILDCARD_EVERY rotations, the last tile
+        // shows the stats card instead of a photo — desktop only, gated by
+        // isDesktop (not just CSS) so the href/caption on mobile always
+        // match the visible photo rather than routing to plain /catalog.
+        const wildcardOn =
+          isDesktop &&
+          stats !== null &&
+          i === WILDCARD_TILE &&
+          step % WILDCARD_EVERY === WILDCARD_EVERY - 1;
         return (
           <Link
             key={i}
-            href={`/catalog?search=${encodeURIComponent(slide.search)}`}
-            className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition aspect-[4/3]"
+            href={
+              wildcardOn
+                ? "/catalog"
+                : `/catalog?search=${encodeURIComponent(slide.search)}`
+            }
+            className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-xl motion-safe:hover:-translate-y-0.5 hover:ring-1 hover:ring-white/40 transition aspect-[4/3]"
           >
             {/* Stacked layers — the active one fades in and slowly zooms */}
             {SLIDES.map((s, idx) => (
@@ -85,14 +132,37 @@ export default function HeroMotionTiles() {
               />
             ))}
 
+            {/* Wildcard stats card — overlays the photo on its beat (md+) */}
+            <div
+              aria-hidden={!wildcardOn}
+              className={`xl-hero-crossfade absolute inset-0 hidden md:flex flex-col items-start justify-end gap-1 bg-slate-900/85 p-4 transition-opacity duration-700 ${
+                wildcardOn ? "opacity-100" : "opacity-0 pointer-events-none"
+              }`}
+            >
+              <div className="text-white text-2xl font-extrabold tracking-tight tabular-nums">
+                {stats ? `${stats.products}+` : ""}
+              </div>
+              <div className="text-white/80 text-body-sm font-semibold leading-tight">
+                products across {stats?.categories ?? ""} categories
+              </div>
+              <div className="flex items-center gap-1 text-red-400 text-caption font-bold uppercase tracking-wide mt-1">
+                Browse the catalogue
+                <ArrowRight size={11} />
+              </div>
+            </div>
+
             {/* Caption */}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent pt-8 pb-2.5 px-3">
+            <div
+              className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent pt-8 pb-2.5 px-3 transition-opacity duration-500 ${
+                wildcardOn ? "md:opacity-0" : ""
+              }`}
+            >
               <div className="flex items-end justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="text-white text-[13px] font-bold leading-tight truncate">
+                  <div className="text-white text-body-sm font-bold leading-tight truncate">
                     {slide.label}
                   </div>
-                  <div className="text-white/70 text-[11px] truncate">
+                  <div className="text-white/70 text-caption truncate">
                     {slide.meta}
                   </div>
                 </div>

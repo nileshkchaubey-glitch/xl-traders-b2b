@@ -87,17 +87,9 @@ export default function Home() {
       <Header />
 
       <main className="flex-1 pb-20 md:pb-0">
-        {/* ── HERO ── */}
+        {/* ── HERO — Concept C: quiet wash, no blob glows, tiles are the focal
+            point (docs/STOREFRONT_DESIGN_PROPOSALS.md §2C) ── */}
         <section className="relative overflow-hidden border-b border-slate-100 bg-[radial-gradient(1000px_500px_at_20%_0%,#fef2f2_0%,#ffffff_55%)]">
-          {/* Ambient blobs */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -top-24 -right-24 w-96 h-96 rounded-full bg-red-100/50 blur-3xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -bottom-32 left-1/3 w-80 h-80 rounded-full bg-amber-100/40 blur-3xl"
-          />
           <div className="relative container py-14 md:py-20 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 22 }}
@@ -202,9 +194,9 @@ export default function Home() {
                   <Link
                     key={`${e.label}-${i}`}
                     href={e.href}
-                    className="flex items-center gap-2.5 text-body-sm font-extrabold tracking-wide text-slate-400 hover:text-red-600 transition whitespace-nowrap uppercase"
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-caption font-bold tracking-wide text-slate-500 hover:border-red-300 hover:text-red-600 transition whitespace-nowrap uppercase"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-300" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-300 flex-shrink-0" />
                     {e.label}
                   </Link>
                 ));
@@ -373,38 +365,53 @@ export default function Home() {
           </div>
         </motion.section>
 
-        {/* ── FAQ ── */}
+        {/* ── FAQ — sits on a soft brand-toned mesh wash (touch #8: one
+            gradient accent within the red/amber palette, kept subtle) ── */}
         <motion.section
           {...fadeUp}
-          className="max-w-3xl mx-auto px-4 lg:px-8 py-10 w-full"
+          className="relative py-12 md:py-16 w-full overflow-hidden"
         >
-          <h2 className="text-2xl font-extrabold tracking-tight text-center mb-5">
-            Common Questions
-          </h2>
-          <div className="flex flex-col gap-2.5">
-            {faqs.map((f, i) => (
-              <div
-                key={f.q}
-                className="bg-white border border-slate-200 rounded-xl overflow-hidden"
-              >
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
-                  className="w-full flex items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-left"
-                >
-                  {f.q}
-                  {openFaq === i ? (
-                    <Minus size={16} className="text-slate-400 flex-shrink-0" />
-                  ) : (
-                    <Plus size={16} className="text-slate-400 flex-shrink-0" />
-                  )}
-                </button>
-                {openFaq === i && (
-                  <div className="px-5 pb-4 text-body-sm text-slate-600">
-                    {f.a}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(600px_300px_at_15%_20%,rgb(254_242_242/0.9)_0%,transparent_60%),radial-gradient(500px_280px_at_85%_80%,rgb(255_251_235/0.8)_0%,transparent_60%)]"
+          />
+          <div className="relative container">
+            <div className="max-w-3xl mx-auto">
+              <h2 className="text-2xl font-extrabold tracking-tight text-center mb-5">
+                Common Questions
+              </h2>
+              <div className="flex flex-col gap-2.5">
+                {faqs.map((f, i) => (
+                  <div
+                    key={f.q}
+                    className="bg-white border border-slate-200 rounded-xl overflow-hidden"
+                  >
+                    <button
+                      onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
+                      className="w-full flex items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-left"
+                    >
+                      {f.q}
+                      {openFaq === i ? (
+                        <Minus
+                          size={16}
+                          className="text-slate-400 flex-shrink-0"
+                        />
+                      ) : (
+                        <Plus
+                          size={16}
+                          className="text-slate-400 flex-shrink-0"
+                        />
+                      )}
+                    </button>
+                    {openFaq === i && (
+                      <div className="px-5 pb-4 text-body-sm text-slate-600">
+                        {f.a}
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </motion.section>
 
