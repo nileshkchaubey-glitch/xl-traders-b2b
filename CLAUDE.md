@@ -63,6 +63,16 @@ na_fields TEXT[] DEFAULT '{}',
 specifications JSONB (nullable — not yet populated)
 ```
 
+**Unit of sale — canonical rule (owner decision, 25 Jul 2026):**
+`price` is **the price of ONE SELLING UNIT (the pack / case)**, never a per-piece
+rate. `quantity_in_unit` is descriptive — how many pieces are inside that pack.
+`moq` counts **selling units**, not pieces. The per-piece figure shown on
+ProductCard / ProductDetail is derived (`price ÷ quantity_in_unit`) and is never
+stored. This is what `ProductCard`, `ProductDetail` and `cartStore.getTotal()`
+(`price × quantity`) already assume, and what 131 of the 142 live products follow.
+The 11 `Hinged box` variants were entered per-piece and are being reconciled
+manually by the owner — **do not script, migrate, or bulk-edit that data.**
+
 ### categories
 
 ```
@@ -433,6 +443,33 @@ inquiries, orders, order_items, import_logs, business_settings
   `.scrollbar-hide` utility instead: same visual outcome (no duplicate native scrollbar;
   the sticky bottom bar remains the one visible control) while touch panning, Shift+wheel,
   momentum, and deltaMode normalization stay native. The wheel handler is deleted.
+- **Inline-edit safety (July 2026, PR-A of the 25 Jul 2026 data-entry UX audit —
+  audit doc lives on branch `docs/data-entry-ux-audit`, not yet merged):**
+  data-integrity fixes to the Catalog Editor's inline table editing, ahead of the
+  142-product catalogue cleanup. Component logic only — no service, schema, or storefront
+  change. **A typo in the Price cell no longer wipes the price (DE-01):** the editor was
+  `<input type="number">`, and a number input reports `value === ""` for anything the
+  browser can't parse, so `abc` arrived at `commitEdit` as blank → NULL → "On Enquiry",
+  with the existing `isNaN` guard unreachable for that input type. The numeric editor is
+  now `type="text"` + `inputMode="decimal"`, and validation moved into a pure
+  `validateEdit()` that refuses blank, non-numeric (`Number()` not `parseFloat`, so
+  `12abc` is rejected instead of saving as 12) and `<= 0`. **"On Enquiry" is now only
+  reachable via the deliberate toggle in `CatalogProductPanel` — a price can no longer be
+  cleared to enquiry from the table.** **Dropped keystroke (DE-04):** `InlineInput` focused
+  via `setTimeout(focus, 20)`, leaving the input mounted-but-unfocused for ~20ms;
+  `autoFocus` lands before paint instead. **Double save on every Enter/Tab (found in
+  review, not in the audit):** `handleGridKeyDown` called `commitEdit()` then moved DOM
+  focus, and that focus change fired the editor's `onBlur` → a second commit from the same
+  render's closure (where `cellEdit` was still set and `products` still pre-patch, so
+  neither the null-check nor the no-op guard caught it) → two `productService.update()`
+  calls and two toasts per keyboard commit; guarded with `committingRef`. The key handler
+  now validates synchronously *before* advancing, so a refused value holds the cursor for
+  correction and the error toast fires once; `commitEdit()` is still unawaited so the
+  cursor moves at typing speed. **Save feedback (DE-02):** the `toast.success("Saved")`
+  did already exist (contrary to the audit's reading) — added Undo on it (same pattern
+  `handleTogglePublish` uses) plus a 1.2s row pulse, and a failed save now reverts only the
+  affected row instead of `loadProducts()`, which used to discard every other edit in
+  flight. `toggleAvailability` gets the same treatment; it had no success feedback at all.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
