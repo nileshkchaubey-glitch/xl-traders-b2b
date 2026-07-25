@@ -826,9 +826,11 @@ export function DataTable<T>({
             ref={bottomScrollRef}
             onScroll={handleBottomScroll}
             aria-hidden="true"
-            className="sticky bottom-0 z-20 h-4 overflow-x-auto overflow-y-hidden rounded-b-xl border border-slate-200 bg-white"
+            className="sticky bottom-0 z-20 min-h-11 flex items-center overflow-x-auto overflow-y-hidden rounded-b-xl border border-slate-200 bg-white"
           >
-            <div style={{ width: Math.max(naturalTotal, containerWidth), height: 1 }} />
+            <div className="h-4 w-full">
+              <div style={{ width: Math.max(naturalTotal, containerWidth), height: 1 }} />
+            </div>
           </div>
         )}
       </div>
