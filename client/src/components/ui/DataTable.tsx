@@ -451,37 +451,6 @@ export function DataTable<T>({
     wrapRef.current.scrollLeft = bottom.scrollLeft;
   };
 
-  // The sticky scrollbar is the sole user-facing horizontal control. The table
-  // viewport still needs to be a scroll container (rather than a translated
-  // inner element) so CSS sticky left/right columns keep their native
-  // behaviour, but it no longer exposes a second native scrollbar. Preserve
-  // the old Shift+wheel / horizontal-wheel interaction by routing it through
-  // that same viewport scroll position.
-  const handleViewportWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    containerProps?.onWheel?.(event);
-    if (
-      event.defaultPrevented ||
-      !hasHorizontalOverflow ||
-      !wrapRef.current
-    ) {
-      return;
-    }
-
-    const horizontalDelta = event.deltaX || (event.shiftKey ? event.deltaY : 0);
-    if (!horizontalDelta) return;
-
-    event.preventDefault();
-    const viewport = wrapRef.current;
-    const next = Math.max(
-      0,
-      Math.min(
-        viewport.scrollLeft + horizontalDelta,
-        viewport.scrollWidth - viewport.clientWidth
-      )
-    );
-    viewport.scrollLeft = next;
-  };
-
   // Prefer a column the consumer marked meta.flex (Description, typically);
   // otherwise spread the extra proportionally across non-sticky columns so a
   // consumer that hasn't opted in still gets a filled-out table.
@@ -645,8 +614,11 @@ export function DataTable<T>({
             containerProps?.onScroll?.(e);
             handleMainScroll();
           }}
-          onWheel={handleViewportWheel}
-          className={`bg-white border border-slate-200 overflow-x-hidden focus:outline-none ${
+          // The viewport keeps native overflow-x (touch panning, Shift+wheel,
+          // deltaMode normalization, momentum all come for free) but hides its
+          // own scrollbar — the sticky bottom bar below is the single visible
+          // horizontal control.
+          className={`bg-white border border-slate-200 overflow-x-auto scrollbar-hide focus:outline-none ${
             hasHorizontalOverflow ? "rounded-t-xl border-b-0" : "rounded-xl"
           } ${containerProps?.className ?? ""}`}
         >
@@ -854,9 +826,11 @@ export function DataTable<T>({
             ref={bottomScrollRef}
             onScroll={handleBottomScroll}
             aria-hidden="true"
-            className="sticky bottom-0 z-20 h-4 overflow-x-auto overflow-y-hidden rounded-b-xl border border-slate-200 bg-white"
+            className="sticky bottom-0 z-20 min-h-11 flex items-center overflow-x-auto overflow-y-hidden rounded-b-xl border border-slate-200 bg-white"
           >
-            <div style={{ width: Math.max(naturalTotal, containerWidth), height: 1 }} />
+            <div className="h-4 w-full">
+              <div style={{ width: Math.max(naturalTotal, containerWidth), height: 1 }} />
+            </div>
           </div>
         )}
       </div>
