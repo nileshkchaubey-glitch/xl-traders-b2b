@@ -57,7 +57,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu";
 import {
   CommandDialog,
   CommandInput,
@@ -117,7 +120,11 @@ const SORT_FIELD: Record<string, "name" | "price" | "updated_at"> = {
 // count). The full 8-dimension set is reachable via the "Missing…" dropdown —
 // both drive the same `activeMissing` state, whose truth lives in
 // v_product_health (via catalogHealth's ATTENTION_FIELD map — no logic here).
-const QUICK_MISSING: MissingFilter[] = ["no-price", "no-description", "no-image"];
+const QUICK_MISSING: MissingFilter[] = [
+  "no-price",
+  "no-description",
+  "no-image",
+];
 
 // Status filter options — mirrors AdminProducts' StatusFilter exactly.
 const STATUS_OPTIONS: { value: AdminStatusFilter; label: string }[] = [
@@ -148,7 +155,12 @@ const SAVED_VIEWS: SavedView[] = [
   { id: "all", label: "All", status: "all", missing: null },
   { id: "published", label: "Published", status: "published", missing: null },
   { id: "draft", label: "Draft", status: "draft", missing: null },
-  { id: "unavailable", label: "Unavailable", status: "inactive", missing: null },
+  {
+    id: "unavailable",
+    label: "Unavailable",
+    status: "inactive",
+    missing: null,
+  },
   {
     id: "needs-attention",
     label: "Needs attention",
@@ -221,8 +233,7 @@ function healthTone(h: CategoryHealth | undefined): {
   cls: string;
   title: string;
 } {
-  if (!h || h.total === 0)
-    return { cls: "bg-slate-300", title: "No products" };
+  if (!h || h.total === 0) return { cls: "bg-slate-300", title: "No products" };
   if (h.incomplete === 0)
     return { cls: "bg-emerald-500", title: "All complete" };
   const ratio = h.incomplete / h.total;
@@ -303,9 +314,8 @@ export default function CatalogTreeEditor({
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<AdminStatusFilter>("all");
-  const [activeMissing, setActiveMissing] = useState<ActiveMissing>(
-    attentionFilter
-  );
+  const [activeMissing, setActiveMissing] =
+    useState<ActiveMissing>(attentionFilter);
   // Live counts for the quick chips (scoped to the current node).
   const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
   // Current DataTable density, mirrored here so cell renderers (thumbnail
@@ -415,7 +425,8 @@ export default function CatalogTreeEditor({
   // pure reads against v_product_health, no missing-logic re-derived here.
   const resolveMissingIds = (m: ActiveMissing): Promise<string[]> | null => {
     if (m === "any") return healthService.getIdsIncomplete(scopedCategoryIds);
-    if (m) return healthService.getIdsMissing(ATTENTION_FIELD[m], scopedCategoryIds);
+    if (m)
+      return healthService.getIdsMissing(ATTENTION_FIELD[m], scopedCategoryIds);
     return null;
   };
 
@@ -473,9 +484,10 @@ export default function CatalogTreeEditor({
   // action row's flex-wrap makes its height vary with viewport width.
   const bulkBarRef = useRef<HTMLDivElement>(null);
   const [bulkBarHeight, setBulkBarHeight] = useState(0);
-  const [focused, setFocused] = useState<{ id: string; field: EditField } | null>(
-    null
-  );
+  const [focused, setFocused] = useState<{
+    id: string;
+    field: EditField;
+  } | null>(null);
   const editableFields = useMemo<EditField[]>(() => {
     const f: EditField[] = ["name"];
     if (visibleColIds.includes("price")) f.push("price");
@@ -488,7 +500,11 @@ export default function CatalogTreeEditor({
     field: EditField,
     current: string | number | null | undefined
   ) => {
-    setCellEdit({ productId, field, value: current == null ? "" : String(current) });
+    setCellEdit({
+      productId,
+      field,
+      value: current == null ? "" : String(current),
+    });
     setFocused({ id: productId, field });
   };
   const cancelEdit = () => setCellEdit(null);
@@ -561,7 +577,8 @@ export default function CatalogTreeEditor({
         break;
       case "Enter": {
         const prod = products.find(p => p.id === focused.id);
-        if (prod) startEdit(prod.id, focused.field, fieldValue(prod, focused.field));
+        if (prod)
+          startEdit(prod.id, focused.field, fieldValue(prod, focused.field));
         break;
       }
     }
@@ -615,7 +632,9 @@ export default function CatalogTreeEditor({
   const handlePaletteSelectProduct = async (id: string) => {
     setPaletteOpen(false);
     try {
-      const full = await productService.getById(id, { includeUnpublished: true });
+      const full = await productService.getById(id, {
+        includeUnpublished: true,
+      });
       if (full) setPanelProduct(full);
       else toast.error("Product not found");
     } catch {
@@ -991,8 +1010,9 @@ export default function CatalogTreeEditor({
     }
     const labels = naSelected.map(f => NA_FIELD_LABELS[f] ?? f).join(", ");
     setNaDialogOpen(false);
-    runBulk(c => `${on ? "Mark" : "Clear"} N/A (${labels}) for ${c} products?`, ids =>
-      productService.bulkSetNA(ids, naSelected, on)
+    runBulk(
+      c => `${on ? "Mark" : "Clear"} N/A (${labels}) for ${c} products?`,
+      ids => productService.bulkSetNA(ids, naSelected, on)
     ).then(ok => {
       if (ok) setNaSelected([]);
     });
@@ -1055,7 +1075,8 @@ export default function CatalogTreeEditor({
   // only the single-row status flip AdminProducts used to expose didn't survive
   // Phase 2b's removal, so it's re-added here the same way.
   const handleTogglePublish = async (prod: Product) => {
-    const next: ProductStatus = prod.status === "published" ? "draft" : "published";
+    const next: ProductStatus =
+      prod.status === "published" ? "draft" : "published";
     setProducts(prev =>
       prev.map(p => (p.id === prod.id ? { ...p, status: next } : p))
     );
@@ -1068,7 +1089,9 @@ export default function CatalogTreeEditor({
           label: "Undo",
           onClick: async () => {
             setProducts(prev =>
-              prev.map(p => (p.id === prod.id ? { ...p, status: prod.status } : p))
+              prev.map(p =>
+                p.id === prod.id ? { ...p, status: prod.status } : p
+              )
             );
             try {
               await productService.update(prod.id, { status: prod.status });
@@ -1091,7 +1114,11 @@ export default function CatalogTreeEditor({
   };
 
   const handleViewLive = (prod: Product) => {
-    window.open(`${window.location.origin}/product/${prod.id}`, "_blank", "noopener,noreferrer");
+    window.open(
+      `${window.location.origin}/product/${prod.id}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
 
   const handleCopyName = async (prod: Product) => {
@@ -1249,7 +1276,11 @@ export default function CatalogTreeEditor({
   // Richer, Shopify-style empty state: a true "nothing here yet" (All
   // Products, no filters, zero rows) gets a CTA; a filtered-to-zero result
   // gets a "clear filters" escape hatch instead.
-  const hasActiveFilters = !!(activeMissing || statusFilter !== "all" || search);
+  const hasActiveFilters = !!(
+    activeMissing ||
+    statusFilter !== "all" ||
+    search
+  );
   const emptyState =
     selection.kind === "all" && !hasActiveFilters ? (
       <div className="flex flex-col items-center gap-3 py-6">
@@ -1365,7 +1396,11 @@ export default function CatalogTreeEditor({
       <Item onClick={() => handleCopyName(p)} className="gap-2">
         <Copy className="w-3.5 h-3.5" /> Copy name
       </Item>
-      <Item onClick={() => handleCopySku(p)} disabled={!p.sku} className="gap-2">
+      <Item
+        onClick={() => handleCopySku(p)}
+        disabled={!p.sku}
+        className="gap-2"
+      >
         <Copy className="w-3.5 h-3.5" /> Copy SKU
       </Item>
       <Separator />
@@ -1453,9 +1488,13 @@ export default function CatalogTreeEditor({
             <button
               onClick={() => handleToggleFeatured(p)}
               className={`flex-shrink-0 p-1 rounded-md hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
-                p.is_featured ? "text-amber-500" : "text-slate-300 hover:text-slate-400"
+                p.is_featured
+                  ? "text-amber-500"
+                  : "text-slate-300 hover:text-slate-400"
               }`}
-              title={p.is_featured ? "Featured — click to unfeature" : "Feature"}
+              title={
+                p.is_featured ? "Featured — click to unfeature" : "Feature"
+              }
             >
               <Star
                 className="w-3.5 h-3.5"
@@ -1752,7 +1791,9 @@ export default function CatalogTreeEditor({
             <FolderTree className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Catalog Editor</h1>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Catalog Editor
+            </h1>
             <p className="text-slate-400 text-xs mt-0.5">
               Browse by group &amp; category, edit inline, fix what's missing.
             </p>
@@ -1825,7 +1866,9 @@ export default function CatalogTreeEditor({
             "any" (Needs attention tab) has no single matching item here — it
             falls back to the placeholder rather than a phantom selection. */}
         <Select
-          value={activeMissing && activeMissing !== "any" ? activeMissing : "none"}
+          value={
+            activeMissing && activeMissing !== "any" ? activeMissing : "none"
+          }
           onValueChange={v =>
             applyMissing(v === "none" ? null : (v as MissingFilter))
           }
@@ -1897,7 +1940,9 @@ export default function CatalogTreeEditor({
               {ATTENTION_LABELS[f]}
               <span
                 className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full px-1 text-[11px] font-semibold ${
-                  active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                  active
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-100 text-slate-500"
                 }`}
               >
                 {count}
@@ -2138,7 +2183,9 @@ export default function CatalogTreeEditor({
                     >
                       <HealthDot health={groupHealth(g)} />
                       <span className="flex-1 truncate">{g.name}</span>
-                      <span className="text-xs opacity-70">{groupCount(g)}</span>
+                      <span className="text-xs opacity-70">
+                        {groupCount(g)}
+                      </span>
                     </button>
                   </div>
 
@@ -2247,9 +2294,11 @@ export default function CatalogTreeEditor({
           onValueChange={setPaletteQuery}
         />
         <CommandList>
-          {paletteQuery.trim() && !paletteLoading && paletteResults.length === 0 && (
-            <CommandEmpty>No products found.</CommandEmpty>
-          )}
+          {paletteQuery.trim() &&
+            !paletteLoading &&
+            paletteResults.length === 0 && (
+              <CommandEmpty>No products found.</CommandEmpty>
+            )}
           {paletteResults.length > 0 && (
             <CommandGroup heading="Products">
               {paletteResults.map(p => (
@@ -2265,7 +2314,9 @@ export default function CatalogTreeEditor({
                     {p.variant_label ? ` — ${p.variant_label}` : ""}
                   </span>
                   {p.sku && (
-                    <span className="text-xs font-mono text-slate-400">{p.sku}</span>
+                    <span className="text-xs font-mono text-slate-400">
+                      {p.sku}
+                    </span>
                   )}
                   {p.status === "draft" && (
                     <span className="text-[10px] uppercase font-semibold text-amber-600">
@@ -2321,8 +2372,8 @@ export default function CatalogTreeEditor({
             <DialogTitle>Mark fields “Not applicable”</DialogTitle>
             <DialogDescription>
               Pick which fields don’t apply to {selectionCount.toLocaleString()}{" "}
-              selected product{selectionCount === 1 ? "" : "s"}. Marking N/A stops
-              these from showing as “missing data”.
+              selected product{selectionCount === 1 ? "" : "s"}. Marking N/A
+              stops these from showing as “missing data”.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-2">
