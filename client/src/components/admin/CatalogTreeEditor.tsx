@@ -474,6 +474,36 @@ export default function CatalogTreeEditor({
   // ── Inline cell editing ──────────────────────────────────────────────────────
   const [cellEdit, setCellEdit] = useState<CellEdit | null>(null);
 
+  // Guards commitEdit against re-entry with stale state. Enter/Tab call
+  // commitEdit() and then move DOM focus to the grid; that focus change fires
+  // the editor's onBlur, which commits a second time from the same render's
+  // closure — where `cellEdit` is still set and `products` is still pre-patch,
+  // so neither the null-check nor the no-op guard catches it. The result was
+  // two productService.update() calls (and two toasts) per keyboard commit.
+  const committingRef = useRef(false);
+
+  // Row-level "saved" pulse. A transient bottom-right toast was the only signal
+  // an inline edit committed, which looks identical to nothing happening when
+  // your eyes are on the cell you just left.
+  const [flashRows, setFlashRows] = useState<Set<string>>(new Set());
+  const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const flashSaved = (id: string) => {
+    setFlashRows(prev => new Set(prev).add(id));
+    clearTimeout(flashTimers.current[id]);
+    flashTimers.current[id] = setTimeout(() => {
+      setFlashRows(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      delete flashTimers.current[id];
+    }, 1200);
+  };
+  useEffect(() => {
+    const timers = flashTimers.current;
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, []);
+
   // Focused cell for keyboard navigation (independent of the edit state).
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -532,15 +562,20 @@ export default function CatalogTreeEditor({
   // editing, saves and drops down), Tab saves and moves right, Esc cancels.
   const handleGridKeyDown = (e: React.KeyboardEvent) => {
     if (cellEdit) {
-      if (e.key === "Enter") {
+      // Validate before advancing. commitEdit() is fired without awaiting so the
+      // cursor moves at typing speed rather than at network speed, but a value
+      // the grid would refuse must hold the cursor in place for correction —
+      // otherwise Enter looks like it saved and quietly moved on.
+      if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
+        const result = validateEdit(cellEdit.field, cellEdit.value);
+        if ("error" in result) {
+          toast.error(result.error);
+          return;
+        }
         commitEdit();
-        moveFocus(1, 0);
-        gridRef.current?.focus();
-      } else if (e.key === "Tab") {
-        e.preventDefault();
-        commitEdit();
-        moveFocus(0, e.shiftKey ? -1 : 1);
+        if (e.key === "Enter") moveFocus(1, 0);
+        else moveFocus(0, e.shiftKey ? -1 : 1);
         gridRef.current?.focus();
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -657,11 +692,84 @@ export default function CatalogTreeEditor({
     setTimeout(() => addNameRef.current?.focus(), 50);
   };
 
+  // Restores one field to a prior value — backs the Undo action on every inline
+  // save toast. Writes through the same service method the save did, so an undo
+  // is just another tracked edit rather than a special path.
+  const undoCellEdit = async (
+    productId: string,
+    field: keyof Product,
+    previous: unknown
+  ) => {
+    setProducts(prev =>
+      prev.map(p => (p.id === productId ? { ...p, [field]: previous } : p))
+    );
+    try {
+      await productService.update(productId, {
+        [field]: previous,
+      } as Partial<Product>);
+      toast.success("Undone");
+      loadAggregates();
+      loadChipCounts();
+    } catch {
+      toast.error("Undo failed");
+      loadProducts();
+    }
+  };
+
+  // Validates a pending edit without touching the network. Returns the patch to
+  // persist, or a message explaining why the value is refused.
+  //
+  // Split out of commitEdit so the grid's Enter/Tab handler can decide whether
+  // to advance the cursor *before* the save round-trip: a rejected value must
+  // keep focus in the editor for correction rather than silently moving on, and
+  // it must not fire the same toast twice (once from the key handler, once from
+  // the blur the focus move causes).
+  const validateEdit = (
+    field: EditField,
+    value: string
+  ): { patch: Record<string, unknown> } | { error: string } => {
+    if (field === "price") {
+      const t = value.trim();
+      // Blank no longer coerces to NULL. "On Enquiry" is a deliberate business
+      // decision with its own toggle in the product panel — it must not be
+      // reachable by clearing a cell, and (before this) a typo reached here as
+      // blank too, because the editor was type="number". See InlineInput.
+      if (t === "")
+        return {
+          error:
+            'Price can\'t be blank — use the "Price on enquiry" toggle in the product panel',
+        };
+      // Number() (not parseFloat) so trailing junk like "12abc" is rejected
+      // outright instead of silently saving as 12.
+      const n = Number(t);
+      if (!Number.isFinite(n))
+        return { error: "Enter a valid price — numbers only" };
+      if (n <= 0)
+        return {
+          error:
+            'Price must be more than ₹0 — use the "Price on enquiry" toggle instead',
+        };
+      return { patch: { price: n } };
+    }
+    if (field === "name") {
+      const t = value.trim();
+      if (!t) return { error: "Name can't be empty" };
+      return { patch: { name: t } };
+    }
+    return { patch: { description: value.trim() || null } };
+  };
+
   // Persist one field via productService (service layer only) with an optimistic
-  // row patch. Blank price → NULL ("On Enquiry"), never 0. Tree aggregates are
-  // refreshed since completeness (and thus a category's health dot) can change.
+  // row patch. Tree aggregates are refreshed since completeness (and thus a
+  // category's health dot) can change.
+  //
+  // An invalid value here means the editor is being dismissed by blur (a click
+  // elsewhere) rather than by Enter/Tab — the keyboard path validates first and
+  // never gets this far. In that case the input is discarded and the stored
+  // value is left untouched, which is the whole point: a typo must never
+  // overwrite a real price.
   const commitEdit = async () => {
-    if (!cellEdit) return;
+    if (!cellEdit || committingRef.current) return;
     const { productId, field, value } = cellEdit;
     const prod = products.find(p => p.id === productId);
     if (!prod) {
@@ -669,27 +777,13 @@ export default function CatalogTreeEditor({
       return;
     }
 
-    const patch: Record<string, unknown> = {};
-    if (field === "price") {
-      const t = value.trim();
-      const n = t === "" ? null : parseFloat(t);
-      if (n !== null && isNaN(n)) {
-        toast.error("Enter a valid price");
-        return;
-      }
-      // Blank / 0 / negative all mean "on enquiry" → NULL, never a stored ₹0
-      // (shared rule with the storefront — see lib/priceUtils.ts).
-      patch.price = isPriceOnEnquiry(n) ? null : n;
-    } else if (field === "name") {
-      const t = value.trim();
-      if (!t) {
-        toast.error("Name can't be empty");
-        return;
-      }
-      patch.name = t;
-    } else {
-      patch.description = value.trim() || null;
+    const result = validateEdit(field, value);
+    if ("error" in result) {
+      toast.error(result.error, { description: "Nothing was saved." });
+      setCellEdit(null);
+      return;
     }
+    const { patch } = result;
 
     // No-op guard
     const current = (prod as unknown as Record<string, unknown>)[field] ?? "";
@@ -699,18 +793,33 @@ export default function CatalogTreeEditor({
       return;
     }
 
+    const previous =
+      (prod as unknown as Record<string, unknown>)[field] ?? null;
     setProducts(prev =>
       prev.map(p => (p.id === productId ? { ...p, ...patch } : p))
     );
     setCellEdit(null);
+    committingRef.current = true;
     try {
       await productService.update(productId, patch as Partial<Product>);
-      toast.success("Saved");
+      flashSaved(productId);
+      toast.success("Saved", {
+        action: {
+          label: "Undo",
+          onClick: () => undoCellEdit(productId, field, previous),
+        },
+      });
       loadAggregates();
       loadChipCounts();
     } catch {
-      toast.error("Save failed");
-      loadProducts();
+      // Revert just this row. A full loadProducts() here would also throw away
+      // every other edit still in flight elsewhere on the page.
+      setProducts(prev =>
+        prev.map(p => (p.id === productId ? { ...p, [field]: previous } : p))
+      );
+      toast.error("Save failed — change reverted");
+    } finally {
+      committingRef.current = false;
     }
   };
 
@@ -722,9 +831,20 @@ export default function CatalogTreeEditor({
     );
     try {
       await productService.update(prod.id, { is_active: next });
+      flashSaved(prod.id);
+      // Same Undo-on-toast pattern handleTogglePublish uses — a one-click
+      // reversible flip needs feedback, not a confirm dialog.
+      toast.success(next ? "Marked available" : "Marked unavailable", {
+        action: {
+          label: "Undo",
+          onClick: () => undoCellEdit(prod.id, "is_active", !next),
+        },
+      });
     } catch {
-      toast.error("Update failed");
-      loadProducts();
+      setProducts(prev =>
+        prev.map(p => (p.id === prod.id ? { ...p, is_active: !next } : p))
+      );
+      toast.error("Update failed — change reverted");
     }
   };
 
@@ -1599,7 +1719,7 @@ export default function CatalogTreeEditor({
       cell: ({ row }) => {
         const p = row.original;
         return editingHere(p.id, "price") ? (
-          <InlineInput {...editorProps} numeric placeholder="blank = enquiry" />
+          <InlineInput {...editorProps} numeric placeholder="e.g. 4450" />
         ) : (
           <button
             onClick={() => startEdit(p.id, "price", p.price)}
@@ -2260,6 +2380,11 @@ export default function CatalogTreeEditor({
             }}
             containerRef={gridRef}
             containerProps={{ tabIndex: 0, onKeyDown: handleGridKeyDown }}
+            rowClassName={p =>
+              flashRows.has(p.id)
+                ? "bg-emerald-50/70 transition-colors duration-500"
+                : "transition-colors duration-500"
+            }
             rowContextMenu={p =>
               renderRowMenuItems(p, ContextMenuItem, ContextMenuSeparator)
             }
@@ -2439,6 +2564,14 @@ const RED_CELL = "bg-red-50/70";
 // Auto-focusing inline editor. Blur always commits. In `managed` mode the
 // enclosing grid owns Enter/Tab/Escape (so it can save-and-move); otherwise the
 // input handles Enter (commit) / Escape (cancel) itself.
+//
+// `numeric` is deliberately NOT `type="number"`. A number input reports
+// `value === ""` for anything the browser can't parse, so typing "abc" into a
+// price cell arrived at commitEdit as blank — indistinguishable from a
+// deliberately cleared field, which means "On Enquiry". The typo silently wiped
+// a real price and commitEdit's isNaN guard could never fire. Plain text +
+// inputMode="decimal" keeps the numeric keypad on mobile while letting the raw
+// string reach commitEdit, where it can actually be rejected.
 function InlineInput({
   value,
   onChange,
@@ -2456,16 +2589,14 @@ function InlineInput({
   placeholder?: string;
   managed?: boolean;
 }) {
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    const t = setTimeout(() => ref.current?.focus(), 20);
-    return () => clearTimeout(t);
-  }, []);
   return (
     <input
-      ref={ref}
-      type={numeric ? "number" : "text"}
-      step={numeric ? "0.01" : undefined}
+      // autoFocus lands before the browser paints. The previous
+      // setTimeout(focus, 20) left the input mounted-but-unfocused for ~20ms,
+      // so keystrokes in that window went to the document instead of the cell.
+      autoFocus
+      type="text"
+      inputMode={numeric ? "decimal" : undefined}
       value={value}
       placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
