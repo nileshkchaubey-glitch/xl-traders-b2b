@@ -41,7 +41,9 @@ import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -205,6 +207,24 @@ type TreeSelection =
   | { kind: "group"; group: string }
   | { kind: "category"; categoryId: string };
 
+// The selected node persists to the URL so a refresh — or a shared link —
+// reopens the same scope. Encoded as `all` | `g:<group name>` | `c:<uuid>`;
+// URLSearchParams handles the escaping, so group names with spaces are fine.
+const NODE_PARAM = "catNode";
+
+function serializeNode(sel: TreeSelection): string | null {
+  if (sel.kind === "all") return null;
+  return sel.kind === "group" ? `g:${sel.group}` : `c:${sel.categoryId}`;
+}
+
+function parseNode(raw: string | null): TreeSelection {
+  if (!raw) return { kind: "all" };
+  if (raw.startsWith("g:")) return { kind: "group", group: raw.slice(2) };
+  if (raw.startsWith("c:"))
+    return { kind: "category", categoryId: raw.slice(2) };
+  return { kind: "all" };
+}
+
 // Categories with no group_name are bucketed under this label so they are still
 // reachable in the tree (the storefront hides them; the editor must not).
 const UNGROUPED = "Ungrouped";
@@ -313,8 +333,12 @@ export default function CatalogTreeEditor({
   const [visibleColIds, setVisibleColIds] = useState<string[]>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  // Tree state
-  const [selection, setSelection] = useState<TreeSelection>({ kind: "all" });
+  // Tree state. The selected node is the ONE scope filter — the tree (table
+  // mode) and the Workbench's category picker both drive this same state, so
+  // there is no parallel filtering system.
+  const [selection, setSelection] = useState<TreeSelection>(() =>
+    parseNode(new URLSearchParams(window.location.search).get(NODE_PARAM))
+  );
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Per-category / per-group aggregates for the tree.
@@ -348,6 +372,20 @@ export default function CatalogTreeEditor({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
+  // Same pattern for the selected node. Separate effects are safe because
+  // history.replaceState updates window.location synchronously, so whichever
+  // runs second reads the first one's write.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const encoded = serializeNode(selection);
+    if (encoded) params.set(NODE_PARAM, encoded);
+    else params.delete(NODE_PARAM);
+    setLocation(`${window.location.pathname}?${params.toString()}`, {
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
 
   // Ids the health view considers incomplete, scoped to the current node —
   // drives the Workbench list's per-product readiness marker. Straight from
@@ -1996,6 +2034,45 @@ export default function CatalogTreeEditor({
             className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
           />
         </div>
+        {/* Focus mode — the Workbench has no tree beside it (four panes crushed
+            the fields pane), so the scope picker lives here instead. It writes
+            the SAME `selection` state the tree does, so the queue, the counter
+            and every chip count stay scoped by one mechanism. */}
+        {mode === "workbench" && (
+          <Select
+            value={serializeNode(selection) ?? "all"}
+            onValueChange={v => setSelection(parseNode(v === "all" ? null : v))}
+          >
+            <SelectTrigger
+              className={`w-56 h-9 border-slate-200 text-sm ${
+                selection.kind === "all"
+                  ? "bg-slate-50"
+                  : "bg-red-50 border-red-200 text-red-800 font-semibold"
+              }`}
+              title="Scope the queue to one group or category"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-80">
+              <SelectItem value="all">
+                All products ({allCount.toLocaleString()})
+              </SelectItem>
+              {groups.map(g => (
+                <SelectGroup key={g.name}>
+                  <SelectLabel>{g.name}</SelectLabel>
+                  <SelectItem value={`g:${g.name}`}>
+                    Everything in {g.name} ({groupCount(g)})
+                  </SelectItem>
+                  {g.categories.map(c => (
+                    <SelectItem key={c.id} value={`c:${c.id}`}>
+                      {c.name} ({counts[c.id] ?? 0})
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select
           value={statusFilter}
           onValueChange={v => setStatusFilter(v as AdminStatusFilter)}
@@ -2385,15 +2462,20 @@ export default function CatalogTreeEditor({
 
         {/* Right: product table (Table mode) or the Workbench (Workbench mode) */}
         <div className="flex-1 min-w-0 w-full">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h2 className="text-sm font-semibold text-slate-700 truncate">
-              {scopeTitle}
-              <span className="ml-2 text-xs font-normal text-slate-400">
-                {totalCount.toLocaleString()} product
-                {totalCount === 1 ? "" : "s"}
-              </span>
-            </h2>
-          </div>
+          {/* The Workbench's queue pane already carries the scope title and the
+              N / total counter, and every row above it costs the locked shell
+              image height — so this header is table-mode only. */}
+          {mode === "table" && (
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h2 className="text-sm font-semibold text-slate-700 truncate">
+                {scopeTitle}
+                <span className="ml-2 text-xs font-normal text-slate-400">
+                  {totalCount.toLocaleString()} product
+                  {totalCount === 1 ? "" : "s"}
+                </span>
+              </h2>
+            </div>
+          )}
 
           {mode === "workbench" ? (
             <CatalogWorkbench

@@ -199,7 +199,7 @@ inquiries, orders, order_items, import_logs, business_settings
     sole focal point against a quiet gradient wash. `HeroMotionTiles` gains a **wildcard
     beat** (desktop only): once every 5 rotations the last tile swaps its photo for a
     live stats card (`{published product count}+ products across {category count}
-    categories` → links to `/catalog`), sourced from the same public
+categories` → links to `/catalog`), sourced from the same public
     `productService.countPublished()` / `categoryService.getAll()` calls used elsewhere;
     silently absent if either call fails or returns 0, mobile stays purely photographic
     via `hidden md:flex`. Tiles gain a `hover:ring-1 hover:ring-white/40` + motion-safe
@@ -265,7 +265,7 @@ inquiries, orders, order_items, import_logs, business_settings
     variants + per-variant full-editor link, add/delete). All bottom sheets use the one vaul
     `Drawer` primitive (`ui/drawer`, swipe-to-close); 44px+ targets throughout.
 - **Catalog Tree Editor (Phase 1 of 3):** `/admin` → **Catalog Editor** tab — an
-  *additional* editing surface beside the Products table (does not replace it). Left
+  _additional_ editing surface beside the Products table (does not replace it). Left
   collapsible Group › Category tree (real `group_name`s; ungrouped bucket) with per-node
   product counts + health dots (green/amber/red from `healthService.getCategoryHealth`, a
   `v_product_health` rollup); selecting a node filters the main table server-side via
@@ -333,9 +333,9 @@ inquiries, orders, order_items, import_logs, business_settings
   actions (Go to Orders/Enquiries/Masters/Site Content, Add product). Scoped to the Catalog
   Editor tab (not app-wide) — a documented judgment call, since `panelProduct` state lives there;
   `AdminDashboard` passes `onTabChange` down for the sibling-tab nav actions. No new deps (`cmdk`
-  + the Radix context-menu/dropdown-menu primitives were already in `package.json`); mobile admin
-  gets the same row menu/"⋯" button/floating bar (all already responsive) — the palette is a
-  keyboard shortcut, so it's reachable but not the primary mobile interaction pattern.
+  - the Radix context-menu/dropdown-menu primitives were already in `package.json`); mobile admin
+    gets the same row menu/"⋯" button/floating bar (all already responsive) — the palette is a
+    keyboard shortcut, so it's reachable but not the primary mobile interaction pattern.
 - **Admin polish Phase C — column resize (July 2026):** `<DataTable>` gains TanStack's built-in
   column resizing (fulfills the DataTable contract's item #3, previously `[deferred]`) —
   `columnResizeMode: "onChange"` for a live drag preview, a thin drag handle on the right edge
@@ -386,7 +386,7 @@ inquiries, orders, order_items, import_logs, business_settings
   required reopening the menu. Swapped for `DropdownMenuCheckboxItem` (already in
   `ui/dropdown-menu.tsx`, unused until now): proper `role="menuitemcheckbox"` semantics,
   and `onSelect={e => e.preventDefault()}` keeps the menu open so multiple columns can be
-  checked in one pass. No column-visibility *state* bug was found — `columnVisibility` and
+  checked in one pass. No column-visibility _state_ bug was found — `columnVisibility` and
   the render were always in sync once React finished a render pass; the dead-space bug
   (columns scrolled out of the container to the right of a sticky Name column) is the far
   more likely explanation for what looked like "selected columns not rendering."
@@ -412,7 +412,7 @@ inquiries, orders, order_items, import_logs, business_settings
   border-separator treatment sticky-left already has, computed the same way —
   offsets walked from the right edge, accumulating only for stickyRight
   columns so hidden/shown columns in between don't disturb the pinning.
-  `score`/`updated` (hidden by default) were reordered to sit *before* Status
+  `score`/`updated` (hidden by default) were reordered to sit _before_ Status
   in the column array rather than between Status and Actions — CSS sticky can
   only hold a pinned column flush against another pinned one up to how far
   you've actually scrolled, so a non-sticky column wedged between two
@@ -438,12 +438,12 @@ inquiries, orders, order_items, import_logs, business_settings
   optional columns are shown; sticky-left Name unaffected; Description never
   exceeds its cap; the bottom scrollbar drags the main table and vice versa.
   Screenshots `docs/screenshots/catalog-editor-{sticky-right-1440,
-  sticky-right-many-cols,flex-cap-1920}.png`.
+sticky-right-many-cols,flex-cap-1920}.png`.
 - **DataTable viewport scroll fix (July 2026):** PR #115 had switched the `<DataTable>`
   viewport from `overflow-x-auto` to `overflow-x-hidden` plus a manual `onWheel` handler
   (sticky bottom bar as sole horizontal control). That silently broke touch panning —
   `overflow-x: hidden` disables native swipe-to-scroll and the handler only covered wheel
-  events — which matters because the Catalog Editor is also the *mobile* products surface;
+  events — which matters because the Catalog Editor is also the _mobile_ products surface;
   the handler's `preventDefault()` was also a no-op (React registers wheel listeners as
   passive), risking macOS swipe-back navigation mid-scroll, and it ignored `deltaMode`
   (Firefox line-mode wheels crawled). Reverted to `overflow-x-auto` with the existing
@@ -470,7 +470,7 @@ inquiries, orders, order_items, import_logs, business_settings
   render's closure (where `cellEdit` was still set and `products` still pre-patch, so
   neither the null-check nor the no-op guard caught it) → two `productService.update()`
   calls and two toasts per keyboard commit; guarded with `committingRef`. The key handler
-  now validates synchronously *before* advancing, so a refused value holds the cursor for
+  now validates synchronously _before_ advancing, so a refused value holds the cursor for
   correction and the error toast fires once; `commitEdit()` is still unawaited so the
   cursor moves at typing speed. **Save feedback (DE-02):** the `toast.success("Saved")`
   did already exist (contrary to the audit's reading) — added Undo on it (same pattern
@@ -480,6 +480,36 @@ inquiries, orders, order_items, import_logs, business_settings
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
+- **Catalog Workbench (July 2026, PR-3):** an image-first _mode_ inside the Catalog
+  Editor (`?tab=catalog-editor&catMode=workbench`) — not a route, not a second admin.
+  Three panes: product queue (240px, fixed) │ large `object-contain` image │ fields.
+  Reuses the PR-A safety layer wholesale (`validateEdit`, `committingRef`, Undo toast,
+  row pulse) plus `useProductForm`, `CategoryCombobox` and `AdminImageLibrary`; uploads
+  go to `products/{SKU}/{SKU}.webp` via `storageService.uploadBySku` (one folder per SKU,
+  so `XL0105` slot 2 can't collide with SKU `XL0105-2`), and an existing file for the
+  current SKU is offered for attach instead of a silent overwrite. Enter on any
+  single-line field = Save & Next; the description textarea keeps Enter and uses
+  Ctrl/Cmd+Enter. Setting a primary image persists immediately (one-column patch) so an
+  upload isn't lost by clicking the next product.
+  **Ergonomics pass (same PR):** the shell is **locked to viewport height** — it measures
+  the space above and below itself inside the admin's scrolling `<main>` (measured, not a
+  hardcoded gutter) so the page itself never scrolls; queue and fields scroll
+  independently, the image pane doesn't scroll at all, and Prev / Save / Save & Next sit
+  in a **sticky footer** outside the fields scroll area. The image is `flex-1`, so it
+  takes all slack the shell leaves. A **draggable divider** rebalances image ┃ fields,
+  clamped so neither drops below its minimum (340 / 320) and persisted to the URL
+  (`wbW`, written on pointer-up only — no localStorage). **Focus mode:** the category
+  tree is table-mode only (four panes crushed the fields pane), replaced in Workbench by
+  a scope `<Select>` in the toolbar that writes the _same_ `selection` state the tree
+  does — no parallel filter — and the selected node now persists to the URL (`catNode`,
+  `all` | `g:<group>` | `c:<uuid>`) for both modes. Validation errors render **inline
+  beside the field** (red border + `aria-invalid` + message) as well as in the toast, and
+  a refused save focuses the first offending field. Tab order is
+  Name → Price → Pack qty → MOQ → Unit → Brand → SKU → Category → Description →
+  Published → Save → Save & Next, verified against the rendered DOM;
+  `CategoryCombobox` gained an additive `openOnFocus` prop (default `true`, unchanged
+  everywhere else) which the Workbench sets `false` so Tab passes through the picker
+  instead of falling into its search list.
 
 ### Health System
 
@@ -676,22 +706,22 @@ just don't click merge until the go-ahead is given.
 
 ## 📋 Import Template Columns (v3 — current)
 
-| Column           | Required | Notes                                         |
-| ---------------- | -------- | --------------------------------------------- |
-| name             | ✅       | Full name including size for variants         |
+| Column           | Required | Notes                                                    |
+| ---------------- | -------- | -------------------------------------------------------- |
+| name             | ✅       | Full name including size for variants                    |
 | category         | ⬜       | Blank → Uncategorized; must match Categories tab exactly |
-| unit             | ✅       | pcs/box/kg/set/roll/meter/litre/packet        |
-| price            | ⬜       | Blank = "Price on enquiry"                    |
-| mrp              | ⬜       | Optional                                      |
-| moq              | ⬜       | Blank = unknown                               |
-| brand            | ⬜       | Blank = unknown                               |
-| description      | ⬜       | Short B2B description                         |
-| sku              | ⬜       | Blank = auto-generated                        |
-| quantity_in_unit | ⬜       | Pack size e.g. 100                            |
-| is_featured      | ⬜       | Yes/No                                        |
-| status           | ⬜       | draft (default) or published                  |
-| master_name      | ⬜       | Variants only — e.g. "Hinged Box"             |
-| variant_label    | ⬜       | Variants only — e.g. "250ml"                  |
-| tags             | ⬜       | restaurant,cloud-kitchen,hotel…               |
-| na_fields        | ⬜       | brand,specifications,image                    |
-| image_url        | ⬜       | drive.google.com/thumbnail?id=FILE_ID&sz=w800 |
+| unit             | ✅       | pcs/box/kg/set/roll/meter/litre/packet                   |
+| price            | ⬜       | Blank = "Price on enquiry"                               |
+| mrp              | ⬜       | Optional                                                 |
+| moq              | ⬜       | Blank = unknown                                          |
+| brand            | ⬜       | Blank = unknown                                          |
+| description      | ⬜       | Short B2B description                                    |
+| sku              | ⬜       | Blank = auto-generated                                   |
+| quantity_in_unit | ⬜       | Pack size e.g. 100                                       |
+| is_featured      | ⬜       | Yes/No                                                   |
+| status           | ⬜       | draft (default) or published                             |
+| master_name      | ⬜       | Variants only — e.g. "Hinged Box"                        |
+| variant_label    | ⬜       | Variants only — e.g. "250ml"                             |
+| tags             | ⬜       | restaurant,cloud-kitchen,hotel…                          |
+| na_fields        | ⬜       | brand,specifications,image                               |
+| image_url        | ⬜       | drive.google.com/thumbnail?id=FILE_ID&sz=w800            |

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useLocation } from "wouter";
 import { toast } from "sonner";
 import {
   ImageIcon,
@@ -13,6 +21,8 @@ import {
   AlertCircle,
   Link2,
   Plus,
+  Maximize2,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +64,28 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { Category, Product, ProductImage, ProductStatus } from "@/lib/supabase";
 
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
+
+// ── Desktop pane geometry ─────────────────────────────────────────────────────
+// The queue is fixed, the fields pane is user-resizable, and the image pane
+// takes whatever is left. The two minimums below are what the drag is clamped
+// against, so the image can never be squeezed to nothing and the fields pane
+// can never fall back into the truncation that DE-08 was about.
+const LIST_W = 240;
+const DIVIDER_W = 8;
+const FIELDS_MIN = 340;
+const FIELDS_DEFAULT = 400;
+const IMAGE_MIN = 320;
+/** Divider position lives in the URL — same no-localStorage rule as DataTable. */
+const WIDTH_PARAM = "wbW";
+/**
+ * Guard against an absurdly short viewport — deliberately NOT a target height.
+ * Every pane scrolls internally, so a short shell only costs image height,
+ * whereas a floor set anywhere near a real laptop's available space pushes the
+ * shell past the fold and hands back the page scrolling this lock removes.
+ * (1366x768 leaves ~333px after browser chrome and the editor's own toolbars;
+ * a 340 floor was already enough to reintroduce a scrollbar there.)
+ */
+const MIN_SHELL_H = 280;
 
 // Fields validated through the shared PR-A layer before a save is attempted.
 // Order matters: it is the order the errors surface in.
@@ -124,8 +156,171 @@ export default function CatalogWorkbench({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const nameInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+
+  // Per-field refs so a refused save can put the cursor on the offending field
+  // rather than only firing a toast the operator has to interpret.
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const priceInputRef = useRef<HTMLInputElement>(null);
+  const qtyInputRef = useRef<HTMLInputElement>(null);
+  const moqInputRef = useRef<HTMLInputElement>(null);
+  const fieldRefs: Record<
+    string,
+    React.RefObject<HTMLInputElement | null>
+  > = useMemo(
+    () => ({
+      name: nameInputRef,
+      price: priceInputRef,
+      quantity_in_unit: qtyInputRef,
+      moq: moqInputRef,
+    }),
+    []
+  );
+
+  // ── Viewport lock ──────────────────────────────────────────────────────────
+  // The entry loop is "look at the photo, type, Save & Next". If the page
+  // scrolls, Save & Next drifts below the fold and the image scrolls out of
+  // view — so the shell is sized to end exactly at the viewport bottom and each
+  // pane scrolls inside it. Because the shell then consumes precisely the space
+  // that was left, the page itself has nothing to scroll, which keeps the
+  // measured top stable.
+  const [shellHeight, setShellHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (isMobile) {
+      setShellHeight(null);
+      return;
+    }
+    const measure = () => {
+      const el = shellRef.current;
+      if (!el) return;
+      // The admin content area scrolls, not the window.
+      let scroller: HTMLElement | null = el.parentElement;
+      while (scroller) {
+        const oy = getComputedStyle(scroller).overflowY;
+        if (oy === "auto" || oy === "scroll") break;
+        scroller = scroller.parentElement;
+      }
+
+      if (!scroller) {
+        const top = el.getBoundingClientRect().top + window.scrollY;
+        setShellHeight(
+          Math.max(MIN_SHELL_H, Math.round(window.innerHeight - top))
+        );
+        return;
+      }
+
+      // Everything above the shell, and everything below it (sibling rows plus
+      // the wrapper's own bottom padding), measured rather than assumed — a
+      // hardcoded gutter left 8px of page scroll, which is the exact thing this
+      // lock exists to remove. `below` doesn't change when the shell's height
+      // changes, so this converges in a single pass.
+      const above =
+        el.getBoundingClientRect().top -
+        scroller.getBoundingClientRect().top +
+        scroller.scrollTop;
+      const below = scroller.scrollHeight - (above + el.offsetHeight);
+      setShellHeight(
+        Math.max(MIN_SHELL_H, Math.round(scroller.clientHeight - above - below))
+      );
+    };
+    measure();
+    // Re-measure after paint: web fonts can reflow the toolbar above us and
+    // shift our top by a row's worth of pixels.
+    const raf = requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+    };
+  }, [isMobile]);
+
+  // ── Draggable image ┃ fields divider ───────────────────────────────────────
+  const [, setLocation] = useLocation();
+  const [fieldsWidth, setFieldsWidth] = useState(() => {
+    const raw = Number(
+      new URLSearchParams(window.location.search).get(WIDTH_PARAM)
+    );
+    return Number.isFinite(raw) && raw >= FIELDS_MIN ? raw : FIELDS_DEFAULT;
+  });
+  const [containerW, setContainerW] = useState(0);
+  const widthRef = useRef(fieldsWidth);
+
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el || isMobile) return;
+    const ro = new ResizeObserver(([entry]) =>
+      setContainerW(entry.contentRect.width)
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isMobile]);
+
+  // Clamp against the CURRENT container, not just the stored value: a width
+  // dragged wide at 1920 must not push the image below its minimum at 1280.
+  const maxFieldsWidth = containerW
+    ? Math.max(FIELDS_MIN, containerW - LIST_W - DIVIDER_W - IMAGE_MIN)
+    : Number.POSITIVE_INFINITY;
+  const effFieldsWidth = Math.min(
+    Math.max(fieldsWidth, FIELDS_MIN),
+    maxFieldsWidth
+  );
+
+  // Written on pointer-up only. A URL write per mouse-move would spam history
+  // and re-render the whole editor mid-drag.
+  const persistWidth = useCallback(
+    (w: number) => {
+      const params = new URLSearchParams(window.location.search);
+      params.set(WIDTH_PARAM, String(Math.round(w)));
+      setLocation(`${window.location.pathname}?${params.toString()}`, {
+        replace: true,
+      });
+    },
+    [setLocation]
+  );
+
+  const startDividerDrag = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      const el = shellRef.current;
+      if (!el) return;
+      const right = el.getBoundingClientRect().right;
+      const onMove = (ev: PointerEvent) => {
+        const w = right - ev.clientX;
+        widthRef.current = w;
+        setFieldsWidth(w);
+      };
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        persistWidth(
+          Math.min(
+            Math.max(widthRef.current, FIELDS_MIN),
+            containerW
+              ? Math.max(
+                  FIELDS_MIN,
+                  containerW - LIST_W - DIVIDER_W - IMAGE_MIN
+                )
+              : widthRef.current
+          )
+        );
+      };
+      // Without these the drag selects the text it passes over.
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [containerW, persistWidth]
+  );
+
+  const resetDivider = useCallback(() => {
+    widthRef.current = FIELDS_DEFAULT;
+    setFieldsWidth(FIELDS_DEFAULT);
+    persistWidth(FIELDS_DEFAULT);
+  }, [persistWidth]);
 
   const activeIndex = useMemo(
     () => products.findIndex(p => p.id === activeId),
@@ -209,15 +404,40 @@ export default function CatalogWorkbench({
   // instead of looking like it saved. Price is skipped when the product is
   // deliberately On Enquiry — validateEdit refuses blank by design (DE-01), and
   // that refusal must not block saving a genuinely price-less product.
-  const firstError = useCallback((f: WorkbenchForm): string | null => {
+  const fieldErrors = useMemo(() => {
+    const out: Record<string, string> = {};
     for (const rule of VALIDATED) {
-      const raw = rule.value(f);
+      const raw = rule.value(formData);
       if (rule.optional && raw.trim() === "") continue;
       const result = validateEdit(rule.field, raw);
-      if (isValidationError(result)) return result.error;
+      if (isValidationError(result)) out[rule.field] = result.error;
     }
-    return null;
-  }, []);
+    return out;
+  }, [formData]);
+
+  // Errors surface inline, next to the field — but only once the operator has
+  // left the field or attempted a save. Flagging an empty Name the instant a
+  // product loads would paint the pane red on every single row.
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setTouched(new Set());
+  }, [active?.id]);
+  const markTouched = (field: string) =>
+    setTouched(prev => (prev.has(field) ? prev : new Set(prev).add(field)));
+  const shownError = (field: string) =>
+    touched.has(field) ? fieldErrors[field] : undefined;
+  const errorClass = (field: string) =>
+    shownError(field) ? "border-red-400 focus-visible:ring-red-300" : "";
+  const renderFieldError = (field: string) => {
+    const message = shownError(field);
+    if (!message) return null;
+    return (
+      <p className="text-caption text-red-600 mt-1 flex items-start gap-1">
+        <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+        <span>{message}</span>
+      </p>
+    );
+  };
 
   // Unsaved-changes guard. The whole Workbench flow is "edit several fields,
   // then Save", so clicking another product in the queue — or the prev/next
@@ -260,9 +480,14 @@ export default function CatalogWorkbench({
     async (advance: boolean) => {
       if (!active || committingRef.current) return;
 
-      const err = firstError(formData);
-      if (err) {
-        toast.error(err);
+      // Reveal every inline error at once and land the cursor on the first
+      // offender, so the operator can fix it without hunting. The toast stays
+      // as the "something happened" signal; the inline message says where.
+      const badField = VALIDATED.map(r => r.field).find(f => fieldErrors[f]);
+      if (badField) {
+        setTouched(new Set(VALIDATED.map(r => r.field)));
+        fieldRefs[badField]?.current?.focus();
+        toast.error(fieldErrors[badField]);
         return;
       }
 
@@ -335,10 +560,9 @@ export default function CatalogWorkbench({
       active,
       activeIndex,
       committingRef,
-      firstError,
+      fieldErrors,
+      fieldRefs,
       flashSaved,
-      formData,
-      goTo,
       hasNextPage,
       load,
       onAfterSave,
@@ -476,10 +700,11 @@ export default function CatalogWorkbench({
       className={
         isMobile
           ? "w-full"
-          : "w-60 flex-shrink-0 border-r border-slate-200 flex flex-col"
+          : "flex-shrink-0 border-r border-slate-200 flex flex-col min-h-0"
       }
+      style={isMobile ? undefined : { width: LIST_W }}
     >
-      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50">
+      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 flex-shrink-0">
         <p className="text-xs font-semibold text-slate-700 truncate">
           {scopeTitle}
         </p>
@@ -562,18 +787,23 @@ export default function CatalogWorkbench({
         isMobile
           ? "w-full p-3 border-b border-slate-200"
           : // Image is the FLEXIBLE pane: it absorbs whatever the fixed list
-            // and fields panes don't need, rather than claiming a fixed 560px
-            // and squeezing the fields into whatever is left (DE-08).
-            "flex-1 min-w-[340px] p-4 border-r border-slate-200 flex flex-col gap-3"
+            // and the (resizable) fields pane don't need, rather than claiming
+            // a fixed width and squeezing the fields into what's left (DE-08).
+            // min-w-0 because the drag clamp, not flexbox, enforces IMAGE_MIN.
+            "flex-1 min-w-0 p-4 flex flex-col gap-3 min-h-0"
       }
     >
-      {/* THE large image. object-contain on a neutral field so packaging shapes
-          read correctly and nothing is cropped away. */}
+      {/* THE large image. flex-1 so it grows to whatever the locked shell
+          leaves after the button row and filmstrip — the photo is the point of
+          this surface, so it gets the slack rather than empty container.
+          object-contain on a neutral field so packaging shapes read correctly
+          and nothing is cropped away. */}
       <button
         type="button"
         onClick={() => previewUrl && setZoomOpen(true)}
         disabled={!previewUrl}
-        className={`w-full ${isMobile ? "aspect-square" : "h-[420px]"} rounded-xl border border-slate-200 bg-slate-100 overflow-hidden flex items-center justify-center ${previewUrl ? "cursor-zoom-in" : "cursor-default"}`}
+        title={previewUrl ? "Click to expand" : undefined}
+        className={`w-full ${isMobile ? "aspect-square" : "flex-1 min-h-[200px]"} rounded-xl border border-slate-200 bg-slate-100 overflow-hidden flex items-center justify-center ${previewUrl ? "cursor-zoom-in" : "cursor-default"}`}
       >
         {previewUrl ? (
           <img
@@ -589,7 +819,10 @@ export default function CatalogWorkbench({
         )}
       </button>
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* One row, never two: a wrapped second row costs ~40px of image height,
+          which is exactly the space this pane exists to protect. The SKU hint
+          truncates instead of pushing the buttons onto a new line. */}
+      <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
         <input
           ref={fileInputRef}
           type="file"
@@ -617,7 +850,7 @@ export default function CatalogWorkbench({
           type="button"
           size="sm"
           variant="outline"
-          className="gap-1.5 h-8 text-xs"
+          className="gap-1.5 h-8 text-xs flex-shrink-0"
           disabled={uploading || !active}
           onClick={() => fileInputRef.current?.click()}
         >
@@ -632,21 +865,39 @@ export default function CatalogWorkbench({
           type="button"
           size="sm"
           variant="outline"
-          className="gap-1.5 h-8 text-xs"
+          className="gap-1.5 h-8 text-xs flex-shrink-0"
           disabled={!active}
           onClick={() => setLibraryOpen(true)}
+          title="Select from Library"
         >
-          <Library className="w-3.5 h-3.5" /> Select from Library
+          <Library className="w-3.5 h-3.5" />
+          Library
+        </Button>
+        {/* Explicit expand control. Clicking the image does the same thing, but
+            that affordance isn't discoverable on its own. */}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="gap-1.5 h-8 text-xs flex-shrink-0"
+          disabled={!previewUrl}
+          onClick={() => setZoomOpen(true)}
+        >
+          <Maximize2 className="w-3.5 h-3.5" /> Expand
         </Button>
         {formData.sku && (
-          <span className="text-caption text-slate-400 ml-auto">
+          <span
+            className="text-caption text-slate-400 ml-auto truncate min-w-0"
+            title={`Uploads are stored as ${formData.sku}.webp`}
+          >
             uploads → {formData.sku}.webp
           </span>
         )}
       </div>
 
-      {/* Gallery filmstrip */}
-      <div className="flex flex-wrap gap-2">
+      {/* Gallery filmstrip. Scrolls sideways rather than wrapping: in a locked
+          shell an extra wrapped row would steal height from the image. */}
+      <div className="flex gap-2 flex-shrink-0 overflow-x-auto pb-1">
         {galleryLoading ? (
           <Skeleton className="h-16 w-16 rounded-md" />
         ) : (
@@ -656,7 +907,7 @@ export default function CatalogWorkbench({
             return (
               <div
                 key={img.id}
-                className="group relative w-16 h-16 rounded-md border border-slate-200 overflow-hidden bg-slate-50"
+                className="group relative w-16 h-16 flex-shrink-0 rounded-md border border-slate-200 overflow-hidden bg-slate-50"
               >
                 <img
                   src={url}
@@ -699,12 +950,12 @@ export default function CatalogWorkbench({
           onClick={() => galleryInputRef.current?.click()}
           disabled={uploading || !active}
           title="Add a gallery image"
-          className="w-16 h-16 rounded-md border border-dashed border-slate-300 text-slate-400 hover:border-red-400 hover:text-red-500 flex items-center justify-center disabled:opacity-50"
+          className="w-16 h-16 flex-shrink-0 rounded-md border border-dashed border-slate-300 text-slate-400 hover:border-red-400 hover:text-red-500 flex items-center justify-center disabled:opacity-50"
         >
           <Plus className="w-4 h-4" />
         </button>
         {!galleryLoading && gallery.length === 0 && (
-          <p className="text-caption text-slate-400 self-center">
+          <p className="text-caption text-slate-400 self-center whitespace-nowrap">
             No extra images yet.
           </p>
         )}
@@ -712,227 +963,278 @@ export default function CatalogWorkbench({
     </div>
   );
 
-  const fieldsPane = (
+  // Drag to rebalance image ┃ fields; double-click resets. Clamped so the image
+  // keeps IMAGE_MIN and the fields pane keeps FIELDS_MIN.
+  const divider = (
     <div
-      className={
-        isMobile
-          ? "w-full p-3"
-          : // Fixed, non-shrinking. Every field must show its full value at
-            // 1280px — this pane is what got crushed when it was flex-1.
-            "w-[340px] xl:w-[400px] flex-shrink-0 p-4 flex flex-col gap-3"
-      }
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize image and fields panes"
+      title="Drag to resize · double-click to reset"
+      onPointerDown={startDividerDrag}
+      onDoubleClick={resetDivider}
+      style={{ width: DIVIDER_W }}
+      className="flex-shrink-0 cursor-col-resize bg-slate-50 hover:bg-red-100 border-x border-slate-200 flex items-center justify-center group transition-colors"
     >
-      <div className="grid grid-cols-1 gap-3">
-        <div>
-          <Label className="text-xs">Product name</Label>
-          <Input
-            ref={nameInputRef}
-            value={formData.name}
-            onChange={e => updateForm("name", e.target.value)}
-            onKeyDown={e => onFieldKeyDown(e)}
-            className="h-9 text-sm mt-1"
-            placeholder="Full product name"
-          />
-        </div>
+      <GripVertical className="w-3 h-3 text-slate-300 group-hover:text-red-500" />
+    </div>
+  );
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs whitespace-nowrap">Price ₹</Label>
-            <Input
-              value={formData.price}
-              onChange={e => updateForm("price", e.target.value)}
-              onKeyDown={e => onFieldKeyDown(e)}
-              inputMode="decimal"
-              className="h-9 text-sm mt-1"
-              placeholder="blank = On Enquiry"
-            />
-          </div>
-          <div>
-            <Label className="text-xs whitespace-nowrap">Pack qty</Label>
-            <Input
-              value={formData.quantity_in_unit}
-              onChange={e => updateForm("quantity_in_unit", e.target.value)}
-              onKeyDown={e => onFieldKeyDown(e)}
-              inputMode="numeric"
-              className="h-9 text-sm mt-1"
-              placeholder="e.g. 480"
-            />
+  const fieldsBody = (
+    <div className="grid grid-cols-1 gap-3">
+      <div>
+        <Label className="text-xs">Product name</Label>
+        <Input
+          ref={nameInputRef}
+          value={formData.name}
+          onChange={e => updateForm("name", e.target.value)}
+          onKeyDown={e => onFieldKeyDown(e)}
+          onBlur={() => markTouched("name")}
+          aria-invalid={!!shownError("name")}
+          className={`h-9 text-sm mt-1 ${errorClass("name")}`}
+          placeholder="Full product name"
+        />
+        {renderFieldError("name")}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs whitespace-nowrap">Price ₹</Label>
+          <Input
+            ref={priceInputRef}
+            value={formData.price}
+            onChange={e => updateForm("price", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            onBlur={() => markTouched("price")}
+            aria-invalid={!!shownError("price")}
+            inputMode="decimal"
+            className={`h-9 text-sm mt-1 ${errorClass("price")}`}
+            placeholder="blank = On Enquiry"
+          />
+          {renderFieldError("price")}
+        </div>
+        <div>
+          <Label className="text-xs whitespace-nowrap">Pack qty</Label>
+          <Input
+            ref={qtyInputRef}
+            value={formData.quantity_in_unit}
+            onChange={e => updateForm("quantity_in_unit", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            onBlur={() => markTouched("quantity_in_unit")}
+            aria-invalid={!!shownError("quantity_in_unit")}
+            inputMode="numeric"
+            className={`h-9 text-sm mt-1 ${errorClass("quantity_in_unit")}`}
+            placeholder="e.g. 480"
+          />
+          {renderFieldError("quantity_in_unit") ?? (
             <p className="text-caption text-slate-400 mt-1 whitespace-nowrap">
               pcs per pack
             </p>
-          </div>
-        </div>
-
-        {/* Price readout spans the full pane width — inside the 2-column grid
-            it only had ~148px and wrapped into a vertical stack. */}
-        <p className="text-caption -mt-1">
-          {priceInvalid ? (
-            <span className="text-red-600 font-semibold">
-              Not a number — this won't save
-            </span>
-          ) : onEnquiry ? (
-            <span className="text-amber-700 font-semibold">
-              On Enquiry — no price shown on the storefront
-            </span>
-          ) : (
-            <span className="text-slate-500">
-              ₹{Number(priceNum).toLocaleString()} per pack of{" "}
-              {formData.quantity_in_unit || "?"} {formData.unit_of_measure}
-              {perPiece != null && (
-                <>
-                  {" "}
-                  ·{" "}
-                  <strong className="font-semibold">
-                    ₹{(Math.round(perPiece * 100) / 100).toLocaleString()}/pc
-                  </strong>
-                </>
-              )}
-            </span>
           )}
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs whitespace-nowrap">MOQ (packs)</Label>
-            <Input
-              value={formData.moq}
-              onChange={e => updateForm("moq", e.target.value)}
-              onKeyDown={e => onFieldKeyDown(e)}
-              inputMode="numeric"
-              className="h-9 text-sm mt-1"
-              placeholder="e.g. 1"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Unit</Label>
-            <Select
-              value={formData.unit_of_measure}
-              onValueChange={v => updateForm("unit_of_measure", v)}
-            >
-              <SelectTrigger className="h-9 text-sm mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {UNITS.map(u => (
-                  <SelectItem key={u} value={u}>
-                    {u}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
+      </div>
 
-        {/* Brand and SKU each take a full row. Paired in a 2-column grid they
+      {/* Price readout spans the full pane width — inside the 2-column grid
+            it only had ~148px and wrapped into a vertical stack. */}
+      <p className="text-caption -mt-1">
+        {priceInvalid ? (
+          <span className="text-red-600 font-semibold">
+            Not a number — this won't save
+          </span>
+        ) : onEnquiry ? (
+          <span className="text-amber-700 font-semibold">
+            On Enquiry — no price shown on the storefront
+          </span>
+        ) : (
+          <span className="text-slate-500">
+            ₹{Number(priceNum).toLocaleString()} per pack of{" "}
+            {formData.quantity_in_unit || "?"} {formData.unit_of_measure}
+            {perPiece != null && (
+              <>
+                {" "}
+                ·{" "}
+                <strong className="font-semibold">
+                  ₹{(Math.round(perPiece * 100) / 100).toLocaleString()}/pc
+                </strong>
+              </>
+            )}
+          </span>
+        )}
+      </p>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs whitespace-nowrap">MOQ (packs)</Label>
+          <Input
+            ref={moqInputRef}
+            value={formData.moq}
+            onChange={e => updateForm("moq", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            onBlur={() => markTouched("moq")}
+            aria-invalid={!!shownError("moq")}
+            inputMode="numeric"
+            className={`h-9 text-sm mt-1 ${errorClass("moq")}`}
+            placeholder="e.g. 1"
+          />
+          {renderFieldError("moq")}
+        </div>
+        <div>
+          <Label className="text-xs">Unit</Label>
+          <Select
+            value={formData.unit_of_measure}
+            onValueChange={v => updateForm("unit_of_measure", v)}
+          >
+            <SelectTrigger className="h-9 text-sm mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UNITS.map(u => (
+                <SelectItem key={u} value={u}>
+                  {u}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Brand and SKU each take a full row. Paired in a 2-column grid they
             only had ~178px, which clipped real values from this catalogue —
             "HINGED-BOX-2000-ML" rendered as "HINGED-BOX-2000-Ml". Vertical
             space in this pane is not scarce; horizontal space is. */}
-        <div>
-          <Label className="text-xs">Brand</Label>
-          <Input
-            value={formData.brand}
-            onChange={e => updateForm("brand", e.target.value)}
-            onKeyDown={e => onFieldKeyDown(e)}
-            className="h-9 text-sm mt-1"
-            placeholder="Brand"
-          />
-        </div>
-        <div>
-          <Label className="text-xs">SKU</Label>
-          <Input
-            value={formData.sku}
-            onChange={e => updateForm("sku", e.target.value)}
-            onKeyDown={e => onFieldKeyDown(e)}
-            className="h-9 text-sm mt-1 font-mono"
-            placeholder="XL0105"
-          />
-        </div>
+      <div>
+        <Label className="text-xs">Brand</Label>
+        <Input
+          value={formData.brand}
+          onChange={e => updateForm("brand", e.target.value)}
+          onKeyDown={e => onFieldKeyDown(e)}
+          className="h-9 text-sm mt-1"
+          placeholder="Brand"
+        />
+      </div>
+      <div>
+        <Label className="text-xs">SKU</Label>
+        <Input
+          value={formData.sku}
+          onChange={e => updateForm("sku", e.target.value)}
+          onKeyDown={e => onFieldKeyDown(e)}
+          className="h-9 text-sm mt-1 font-mono"
+          placeholder="XL0105"
+        />
+      </div>
 
-        <div>
-          <Label className="text-xs">Category</Label>
-          <div className="mt-1">
-            <CategoryCombobox
-              categories={categories}
-              value={formData.category_id}
-              onChange={v => updateForm("category_id", v)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label className="text-xs">Description</Label>
-          <Textarea
-            value={formData.description}
-            onChange={e => updateForm("description", e.target.value)}
-            onKeyDown={e => onFieldKeyDown(e)}
-            rows={5}
-            className="text-sm mt-1 resize-y min-h-[132px]"
-            placeholder="Short B2B description — material, size, use case…"
-          />
-          <p className="text-caption text-slate-400 mt-1">
-            Enter makes a new line here. Ctrl+Enter saves.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-          <div>
-            <Label className="text-xs">Published</Label>
-            <p className="text-caption text-slate-400">
-              Draft products never appear on the storefront.
-            </p>
-          </div>
-          <Switch
-            checked={formData.status === "published"}
-            onCheckedChange={c =>
-              updateForm("status", (c ? "published" : "draft") as ProductStatus)
-            }
+      <div>
+        <Label className="text-xs">Category</Label>
+        <div className="mt-1">
+          <CategoryCombobox
+            categories={categories}
+            value={formData.category_id}
+            onChange={v => updateForm("category_id", v)}
+            // Tab must pass THROUGH to Description; Enter/Space opens it.
+            openOnFocus={false}
           />
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-1 mt-auto">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-9"
-          disabled={activeIndex <= 0}
-          onClick={() => goTo(activeIndex - 1)}
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-9"
-          disabled={saving || !active}
-          onClick={() => void doSave(false)}
-        >
-          Save
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          className="h-9 flex-1 bg-red-600 hover:bg-red-700 text-white gap-1.5"
-          disabled={saving || !active}
-          onClick={() => void doSave(true)}
-        >
-          {saving ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <>
-              Save &amp; Next <ChevronRight className="w-4 h-4" />
-            </>
-          )}
-        </Button>
+      <div>
+        <Label className="text-xs">Description</Label>
+        <Textarea
+          value={formData.description}
+          onChange={e => updateForm("description", e.target.value)}
+          onKeyDown={e => onFieldKeyDown(e)}
+          rows={5}
+          className="text-sm mt-1 resize-y min-h-[132px]"
+          placeholder="Short B2B description — material, size, use case…"
+        />
+        <p className="text-caption text-slate-400 mt-1">
+          Enter makes a new line here. Ctrl+Enter saves.
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+        <div>
+          <Label className="text-xs">Published</Label>
+          <p className="text-caption text-slate-400">
+            Draft products never appear on the storefront.
+          </p>
+        </div>
+        <Switch
+          checked={formData.status === "published"}
+          onCheckedChange={c =>
+            updateForm("status", (c ? "published" : "draft") as ProductStatus)
+          }
+        />
+      </div>
+    </div>
+  );
+
+  // Pinned to the bottom of the fields pane, outside its scroll area, so
+  // Save & Next is reachable no matter how far down the fields are scrolled.
+  const actions = (
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-9"
+        disabled={activeIndex <= 0}
+        onClick={() => goTo(activeIndex - 1)}
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-9"
+        disabled={saving || !active}
+        onClick={() => void doSave(false)}
+      >
+        Save
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        className="h-9 flex-1 bg-red-600 hover:bg-red-700 text-white gap-1.5"
+        disabled={saving || !active}
+        onClick={() => void doSave(true)}
+      >
+        {saving ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <>
+            Save &amp; Next <ChevronRight className="w-4 h-4" />
+          </>
+        )}
+      </Button>
+    </div>
+  );
+
+  const fieldsPane = isMobile ? (
+    <div className="w-full p-3 flex flex-col gap-3">
+      {fieldsBody}
+      {actions}
+    </div>
+  ) : (
+    // Fixed (drag-resizable) width, never shrinks — this pane is what got
+    // crushed when it was flex-1. Body scrolls; the action bar does not.
+    <div
+      className="flex-shrink-0 flex flex-col min-h-0"
+      style={{ width: effFieldsWidth }}
+    >
+      <div className="flex-1 overflow-y-auto min-h-0 p-4">{fieldsBody}</div>
+      <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-3">
+        {actions}
       </div>
     </div>
   );
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+    <div
+      ref={shellRef}
+      className="bg-white border border-slate-200 rounded-xl overflow-hidden"
+      style={isMobile || !shellHeight ? undefined : { height: shellHeight }}
+    >
       {isMobile ? (
         <div className="flex flex-col">
           {listPane}
@@ -940,9 +1242,10 @@ export default function CatalogWorkbench({
           {fieldsPane}
         </div>
       ) : (
-        <div className="flex items-stretch min-h-[620px]">
+        <div className="flex items-stretch h-full min-h-0">
           {listPane}
           {imagePane}
+          {divider}
           {fieldsPane}
         </div>
       )}
