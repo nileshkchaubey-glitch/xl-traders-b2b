@@ -2295,83 +2295,93 @@ export default function CatalogTreeEditor({
 
       {/* ── Two-pane layout ────────────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row gap-4 items-start">
-        {/* Left: collapsible tree — shared by both modes, so the Workbench's
-            product queue honours the same group/category scope the table uses. */}
-        <aside className="w-full lg:w-64 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-2 lg:sticky lg:top-4 max-h-[75vh] overflow-y-auto">
-          <button
-            onClick={() => setSelection({ kind: "all" })}
-            className={nodeCls(isSelected({ kind: "all" }))}
-          >
-            <Boxes className="w-4 h-4 flex-shrink-0" />
-            <span className="flex-1 truncate">All Products</span>
-            <span className="text-xs opacity-70">{allCount}</span>
-          </button>
+        {/* Left: collapsible tree — TABLE MODE ONLY.
+            The Workbench has three panes of its own (queue | image | fields);
+            rendering the tree beside them made four, and at 1280px the fields
+            pane was crushed to the point of truncating "480" to "48(" (DE-08
+            reappearing). The Workbench's queue header already names the active
+            scope, so the tree is redundant there. Selection state is shared, so
+            switching to Table mode, picking a category, and switching back
+            carries the scope across. */}
+        {mode === "table" && (
+          <aside className="w-full lg:w-64 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-2 lg:sticky lg:top-4 max-h-[75vh] overflow-y-auto">
+            <button
+              onClick={() => setSelection({ kind: "all" })}
+              className={nodeCls(isSelected({ kind: "all" }))}
+            >
+              <Boxes className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1 truncate">All Products</span>
+              <span className="text-xs opacity-70">{allCount}</span>
+            </button>
 
-          <div className="mt-1 space-y-0.5">
-            {groups.map(g => {
-              const open = expanded.has(g.name);
-              const gActive = isSelected({ kind: "group", group: g.name });
-              return (
-                <div key={g.name}>
-                  <div className="flex items-center">
-                    <button
-                      onClick={() => toggleGroup(g.name)}
-                      className="p-1 text-slate-400 hover:text-slate-700 flex-shrink-0"
-                      aria-label={open ? "Collapse" : "Expand"}
-                    >
-                      {open ? (
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() =>
-                        setSelection({ kind: "group", group: g.name })
-                      }
-                      className={nodeCls(gActive) + " flex-1"}
-                    >
-                      <HealthDot health={groupHealth(g)} />
-                      <span className="flex-1 truncate">{g.name}</span>
-                      <span className="text-xs opacity-70">
-                        {groupCount(g)}
-                      </span>
-                    </button>
-                  </div>
-
-                  {open && (
-                    <div className="ml-5 mt-0.5 space-y-0.5 border-l border-slate-100 pl-1.5">
-                      {g.categories.map(cat => {
-                        const cActive = isSelected({
-                          kind: "category",
-                          categoryId: cat.id,
-                        });
-                        return (
-                          <button
-                            key={cat.id}
-                            onClick={() =>
-                              setSelection({
-                                kind: "category",
-                                categoryId: cat.id,
-                              })
-                            }
-                            className={nodeCls(cActive)}
-                          >
-                            <HealthDot health={catHealth[cat.id]} />
-                            <span className="flex-1 truncate">{cat.name}</span>
-                            <span className="text-xs opacity-70">
-                              {counts[cat.id] ?? 0}
-                            </span>
-                          </button>
-                        );
-                      })}
+            <div className="mt-1 space-y-0.5">
+              {groups.map(g => {
+                const open = expanded.has(g.name);
+                const gActive = isSelected({ kind: "group", group: g.name });
+                return (
+                  <div key={g.name}>
+                    <div className="flex items-center">
+                      <button
+                        onClick={() => toggleGroup(g.name)}
+                        className="p-1 text-slate-400 hover:text-slate-700 flex-shrink-0"
+                        aria-label={open ? "Collapse" : "Expand"}
+                      >
+                        {open ? (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() =>
+                          setSelection({ kind: "group", group: g.name })
+                        }
+                        className={nodeCls(gActive) + " flex-1"}
+                      >
+                        <HealthDot health={groupHealth(g)} />
+                        <span className="flex-1 truncate">{g.name}</span>
+                        <span className="text-xs opacity-70">
+                          {groupCount(g)}
+                        </span>
+                      </button>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </aside>
+
+                    {open && (
+                      <div className="ml-5 mt-0.5 space-y-0.5 border-l border-slate-100 pl-1.5">
+                        {g.categories.map(cat => {
+                          const cActive = isSelected({
+                            kind: "category",
+                            categoryId: cat.id,
+                          });
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() =>
+                                setSelection({
+                                  kind: "category",
+                                  categoryId: cat.id,
+                                })
+                              }
+                              className={nodeCls(cActive)}
+                            >
+                              <HealthDot health={catHealth[cat.id]} />
+                              <span className="flex-1 truncate">
+                                {cat.name}
+                              </span>
+                              <span className="text-xs opacity-70">
+                                {counts[cat.id] ?? 0}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+        )}
 
         {/* Right: product table (Table mode) or the Workbench (Workbench mode) */}
         <div className="flex-1 min-w-0 w-full">

@@ -561,7 +561,10 @@ export default function CatalogWorkbench({
       className={
         isMobile
           ? "w-full p-3 border-b border-slate-200"
-          : "w-[560px] flex-shrink-0 p-4 border-r border-slate-200 flex flex-col gap-3"
+          : // Image is the FLEXIBLE pane: it absorbs whatever the fixed list
+            // and fields panes don't need, rather than claiming a fixed 560px
+            // and squeezing the fields into whatever is left (DE-08).
+            "flex-1 min-w-[340px] p-4 border-r border-slate-200 flex flex-col gap-3"
       }
     >
       {/* THE large image. object-contain on a neutral field so packaging shapes
@@ -712,7 +715,11 @@ export default function CatalogWorkbench({
   const fieldsPane = (
     <div
       className={
-        isMobile ? "w-full p-3" : "flex-1 min-w-0 p-4 flex flex-col gap-3"
+        isMobile
+          ? "w-full p-3"
+          : // Fixed, non-shrinking. Every field must show its full value at
+            // 1280px — this pane is what got crushed when it was flex-1.
+            "w-[340px] xl:w-[400px] flex-shrink-0 p-4 flex flex-col gap-3"
       }
     >
       <div className="grid grid-cols-1 gap-3">
@@ -730,7 +737,7 @@ export default function CatalogWorkbench({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label className="text-xs">Price ₹ (per selling unit)</Label>
+            <Label className="text-xs whitespace-nowrap">Price ₹</Label>
             <Input
               value={formData.price}
               onChange={e => updateForm("price", e.target.value)}
@@ -739,30 +746,9 @@ export default function CatalogWorkbench({
               className="h-9 text-sm mt-1"
               placeholder="blank = On Enquiry"
             />
-            <p className="text-caption mt-1">
-              {priceInvalid ? (
-                <span className="text-red-600 font-semibold">
-                  Not a number — this won't save
-                </span>
-              ) : onEnquiry ? (
-                <span className="text-amber-700 font-semibold">On Enquiry</span>
-              ) : (
-                <span className="text-slate-400">
-                  per pack of {formData.quantity_in_unit || "?"}{" "}
-                  {formData.unit_of_measure}
-                  {perPiece != null && (
-                    <>
-                      {" "}
-                      · ₹{(Math.round(perPiece * 100) / 100).toLocaleString()}
-                      /pc
-                    </>
-                  )}
-                </span>
-              )}
-            </p>
           </div>
           <div>
-            <Label className="text-xs">Pack quantity</Label>
+            <Label className="text-xs whitespace-nowrap">Pack qty</Label>
             <Input
               value={formData.quantity_in_unit}
               onChange={e => updateForm("quantity_in_unit", e.target.value)}
@@ -771,15 +757,43 @@ export default function CatalogWorkbench({
               className="h-9 text-sm mt-1"
               placeholder="e.g. 480"
             />
-            <p className="text-caption text-slate-400 mt-1">
-              pieces inside one selling unit
+            <p className="text-caption text-slate-400 mt-1 whitespace-nowrap">
+              pcs per pack
             </p>
           </div>
         </div>
 
+        {/* Price readout spans the full pane width — inside the 2-column grid
+            it only had ~148px and wrapped into a vertical stack. */}
+        <p className="text-caption -mt-1">
+          {priceInvalid ? (
+            <span className="text-red-600 font-semibold">
+              Not a number — this won't save
+            </span>
+          ) : onEnquiry ? (
+            <span className="text-amber-700 font-semibold">
+              On Enquiry — no price shown on the storefront
+            </span>
+          ) : (
+            <span className="text-slate-500">
+              ₹{Number(priceNum).toLocaleString()} per pack of{" "}
+              {formData.quantity_in_unit || "?"} {formData.unit_of_measure}
+              {perPiece != null && (
+                <>
+                  {" "}
+                  ·{" "}
+                  <strong className="font-semibold">
+                    ₹{(Math.round(perPiece * 100) / 100).toLocaleString()}/pc
+                  </strong>
+                </>
+              )}
+            </span>
+          )}
+        </p>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label className="text-xs">MOQ (selling units)</Label>
+            <Label className="text-xs whitespace-nowrap">MOQ (packs)</Label>
             <Input
               value={formData.moq}
               onChange={e => updateForm("moq", e.target.value)}
@@ -809,27 +823,29 @@ export default function CatalogWorkbench({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">Brand</Label>
-            <Input
-              value={formData.brand}
-              onChange={e => updateForm("brand", e.target.value)}
-              onKeyDown={e => onFieldKeyDown(e)}
-              className="h-9 text-sm mt-1"
-              placeholder="Brand"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">SKU</Label>
-            <Input
-              value={formData.sku}
-              onChange={e => updateForm("sku", e.target.value)}
-              onKeyDown={e => onFieldKeyDown(e)}
-              className="h-9 text-sm mt-1"
-              placeholder="XL0105"
-            />
-          </div>
+        {/* Brand and SKU each take a full row. Paired in a 2-column grid they
+            only had ~178px, which clipped real values from this catalogue —
+            "HINGED-BOX-2000-ML" rendered as "HINGED-BOX-2000-Ml". Vertical
+            space in this pane is not scarce; horizontal space is. */}
+        <div>
+          <Label className="text-xs">Brand</Label>
+          <Input
+            value={formData.brand}
+            onChange={e => updateForm("brand", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            className="h-9 text-sm mt-1"
+            placeholder="Brand"
+          />
+        </div>
+        <div>
+          <Label className="text-xs">SKU</Label>
+          <Input
+            value={formData.sku}
+            onChange={e => updateForm("sku", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            className="h-9 text-sm mt-1 font-mono"
+            placeholder="XL0105"
+          />
         </div>
 
         <div>
@@ -850,7 +866,7 @@ export default function CatalogWorkbench({
             onChange={e => updateForm("description", e.target.value)}
             onKeyDown={e => onFieldKeyDown(e)}
             rows={5}
-            className="text-sm mt-1 resize-y min-h-[110px]"
+            className="text-sm mt-1 resize-y min-h-[132px]"
             placeholder="Short B2B description — material, size, use case…"
           />
           <p className="text-caption text-slate-400 mt-1">
