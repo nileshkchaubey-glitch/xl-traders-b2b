@@ -37,6 +37,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
+import { confirm } from "@/components/ui/confirm-dialog";
+import { productToForm } from "@/lib/productForm";
 import { useProductForm } from "@/hooks/useProductForm";
 import { useSaveFeedback, toastWithUndo } from "@/hooks/useSaveFeedback";
 import { validateEdit, isValidationError } from "@/lib/productValidation";
@@ -131,6 +133,18 @@ export default function CatalogWorkbench({
   );
   const active = activeIndex >= 0 ? products[activeIndex] : null;
 
+  // Read inside the Undo callback, which outlives the render that created it —
+  // a ref, not the state value, so it sees the CURRENT selection rather than
+  // whatever was selected when the toast appeared.
+  const activeIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  // Monotonic save counter. Each Undo captures the revision it belongs to and
+  // refuses to run once a newer save has happened.
+  const revisionRef = useRef(0);
+
   // Select the first product whenever the queue changes underneath us (filter
   // change, page change) and the current selection is no longer in it.
   useEffect(() => {
@@ -205,12 +219,40 @@ export default function CatalogWorkbench({
     return null;
   }, []);
 
+  // Unsaved-changes guard. The whole Workbench flow is "edit several fields,
+  // then Save", so clicking another product in the queue — or the prev/next
+  // chevrons — before saving would silently discard the edits. Compared against
+  // the product's pristine form shape, the same way CatalogProductPanel does it.
+  const dirty = useMemo(() => {
+    if (!active) return false;
+    return JSON.stringify(formData) !== JSON.stringify(productToForm(active));
+  }, [formData, active]);
+
+  const selectProduct = useCallback(
+    async (id: string) => {
+      if (id === activeId) return;
+      if (
+        dirty &&
+        !(await confirm({
+          title: "Discard unsaved changes?",
+          description:
+            "This product has edits that haven't been saved. Switching will lose them.",
+          destructive: true,
+          confirmLabel: "Discard",
+        }))
+      )
+        return;
+      setActiveId(id);
+    },
+    [activeId, dirty]
+  );
+
   const goTo = useCallback(
     (index: number) => {
       if (index < 0 || index >= products.length) return;
-      setActiveId(products[index].id);
+      void selectProduct(products[index].id);
     },
-    [products]
+    [products, selectProduct]
   );
 
   // ── Save ───────────────────────────────────────────────────────────────────
@@ -231,12 +273,28 @@ export default function CatalogWorkbench({
         if (!saved) return; // useProductForm already toasted
         onProductSaved(saved);
         flashSaved(saved.id);
+
+        // Undo is scoped to THIS save of THIS product. Two guards:
+        //  * A newer save for the same product supersedes this one, so an older
+        //    toast can no longer roll the newer values back (sonner keeps up to
+        //    3 toasts visible, so an older one is genuinely clickable).
+        //  * `load()` only repopulates the form when the reverted product is
+        //    still the selected one. Save & Next advances immediately, so
+        //    without this the previous product's values would be loaded into
+        //    the form while the NEXT product is selected — and the following
+        //    save would write them onto the wrong product.
+        const revision = ++revisionRef.current;
         toastWithUndo("Saved", async () => {
+          if (revision !== revisionRef.current) {
+            toast.info("Superseded by a newer save — nothing undone");
+            return;
+          }
           // Restore the exact pre-save row. `?? null` (not undefined) so a
           // field that was empty before is actively cleared again rather than
           // being omitted from the payload and left at the new value.
           const revertPatch: Record<string, unknown> = {
             name: previous.name,
+            sku: previous.sku ?? null,
             price: previous.price ?? null,
             quantity_in_unit: previous.quantity_in_unit ?? null,
             moq: previous.moq ?? null,
@@ -252,14 +310,18 @@ export default function CatalogWorkbench({
             revertPatch as Partial<Product>
           );
           onProductSaved(reverted);
-          load(reverted);
+          if (activeIdRef.current === reverted.id) load(reverted);
           onAfterSave();
         });
         onAfterSave();
 
         if (advance) {
           if (activeIndex < products.length - 1) {
-            goTo(activeIndex + 1);
+            // setActiveId directly, NOT selectProduct: the edits were just
+            // persisted, but `dirty` is computed from this render's `active`,
+            // which the parent hasn't patched yet — so the guard would prompt
+            // "discard unsaved changes?" immediately after a successful save.
+            setActiveId(products[activeIndex + 1].id);
             // Land in the field the next product is most likely to need.
             setTimeout(() => nameInputRef.current?.focus(), 0);
           } else if (hasNextPage) onRequestNextPage?.();
@@ -450,7 +512,7 @@ export default function CatalogWorkbench({
               <button
                 key={p.id}
                 data-pid={p.id}
-                onClick={() => setActiveId(p.id)}
+                onClick={() => void selectProduct(p.id)}
                 className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-slate-100 transition-colors ${
                   isActive
                     ? "bg-red-50 border-l-2 border-l-red-600"
