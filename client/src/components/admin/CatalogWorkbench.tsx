@@ -206,7 +206,16 @@ export default function CatalogWorkbench({
   /** Index into `allImages` when the full-page lightbox is open; null = closed. */
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   /** Gallery slot the hidden file input is currently targeting (1 = primary). */
-  const [uploadSlot, setUploadSlot] = useState(2);
+  /**
+   * What the hidden gallery file input is currently aimed at. `replaceId` set
+   * means overwrite THAT product_images row rather than appending a new one —
+   * without it, "Replace" re-uploaded to the same storage key but still called
+   * create(), leaving two rows pointing at one file.
+   */
+  const [uploadTarget, setUploadTarget] = useState<{
+    slot: number;
+    replaceId?: string;
+  }>({ slot: 2 });
   // Mirrors committingRef for rendering — a ref can't drive the button state.
   const [committing, setCommitting] = useState(false);
 
@@ -709,7 +718,7 @@ export default function CatalogWorkbench({
   );
 
   const uploadFile = useCallback(
-    async (file: File, slot: number) => {
+    async (file: File, slot: number, replaceId?: string) => {
       if (!active) return;
       const sku = formData.sku.trim();
       setUploading(true);
@@ -725,8 +734,24 @@ export default function CatalogWorkbench({
         const url = sku
           ? await storageService.uploadBySku(resized, sku, slot)
           : await mediaService.uploadGlobalImage(resized);
-        if (slot === 1) await setPrimaryImage(url);
-        else await addToGallery(url);
+        if (slot === 1) {
+          await setPrimaryImage(url);
+        } else if (replaceId) {
+          const replaced = gallery.find(g => g.id === replaceId);
+          await productImageService.update(replaceId, { image_url: url });
+          setGallery(await productImageService.getByProductId(active.id));
+          // uploadBySku cache-busts the URL, so a replaced image that was also
+          // the primary would otherwise keep pointing at the stale one.
+          if (
+            replaced &&
+            normalizeImageUrl(replaced.image_url) ===
+              normalizeImageUrl(formData.image_url)
+          ) {
+            await setPrimaryImage(url);
+          }
+        } else {
+          await addToGallery(url);
+        }
         toast.success(sku ? `Uploaded as ${sku}` : "Uploaded");
       } catch {
         toast.error("Upload failed");
@@ -734,7 +759,14 @@ export default function CatalogWorkbench({
         setUploading(false);
       }
     },
-    [active, addToGallery, formData.sku, setPrimaryImage]
+    [
+      active,
+      addToGallery,
+      formData.image_url,
+      formData.sku,
+      gallery,
+      setPrimaryImage,
+    ]
   );
 
   // Before uploading, check whether the bucket already holds a file for this
@@ -900,7 +932,11 @@ export default function CatalogWorkbench({
                         type="button"
                         title="More actions"
                         aria-label={`Actions for ${p.name}`}
-                        className="px-1.5 flex-shrink-0 text-slate-300 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 hover:text-slate-700 transition-[color,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-300"
+                        // Always rendered, never hover-gated: this component
+                        // is the mobile products surface too, and
+                        // `group-hover` never resolves without a pointer.
+                        // w-11 = the 44px touch target the mobile admin uses.
+                        className="w-11 flex-shrink-0 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 data-[state=open]:text-slate-700 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-300"
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
@@ -1003,7 +1039,8 @@ export default function CatalogWorkbench({
           className="hidden"
           onChange={e => {
             const f = e.target.files?.[0];
-            if (f) void uploadFile(f, uploadSlot);
+            if (f)
+              void uploadFile(f, uploadTarget.slot, uploadTarget.replaceId);
             e.target.value = "";
           }}
         />
@@ -1081,13 +1118,19 @@ export default function CatalogWorkbench({
                     room for Replace, which had nowhere to live before. */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
+                    {/* The whole 64px tile is the trigger — a 22px badge is
+                        under the touch minimum, and the tile had no other
+                        click action to compete with. The badge stays as the
+                        visual affordance. */}
                     <button
                       type="button"
                       title="Image actions"
-                      aria-label="Image actions"
-                      className="absolute top-0.5 right-0.5 p-1 rounded-md bg-black/55 text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 hover:bg-black/75 transition-[opacity,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                      aria-label={`Actions for gallery image ${gallery.indexOf(img) + 1}`}
+                      className="absolute inset-0 flex items-start justify-end p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-400"
                     >
-                      <MoreHorizontal className="w-3.5 h-3.5" />
+                      <span className="p-1 rounded-md bg-black/55 text-white group-hover:bg-black/75 transition-colors duration-150">
+                        <MoreHorizontal className="w-3.5 h-3.5" />
+                      </span>
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-44">
@@ -1102,9 +1145,12 @@ export default function CatalogWorkbench({
                     <DropdownMenuItem
                       disabled={uploading}
                       onClick={() => {
-                        // Overwrite this slot rather than appending, so the
-                        // replacement keeps its position in the gallery.
-                        setUploadSlot(gallery.indexOf(img) + 2);
+                        // Overwrite this slot AND patch this row, so the
+                        // replacement keeps its position instead of appending.
+                        setUploadTarget({
+                          slot: gallery.indexOf(img) + 2,
+                          replaceId: img.id,
+                        });
                         galleryInputRef.current?.click();
                       }}
                       className="gap-2"
@@ -1133,7 +1179,7 @@ export default function CatalogWorkbench({
         <button
           type="button"
           onClick={() => {
-            setUploadSlot(gallery.length + 2);
+            setUploadTarget({ slot: gallery.length + 2 });
             galleryInputRef.current?.click();
           }}
           disabled={uploading || !active}

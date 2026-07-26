@@ -552,10 +552,17 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   the queue row renders the Catalog Editor's own `renderRowMenuItems` — passed down as
   a `rowMenuItems` render prop, same signature as `<DataTable>`'s `rowContextMenu` —
   plus an "Open in Table" item that switches mode and seeds the search; each gallery
-  thumbnail gets Set as primary / Replace / Remove (Replace overwrites that slot via
-  `uploadSlot`, so the image keeps its position); the workbench header's Refresh and
+  thumbnail gets Set as primary / Replace / Remove (Replace re-uploads to the same
+  storage key **and** patches that `product_images` row via
+  `productImageService.update`, so the image keeps its position — patching the row is
+  the part that matters, since re-uploading alone still appended a second row pointing
+  at the same file; if the replaced row was also the primary, `image_url` is refreshed
+  too, because `uploadBySku` cache-busts the URL); the workbench header's Refresh and
   Switch to Table moved into a `⋯` menu. The queue row became a `<div>` wrapping a
-  `<button>` — a menu trigger is itself a button and cannot nest inside one.
+  `<button>` — a menu trigger is itself a button and cannot nest inside one. None of
+  the triggers are hover-gated: this component is also the mobile products surface, so
+  `group-hover` would never resolve there. The queue trigger is a 44px target, and the
+  whole 64px gallery tile is the trigger rather than a 22px badge on it.
   **Fields pane is sectioned** — Basics / Pricing / Publishing, each with a title and a
   one-line description, with **Media** heading the image pane. Note this changes tab
   order to follow visual order: Name → Brand → SKU → Category → Description → Price →
