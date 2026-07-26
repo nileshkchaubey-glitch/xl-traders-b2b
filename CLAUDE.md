@@ -541,6 +541,34 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   covers the post-request patch/toast/refresh window, not just `saving`, so a second
   click can't fire a duplicate update), clearer queue hover/selected states, and
   written-out empty states.
+  **Polish pass (July 2026, PR-4):** presentation only. **Full-bleed Catalog Editor** —
+  the tab's wrapper drops to `px-4 py-4` (no width cap; other admin tabs keep
+  `max-w-screen-xl px-6 py-6`), so table and workbench span the viewport minus the
+  sidebar exactly. **Full-page lightbox** replaces the old `max-w-5xl` zoom dialog:
+  dark full-screen backdrop, filename and `n / total` in the header, Esc or a backdrop
+  click to close, arrow keys (and on-screen chevrons) through primary + gallery. The
+  image list is deduped and the index is reset when the product changes or the gallery
+  shrinks. **Three overflow menus**, all built from components already in the repo:
+  the queue row renders the Catalog Editor's own `renderRowMenuItems` — passed down as
+  a `rowMenuItems` render prop, same signature as `<DataTable>`'s `rowContextMenu` —
+  plus an "Open in Table" item that switches mode and seeds the search; each gallery
+  thumbnail gets Set as primary / Replace / Remove (Replace overwrites that slot via
+  `uploadSlot`, so the image keeps its position); the workbench header's Refresh and
+  Switch to Table moved into a `⋯` menu. The queue row became a `<div>` wrapping a
+  `<button>` — a menu trigger is itself a button and cannot nest inside one.
+  **Fields pane is sectioned** — Basics / Pricing / Publishing, each with a title and a
+  one-line description, with **Media** heading the image pane. Note this changes tab
+  order to follow visual order: Name → Brand → SKU → Category → Description → Price →
+  Pack qty → MOQ → Unit → Published → Save → Save & Next. **44px inputs throughout**;
+  `SelectTrigger` needs `data-[size=default]:h-11` because its own
+  `data-[size=default]:h-9` is an attribute selector that outranks a bare utility, and
+  `CategoryCombobox` merges through `cn()` so a plain `h-11` suffices there. **Panes are
+  separate white cards** on the `admin-bg` page with a `gap-3` between them; the shell
+  itself is transparent. Queue rows are 64px with a 44px thumbnail, and the queue width
+  is viewport-aware (280px, 240px below 1250px of shell) because the wider queue
+  otherwise costs the image 40px on a 1366 laptop. **No pricing behaviour changed** —
+  the price/pack-qty/MOQ/unit inputs, their validation and the derived readout moved
+  into the Pricing section verbatim; only field height changed.
 
 ### Health System
 

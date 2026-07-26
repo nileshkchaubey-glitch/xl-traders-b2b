@@ -16,7 +16,17 @@ import {
   Plus,
   Maximize2,
   GripVertical,
+  MoreHorizontal,
+  Rows3,
+  X,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,7 +73,12 @@ const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
 // takes whatever is left. The two minimums below are what the drag is clamped
 // against, so the image can never be squeezed to nothing and the fields pane
 // can never fall back into the truncation that DE-08 was about.
-const LIST_W = 240;
+// The taller rows carry a 44px thumbnail, a readiness icon and an overflow
+// menu, so 240 left product names truncating after ~11 characters. 280 fixes
+// that where there is room; on a narrow shell those 40px are worth more to the
+// image than to the queue, so the queue gives them back.
+const LIST_WIDE = 280;
+const LIST_NARROW = 240;
 const DIVIDER_W = 8;
 const FIELDS_MIN = 340;
 // Product photos are mostly landscape, so on a wide screen the image pane runs
@@ -85,7 +100,7 @@ const IMAGE_MIN = 320;
  * stacked column is the honest answer at that size, and it is the layout the
  * component already has for mobile.
  */
-const MIN_THREE_PANE = LIST_W + DIVIDER_W + FIELDS_MIN + IMAGE_MIN;
+const MIN_THREE_PANE = LIST_NARROW + DIVIDER_W + FIELDS_MIN + IMAGE_MIN;
 /** Divider position lives in the URL — same no-localStorage rule as DataTable. */
 const WIDTH_PARAM = "wbW";
 /** Floor for the whole shell, so an absurdly short viewport still renders. */
@@ -97,7 +112,24 @@ const MIN_SHELL_H = 280;
  * miss and the operator loses track of which field the keyboard is in.
  */
 const FIELD_CLS =
-  "h-9 text-sm mt-1 transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:border-red-400";
+  "h-11 text-sm mt-1 transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:border-red-400";
+
+/**
+ * Section label for the entry panes. A one-line description under each title
+ * is what makes the grouping useful — "Pricing" alone is decoration, "Pricing /
+ * what one selling unit costs" tells the operator which of the numbers in front
+ * of them belongs here.
+ */
+function SectionHeading({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className="flex-shrink-0">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {title}
+      </h3>
+      <p className="text-caption text-slate-400 mt-0.5">{hint}</p>
+    </div>
+  );
+}
 
 // Fields validated through the shared PR-A layer before a save is attempted.
 // Order matters: it is the order the errors surface in.
@@ -133,6 +165,18 @@ interface CatalogWorkbenchProps {
   onRequestNextPage?: () => void;
   hasNextPage?: boolean;
   scopeTitle: string;
+  /**
+   * The Catalog Editor's row menu, passed down rather than rebuilt so the
+   * queue's overflow menu is literally the table's menu — same items, same
+   * handlers. Signature matches `<DataTable>`'s `rowContextMenu`.
+   */
+  rowMenuItems?: (
+    p: Product,
+    Item: typeof DropdownMenuItem,
+    Separator: typeof DropdownMenuSeparator
+  ) => React.ReactNode;
+  /** Switch to Table mode focused on this product. */
+  onOpenInTable?: (p: Product) => void;
 }
 
 export default function CatalogWorkbench({
@@ -147,6 +191,8 @@ export default function CatalogWorkbench({
   onRequestNextPage,
   hasNextPage,
   scopeTitle,
+  rowMenuItems,
+  onOpenInTable,
 }: CatalogWorkbenchProps) {
   const isMobile = useIsMobile();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -157,7 +203,10 @@ export default function CatalogWorkbench({
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [zoomOpen, setZoomOpen] = useState(false);
+  /** Index into `allImages` when the full-page lightbox is open; null = closed. */
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  /** Gallery slot the hidden file input is currently targeting (1 = primary). */
+  const [uploadSlot, setUploadSlot] = useState(2);
   // Mirrors committingRef for rendering — a ref can't drive the button state.
   const [committing, setCommitting] = useState(false);
 
@@ -233,13 +282,14 @@ export default function CatalogWorkbench({
     return () => ro.disconnect();
   }, [isMobile]);
 
+  const narrowShell = !!containerW && containerW < NARROW_SHELL;
+  const defaultFieldsWidth = narrowShell ? FIELDS_NARROW : FIELDS_WIDE;
+  const listWidth = narrowShell ? LIST_NARROW : LIST_WIDE;
   // Clamp against the CURRENT container, not just the stored value: a width
   // dragged wide at 1920 must not push the image below its minimum at 1280.
   const maxFieldsWidth = containerW
-    ? Math.max(FIELDS_MIN, containerW - LIST_W - DIVIDER_W - IMAGE_MIN)
+    ? Math.max(FIELDS_MIN, containerW - listWidth - DIVIDER_W - IMAGE_MIN)
     : Number.POSITIVE_INFINITY;
-  const defaultFieldsWidth =
-    containerW && containerW < NARROW_SHELL ? FIELDS_NARROW : FIELDS_WIDE;
   // Measured on the shell itself, so it reacts to the divider/sidebar/zoom
   // rather than to a viewport breakpoint that doesn't know about them.
   const stacked = isMobile || (containerW > 0 && containerW < MIN_THREE_PANE);
@@ -283,7 +333,7 @@ export default function CatalogWorkbench({
             containerW
               ? Math.max(
                   FIELDS_MIN,
-                  containerW - LIST_W - DIVIDER_W - IMAGE_MIN
+                  containerW - listWidth - DIVIDER_W - IMAGE_MIN
                 )
               : widthRef.current
           )
@@ -295,7 +345,7 @@ export default function CatalogWorkbench({
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [containerW, persistWidth]
+    [containerW, listWidth, persistWidth]
   );
 
   // Reset clears the override entirely rather than writing today's default in,
@@ -373,6 +423,58 @@ export default function CatalogWorkbench({
   }, [activeId]);
 
   const previewUrl = normalizeImageUrl(formData.image_url);
+
+  // Primary first, then the gallery — the order the lightbox arrows walk.
+  // Deduped because the primary is usually also a gallery row.
+  const allImages = useMemo(() => {
+    const out: { url: string; name: string }[] = [];
+    const add = (raw?: string | null) => {
+      if (!raw) return;
+      const url = normalizeImageUrl(raw);
+      if (!url || out.some(i => i.url === url)) return;
+      const file = url.split("?")[0].split("/").pop() ?? "";
+      let name = file;
+      try {
+        name = decodeURIComponent(file);
+      } catch {
+        // A malformed %-sequence in the path shouldn't break the caption.
+      }
+      out.push({ url, name: name || "image" });
+    };
+    add(formData.image_url);
+    for (const g of gallery) add(g.image_url);
+    return out;
+  }, [formData.image_url, gallery]);
+
+  const lightboxImage =
+    lightboxIndex != null ? allImages[lightboxIndex] : undefined;
+
+  // Arrow keys walk the gallery. Bound to the document because the lightbox
+  // has no single focusable element to hang a handler on, and Radix already
+  // owns Escape.
+  useEffect(() => {
+    if (lightboxIndex == null || allImages.length < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      setLightboxIndex(i => {
+        if (i == null) return i;
+        const step = e.key === "ArrowRight" ? 1 : -1;
+        return (i + step + allImages.length) % allImages.length;
+      });
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, allImages.length]);
+
+  // Selecting a different product must not leave the lightbox showing the old
+  // one, and a shrinking gallery must not leave the index past the end.
+  useEffect(() => setLightboxIndex(null), [active?.id]);
+  useEffect(() => {
+    if (lightboxIndex != null && lightboxIndex >= allImages.length) {
+      setLightboxIndex(allImages.length ? allImages.length - 1 : null);
+    }
+  }, [allImages.length, lightboxIndex]);
 
   // Live price readout. Three distinct states, because a half-typed or invalid
   // price must not render as "₹NaN/pc": blank → On Enquiry, unparseable →
@@ -691,9 +793,9 @@ export default function CatalogWorkbench({
       className={
         stacked
           ? "w-full"
-          : "flex-shrink-0 border-r border-slate-200 flex flex-col min-h-0"
+          : "flex-shrink-0 flex flex-col min-h-0 bg-white border border-slate-200 rounded-xl overflow-hidden"
       }
-      style={stacked ? undefined : { width: LIST_W }}
+      style={stacked ? undefined : { width: listWidth }}
     >
       <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 flex-shrink-0">
         <p className="text-xs font-semibold text-slate-700 truncate">
@@ -732,47 +834,98 @@ export default function CatalogWorkbench({
           products.map((p, i) => {
             const isActive = p.id === activeId;
             return (
-              <button
+              // Row is a container, not a button: the overflow menu's trigger
+              // is itself a button and cannot be nested inside one.
+              <div
                 key={p.id}
                 data-pid={p.id}
-                onClick={() => void selectProduct(p.id)}
-                aria-current={isActive ? "true" : undefined}
-                className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-slate-100 border-l-2 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-300 ${
+                className={`group flex items-stretch border-b border-slate-100 border-l-[3px] transition-colors duration-150 ${
                   isActive
-                    ? "bg-red-50 border-l-red-600 shadow-[inset_-2px_0_0_0_theme(colors.red.200)]"
+                    ? "bg-red-50 border-l-red-600"
                     : isFlashing(p.id)
                       ? "bg-emerald-50 border-l-emerald-400"
-                      : "border-l-transparent hover:bg-slate-100 hover:border-l-slate-300"
+                      : "border-l-transparent hover:bg-slate-100"
                 }`}
               >
-                <span className="w-8 h-8 rounded border border-slate-200 bg-slate-50 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                  {p.image_url ? (
-                    <img
-                      src={normalizeImageUrl(p.image_url)}
-                      alt=""
-                      loading="lazy"
-                      className="w-full h-full object-cover"
+                <button
+                  type="button"
+                  onClick={() => void selectProduct(p.id)}
+                  aria-current={isActive ? "true" : undefined}
+                  className="flex-1 min-w-0 text-left px-3 py-2.5 flex items-center gap-2.5 min-h-16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-300"
+                >
+                  <span
+                    className={`w-11 h-11 rounded-lg border overflow-hidden flex-shrink-0 flex items-center justify-center transition-colors duration-150 ${
+                      isActive
+                        ? "border-red-300 bg-white"
+                        : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    {p.image_url ? (
+                      <img
+                        src={normalizeImageUrl(p.image_url)}
+                        alt=""
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="w-4 h-4 text-slate-300" />
+                    )}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span
+                      className={`block truncate text-sm leading-tight ${isActive ? "font-semibold text-red-700" : "font-medium text-slate-700"}`}
+                    >
+                      {p.name}
+                    </span>
+                    <span className="block truncate text-caption text-slate-400 mt-0.5">
+                      {pageOffset + i} · {p.sku || "no SKU"}
+                    </span>
+                  </span>
+                  {incompleteIds.has(p.id) ? (
+                    <AlertCircle
+                      className="w-4 h-4 text-amber-500 flex-shrink-0"
+                      aria-label="Incomplete"
                     />
                   ) : (
-                    <ImageIcon className="w-3.5 h-3.5 text-slate-300" />
+                    <Check
+                      className="w-4 h-4 text-emerald-500 flex-shrink-0"
+                      aria-label="Complete"
+                    />
                   )}
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span
-                    className={`block truncate text-xs ${isActive ? "font-semibold text-red-700" : "text-slate-700"}`}
-                  >
-                    {p.name}
-                  </span>
-                  <span className="block truncate text-caption text-slate-400">
-                    {pageOffset + i} · {p.sku || "no SKU"}
-                  </span>
-                </span>
-                {incompleteIds.has(p.id) ? (
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                ) : (
-                  <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                </button>
+                {(rowMenuItems || onOpenInTable) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        title="More actions"
+                        aria-label={`Actions for ${p.name}`}
+                        className="px-1.5 flex-shrink-0 text-slate-300 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 hover:text-slate-700 transition-[color,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-300"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      {onOpenInTable && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => onOpenInTable(p)}
+                            className="gap-2"
+                          >
+                            <Rows3 className="w-3.5 h-3.5" /> Open in Table
+                          </DropdownMenuItem>
+                          {rowMenuItems && <DropdownMenuSeparator />}
+                        </>
+                      )}
+                      {rowMenuItems?.(
+                        p,
+                        DropdownMenuItem,
+                        DropdownMenuSeparator
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
-              </button>
+              </div>
             );
           })
         )}
@@ -789,7 +942,7 @@ export default function CatalogWorkbench({
             // and the (resizable) fields pane don't need, rather than claiming
             // a fixed width and squeezing the fields into what's left (DE-08).
             // min-w-0 because the drag clamp, not flexbox, enforces IMAGE_MIN.
-            "flex-1 min-w-0 p-4 flex flex-col gap-3 min-h-0"
+            "flex-1 min-w-0 p-4 flex flex-col gap-3 min-h-0 bg-white border border-slate-200 rounded-xl overflow-hidden"
       }
     >
       {/* THE large image. The bordered box is the IMAGE, not a fixed-size
@@ -799,11 +952,15 @@ export default function CatalogWorkbench({
           box in both axes. A landscape photo in a tall pane therefore reads as
           a wide picture rather than a small picture marooned in a large empty
           rectangle. */}
+      <SectionHeading
+        title="Media"
+        hint="Click the photo for a full-page view. Uploads are named after the SKU."
+      />
       <button
         type="button"
-        onClick={() => previewUrl && setZoomOpen(true)}
+        onClick={() => previewUrl && setLightboxIndex(0)}
         disabled={!previewUrl}
-        title={previewUrl ? "Click to expand" : undefined}
+        title={previewUrl ? "Open full-page view" : undefined}
         className={`w-full ${stacked ? "aspect-square" : "flex-1 min-h-[200px]"} overflow-hidden flex items-center justify-center transition-[transform,box-shadow] duration-150 ${previewUrl ? "cursor-zoom-in motion-safe:hover:scale-[1.005]" : "cursor-default"}`}
       >
         {previewUrl ? (
@@ -846,7 +1003,7 @@ export default function CatalogWorkbench({
           className="hidden"
           onChange={e => {
             const f = e.target.files?.[0];
-            if (f) void uploadFile(f, gallery.length + 2);
+            if (f) void uploadFile(f, uploadSlot);
             e.target.value = "";
           }}
         />
@@ -885,7 +1042,7 @@ export default function CatalogWorkbench({
           variant="outline"
           className="gap-1.5 h-8 text-xs flex-shrink-0"
           disabled={!previewUrl}
-          onClick={() => setZoomOpen(true)}
+          onClick={() => setLightboxIndex(0)}
         >
           <Maximize2 className="w-3.5 h-3.5" /> Expand
         </Button>
@@ -919,27 +1076,51 @@ export default function CatalogWorkbench({
                   loading="lazy"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-1 bg-black/40">
-                  <button
-                    type="button"
-                    title={isPrimary ? "Primary image" : "Set as primary"}
-                    onClick={() => void setPrimaryImage(img.image_url)}
-                    className={`p-1 rounded ${isPrimary ? "text-amber-300" : "text-white hover:text-amber-300"}`}
-                  >
-                    <Star
-                      className="w-3.5 h-3.5"
-                      fill={isPrimary ? "currentColor" : "none"}
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    title="Remove"
-                    onClick={() => removeGalleryImage(img.id)}
-                    className="p-1 rounded text-white hover:text-red-300"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {/* One overflow menu instead of two hover-only icon buttons:
+                    the actions are then discoverable, labelled, and there is
+                    room for Replace, which had nowhere to live before. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      title="Image actions"
+                      aria-label="Image actions"
+                      className="absolute top-0.5 right-0.5 p-1 rounded-md bg-black/55 text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 hover:bg-black/75 transition-[opacity,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    >
+                      <MoreHorizontal className="w-3.5 h-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-44">
+                    <DropdownMenuItem
+                      disabled={isPrimary}
+                      onClick={() => void setPrimaryImage(img.image_url)}
+                      className="gap-2"
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                      {isPrimary ? "Already primary" : "Set as primary"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={uploading}
+                      onClick={() => {
+                        // Overwrite this slot rather than appending, so the
+                        // replacement keeps its position in the gallery.
+                        setUploadSlot(gallery.indexOf(img) + 2);
+                        galleryInputRef.current?.click();
+                      }}
+                      className="gap-2"
+                    >
+                      <Upload className="w-3.5 h-3.5" /> Replace
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => removeGalleryImage(img.id)}
+                      className="gap-2"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Remove
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 {isPrimary && (
                   <span className="absolute bottom-0 inset-x-0 bg-amber-500 text-[8px] font-bold text-white text-center">
                     PRIMARY
@@ -951,7 +1132,10 @@ export default function CatalogWorkbench({
         )}
         <button
           type="button"
-          onClick={() => galleryInputRef.current?.click()}
+          onClick={() => {
+            setUploadSlot(gallery.length + 2);
+            galleryInputRef.current?.click();
+          }}
           disabled={uploading || !active}
           title="Add a gallery image"
           className="w-16 h-16 flex-shrink-0 rounded-md border border-dashed border-slate-300 text-slate-400 hover:border-red-400 hover:text-red-500 flex items-center justify-center disabled:opacity-50"
@@ -978,197 +1162,224 @@ export default function CatalogWorkbench({
       onPointerDown={startDividerDrag}
       onDoubleClick={resetDivider}
       style={{ width: DIVIDER_W }}
-      className="flex-shrink-0 cursor-col-resize bg-slate-50 hover:bg-red-100 border-x border-slate-200 flex items-center justify-center group transition-colors"
+      className="flex-shrink-0 cursor-col-resize rounded-full hover:bg-red-100 flex items-center justify-center group transition-colors duration-150"
     >
       <GripVertical className="w-3 h-3 text-slate-300 group-hover:text-red-500" />
     </div>
   );
 
   const fieldsBody = (
-    <div className="grid grid-cols-1 gap-3">
-      <div>
-        <Label className="text-xs">Product name</Label>
-        <Input
-          ref={nameInputRef}
-          value={formData.name}
-          onChange={e => updateForm("name", e.target.value)}
-          onKeyDown={e => onFieldKeyDown(e)}
-          onBlur={() => markTouched("name")}
-          aria-invalid={!!shownError("name")}
-          className={`${FIELD_CLS} ${errorClass("name")}`}
-          placeholder="Full product name"
+    <div className="flex flex-col gap-5">
+      <section className="flex flex-col gap-3">
+        <SectionHeading
+          title="Basics"
+          hint="What the product is called and where it sits in the catalogue."
         />
-        {renderFieldError("name")}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="text-xs whitespace-nowrap">Price ₹</Label>
+          <Label className="text-xs">Product name</Label>
           <Input
-            ref={priceInputRef}
-            value={formData.price}
-            onChange={e => updateForm("price", e.target.value)}
+            ref={nameInputRef}
+            value={formData.name}
+            onChange={e => updateForm("name", e.target.value)}
             onKeyDown={e => onFieldKeyDown(e)}
-            onBlur={() => markTouched("price")}
-            aria-invalid={!!shownError("price")}
-            inputMode="decimal"
-            className={`${FIELD_CLS} ${errorClass("price")}`}
-            placeholder="blank = On Enquiry"
+            onBlur={() => markTouched("name")}
+            aria-invalid={!!shownError("name")}
+            className={`${FIELD_CLS} ${errorClass("name")}`}
+            placeholder="Full product name"
           />
-          {renderFieldError("price")}
+          {renderFieldError("name")}
         </div>
-        <div>
-          <Label className="text-xs whitespace-nowrap">Pack qty</Label>
-          <Input
-            ref={qtyInputRef}
-            value={formData.quantity_in_unit}
-            onChange={e => updateForm("quantity_in_unit", e.target.value)}
-            onKeyDown={e => onFieldKeyDown(e)}
-            onBlur={() => markTouched("quantity_in_unit")}
-            aria-invalid={!!shownError("quantity_in_unit")}
-            inputMode="numeric"
-            className={`${FIELD_CLS} ${errorClass("quantity_in_unit")}`}
-            placeholder="e.g. 480"
-          />
-          {renderFieldError("quantity_in_unit") ?? (
-            <p className="text-caption text-slate-400 mt-1 whitespace-nowrap">
-              pcs per pack
-            </p>
-          )}
-        </div>
-      </div>
 
-      {/* Price readout spans the full pane width — inside the 2-column grid
-            it only had ~148px and wrapped into a vertical stack. */}
-      <p className="text-caption -mt-1">
-        {priceInvalid ? (
-          <span className="text-red-600 font-semibold">
-            Not a number — this won't save
-          </span>
-        ) : onEnquiry ? (
-          <span className="text-amber-700 font-semibold">
-            On Enquiry — no price shown on the storefront
-          </span>
-        ) : (
-          <span className="text-slate-500">
-            ₹{Number(priceNum).toLocaleString()} per pack of{" "}
-            {formData.quantity_in_unit || "?"} {formData.unit_of_measure}
-            {perPiece != null && (
-              <>
-                {" "}
-                ·{" "}
-                <strong className="font-semibold">
-                  ₹{(Math.round(perPiece * 100) / 100).toLocaleString()}/pc
-                </strong>
-              </>
-            )}
-          </span>
-        )}
-      </p>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs whitespace-nowrap">MOQ (packs)</Label>
-          <Input
-            ref={moqInputRef}
-            value={formData.moq}
-            onChange={e => updateForm("moq", e.target.value)}
-            onKeyDown={e => onFieldKeyDown(e)}
-            onBlur={() => markTouched("moq")}
-            aria-invalid={!!shownError("moq")}
-            inputMode="numeric"
-            className={`${FIELD_CLS} ${errorClass("moq")}`}
-            placeholder="e.g. 1"
-          />
-          {renderFieldError("moq")}
-        </div>
-        <div>
-          <Label className="text-xs">Unit</Label>
-          <Select
-            value={formData.unit_of_measure}
-            onValueChange={v => updateForm("unit_of_measure", v)}
-          >
-            <SelectTrigger className={FIELD_CLS}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {UNITS.map(u => (
-                <SelectItem key={u} value={u}>
-                  {u}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Brand and SKU each take a full row. Paired in a 2-column grid they
+        {/* Brand and SKU each take a full row. Paired in a 2-column grid they
             only had ~178px, which clipped real values from this catalogue —
             "HINGED-BOX-2000-ML" rendered as "HINGED-BOX-2000-Ml". Vertical
             space in this pane is not scarce; horizontal space is. */}
-      <div>
-        <Label className="text-xs">Brand</Label>
-        <Input
-          value={formData.brand}
-          onChange={e => updateForm("brand", e.target.value)}
-          onKeyDown={e => onFieldKeyDown(e)}
-          className={FIELD_CLS}
-          placeholder="Brand"
-        />
-      </div>
-      <div>
-        <Label className="text-xs">SKU</Label>
-        <Input
-          value={formData.sku}
-          onChange={e => updateForm("sku", e.target.value)}
-          onKeyDown={e => onFieldKeyDown(e)}
-          className={`${FIELD_CLS} font-mono`}
-          placeholder="XL0105"
-        />
-      </div>
-
-      <div>
-        <Label className="text-xs">Category</Label>
-        <div className="mt-1">
-          <CategoryCombobox
-            categories={categories}
-            value={formData.category_id}
-            onChange={v => updateForm("category_id", v)}
-            // Tab must pass THROUGH to Description; Enter/Space opens it.
-            openOnFocus={false}
+        <div>
+          <Label className="text-xs">Brand</Label>
+          <Input
+            value={formData.brand}
+            onChange={e => updateForm("brand", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            className={FIELD_CLS}
+            placeholder="Brand"
           />
         </div>
-      </div>
-
-      <div>
-        <Label className="text-xs">Description</Label>
-        <Textarea
-          value={formData.description}
-          onChange={e => updateForm("description", e.target.value)}
-          onKeyDown={e => onFieldKeyDown(e)}
-          rows={5}
-          className={`${FIELD_CLS} resize-y min-h-[132px] h-auto`}
-          placeholder="Short B2B description — material, size, use case…"
-        />
-        <p className="text-caption text-slate-400 mt-1">
-          Enter makes a new line here. Ctrl+Enter saves.
-        </p>
-      </div>
-
-      <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
         <div>
-          <Label className="text-xs">Published</Label>
-          <p className="text-caption text-slate-400">
-            Draft products never appear on the storefront.
+          <Label className="text-xs">SKU</Label>
+          <Input
+            value={formData.sku}
+            onChange={e => updateForm("sku", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            className={`${FIELD_CLS} font-mono`}
+            placeholder="XL0105"
+          />
+        </div>
+
+        <div>
+          <Label className="text-xs">Category</Label>
+          <div className="mt-1">
+            <CategoryCombobox
+              categories={categories}
+              value={formData.category_id}
+              onChange={v => updateForm("category_id", v)}
+              // Tab must pass THROUGH to Description; Enter/Space opens it.
+              openOnFocus={false}
+              // Matches the 44px field height. The combobox merges through
+              // cn(), so a bare h-11 is enough to beat its own h-9.
+              className="h-11 transition-shadow duration-150 focus:ring-2 focus:ring-red-300"
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs">Description</Label>
+          <Textarea
+            value={formData.description}
+            onChange={e => updateForm("description", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            rows={5}
+            className={`${FIELD_CLS} resize-y min-h-[132px] h-auto`}
+            placeholder="Short B2B description — material, size, use case…"
+          />
+          <p className="text-caption text-slate-400 mt-1">
+            Enter makes a new line here. Ctrl+Enter saves.
           </p>
         </div>
-        <Switch
-          checked={formData.status === "published"}
-          onCheckedChange={c =>
-            updateForm("status", (c ? "published" : "draft") as ProductStatus)
-          }
+      </section>
+
+      <section className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+        <SectionHeading
+          title="Pricing"
+          hint="What ONE selling unit (the pack or case) costs, and the minimum order."
         />
-      </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs whitespace-nowrap">Price ₹</Label>
+            <Input
+              ref={priceInputRef}
+              value={formData.price}
+              onChange={e => updateForm("price", e.target.value)}
+              onKeyDown={e => onFieldKeyDown(e)}
+              onBlur={() => markTouched("price")}
+              aria-invalid={!!shownError("price")}
+              inputMode="decimal"
+              className={`${FIELD_CLS} ${errorClass("price")}`}
+              placeholder="blank = On Enquiry"
+            />
+            {renderFieldError("price")}
+          </div>
+          <div>
+            <Label className="text-xs whitespace-nowrap">Pack qty</Label>
+            <Input
+              ref={qtyInputRef}
+              value={formData.quantity_in_unit}
+              onChange={e => updateForm("quantity_in_unit", e.target.value)}
+              onKeyDown={e => onFieldKeyDown(e)}
+              onBlur={() => markTouched("quantity_in_unit")}
+              aria-invalid={!!shownError("quantity_in_unit")}
+              inputMode="numeric"
+              className={`${FIELD_CLS} ${errorClass("quantity_in_unit")}`}
+              placeholder="e.g. 480"
+            />
+            {renderFieldError("quantity_in_unit") ?? (
+              <p className="text-caption text-slate-400 mt-1 whitespace-nowrap">
+                pcs per pack
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Price readout spans the full pane width — inside the 2-column grid
+            it only had ~148px and wrapped into a vertical stack. */}
+        <p className="text-caption -mt-1">
+          {priceInvalid ? (
+            <span className="text-red-600 font-semibold">
+              Not a number — this won't save
+            </span>
+          ) : onEnquiry ? (
+            <span className="text-amber-700 font-semibold">
+              On Enquiry — no price shown on the storefront
+            </span>
+          ) : (
+            <span className="text-slate-500">
+              ₹{Number(priceNum).toLocaleString()} per pack of{" "}
+              {formData.quantity_in_unit || "?"} {formData.unit_of_measure}
+              {perPiece != null && (
+                <>
+                  {" "}
+                  ·{" "}
+                  <strong className="font-semibold">
+                    ₹{(Math.round(perPiece * 100) / 100).toLocaleString()}/pc
+                  </strong>
+                </>
+              )}
+            </span>
+          )}
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs whitespace-nowrap">MOQ (packs)</Label>
+            <Input
+              ref={moqInputRef}
+              value={formData.moq}
+              onChange={e => updateForm("moq", e.target.value)}
+              onKeyDown={e => onFieldKeyDown(e)}
+              onBlur={() => markTouched("moq")}
+              aria-invalid={!!shownError("moq")}
+              inputMode="numeric"
+              className={`${FIELD_CLS} ${errorClass("moq")}`}
+              placeholder="e.g. 1"
+            />
+            {renderFieldError("moq")}
+          </div>
+          <div>
+            <Label className="text-xs">Unit</Label>
+            <Select
+              value={formData.unit_of_measure}
+              onValueChange={v => updateForm("unit_of_measure", v)}
+            >
+              {/* `data-[size=default]:h-11` not plain `h-11`: SelectTrigger's own
+                `data-[size=default]:h-9` is an attribute selector and outranks
+                a bare utility, so the trigger stayed 36px while every input
+                next to it was 44. `w-full` because the trigger is `w-fit`. */}
+              <SelectTrigger
+                className={`${FIELD_CLS} w-full data-[size=default]:h-11`}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {UNITS.map(u => (
+                  <SelectItem key={u} value={u}>
+                    {u}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+        <SectionHeading
+          title="Publishing"
+          hint="Whether customers can see this product on the storefront."
+        />
+        <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+          <div>
+            <Label className="text-xs">Published</Label>
+            <p className="text-caption text-slate-400">
+              Draft products never appear on the storefront.
+            </p>
+          </div>
+          <Switch
+            checked={formData.status === "published"}
+            onCheckedChange={c =>
+              updateForm("status", (c ? "published" : "draft") as ProductStatus)
+            }
+          />
+        </div>
+      </section>
     </div>
   );
 
@@ -1231,7 +1442,7 @@ export default function CatalogWorkbench({
     // Fixed (drag-resizable) width, never shrinks — this pane is what got
     // crushed when it was flex-1. Body scrolls; the action bar does not.
     <div
-      className="flex-shrink-0 flex flex-col min-h-0"
+      className="flex-shrink-0 flex flex-col min-h-0 bg-white border border-slate-200 rounded-xl overflow-hidden"
       style={{ width: effFieldsWidth }}
     >
       <div className="flex-1 overflow-y-auto min-h-0 p-4">{fieldsBody}</div>
@@ -1249,8 +1460,9 @@ export default function CatalogWorkbench({
           ? "bg-white border border-slate-200 rounded-xl overflow-hidden"
           : // flex-1, not h-full: a percentage height needs a definite parent,
             // whereas flex-1 + min-h-0 is capped by the column above it
-            // regardless of how that column got its size.
-            "bg-white border border-slate-200 rounded-xl overflow-hidden flex-1 flex flex-col min-h-0"
+            // regardless of how that column got its size. The shell itself is
+            // transparent — each pane below is its own white card.
+            "flex-1 flex flex-col min-h-0"
       }
       style={isMobile ? undefined : { minHeight: MIN_SHELL_H }}
     >
@@ -1269,7 +1481,7 @@ export default function CatalogWorkbench({
           {fieldsPane}
         </div>
       ) : (
-        <div className="flex items-stretch flex-1 min-h-0">
+        <div className="flex items-stretch flex-1 min-h-0 gap-3">
           {listPane}
           {imagePane}
           {divider}
@@ -1367,24 +1579,97 @@ export default function CatalogWorkbench({
         </DialogContent>
       </Dialog>
 
-      {/* Zoom */}
-      <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
-        <DialogContent className="max-w-5xl">
-          <DialogHeader>
-            <DialogTitle className="text-sm">{formData.name}</DialogTitle>
-            <DialogDescription className="sr-only">
-              Full-size product image
+      {/* Full-page lightbox. Esc and the backdrop close it (Radix handles Esc;
+          the backdrop is the content itself, since a full-bleed panel leaves
+          no overlay to click). Arrow keys walk the gallery — see the effect
+          above. */}
+      <Dialog
+        open={lightboxIndex != null}
+        onOpenChange={open => !open && setLightboxIndex(null)}
+      >
+        <DialogContent
+          showCloseButton={false}
+          onClick={() => setLightboxIndex(null)}
+          className="w-screen h-dvh max-w-none sm:max-w-none translate-x-[-50%] translate-y-[-50%] rounded-none border-0 bg-slate-950/95 p-0 gap-0 grid-rows-[auto_1fr_auto] cursor-zoom-out"
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>{formData.name || "Product image"}</DialogTitle>
+            <DialogDescription>
+              Full-page image view. Press Escape to close
+              {allImages.length > 1
+                ? ", or the left and right arrow keys to move through the gallery."
+                : "."}
             </DialogDescription>
           </DialogHeader>
-          {previewUrl && (
-            <img
-              src={previewUrl}
-              alt={formData.name}
-              className="w-full max-h-[75vh] object-contain"
-            />
-          )}
-          <p className="text-caption text-slate-400 flex items-center gap-1">
-            <Link2 className="w-3 h-3" /> {previewUrl}
+
+          <div className="flex items-center justify-between gap-3 px-4 py-3 text-white/80">
+            <p className="text-sm truncate" title={lightboxImage?.name}>
+              {lightboxImage?.name}
+            </p>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {allImages.length > 1 && (
+                <span className="text-xs text-white/50 tabular-nums">
+                  {(lightboxIndex ?? 0) + 1} / {allImages.length}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setLightboxIndex(null)}
+                aria-label="Close"
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex items-center justify-center gap-3 px-4">
+            {allImages.length > 1 && (
+              <button
+                type="button"
+                aria-label="Previous image"
+                onClick={e => {
+                  e.stopPropagation();
+                  setLightboxIndex(i =>
+                    i == null
+                      ? i
+                      : (i - 1 + allImages.length) % allImages.length
+                  );
+                }}
+                className="flex-shrink-0 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+            {lightboxImage && (
+              <img
+                src={lightboxImage.url}
+                alt={formData.name || lightboxImage.name}
+                // Stop the click here so only the backdrop closes.
+                onClick={e => e.stopPropagation()}
+                className="max-w-full max-h-full w-auto h-auto object-contain cursor-default"
+              />
+            )}
+            {allImages.length > 1 && (
+              <button
+                type="button"
+                aria-label="Next image"
+                onClick={e => {
+                  e.stopPropagation();
+                  setLightboxIndex(i =>
+                    i == null ? i : (i + 1) % allImages.length
+                  );
+                }}
+                className="flex-shrink-0 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+
+          <p className="px-4 py-3 text-caption text-white/40 flex items-center gap-1.5 truncate">
+            <Link2 className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{lightboxImage?.url}</span>
           </p>
         </DialogContent>
       </Dialog>

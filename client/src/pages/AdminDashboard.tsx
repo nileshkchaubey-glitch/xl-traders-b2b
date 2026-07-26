@@ -363,7 +363,10 @@ export default function AdminDashboard() {
           <div
             className={
               activeTab === "catalog-editor"
-                ? "flex-1 min-h-0 flex flex-col overflow-y-auto px-6 py-6"
+                ? // Modest gutters only — the Catalog Editor is a data surface
+                  // that should use the whole viewport, and every pixel of
+                  // vertical padding comes out of the Workbench image pane.
+                  "flex-1 min-h-0 flex flex-col overflow-y-auto px-4 py-4"
                 : "flex-1 min-h-0 overflow-y-auto"
             }
           >

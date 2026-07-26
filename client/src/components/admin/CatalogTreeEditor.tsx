@@ -2054,8 +2054,44 @@ export default function CatalogTreeEditor({
           </span>
           <div className="flex-1" />
           {scopeSelect}
-          {modeToggle}
-          {refreshButton}
+          {/* Refresh and the mode switch move into an overflow menu here: in
+              Workbench mode the header is one line and the scope picker is the
+              control that earns its place on it. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                title="More actions"
+                aria-label="More actions"
+                className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                disabled={loading}
+                onClick={() => {
+                  loadAggregates();
+                  loadChipCounts();
+                  loadProducts();
+                  loadIncompleteIds();
+                }}
+                className="gap-2"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setMode("table")}
+                className="gap-2"
+              >
+                <Rows3 className="w-3.5 h-3.5" /> Switch to Table
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -2558,6 +2594,13 @@ export default function CatalogTreeEditor({
                 loadAggregates();
                 loadChipCounts();
                 loadIncompleteIds();
+              }}
+              // The queue's overflow menu IS the table's row menu — same
+              // items, same handlers, passed down rather than rebuilt.
+              rowMenuItems={renderRowMenuItems}
+              onOpenInTable={p => {
+                setMode("table");
+                setSearchInput(p.sku || p.name);
               }}
             />
           ) : (
