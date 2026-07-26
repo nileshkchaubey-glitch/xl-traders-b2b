@@ -31,6 +31,17 @@ interface Props {
   skuHint?: string;
   /** Rendered next to Cancel in selection mode. */
   onCancel?: () => void;
+  /**
+   * Handles files dropped on (or browsed from) the selection-mode dropzone.
+   * When omitted the library's own global upload runs, which names files
+   * randomly; the Workbench passes its SKU-named upload instead so a dropped
+   * file lands at `products/{SKU}/{SKU}.webp` exactly like the Upload button.
+   */
+  onDropFiles?: (files: File[]) => void | Promise<void>;
+  /** Replaces the dropzone's second line — e.g. where uploads will be stored. */
+  uploadHint?: string;
+  /** Consumer-owned upload in flight (pairs with `onDropFiles`). */
+  busy?: boolean;
 }
 
 /** Compare loosely: `HINGED-BOX-2000-ML` should match `hinged_box_2000_ml.webp`. */
@@ -43,6 +54,9 @@ export default function AdminImageLibrary({
   isSelectionMode = false,
   skuHint,
   onCancel,
+  onDropFiles,
+  uploadHint,
+  busy = false,
 }: Props) {
   const [images, setImages] = useState<MediaImage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,16 +134,32 @@ export default function AdminImageLibrary({
     }
   };
 
+  // One entry point for both the file input and the dropzone, so a consumer
+  // that owns the upload (the Workbench, which names files after the SKU) gets
+  // dropped files as well as browsed ones.
+  const receiveFiles = (files: File[]) => {
+    if (!files.length) return;
+    if (onDropFiles) {
+      const images = files.filter(f => f.type.startsWith("image/"));
+      if (!images.length) {
+        toast.error("Only image files can be uploaded");
+        return;
+      }
+      void onDropFiles(images);
+      return;
+    }
+    void handleUpload(files);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    handleUpload(files);
+    receiveFiles(Array.from(e.target.files || []));
+    e.target.value = "";
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const files = Array.from(e.dataTransfer.files || []);
-    handleUpload(files);
+    receiveFiles(Array.from(e.dataTransfer.files || []));
   };
 
   const handleCopyUrl = (url: string) => {
@@ -315,6 +345,51 @@ export default function AdminImageLibrary({
             ))}
           </div>
         </div>
+
+        {/* Dropzone. One compact row rather than the standalone library's
+            120px panel — in a picker the grid is what needs the height — but
+            the same handlers, so drag-drop and Browse behave identically. */}
+        <label
+          onDragOver={e => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-3 py-2.5 text-xs cursor-pointer transition-colors duration-150 ${
+            dragOver
+              ? "border-red-500 bg-red-50/60 text-red-700"
+              : "border-slate-200 bg-white text-slate-600 hover:border-red-400 hover:bg-slate-50/60"
+          }`}
+        >
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            className="hidden"
+            disabled={uploading || busy}
+          />
+          {uploading || busy ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+              <span className="font-semibold">Uploading…</span>
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 text-slate-400" />
+              <span className="font-semibold">
+                Drag &amp; drop images here or{" "}
+                <span className="text-red-600 underline underline-offset-2">
+                  Browse
+                </span>
+              </span>
+              <span className="text-slate-400 truncate">
+                {uploadHint ?? "PNG, JPG or WebP"}
+              </span>
+            </>
+          )}
+        </label>
 
         {skuHint && skuMatchCount > 0 && (
           <p className="text-xs text-slate-500 flex-shrink-0 -mt-1">

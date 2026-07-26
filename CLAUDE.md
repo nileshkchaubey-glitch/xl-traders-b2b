@@ -541,6 +541,105 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   covers the post-request patch/toast/refresh window, not just `saving`, so a second
   click can't fire a duplicate update), clearer queue hover/selected states, and
   written-out empty states.
+  **Polish pass (July 2026, PR-4):** presentation only. **Full-bleed Catalog Editor** —
+  the tab's wrapper drops to `px-4 py-4` (no width cap; other admin tabs keep
+  `max-w-screen-xl px-6 py-6`), so table and workbench span the viewport minus the
+  sidebar exactly. **Full-page lightbox** replaces the old `max-w-5xl` zoom dialog:
+  dark full-screen backdrop, filename and `n / total` in the header, Esc or a backdrop
+  click to close, arrow keys (and on-screen chevrons) through primary + gallery. The
+  image list is deduped and the index is reset when the product changes or the gallery
+  shrinks. **Three overflow menus**, all built from components already in the repo:
+  the queue row renders the Catalog Editor's own `renderRowMenuItems` — passed down as
+  a `rowMenuItems` render prop, same signature as `<DataTable>`'s `rowContextMenu` —
+  plus an "Open in Table" item that switches mode and seeds the search; each gallery
+  thumbnail gets Set as primary / Replace / Remove (Replace re-uploads to the same
+  storage key **and** patches that `product_images` row via
+  `productImageService.update`, so the image keeps its position — patching the row is
+  the part that matters, since re-uploading alone still appended a second row pointing
+  at the same file; if the replaced row was also the primary, `image_url` is refreshed
+  too, because `uploadBySku` cache-busts the URL); the workbench header's Refresh and
+  Switch to Table moved into a `⋯` menu. The queue row became a `<div>` wrapping a
+  `<button>` — a menu trigger is itself a button and cannot nest inside one. None of
+  the triggers are hover-gated: this component is also the mobile products surface, so
+  `group-hover` would never resolve there. The queue trigger is a 44px target, and the
+  whole 64px gallery tile is the trigger rather than a 22px badge on it.
+  **Fields pane is sectioned** — Basics / Pricing / Publishing, each with a title and a
+  one-line description, with **Media** heading the image pane. Note this changes tab
+  order to follow visual order: Name → Brand → SKU → Category → Description → Price →
+  Pack qty → MOQ → Unit → Published → Save → Save & Next. **44px inputs throughout**;
+  `SelectTrigger` needs `data-[size=default]:h-11` because its own
+  `data-[size=default]:h-9` is an attribute selector that outranks a bare utility, and
+  `CategoryCombobox` merges through `cn()` so a plain `h-11` suffices there. **Panes are
+  separate white cards** on the `admin-bg` page with a `gap-3` between them; the shell
+  itself is transparent. Queue rows are 64px with a 44px thumbnail, and the queue width
+  is viewport-aware (280px, 240px below 1250px of shell) because the wider queue
+  otherwise costs the image 40px on a 1366 laptop. **No pricing behaviour changed** —
+  the price/pack-qty/MOQ/unit inputs, their validation and the derived readout moved
+  into the Pricing section verbatim; only field height changed.
+
+- **Table-mode fit + parity pass (July 2026, PR-4b):** DE-07 closed. **Default columns**
+  are now thumbnail+Name, Category, Unit/Pack, Price, Status, actions — Stock and
+  Description moved behind the Columns control (nothing removed, only the default
+  changed); the old default set summed to 1330px and could not fit a 1366 laptop beside
+  the tree, which was the permanent horizontal scrollbar. **Name is the flex column**
+  now instead of Description, and `<DataTable>` gained **shrink-to-fit**: it already
+  grew the flex column to absorb dead space, but never shrank it, so a default set
+  wider than the container just overflowed. It now takes the deficit out of the flex
+  column down to its `minSize`, and `hasHorizontalOverflow` (which gates the sticky
+  bottom scrollbar) is computed _after_ that — so the bar no longer appears with
+  nothing to scroll. **The Name never truncates**: no line clamp at all, wrapping to as
+  many lines as it needs, with rows keeping a 64px floor and growing only when a long
+  name meets a narrow column. The always-on feature star left the Name cell (it is an
+  indicator now; the toggle lives in the row menu) — it was costing ~28px of the one
+  column that must not run out of room. **Collapsible category tree** (`catTree=0` in
+  the URL, default expanded, `w-56` when open) with a thin rail carrying a reopen
+  button and a dot when a scope is active; collapsing hands ~230px to the table.
+  **Shared visual language with the Workbench**: 64px rows, 44px thumbnails, row hover
+  and an unmistakable selected tint that sticky cells follow (they previously punched a
+  white hole through it), 150ms transitions. **Compacted chrome**: the title block is
+  one line with the product count (the strapline is gone), root spacing `space-y-4` →
+  `space-y-2.5`, tighter toolbar padding, and the duplicate scope heading above the
+  table now appears only when the tree is collapsed. Measured with default columns and
+  live rows — 0px horizontal scroll and 0 truncated names at 1366x768 and 1920x1080 at
+  100%, at 1920x1080 at 125%, and at 1366 with the tree collapsed; at 1366 **@125%**
+  the container is 583px (tree open) / 767px (collapsed) against a 847px floor for six
+  columns, so the bottom scrollbar correctly remains there.
+- **Workbench field sections regrouped (owner decision, 26 Jul 2026):** **Product**
+  (Name, Price, Pack qty, MOQ, Unit) → **Details** (Brand, SKU, Category, Description)
+  → **Publishing**. Entry happens photo → name → price → pack qty, so those lead and
+  nothing rarely-touched sits between them; Brand/SKU/Category rarely change once set.
+  Tab order follows the same path.
+- **Sticky table header + drag-drop upload (July 2026, PR-4c):** **Sticky header.** The
+  `<thead>` already carried `sticky top-0`, but it never stuck: the table's viewport is
+  `overflow-x-auto`, and per CSS `overflow-y: visible` computes to `auto` when the other
+  axis isn't visible — so that div was already a scrollport, just one with no height
+  constraint. The header pinned to the top of a box that itself scrolled off the page.
+  `<DataTable>` gains **`fillHeight`**, which turns the body into the real vertical
+  scroller (root → `relative` wrapper → viewport all become a `flex-1 min-h-0` column),
+  and Table mode joins Workbench mode in claiming the viewport (`CatalogTreeEditor`
+  root + two-pane row + table pane are a flex-column chain; the tree aside stretches and
+  scrolls on its own). Consequence worth knowing: the chrome above (title, tabs, toolbar,
+  chips) no longer scrolls away — it and the pagination footer are now always on screen,
+  and the rows scroll under a pinned header instead. `fillHeight` is **off below `md`**
+  (`useIsMobile`): `MobileAdminShell` renders its children in a plain block inside a
+  scrolling `<main>`, where a `flex-1` item has nothing to resolve against and would
+  flex-basis to 0 — mobile keeps page scrolling and an unpinned header. The bulk-bar
+  spacer needed `flex-shrink-0` for the same reason (an empty div's automatic minimum is
+  0 in a flex column). Verified by scrolling to the last of 50 rows at 1366/1920 ×
+  100/125%, tree open and collapsed: header offset stays 1px, page overflow 0.
+  **Drag & drop restored** (it was lost when the Select-image dialog's layout was
+  rewritten as a picker; the standalone Image Library kept its dropzone throughout).
+  Two places: the Workbench's **whole image pane** is a drop target (dragenter/leave
+  counted, not a boolean, so crossing onto the filmstrip inside doesn't flicker the
+  highlight off; the overlay is `pointer-events-none` so it can't swallow the drop), and
+  the **Select image dialog** gains a compact dropzone row. Both route through the same
+  SKU upload as the Upload button — `products/{SKU}/{SKU}.webp`, gallery as `-2`, `-3` —
+  via a new `AdminImageLibrary` prop `onDropFiles` (plus `uploadHint`/`busy`); without it
+  the library still does its own global upload, so the standalone surface is unchanged.
+  Multiple files upload sequentially: the first takes the primary slot only if the
+  product has none, the rest append; per-file toasts collapse to one summary.
+  `addToGallery` now reads `display_order` from a fresh fetch rather than `gallery`
+  state, which is stale from the second file of a multi-drop onward.
 
 ### Health System
 
