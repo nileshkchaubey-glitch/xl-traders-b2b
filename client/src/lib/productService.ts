@@ -222,6 +222,12 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+// Escapes a string for literal use inside a RegExp (SKUs can contain '.' and
+// '-', which would otherwise widen the match).
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // Fields the operator may set in bulk. price/mrp/discount_percent are
 // deliberately excluded — bulk price edits stay out for now (price security).
 export type BulkEditableField =
@@ -979,6 +985,61 @@ export const storageService = {
       .getPublicUrl(filePath);
 
     return data.publicUrl;
+  },
+
+  // ── SKU-named uploads (Catalog Workbench) ──────────────────────────────────
+  // Files land at products/{SKU}.webp for the primary image and
+  // products/{SKU}-2.webp, -3.webp … for gallery slots, so a file is
+  // identifiable from its name alone. The existing uploadGlobalImage() path
+  // (products/global-{ts}-{rand}) stays for the Image Library, which uploads
+  // without a product context.
+
+  // Filename for slot `index`: 1 = primary (bare SKU), 2+ = suffixed.
+  skuObjectPath(sku: string, index = 1) {
+    const safe = sku.trim().replace(/[^A-Za-z0-9._-]+/g, "-");
+    return `products/${safe}${index > 1 ? `-${index}` : ""}.webp`;
+  },
+
+  // Existing objects whose name starts with this SKU. Backs the Workbench's
+  // "a file for this SKU is already in the bucket — attach it instead of
+  // re-uploading?" prompt. Matches the bare SKU and its -N siblings, but not a
+  // different SKU that merely shares a prefix (XL0105 must not match XL01050).
+  async listBySku(sku: string): Promise<{ name: string; url: string }[]> {
+    if (isDemo) return [];
+    const safe = sku.trim().replace(/[^A-Za-z0-9._-]+/g, "-");
+    if (!safe) return [];
+
+    const { data, error } = await supabase.storage
+      .from("product-images")
+      .list("products", { search: safe, limit: 100 });
+    if (error) throw error;
+
+    const exact = new RegExp(`^${escapeRegExp(safe)}(-\\d+)?\\.[A-Za-z0-9]+$`);
+    return (data ?? [])
+      .filter(f => exact.test(f.name))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+      .map(f => ({
+        name: f.name,
+        url: this.getPublicUrl(`products/${f.name}`),
+      }));
+  },
+
+  // upsert:true so re-uploading a corrected photo for the same SKU replaces the
+  // object rather than accumulating duplicates under new random names.
+  async uploadBySku(file: File, sku: string, index = 1): Promise<string> {
+    if (isDemo) {
+      console.warn("Demo mode: Image not uploaded");
+      return "";
+    }
+    const filePath = this.skuObjectPath(sku, index);
+    const { error } = await supabase.storage
+      .from("product-images")
+      .upload(filePath, file, { upsert: true, contentType: file.type });
+    if (error) throw error;
+
+    // Cache-bust: with upsert the URL is stable, so a replaced image would
+    // otherwise keep rendering from cache.
+    return `${this.getPublicUrl(filePath)}?v=${Date.now()}`;
   },
 };
 

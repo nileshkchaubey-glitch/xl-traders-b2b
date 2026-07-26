@@ -13,10 +13,16 @@ export interface ResizeResult {
   newDimensions: { w: number; h: number };
 }
 
+// Output format. Defaults to jpeg so every existing caller is untouched; the
+// Workbench's SKU uploads pass "webp" (smaller at the same visual quality, and
+// it is what the SKU filenames declare — XL0105.webp).
+export type ResizeFormat = "jpeg" | "webp";
+
 export async function autoResizeImage(
   file: File,
   maxSize = 800,
-  quality = 0.85
+  quality = 0.85,
+  format: ResizeFormat = "jpeg"
 ): Promise<ResizeResult> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -49,12 +55,14 @@ export async function autoResizeImage(
       ctx.fillRect(0, 0, w, h);
       ctx.drawImage(img, 0, 0, w, h);
 
+      const mime = format === "webp" ? "image/webp" : "image/jpeg";
+      const ext = format === "webp" ? ".webp" : ".jpg";
       canvas.toBlob(
         blob => {
           if (!blob) return reject(new Error("Compression failed"));
-          const outName = file.name.replace(/\.[^.]+$/, ".jpg");
+          const outName = file.name.replace(/\.[^.]+$/, ext);
           const outFile = new File([blob], outName, {
-            type: "image/jpeg",
+            type: mime,
             lastModified: Date.now(),
           });
           resolve({
@@ -65,7 +73,7 @@ export async function autoResizeImage(
             newDimensions: { w, h },
           });
         },
-        "image/jpeg",
+        mime,
         quality
       );
     };

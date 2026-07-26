@@ -29,6 +29,8 @@ import {
   MessageSquare,
   Layers,
   FileText,
+  Rows3,
+  Images,
 } from "lucide-react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { toast } from "sonner";
@@ -92,6 +94,9 @@ import {
   MissingFilter,
 } from "@/lib/catalogHealth";
 import CatalogProductPanel from "@/components/admin/CatalogProductPanel";
+import CatalogWorkbench from "@/components/admin/CatalogWorkbench";
+import { validateEdit } from "@/lib/productValidation";
+import { useSaveFeedback } from "@/hooks/useSaveFeedback";
 
 const PAGE_SIZE = 50;
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
@@ -177,6 +182,14 @@ type UndoField = BulkEditableField | "status";
 // Undo offer) — the action still runs normally, just without the safety net,
 // bounding the extra read + in-memory snapshot to a sane size.
 const UNDO_SNAPSHOT_CAP = 500;
+
+// ── Editing mode ──────────────────────────────────────────────────────────────
+// "table"     — the spreadsheet-style DataTable (unchanged).
+// "workbench" — image-first entry: product queue | large image | fields.
+// Both are the SAME surface, filters and tree selection: only the right pane
+// swaps. This is a mode, not a second admin (CODEX §6).
+type EditorMode = "table" | "workbench";
+const MODE_PARAM = "catMode";
 
 // ── Inline editing ────────────────────────────────────────────────────────────
 type EditField = "name" | "price" | "description";
@@ -318,6 +331,29 @@ export default function CatalogTreeEditor({
     useState<ActiveMissing>(attentionFilter);
   // Live counts for the quick chips (scoped to the current node).
   const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
+
+  // ── Editing mode: the table, or the image-first Workbench ────────────────────
+  // Same tab, same data, same filters — only the right pane swaps. Persisted to
+  // the URL alongside the DataTable's own layout params (no localStorage).
+  const [mode, setMode] = useState<EditorMode>(() => {
+    const raw = new URLSearchParams(window.location.search).get(MODE_PARAM);
+    return raw === "workbench" ? "workbench" : "table";
+  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (mode === "workbench") params.set(MODE_PARAM, mode);
+    else params.delete(MODE_PARAM);
+    setLocation(`${window.location.pathname}?${params.toString()}`, {
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  // Ids the health view considers incomplete, scoped to the current node —
+  // drives the Workbench list's per-product readiness marker. Straight from
+  // v_product_health via healthService; no missing-logic re-derived here.
+  // (The loader lives further down, after `scopedCategoryIds` is declared.)
+  const [incompleteIds, setIncompleteIds] = useState<Set<string>>(new Set());
   // Current DataTable density, mirrored here so cell renderers (thumbnail
   // size) can match it — see onDensityChange on <DataTable> below.
   const [density, setDensity] = useState<DataTableDensity>("comfortable");
@@ -419,6 +455,22 @@ export default function CatalogTreeEditor({
     loadChipCounts();
   }, [loadChipCounts]);
 
+  // Readiness markers for the Workbench queue (see the state declaration above).
+  // Only fetched in workbench mode — the table doesn't use it, and it is a
+  // separate round-trip against v_product_health.
+  const loadIncompleteIds = useCallback(async () => {
+    try {
+      const ids = await healthService.getIdsIncomplete(scopedCategoryIds);
+      setIncompleteIds(new Set(ids));
+    } catch {
+      // Non-fatal — the list just renders without readiness markers.
+    }
+  }, [scopedCategoryIds]);
+
+  useEffect(() => {
+    if (mode === "workbench") loadIncompleteIds();
+  }, [mode, loadIncompleteIds]);
+
   // ── Load the table for the active node + page + chip ──────────────────────────
   // "any" (Needs attention) pulls every id with missing_count > 0 straight
   // from the view; a specific dimension pulls just that column — both stay
@@ -474,35 +526,16 @@ export default function CatalogTreeEditor({
   // ── Inline cell editing ──────────────────────────────────────────────────────
   const [cellEdit, setCellEdit] = useState<CellEdit | null>(null);
 
-  // Guards commitEdit against re-entry with stale state. Enter/Tab call
-  // commitEdit() and then move DOM focus to the grid; that focus change fires
-  // the editor's onBlur, which commits a second time from the same render's
-  // closure — where `cellEdit` is still set and `products` is still pre-patch,
-  // so neither the null-check nor the no-op guard catches it. The result was
-  // two productService.update() calls (and two toasts) per keyboard commit.
-  const committingRef = useRef(false);
-
-  // Row-level "saved" pulse. A transient bottom-right toast was the only signal
-  // an inline edit committed, which looks identical to nothing happening when
-  // your eyes are on the cell you just left.
-  const [flashRows, setFlashRows] = useState<Set<string>>(new Set());
-  const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const flashSaved = (id: string) => {
-    setFlashRows(prev => new Set(prev).add(id));
-    clearTimeout(flashTimers.current[id]);
-    flashTimers.current[id] = setTimeout(() => {
-      setFlashRows(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      delete flashTimers.current[id];
-    }, 1200);
-  };
-  useEffect(() => {
-    const timers = flashTimers.current;
-    return () => Object.values(timers).forEach(clearTimeout);
-  }, []);
+  // Save-feedback mechanics (re-entry guard + row pulse) now live in
+  // hooks/useSaveFeedback.ts, shared with the Catalog Workbench.
+  //
+  // committingRef still exists for the same reason it did in PR-A: Enter/Tab
+  // call commitEdit() and then move DOM focus to the grid, and that focus change
+  // fires the editor's onBlur → a second commit from the same render's closure,
+  // where `cellEdit` is still set and `products` is still pre-patch, so neither
+  // the null-check nor the no-op guard catches it. Two productService.update()
+  // calls and two toasts per keyboard commit without it.
+  const { committingRef, flashRows, flashSaved } = useSaveFeedback();
 
   // Focused cell for keyboard navigation (independent of the edit state).
   const gridRef = useRef<HTMLDivElement>(null);
@@ -716,48 +749,12 @@ export default function CatalogTreeEditor({
     }
   };
 
-  // Validates a pending edit without touching the network. Returns the patch to
-  // persist, or a message explaining why the value is refused.
-  //
-  // Split out of commitEdit so the grid's Enter/Tab handler can decide whether
-  // to advance the cursor *before* the save round-trip: a rejected value must
-  // keep focus in the editor for correction rather than silently moving on, and
-  // it must not fire the same toast twice (once from the key handler, once from
-  // the blur the focus move causes).
-  const validateEdit = (
-    field: EditField,
-    value: string
-  ): { patch: Record<string, unknown> } | { error: string } => {
-    if (field === "price") {
-      const t = value.trim();
-      // Blank no longer coerces to NULL. "On Enquiry" is a deliberate business
-      // decision with its own toggle in the product panel — it must not be
-      // reachable by clearing a cell, and (before this) a typo reached here as
-      // blank too, because the editor was type="number". See InlineInput.
-      if (t === "")
-        return {
-          error:
-            'Price can\'t be blank — use the "Price on enquiry" toggle in the product panel',
-        };
-      // Number() (not parseFloat) so trailing junk like "12abc" is rejected
-      // outright instead of silently saving as 12.
-      const n = Number(t);
-      if (!Number.isFinite(n))
-        return { error: "Enter a valid price — numbers only" };
-      if (n <= 0)
-        return {
-          error:
-            'Price must be more than ₹0 — use the "Price on enquiry" toggle instead',
-        };
-      return { patch: { price: n } };
-    }
-    if (field === "name") {
-      const t = value.trim();
-      if (!t) return { error: "Name can't be empty" };
-      return { patch: { name: t } };
-    }
-    return { patch: { description: value.trim() || null } };
-  };
+  // Validation now lives in lib/productValidation.ts so this table and the
+  // Catalog Workbench share one copy of the PR-A safety rules (blank price
+  // refused, Number() not parseFloat, price > 0). It is still called BEFORE the
+  // save round-trip by the grid's Enter/Tab handler, so a rejected value keeps
+  // the cursor in the editor for correction rather than looking like it saved,
+  // and the error toast fires once rather than once per path.
 
   // Persist one field via productService (service layer only) with an optimistic
   // row patch. Tree aggregates are refreshed since completeness (and thus a
@@ -1919,18 +1916,49 @@ export default function CatalogTreeEditor({
             </p>
           </div>
         </div>
-        <button
-          onClick={() => {
-            loadAggregates();
-            loadChipCounts();
-            loadProducts();
-          }}
-          disabled={loading}
-          title="Reload"
-          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Mode toggle — same tab, same filters, only the right pane swaps. */}
+          <div
+            role="tablist"
+            aria-label="Editing mode"
+            className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+          >
+            {(
+              [
+                { id: "table", label: "Table", Icon: Rows3 },
+                { id: "workbench", label: "Workbench", Icon: Images },
+              ] as const
+            ).map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={mode === id}
+                onClick={() => setMode(id)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+                  mode === id
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              loadAggregates();
+              loadChipCounts();
+              loadProducts();
+              if (mode === "workbench") loadIncompleteIds();
+            }}
+            disabled={loading}
+            title="Reload"
+            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {/* ── Saved views ────────────────────────────────────────────────────── */}
@@ -2266,7 +2294,8 @@ export default function CatalogTreeEditor({
 
       {/* ── Two-pane layout ────────────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row gap-4 items-start">
-        {/* Left: collapsible tree */}
+        {/* Left: collapsible tree — shared by both modes, so the Workbench's
+            product queue honours the same group/category scope the table uses. */}
         <aside className="w-full lg:w-64 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-2 lg:sticky lg:top-4 max-h-[75vh] overflow-y-auto">
           <button
             onClick={() => setSelection({ kind: "all" })}
@@ -2343,7 +2372,7 @@ export default function CatalogTreeEditor({
           </div>
         </aside>
 
-        {/* Right: product table */}
+        {/* Right: product table (Table mode) or the Workbench (Workbench mode) */}
         <div className="flex-1 min-w-0 w-full">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h2 className="text-sm font-semibold text-slate-700 truncate">
@@ -2355,6 +2384,29 @@ export default function CatalogTreeEditor({
             </h2>
           </div>
 
+          {mode === "workbench" ? (
+            <CatalogWorkbench
+              products={products}
+              loading={loading}
+              categories={categories}
+              totalCount={totalCount}
+              pageOffset={(page - 1) * PAGE_SIZE + 1}
+              incompleteIds={incompleteIds}
+              scopeTitle={scopeTitle}
+              hasNextPage={page * PAGE_SIZE < totalCount}
+              onRequestNextPage={() => setPage(p => p + 1)}
+              onProductSaved={updated => {
+                setProducts(prev =>
+                  prev.map(p => (p.id === updated.id ? { ...p, ...updated } : p))
+                );
+              }}
+              onAfterSave={() => {
+                loadAggregates();
+                loadChipCounts();
+                loadIncompleteIds();
+              }}
+            />
+          ) : (
           <DataTable<Product>
             data={products}
             columns={columns}
@@ -2389,6 +2441,7 @@ export default function CatalogTreeEditor({
               renderRowMenuItems(p, ContextMenuItem, ContextMenuSeparator)
             }
           />
+          )}
         </div>
       </div>
 
