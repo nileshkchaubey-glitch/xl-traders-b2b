@@ -131,7 +131,11 @@ export interface DataTableProps<T> {
   selection?: DataTableSelection;
 
   /** Renders a search box in the toolbar when provided. */
-  search?: { value: string; onChange: (v: string) => void; placeholder?: string };
+  search?: {
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+  };
 
   /** Server-side pagination footer. */
   pagination?: DataTablePagination;
@@ -227,23 +231,25 @@ export function DataTable<T>({
   // ── Column visibility ───────────────────────────────────────────────────────
   // Seeded from the URL layout when present; otherwise from each column's
   // `meta.defaultHidden`.
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
-    const raw = colsParam
-      ? new URLSearchParams(urlSearch).get(colsParam)
-      : null;
-    const vis: VisibilityState = {};
-    if (raw != null) {
-      const shown = new Set(raw ? raw.split(",") : []);
-      for (const c of columns) {
-        if (c.id && c.meta?.hideable !== false) vis[c.id] = shown.has(c.id);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    () => {
+      const raw = colsParam
+        ? new URLSearchParams(urlSearch).get(colsParam)
+        : null;
+      const vis: VisibilityState = {};
+      if (raw != null) {
+        const shown = new Set(raw ? raw.split(",") : []);
+        for (const c of columns) {
+          if (c.id && c.meta?.hideable !== false) vis[c.id] = shown.has(c.id);
+        }
+      } else {
+        for (const c of columns) {
+          if (c.id && c.meta?.defaultHidden) vis[c.id] = false;
+        }
       }
-    } else {
-      for (const c of columns) {
-        if (c.id && c.meta?.defaultHidden) vis[c.id] = false;
-      }
+      return vis;
     }
-    return vis;
-  });
+  );
 
   // ── Density (seeded from URL when persisted) ────────────────────────────────
   const [density, setDensity] = useState<DataTableDensity>(() => {
@@ -384,9 +390,12 @@ export function DataTable<T>({
   // Comfortable targets a Shopify-like ~56-64px row (with a 40-44px thumbnail
   // in the Name cell, sized by the consumer via onDensityChange). The header
   // stays a bit shorter than data rows even in comfortable mode.
-  const pad = density === "compact" ? "px-2 py-1.5" : "px-3.5 py-3";
+  // Comfortable = 64px rows, matching the Workbench queue exactly.
+  const pad = density === "compact" ? "px-2 py-1.5" : "px-3.5 py-2.5";
+  const rowMinH = density === "compact" ? undefined : 64;
   const headPad = density === "compact" ? "px-2 py-1.5" : "px-3.5 py-2.5";
-  const visibleCount = table.getVisibleLeafColumns().length + (selection ? 1 : 0);
+  const visibleCount =
+    table.getVisibleLeafColumns().length + (selection ? 1 : 0);
 
   const pageCount = pagination
     ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
@@ -419,7 +428,7 @@ export function DataTable<T>({
   // True horizontal overflow (columns need more room than the container has)
   // — gates the sticky bottom scrollbar below. The +1 absorbs sub-pixel
   // ResizeObserver rounding so it doesn't flicker in at the exact boundary.
-  const hasHorizontalOverflow = naturalTotal > containerWidth + 1;
+  // Declared after flexShrink below via `overflowAfterFit`; see there.
 
   // ── Sticky bottom scrollbar ─────────────────────────────────────────────────
   // A 50-row table only exposes its native horizontal scrollbar at the very
@@ -486,6 +495,23 @@ export function DataTable<T>({
     : 0;
   const leftoverWidth = extraWidth - flexGrowth;
 
+  // ── Shrink-to-fit: the mirror image of the growth above ─────────────────────
+  // Growth alone only ever removed dead space; it never stopped a default
+  // column set from overflowing a narrow container, which is what left the
+  // Catalog Editor with a permanent horizontal scrollbar at 1366. When the
+  // columns' natural widths exceed the container, take the deficit out of the
+  // flex column down to its own minSize. Below that the table genuinely
+  // cannot fit and the container scrolls exactly as before.
+  const flexColumnMin = flexColumnId
+    ? (visibleLeafColumns.find(c => c.id === flexColumnId)?.columnDef.minSize ??
+      0)
+    : 0;
+  const deficit = Math.max(0, naturalTotal - containerWidth);
+  const flexShrink =
+    flexColumnId && containerWidth > 0
+      ? Math.min(deficit, Math.max(0, flexColumnBase - flexColumnMin))
+      : 0;
+
   // Fixed-width utility columns (e.g. a row-actions icon cluster) opt out via
   // enableResizing: false — they shouldn't stretch to soak up leftover space
   // any more than a pinned column should. Manually-resized columns are
@@ -507,6 +533,12 @@ export function DataTable<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleLeafIds, columnSizing, flexColumnId]);
 
+  // What actually overflows once the flex column has given back what it can.
+  // Gates the sticky bottom scrollbar, so it no longer appears with nothing to
+  // scroll. The +1 absorbs sub-pixel ResizeObserver rounding.
+  const hasHorizontalOverflow =
+    containerWidth > 0 && naturalTotal - flexShrink > containerWidth + 1;
+
   function fillWidth(
     columnId: string,
     base: number,
@@ -514,11 +546,14 @@ export function DataTable<T>({
     stickyRight: boolean | undefined,
     canResize: boolean
   ) {
+    // Shrink first: it applies precisely when there is no extra to hand out.
+    if (flexShrink > 0 && columnId === flexColumnId) return base - flexShrink;
     if (extraWidth <= 0) return base;
     if (columnSizing[columnId] != null) return base;
     if (columnId === flexColumnId) return base + flexGrowth;
     if (leftoverWidth <= 0) return base;
-    if (sticky || stickyRight || !canResize || proportionalBase <= 0) return base;
+    if (sticky || stickyRight || !canResize || proportionalBase <= 0)
+      return base;
     return base + leftoverWidth * (base / proportionalBase);
   }
 
@@ -567,11 +602,15 @@ export function DataTable<T>({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel className="text-xs">Show columns</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs">
+              Show columns
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
             {table
               .getAllLeafColumns()
-              .filter(c => colMeta(c).hideable !== false && c.id !== "__select__")
+              .filter(
+                c => colMeta(c).hideable !== false && c.id !== "__select__"
+              )
               .map(col => (
                 <DropdownMenuCheckboxItem
                   key={col.id}
@@ -622,204 +661,222 @@ export function DataTable<T>({
             hasHorizontalOverflow ? "rounded-t-xl border-b-0" : "rounded-xl"
           } ${containerProps?.className ?? ""}`}
         >
-        {/* Width = max(natural column-size sum, container width) — never
+          {/* Width = max(natural column-size sum, container width) — never
             min-w-full (which let auto layout silently redistribute a dragged
             width away, see the resize PR) and never a bare sum either (which
             left dead space when the container is wider — see fillWidth
             above). Only scrolls when columns genuinely need more room than
             the container has. */}
-        <table
-          className="text-sm border-separate border-spacing-0"
-          style={{ width: Math.max(naturalTotal, containerWidth) }}
-        >
-          <thead>
-            {table.getHeaderGroups().map(hg => (
-              <tr
-                key={hg.id}
-                className="text-left text-[11px] uppercase tracking-wide text-slate-400"
-              >
-                {selection && (
-                  <th
-                    className={`${STICKY_CELL} bg-slate-50 sticky top-0 z-30 w-10 ${headPad} border-b border-slate-200`}
-                    style={{ left: 0 }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selection.allPageSelected}
-                      onChange={selection.onToggleAll}
-                      className="align-middle accent-red-600"
-                      aria-label="Select all on page"
-                    />
-                  </th>
-                )}
-                {hg.headers.map(header => {
-                  const meta = colMeta(header.column);
-                  const sticky = meta.sticky;
-                  const stickyRight = meta.stickyRight;
-                  const canSort = header.column.getCanSort();
-                  const sorted = header.column.getIsSorted();
-                  const canResize = header.column.getCanResize();
-                  const isResizing = header.column.getIsResizing();
-                  return (
+          <table
+            className="text-sm border-separate border-spacing-0"
+            style={{
+              width: Math.max(naturalTotal - flexShrink, containerWidth),
+            }}
+          >
+            <thead>
+              {table.getHeaderGroups().map(hg => (
+                <tr
+                  key={hg.id}
+                  className="text-left text-[11px] uppercase tracking-wide text-slate-400"
+                >
+                  {selection && (
                     <th
-                      key={header.id}
-                      className={`${headPad} relative whitespace-nowrap border-b border-slate-200 sticky top-0 bg-slate-50 ${
-                        sticky
-                          ? `${STICKY_CELL} z-30 border-r border-r-slate-100`
-                          : stickyRight
-                            ? `${STICKY_CELL} z-30 border-l border-l-slate-100`
-                            : "z-10"
-                      } ${meta.align === "center" ? "text-center" : ""} ${meta.headerClassName ?? ""}`}
-                      style={{
-                        width: fillWidth(
-                          header.column.id,
-                          header.getSize(),
-                          sticky,
-                          stickyRight,
-                          canResize
-                        ),
-                        ...(sticky ? { left: stickyLeft[header.column.id] } : {}),
-                        ...(stickyRight
-                          ? { right: stickyRightOffsets[header.column.id] }
-                          : {}),
-                      }}
+                      className={`${STICKY_CELL} bg-slate-50 sticky top-0 z-30 w-10 ${headPad} border-b border-slate-200`}
+                      style={{ left: 0 }}
                     >
-                      {header.isPlaceholder ? null : canSort ? (
-                        <button
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded"
-                        >
-                          {flexRender(
+                      <input
+                        type="checkbox"
+                        checked={selection.allPageSelected}
+                        onChange={selection.onToggleAll}
+                        className="align-middle accent-red-600"
+                        aria-label="Select all on page"
+                      />
+                    </th>
+                  )}
+                  {hg.headers.map(header => {
+                    const meta = colMeta(header.column);
+                    const sticky = meta.sticky;
+                    const stickyRight = meta.stickyRight;
+                    const canSort = header.column.getCanSort();
+                    const sorted = header.column.getIsSorted();
+                    const canResize = header.column.getCanResize();
+                    const isResizing = header.column.getIsResizing();
+                    return (
+                      <th
+                        key={header.id}
+                        className={`${headPad} relative whitespace-nowrap border-b border-slate-200 sticky top-0 bg-slate-50 ${
+                          sticky
+                            ? `${STICKY_CELL} z-30 border-r border-r-slate-100`
+                            : stickyRight
+                              ? `${STICKY_CELL} z-30 border-l border-l-slate-100`
+                              : "z-10"
+                        } ${meta.align === "center" ? "text-center" : ""} ${meta.headerClassName ?? ""}`}
+                        style={{
+                          width: fillWidth(
+                            header.column.id,
+                            header.getSize(),
+                            sticky,
+                            stickyRight,
+                            canResize
+                          ),
+                          ...(sticky
+                            ? { left: stickyLeft[header.column.id] }
+                            : {}),
+                          ...(stickyRight
+                            ? { right: stickyRightOffsets[header.column.id] }
+                            : {}),
+                        }}
+                      >
+                        {header.isPlaceholder ? null : canSort ? (
+                          <button
+                            onClick={header.column.getToggleSortingHandler()}
+                            className="inline-flex items-center gap-1 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded"
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            {sorted === "asc" ? (
+                              <ChevronUp className="w-3 h-3" />
+                            ) : sorted === "desc" ? (
+                              <ChevronDown className="w-3 h-3" />
+                            ) : (
+                              <ChevronsUpDown className="w-3 h-3 opacity-40" />
+                            )}
+                          </button>
+                        ) : (
+                          flexRender(
                             header.column.columnDef.header,
                             header.getContext()
-                          )}
-                          {sorted === "asc" ? (
-                            <ChevronUp className="w-3 h-3" />
-                          ) : sorted === "desc" ? (
-                            <ChevronDown className="w-3 h-3" />
-                          ) : (
-                            <ChevronsUpDown className="w-3 h-3 opacity-40" />
-                          )}
-                        </button>
-                      ) : (
-                        flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )
-                      )}
-                      {canResize && (
-                        <div
-                          onMouseDown={header.getResizeHandler()}
-                          onTouchStart={header.getResizeHandler()}
-                          onDoubleClick={() => header.column.resetSize()}
-                          title="Drag to resize — double-click to reset"
-                          className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize touch-none select-none ${
-                            isResizing ? "bg-red-400" : "hover:bg-slate-300"
-                          }`}
-                        />
-                      )}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 8 }).map((_, r) => (
-                <tr key={r}>
-                  {Array.from({ length: visibleCount }).map((__, c) => (
-                    <td key={c} className={`${pad} border-b border-slate-100`}>
-                      <Skeleton className="h-4 w-full max-w-[160px]" />
-                    </td>
-                  ))}
+                          )
+                        )}
+                        {canResize && (
+                          <div
+                            onMouseDown={header.getResizeHandler()}
+                            onTouchStart={header.getResizeHandler()}
+                            onDoubleClick={() => header.column.resetSize()}
+                            title="Drag to resize — double-click to reset"
+                            className={`absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize touch-none select-none ${
+                              isResizing ? "bg-red-400" : "hover:bg-slate-300"
+                            }`}
+                          />
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
-              ))
-            ) : data.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={visibleCount}
-                  className="py-16 text-center text-sm text-slate-400"
-                >
-                  {emptyMessage}
-                </td>
-              </tr>
-            ) : (
-              table.getRowModel().rows.map(row => {
-                const id = getRowId(row.original);
-                const checked = selection?.isSelected(id) ?? false;
-                const tr = (
-                  <tr
-                    key={rowContextMenu ? undefined : row.id}
-                    className={`hover:bg-slate-50/60 align-middle group/row ${rowClassName?.(row.original) ?? ""}`}
-                  >
-                    {selection && (
+              ))}
+            </thead>
+            <tbody>
+              {loading ? (
+                Array.from({ length: 8 }).map((_, r) => (
+                  <tr key={r}>
+                    {Array.from({ length: visibleCount }).map((__, c) => (
                       <td
-                        className={`${STICKY_CELL} bg-white group-hover/row:bg-slate-50 ${pad} border-b border-slate-100 ${checked ? "bg-red-50" : ""}`}
-                        style={{ left: 0 }}
+                        key={c}
+                        className={`${pad} border-b border-slate-100`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => selection.onToggleRow(id)}
-                          className="align-middle accent-red-600"
-                          aria-label="Select row"
-                        />
+                        <Skeleton className="h-4 w-full max-w-[160px]" />
                       </td>
-                    )}
-                    {row.getVisibleCells().map(cell => {
-                      const meta = colMeta(cell.column);
-                      const sticky = meta.sticky;
-                      const stickyRight = meta.stickyRight;
-                      const extra =
-                        typeof meta.cellClassName === "function"
-                          ? meta.cellClassName(row.original)
-                          : (meta.cellClassName ?? "");
-                      return (
-                        <td
-                          key={cell.id}
-                          className={`${pad} border-b border-slate-100 ${
-                            sticky
-                              ? `${STICKY_CELL} bg-white group-hover/row:bg-slate-50 border-r border-r-slate-100`
-                              : stickyRight
-                                ? `${STICKY_CELL} bg-white group-hover/row:bg-slate-50 border-l border-l-slate-100`
-                                : ""
-                          } ${meta.align === "center" ? "text-center" : ""} ${extra}`}
-                          style={{
-                            width: fillWidth(
-                              cell.column.id,
-                              cell.column.getSize(),
-                              sticky,
-                              stickyRight,
-                              cell.column.getCanResize()
-                            ),
-                            ...(sticky ? { left: stickyLeft[cell.column.id] } : {}),
-                            ...(stickyRight
-                              ? { right: stickyRightOffsets[cell.column.id] }
-                              : {}),
-                          }}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      );
-                    })}
+                    ))}
                   </tr>
-                );
-                if (!rowContextMenu) return tr;
-                // asChild forwards ref + onContextMenu straight onto the <tr>
-                // (no extra wrapping DOM node, so table layout stays valid).
-                return (
-                  <ContextMenu key={row.id}>
-                    <ContextMenuTrigger asChild>{tr}</ContextMenuTrigger>
-                    <ContextMenuContent className="w-52">
-                      {rowContextMenu(row.original)}
-                    </ContextMenuContent>
-                  </ContextMenu>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                ))
+              ) : data.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={visibleCount}
+                    className="py-16 text-center text-sm text-slate-400"
+                  >
+                    {emptyMessage}
+                  </td>
+                </tr>
+              ) : (
+                table.getRowModel().rows.map(row => {
+                  const id = getRowId(row.original);
+                  const checked = selection?.isSelected(id) ?? false;
+                  const tr = (
+                    <tr
+                      key={rowContextMenu ? undefined : row.id}
+                      data-selected={checked || undefined}
+                      className={`align-middle group/row transition-colors duration-150 ${
+                        checked
+                          ? "bg-red-50/70 hover:bg-red-50"
+                          : "hover:bg-slate-50"
+                      } ${rowClassName?.(row.original) ?? ""}`}
+                    >
+                      {selection && (
+                        <td
+                          className={`${STICKY_CELL} ${pad} border-b border-slate-100 transition-colors duration-150 ${checked ? "bg-red-50" : "bg-white group-hover/row:bg-slate-50"}`}
+                          style={{ left: 0 }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => selection.onToggleRow(id)}
+                            className="align-middle accent-red-600"
+                            aria-label="Select row"
+                          />
+                        </td>
+                      )}
+                      {row.getVisibleCells().map(cell => {
+                        const meta = colMeta(cell.column);
+                        const sticky = meta.sticky;
+                        const stickyRight = meta.stickyRight;
+                        const extra =
+                          typeof meta.cellClassName === "function"
+                            ? meta.cellClassName(row.original)
+                            : (meta.cellClassName ?? "");
+                        return (
+                          <td
+                            key={cell.id}
+                            className={`${pad} border-b border-slate-100 transition-colors duration-150 ${
+                              sticky
+                                ? `${STICKY_CELL} ${checked ? "bg-red-50" : "bg-white group-hover/row:bg-slate-50"} border-r border-r-slate-100`
+                                : stickyRight
+                                  ? `${STICKY_CELL} ${checked ? "bg-red-50" : "bg-white group-hover/row:bg-slate-50"} border-l border-l-slate-100`
+                                  : ""
+                            } ${meta.align === "center" ? "text-center" : ""} ${extra}`}
+                            style={{
+                              height: rowMinH,
+                              width: fillWidth(
+                                cell.column.id,
+                                cell.column.getSize(),
+                                sticky,
+                                stickyRight,
+                                cell.column.getCanResize()
+                              ),
+                              ...(sticky
+                                ? { left: stickyLeft[cell.column.id] }
+                                : {}),
+                              ...(stickyRight
+                                ? { right: stickyRightOffsets[cell.column.id] }
+                                : {}),
+                            }}
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                  if (!rowContextMenu) return tr;
+                  // asChild forwards ref + onContextMenu straight onto the <tr>
+                  // (no extra wrapping DOM node, so table layout stays valid).
+                  return (
+                    <ContextMenu key={row.id}>
+                      <ContextMenuTrigger asChild>{tr}</ContextMenuTrigger>
+                      <ContextMenuContent className="w-52">
+                        {rowContextMenu(row.original)}
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
         {hasHorizontalOverflow && (
           <div
@@ -829,7 +886,12 @@ export function DataTable<T>({
             className="sticky bottom-0 z-20 min-h-11 flex items-center overflow-x-auto overflow-y-hidden rounded-b-xl border border-slate-200 bg-white"
           >
             <div className="h-4 w-full">
-              <div style={{ width: Math.max(naturalTotal, containerWidth), height: 1 }} />
+              <div
+                style={{
+                  width: Math.max(naturalTotal - flexShrink, containerWidth),
+                  height: 1,
+                }}
+              />
             </div>
           </div>
         )}
@@ -841,12 +903,14 @@ export function DataTable<T>({
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
           <p className="text-sm text-slate-500">
             Viewing {(pagination.page - 1) * pagination.pageSize + 1}–
-            {Math.min(pagination.page * pagination.pageSize, pagination.total)} of{" "}
-            {pagination.total.toLocaleString()} results
+            {Math.min(pagination.page * pagination.pageSize, pagination.total)}{" "}
+            of {pagination.total.toLocaleString()} results
           </p>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => pagination.onPageChange(Math.max(1, pagination.page - 1))}
+              onClick={() =>
+                pagination.onPageChange(Math.max(1, pagination.page - 1))
+              }
               disabled={pagination.page === 1}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
             >
@@ -854,7 +918,10 @@ export function DataTable<T>({
             </button>
             {pageNumbers(pagination.page, pageCount).map((n, i) =>
               n === "…" ? (
-                <span key={`gap-${i}`} className="px-1.5 text-sm text-slate-400">
+                <span
+                  key={`gap-${i}`}
+                  className="px-1.5 text-sm text-slate-400"
+                >
                   …
                 </span>
               ) : (
@@ -874,7 +941,9 @@ export function DataTable<T>({
             )}
             <button
               onClick={() =>
-                pagination.onPageChange(Math.min(pageCount, pagination.page + 1))
+                pagination.onPageChange(
+                  Math.min(pageCount, pagination.page + 1)
+                )
               }
               disabled={pagination.page >= pageCount}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"

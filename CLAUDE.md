@@ -577,6 +577,39 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   the price/pack-qty/MOQ/unit inputs, their validation and the derived readout moved
   into the Pricing section verbatim; only field height changed.
 
+- **Table-mode fit + parity pass (July 2026, PR-4b):** DE-07 closed. **Default columns**
+  are now thumbnail+Name, Category, Unit/Pack, Price, Status, actions — Stock and
+  Description moved behind the Columns control (nothing removed, only the default
+  changed); the old default set summed to 1330px and could not fit a 1366 laptop beside
+  the tree, which was the permanent horizontal scrollbar. **Name is the flex column**
+  now instead of Description, and `<DataTable>` gained **shrink-to-fit**: it already
+  grew the flex column to absorb dead space, but never shrank it, so a default set
+  wider than the container just overflowed. It now takes the deficit out of the flex
+  column down to its `minSize`, and `hasHorizontalOverflow` (which gates the sticky
+  bottom scrollbar) is computed _after_ that — so the bar no longer appears with
+  nothing to scroll. **The Name never truncates**: no line clamp at all, wrapping to as
+  many lines as it needs, with rows keeping a 64px floor and growing only when a long
+  name meets a narrow column. The always-on feature star left the Name cell (it is an
+  indicator now; the toggle lives in the row menu) — it was costing ~28px of the one
+  column that must not run out of room. **Collapsible category tree** (`catTree=0` in
+  the URL, default expanded, `w-56` when open) with a thin rail carrying a reopen
+  button and a dot when a scope is active; collapsing hands ~230px to the table.
+  **Shared visual language with the Workbench**: 64px rows, 44px thumbnails, row hover
+  and an unmistakable selected tint that sticky cells follow (they previously punched a
+  white hole through it), 150ms transitions. **Compacted chrome**: the title block is
+  one line with the product count (the strapline is gone), root spacing `space-y-4` →
+  `space-y-2.5`, tighter toolbar padding, and the duplicate scope heading above the
+  table now appears only when the tree is collapsed. Measured with default columns and
+  live rows — 0px horizontal scroll and 0 truncated names at 1366x768 and 1920x1080 at
+  100%, at 1920x1080 at 125%, and at 1366 with the tree collapsed; at 1366 **@125%**
+  the container is 583px (tree open) / 767px (collapsed) against a 847px floor for six
+  columns, so the bottom scrollbar correctly remains there.
+- **Workbench field sections regrouped (owner decision, 26 Jul 2026):** **Product**
+  (Name, Price, Pack qty, MOQ, Unit) → **Details** (Brand, SKU, Category, Description)
+  → **Publishing**. Entry happens photo → name → price → pack qty, so those lead and
+  nothing rarely-touched sits between them; Brand/SKU/Category rarely change once set.
+  Tab order follows the same path.
+
 ### Health System
 
 - `v_product_health` PostgreSQL view — single source of truth

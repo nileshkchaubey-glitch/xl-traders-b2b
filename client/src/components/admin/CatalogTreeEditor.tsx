@@ -9,6 +9,8 @@ import {
   Boxes,
   RefreshCw,
   PanelRightOpen,
+  PanelLeftOpen,
+  PanelLeftClose,
   Search,
   Plus,
   X,
@@ -211,6 +213,8 @@ type TreeSelection =
 // reopens the same scope. Encoded as `all` | `g:<group name>` | `c:<uuid>`;
 // URLSearchParams handles the escaping, so group names with spaces are fine.
 const NODE_PARAM = "catNode";
+/** Tree collapsed state — URL, not localStorage, like every other layout bit. */
+const TREE_PARAM = "catTree";
 
 function serializeNode(sel: TreeSelection): string | null {
   if (sel.kind === "all") return null;
@@ -340,6 +344,11 @@ export default function CatalogTreeEditor({
     parseNode(new URLSearchParams(window.location.search).get(NODE_PARAM))
   );
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Collapsing the tree hands ~230px to the table — the difference between the
+  // Name column wrapping comfortably and clipping at 1366. Default expanded.
+  const [treeCollapsed, setTreeCollapsed] = useState(
+    () => new URLSearchParams(window.location.search).get(TREE_PARAM) === "0"
+  );
 
   // Per-category / per-group aggregates for the tree.
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -376,6 +385,16 @@ export default function CatalogTreeEditor({
   // Same pattern for the selected node. Separate effects are safe because
   // history.replaceState updates window.location synchronously, so whichever
   // runs second reads the first one's write.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (treeCollapsed) params.set(TREE_PARAM, "0");
+    else params.delete(TREE_PARAM);
+    setLocation(`${window.location.pathname}?${params.toString()}`, {
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treeCollapsed]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encoded = serializeNode(selection);
@@ -1575,16 +1594,19 @@ export default function CatalogTreeEditor({
       accessorFn: p => p.name,
       header: "Name",
       enableSorting: true,
-      size: 240,
-      minSize: 200,
-      meta: { sticky: true, hideable: false },
+      size: 300,
+      minSize: 220,
+      // Name is the flex column now (it was Description): it is the primary
+      // identifier, so leftover width belongs to it rather than to a field
+      // that is hidden by default.
+      meta: { sticky: true, hideable: false, flex: true },
       cell: ({ row }) => {
         const p = row.original;
         const img = p.image_url ? normalizeImageUrl(p.image_url) : null;
         const naImage = p.na_fields?.includes("image");
         // Comfortable rows get a bigger, more scannable thumbnail (Dukaan/
         // Shopify-style ~40-44px); compact stays tight for power entry.
-        const thumbSize = density === "compact" ? "w-8 h-8" : "w-10 h-10";
+        const thumbSize = density === "compact" ? "w-8 h-8" : "w-11 h-11";
         // Dukaan-style subtitle under the name — surfaces category/SKU inline
         // when their dedicated column is hidden (the Columns menu default hides
         // SKU); when a column is shown, its own cell keeps the job.
@@ -1596,7 +1618,7 @@ export default function CatalogTreeEditor({
           .filter(Boolean)
           .join(" · ");
         return (
-          <div className="flex items-center gap-2.5 min-w-[190px]">
+          <div className="flex items-center gap-2.5 min-w-[190px] w-full">
             <div
               className={`${thumbSize} flex-shrink-0 rounded-md border border-slate-200 overflow-hidden flex items-center justify-center ${
                 img || naImage ? "bg-slate-50" : RED_CELL
@@ -1628,7 +1650,15 @@ export default function CatalogTreeEditor({
                   {/* Link-look (brand red), but the click stays inline-edit —
                       re-skin only; opening the panel lives in the actions
                       column / row menu. */}
-                  <span className="font-medium text-red-600 hover:underline line-clamp-1">
+                  {/* No clamp at all: the name is the primary identifier, so
+                      it wraps to as many lines as it needs rather than
+                      truncating. Rows keep a 64px floor and only grow past it
+                      when a genuinely long name is in a narrow column — which
+                      is the honest trade against hiding half the name. */}
+                  <span
+                    className="font-medium text-red-600 hover:underline leading-snug break-words"
+                    title={p.name}
+                  >
                     {p.name}
                   </span>
                   {subtitle && (
@@ -1639,23 +1669,17 @@ export default function CatalogTreeEditor({
                 </button>
               )}
             </div>
-            {/* Feature toggle — always visible (star reflects state) */}
-            <button
-              onClick={() => handleToggleFeatured(p)}
-              className={`flex-shrink-0 p-1 rounded-md hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
-                p.is_featured
-                  ? "text-amber-500"
-                  : "text-slate-300 hover:text-slate-400"
-              }`}
-              title={
-                p.is_featured ? "Featured — click to unfeature" : "Feature"
-              }
-            >
+            {/* Featured is now an indicator, not a control: the toggle lives
+                in the row menu (and the context menu), and the always-on
+                button was costing the Name column ~28px of text width — the
+                one column that must not run out of room. */}
+            {p.is_featured && (
               <Star
-                className="w-3.5 h-3.5"
-                fill={p.is_featured ? "currentColor" : "none"}
+                className="w-3.5 h-3.5 flex-shrink-0 text-amber-500"
+                fill="currentColor"
+                aria-label="Featured"
               />
-            </button>
+            )}
           </div>
         );
       },
@@ -1677,8 +1701,8 @@ export default function CatalogTreeEditor({
       id: "category",
       header: "Category",
       enableSorting: false,
-      size: 170,
-      minSize: 100,
+      size: 145,
+      minSize: 110,
       cell: ({ row }) => (
         <span className="text-xs text-slate-600">
           {categoryById.get(row.original.category_id)?.name ?? "—"}
@@ -1702,8 +1726,8 @@ export default function CatalogTreeEditor({
       id: "unit",
       header: "Unit / Pack",
       enableSorting: false,
-      size: 140,
-      minSize: 90,
+      size: 112,
+      minSize: 95,
       cell: ({ row }) => {
         const p = row.original;
         return (
@@ -1717,9 +1741,13 @@ export default function CatalogTreeEditor({
     {
       id: "stock",
       header: "Stock",
+      // Hidden by default (still in the Columns menu): with it and Description
+      // on, the default set was 1330px wide and could not fit a 1366 laptop
+      // beside the tree, which is what DE-07's horizontal scrollbar was.
       enableSorting: false,
       size: 140,
       minSize: 100,
+      meta: { defaultHidden: true },
       cell: ({ row }) => {
         const p = row.original;
         return (
@@ -1745,7 +1773,7 @@ export default function CatalogTreeEditor({
       accessorFn: p => p.price ?? null,
       header: "Price",
       enableSorting: true,
-      size: 120,
+      size: 108,
       minSize: 90,
       meta: {
         cellClassName: (p: Product) =>
@@ -1781,9 +1809,8 @@ export default function CatalogTreeEditor({
       size: 260,
       minSize: 160,
       meta: {
-        // Absorbs leftover width so the table fills the container instead of
-        // leaving dead space on the right (see DataTable's fillWidth).
-        flex: true,
+        // Hidden by default; Name took over as the flex column.
+        defaultHidden: true,
         cellClassName: (p: Product) =>
           `${descMissing(p) && !p.na_fields?.includes("description") && !editingHere(p.id, "description") ? RED_CELL : ""} ${focusRing(p.id, "description")}`,
       },
@@ -1849,8 +1876,8 @@ export default function CatalogTreeEditor({
       id: "status",
       header: "Status",
       enableSorting: false,
-      size: 150,
-      minSize: 130,
+      size: 126,
+      minSize: 120,
       // Pinned to the right (with the actions column) so the publish toggle
       // stays reachable without scrolling all the way across a wide table.
       // Kept immediately before "actions" in column order (score/updated
@@ -1894,8 +1921,8 @@ export default function CatalogTreeEditor({
       header: "",
       enableSorting: false,
       enableResizing: false,
-      size: 110,
-      minSize: 110,
+      size: 96,
+      minSize: 96,
       // Rightmost pinned column — always reachable regardless of how many
       // columns are visible or how far the table scrolls.
       meta: { hideable: false, align: "right", stickyRight: true },
@@ -2033,7 +2060,7 @@ export default function CatalogTreeEditor({
       className={
         workbenchMode
           ? "flex flex-col gap-3 flex-1 min-h-0"
-          : "space-y-4 flex-shrink-0"
+          : "space-y-2.5 flex-shrink-0"
       }
     >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -2095,18 +2122,18 @@ export default function CatalogTreeEditor({
         </div>
       ) : (
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
-              <FolderTree className="w-5 h-5 text-white" />
+          {/* One line, like Workbench mode: the strapline was costing ~40px
+              above the fold on every load without telling the operator
+              anything they don't already know by the second visit. */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-md bg-red-600 flex items-center justify-center flex-shrink-0">
+              <FolderTree className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                Catalog Editor
-              </h1>
-              <p className="text-slate-400 text-xs mt-0.5">
-                Browse by group &amp; category, edit inline, fix what's missing.
-              </p>
-            </div>
+            <h1 className="text-lg font-bold text-slate-900">Catalog Editor</h1>
+            <span className="text-xs text-slate-400">
+              {totalCount.toLocaleString()} product
+              {totalCount === 1 ? "" : "s"}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             {modeToggle}
@@ -2142,7 +2169,7 @@ export default function CatalogTreeEditor({
           </div>
 
           {/* ── Toolbar: search · status · missing · add ───────────────────────── */}
-          <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
             <div className="flex-1 min-w-[180px] relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <Input
@@ -2228,8 +2255,8 @@ export default function CatalogTreeEditor({
 
           {/* ── Fix-Missing quick chips (with live counts) ─────────────────────── */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide mr-1">
-              Fix missing
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mr-0.5">
+              Fix
             </span>
             {QUICK_MISSING.map(f => {
               const active = activeMissing === f;
@@ -2469,8 +2496,42 @@ export default function CatalogTreeEditor({
             scope, so the tree is redundant there. Selection state is shared, so
             switching to Table mode, picking a category, and switching back
             carries the scope across. */}
-        {mode === "table" && (
-          <aside className="w-full lg:w-64 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-2 lg:sticky lg:top-4 max-h-[75vh] overflow-y-auto">
+        {mode === "table" && treeCollapsed && (
+          <aside className="hidden lg:flex flex-shrink-0 w-10 flex-col items-center gap-2 bg-white border border-slate-200 rounded-xl py-2 lg:sticky lg:top-4">
+            <button
+              onClick={() => setTreeCollapsed(false)}
+              title="Show categories"
+              aria-label="Show categories"
+              aria-expanded={false}
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+            >
+              <PanelLeftOpen className="w-4 h-4" />
+            </button>
+            <FolderTree className="w-4 h-4 text-slate-300" />
+            {selection.kind !== "all" && (
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-red-500"
+                title={`Scoped to ${scopeTitle}`}
+              />
+            )}
+          </aside>
+        )}
+        {mode === "table" && !treeCollapsed && (
+          <aside className="w-full lg:w-56 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-2 lg:sticky lg:top-4 max-h-[75vh] overflow-y-auto">
+            <div className="flex items-center justify-between gap-1 px-1 pb-1.5 mb-1 border-b border-slate-100">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Categories
+              </span>
+              <button
+                onClick={() => setTreeCollapsed(true)}
+                title="Hide categories"
+                aria-label="Hide categories"
+                aria-expanded
+                className="p-1 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            </div>
             <button
               onClick={() => setSelection({ kind: "all" })}
               className={nodeCls(isSelected({ kind: "all" }))}
@@ -2560,15 +2621,19 @@ export default function CatalogTreeEditor({
           {/* The Workbench's queue pane already carries the scope title and the
               N / total counter, and every row above it costs the locked shell
               image height — so this header is table-mode only. */}
-          {mode === "table" && (
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <h2 className="text-sm font-semibold text-slate-700 truncate">
+          {mode === "table" && treeCollapsed && selection.kind !== "all" && (
+            // Only when the tree is hidden — otherwise the selected node is
+            // already highlighted two inches to the left.
+            <div className="flex items-center gap-2 mb-1.5">
+              <h2 className="text-xs font-semibold text-slate-500 truncate">
                 {scopeTitle}
-                <span className="ml-2 text-xs font-normal text-slate-400">
-                  {totalCount.toLocaleString()} product
-                  {totalCount === 1 ? "" : "s"}
-                </span>
               </h2>
+              <button
+                onClick={() => setSelection({ kind: "all" })}
+                className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2"
+              >
+                clear
+              </button>
             </div>
           )}
 

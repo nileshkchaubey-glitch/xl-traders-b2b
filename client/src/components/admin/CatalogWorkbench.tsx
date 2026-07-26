@@ -1218,8 +1218,8 @@ export default function CatalogWorkbench({
     <div className="flex flex-col gap-5">
       <section className="flex flex-col gap-3">
         <SectionHeading
-          title="Basics"
-          hint="What the product is called and where it sits in the catalogue."
+          title="Product"
+          hint="What you read off the photo: what it is, and what one pack costs."
         />
         <div>
           <Label className="text-xs">Product name</Label>
@@ -1236,68 +1236,6 @@ export default function CatalogWorkbench({
           {renderFieldError("name")}
         </div>
 
-        {/* Brand and SKU each take a full row. Paired in a 2-column grid they
-            only had ~178px, which clipped real values from this catalogue —
-            "HINGED-BOX-2000-ML" rendered as "HINGED-BOX-2000-Ml". Vertical
-            space in this pane is not scarce; horizontal space is. */}
-        <div>
-          <Label className="text-xs">Brand</Label>
-          <Input
-            value={formData.brand}
-            onChange={e => updateForm("brand", e.target.value)}
-            onKeyDown={e => onFieldKeyDown(e)}
-            className={FIELD_CLS}
-            placeholder="Brand"
-          />
-        </div>
-        <div>
-          <Label className="text-xs">SKU</Label>
-          <Input
-            value={formData.sku}
-            onChange={e => updateForm("sku", e.target.value)}
-            onKeyDown={e => onFieldKeyDown(e)}
-            className={`${FIELD_CLS} font-mono`}
-            placeholder="XL0105"
-          />
-        </div>
-
-        <div>
-          <Label className="text-xs">Category</Label>
-          <div className="mt-1">
-            <CategoryCombobox
-              categories={categories}
-              value={formData.category_id}
-              onChange={v => updateForm("category_id", v)}
-              // Tab must pass THROUGH to Description; Enter/Space opens it.
-              openOnFocus={false}
-              // Matches the 44px field height. The combobox merges through
-              // cn(), so a bare h-11 is enough to beat its own h-9.
-              className="h-11 transition-shadow duration-150 focus:ring-2 focus:ring-red-300"
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label className="text-xs">Description</Label>
-          <Textarea
-            value={formData.description}
-            onChange={e => updateForm("description", e.target.value)}
-            onKeyDown={e => onFieldKeyDown(e)}
-            rows={5}
-            className={`${FIELD_CLS} resize-y min-h-[132px] h-auto`}
-            placeholder="Short B2B description — material, size, use case…"
-          />
-          <p className="text-caption text-slate-400 mt-1">
-            Enter makes a new line here. Ctrl+Enter saves.
-          </p>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3 border-t border-slate-100 pt-4">
-        <SectionHeading
-          title="Pricing"
-          hint="What ONE selling unit (the pack or case) costs, and the minimum order."
-        />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-xs whitespace-nowrap">Price ₹</Label>
@@ -1403,6 +1341,68 @@ export default function CatalogWorkbench({
               </SelectContent>
             </Select>
           </div>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+        <SectionHeading
+          title="Details"
+          hint="Rarely changes once set — brand, codes, and where it files."
+        />
+        {/* Brand and SKU each take a full row. Paired in a 2-column grid they
+            only had ~178px, which clipped real values from this catalogue —
+            "HINGED-BOX-2000-ML" rendered as "HINGED-BOX-2000-Ml". Vertical
+            space in this pane is not scarce; horizontal space is. */}
+        <div>
+          <Label className="text-xs">Brand</Label>
+          <Input
+            value={formData.brand}
+            onChange={e => updateForm("brand", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            className={FIELD_CLS}
+            placeholder="Brand"
+          />
+        </div>
+        <div>
+          <Label className="text-xs">SKU</Label>
+          <Input
+            value={formData.sku}
+            onChange={e => updateForm("sku", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            className={`${FIELD_CLS} font-mono`}
+            placeholder="XL0105"
+          />
+        </div>
+
+        <div>
+          <Label className="text-xs">Category</Label>
+          <div className="mt-1">
+            <CategoryCombobox
+              categories={categories}
+              value={formData.category_id}
+              onChange={v => updateForm("category_id", v)}
+              // Tab must pass THROUGH to Description; Enter/Space opens it.
+              openOnFocus={false}
+              // Matches the 44px field height. The combobox merges through
+              // cn(), so a bare h-11 is enough to beat its own h-9.
+              className="h-11 transition-shadow duration-150 focus:ring-2 focus:ring-red-300"
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs">Description</Label>
+          <Textarea
+            value={formData.description}
+            onChange={e => updateForm("description", e.target.value)}
+            onKeyDown={e => onFieldKeyDown(e)}
+            rows={5}
+            className={`${FIELD_CLS} resize-y min-h-[132px] h-auto`}
+            placeholder="Short B2B description — material, size, use case…"
+          />
+          <p className="text-caption text-slate-400 mt-1">
+            Enter makes a new line here. Ctrl+Enter saves.
+          </p>
         </div>
       </section>
 
