@@ -29,6 +29,8 @@ import {
   MessageSquare,
   Layers,
   FileText,
+  Rows3,
+  Images,
 } from "lucide-react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { toast } from "sonner";
@@ -39,7 +41,9 @@ import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -92,6 +96,9 @@ import {
   MissingFilter,
 } from "@/lib/catalogHealth";
 import CatalogProductPanel from "@/components/admin/CatalogProductPanel";
+import CatalogWorkbench from "@/components/admin/CatalogWorkbench";
+import { validateEdit } from "@/lib/productValidation";
+import { useSaveFeedback } from "@/hooks/useSaveFeedback";
 
 const PAGE_SIZE = 50;
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
@@ -178,6 +185,14 @@ type UndoField = BulkEditableField | "status";
 // bounding the extra read + in-memory snapshot to a sane size.
 const UNDO_SNAPSHOT_CAP = 500;
 
+// ── Editing mode ──────────────────────────────────────────────────────────────
+// "table"     — the spreadsheet-style DataTable (unchanged).
+// "workbench" — image-first entry: product queue | large image | fields.
+// Both are the SAME surface, filters and tree selection: only the right pane
+// swaps. This is a mode, not a second admin (CODEX §6).
+type EditorMode = "table" | "workbench";
+const MODE_PARAM = "catMode";
+
 // ── Inline editing ────────────────────────────────────────────────────────────
 type EditField = "name" | "price" | "description";
 interface CellEdit {
@@ -191,6 +206,24 @@ type TreeSelection =
   | { kind: "all" }
   | { kind: "group"; group: string }
   | { kind: "category"; categoryId: string };
+
+// The selected node persists to the URL so a refresh — or a shared link —
+// reopens the same scope. Encoded as `all` | `g:<group name>` | `c:<uuid>`;
+// URLSearchParams handles the escaping, so group names with spaces are fine.
+const NODE_PARAM = "catNode";
+
+function serializeNode(sel: TreeSelection): string | null {
+  if (sel.kind === "all") return null;
+  return sel.kind === "group" ? `g:${sel.group}` : `c:${sel.categoryId}`;
+}
+
+function parseNode(raw: string | null): TreeSelection {
+  if (!raw) return { kind: "all" };
+  if (raw.startsWith("g:")) return { kind: "group", group: raw.slice(2) };
+  if (raw.startsWith("c:"))
+    return { kind: "category", categoryId: raw.slice(2) };
+  return { kind: "all" };
+}
 
 // Categories with no group_name are bucketed under this label so they are still
 // reachable in the tree (the storefront hides them; the editor must not).
@@ -300,8 +333,12 @@ export default function CatalogTreeEditor({
   const [visibleColIds, setVisibleColIds] = useState<string[]>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  // Tree state
-  const [selection, setSelection] = useState<TreeSelection>({ kind: "all" });
+  // Tree state. The selected node is the ONE scope filter — the tree (table
+  // mode) and the Workbench's category picker both drive this same state, so
+  // there is no parallel filtering system.
+  const [selection, setSelection] = useState<TreeSelection>(() =>
+    parseNode(new URLSearchParams(window.location.search).get(NODE_PARAM))
+  );
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Per-category / per-group aggregates for the tree.
@@ -318,6 +355,43 @@ export default function CatalogTreeEditor({
     useState<ActiveMissing>(attentionFilter);
   // Live counts for the quick chips (scoped to the current node).
   const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
+
+  // ── Editing mode: the table, or the image-first Workbench ────────────────────
+  // Same tab, same data, same filters — only the right pane swaps. Persisted to
+  // the URL alongside the DataTable's own layout params (no localStorage).
+  const [mode, setMode] = useState<EditorMode>(() => {
+    const raw = new URLSearchParams(window.location.search).get(MODE_PARAM);
+    return raw === "workbench" ? "workbench" : "table";
+  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (mode === "workbench") params.set(MODE_PARAM, mode);
+    else params.delete(MODE_PARAM);
+    setLocation(`${window.location.pathname}?${params.toString()}`, {
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  // Same pattern for the selected node. Separate effects are safe because
+  // history.replaceState updates window.location synchronously, so whichever
+  // runs second reads the first one's write.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const encoded = serializeNode(selection);
+    if (encoded) params.set(NODE_PARAM, encoded);
+    else params.delete(NODE_PARAM);
+    setLocation(`${window.location.pathname}?${params.toString()}`, {
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
+
+  // Ids the health view considers incomplete, scoped to the current node —
+  // drives the Workbench list's per-product readiness marker. Straight from
+  // v_product_health via healthService; no missing-logic re-derived here.
+  // (The loader lives further down, after `scopedCategoryIds` is declared.)
+  const [incompleteIds, setIncompleteIds] = useState<Set<string>>(new Set());
   // Current DataTable density, mirrored here so cell renderers (thumbnail
   // size) can match it — see onDensityChange on <DataTable> below.
   const [density, setDensity] = useState<DataTableDensity>("comfortable");
@@ -419,6 +493,22 @@ export default function CatalogTreeEditor({
     loadChipCounts();
   }, [loadChipCounts]);
 
+  // Readiness markers for the Workbench queue (see the state declaration above).
+  // Only fetched in workbench mode — the table doesn't use it, and it is a
+  // separate round-trip against v_product_health.
+  const loadIncompleteIds = useCallback(async () => {
+    try {
+      const ids = await healthService.getIdsIncomplete(scopedCategoryIds);
+      setIncompleteIds(new Set(ids));
+    } catch {
+      // Non-fatal — the list just renders without readiness markers.
+    }
+  }, [scopedCategoryIds]);
+
+  useEffect(() => {
+    if (mode === "workbench") loadIncompleteIds();
+  }, [mode, loadIncompleteIds]);
+
   // ── Load the table for the active node + page + chip ──────────────────────────
   // "any" (Needs attention) pulls every id with missing_count > 0 straight
   // from the view; a specific dimension pulls just that column — both stay
@@ -474,35 +564,16 @@ export default function CatalogTreeEditor({
   // ── Inline cell editing ──────────────────────────────────────────────────────
   const [cellEdit, setCellEdit] = useState<CellEdit | null>(null);
 
-  // Guards commitEdit against re-entry with stale state. Enter/Tab call
-  // commitEdit() and then move DOM focus to the grid; that focus change fires
-  // the editor's onBlur, which commits a second time from the same render's
-  // closure — where `cellEdit` is still set and `products` is still pre-patch,
-  // so neither the null-check nor the no-op guard catches it. The result was
-  // two productService.update() calls (and two toasts) per keyboard commit.
-  const committingRef = useRef(false);
-
-  // Row-level "saved" pulse. A transient bottom-right toast was the only signal
-  // an inline edit committed, which looks identical to nothing happening when
-  // your eyes are on the cell you just left.
-  const [flashRows, setFlashRows] = useState<Set<string>>(new Set());
-  const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const flashSaved = (id: string) => {
-    setFlashRows(prev => new Set(prev).add(id));
-    clearTimeout(flashTimers.current[id]);
-    flashTimers.current[id] = setTimeout(() => {
-      setFlashRows(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      delete flashTimers.current[id];
-    }, 1200);
-  };
-  useEffect(() => {
-    const timers = flashTimers.current;
-    return () => Object.values(timers).forEach(clearTimeout);
-  }, []);
+  // Save-feedback mechanics (re-entry guard + row pulse) now live in
+  // hooks/useSaveFeedback.ts, shared with the Catalog Workbench.
+  //
+  // committingRef still exists for the same reason it did in PR-A: Enter/Tab
+  // call commitEdit() and then move DOM focus to the grid, and that focus change
+  // fires the editor's onBlur → a second commit from the same render's closure,
+  // where `cellEdit` is still set and `products` is still pre-patch, so neither
+  // the null-check nor the no-op guard catches it. Two productService.update()
+  // calls and two toasts per keyboard commit without it.
+  const { committingRef, flashRows, flashSaved } = useSaveFeedback();
 
   // Focused cell for keyboard navigation (independent of the edit state).
   const gridRef = useRef<HTMLDivElement>(null);
@@ -716,48 +787,12 @@ export default function CatalogTreeEditor({
     }
   };
 
-  // Validates a pending edit without touching the network. Returns the patch to
-  // persist, or a message explaining why the value is refused.
-  //
-  // Split out of commitEdit so the grid's Enter/Tab handler can decide whether
-  // to advance the cursor *before* the save round-trip: a rejected value must
-  // keep focus in the editor for correction rather than silently moving on, and
-  // it must not fire the same toast twice (once from the key handler, once from
-  // the blur the focus move causes).
-  const validateEdit = (
-    field: EditField,
-    value: string
-  ): { patch: Record<string, unknown> } | { error: string } => {
-    if (field === "price") {
-      const t = value.trim();
-      // Blank no longer coerces to NULL. "On Enquiry" is a deliberate business
-      // decision with its own toggle in the product panel — it must not be
-      // reachable by clearing a cell, and (before this) a typo reached here as
-      // blank too, because the editor was type="number". See InlineInput.
-      if (t === "")
-        return {
-          error:
-            'Price can\'t be blank — use the "Price on enquiry" toggle in the product panel',
-        };
-      // Number() (not parseFloat) so trailing junk like "12abc" is rejected
-      // outright instead of silently saving as 12.
-      const n = Number(t);
-      if (!Number.isFinite(n))
-        return { error: "Enter a valid price — numbers only" };
-      if (n <= 0)
-        return {
-          error:
-            'Price must be more than ₹0 — use the "Price on enquiry" toggle instead',
-        };
-      return { patch: { price: n } };
-    }
-    if (field === "name") {
-      const t = value.trim();
-      if (!t) return { error: "Name can't be empty" };
-      return { patch: { name: t } };
-    }
-    return { patch: { description: value.trim() || null } };
-  };
+  // Validation now lives in lib/productValidation.ts so this table and the
+  // Catalog Workbench share one copy of the PR-A safety rules (blank price
+  // refused, Number() not parseFloat, price > 0). It is still called BEFORE the
+  // save round-trip by the grid's Enter/Tab handler, so a rejected value keeps
+  // the cursor in the editor for correction rather than looking like it saved,
+  // and the error toast fires once rather than once per path.
 
   // Persist one field via productService (service layer only) with an optimistic
   // row patch. Tree aggregates are refreshed since completeness (and thus a
@@ -1902,187 +1937,305 @@ export default function CatalogTreeEditor({
     },
   ];
 
-  return (
-    <div className="space-y-4">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
-            <FolderTree className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Catalog Editor
-            </h1>
-            <p className="text-slate-400 text-xs mt-0.5">
-              Browse by group &amp; category, edit inline, fix what's missing.
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            loadAggregates();
-            loadChipCounts();
-            loadProducts();
-          }}
-          disabled={loading}
-          title="Reload"
-          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
-      </div>
+  const workbenchMode = mode === "workbench";
 
-      {/* ── Saved views ────────────────────────────────────────────────────── */}
-      {/* Presets over the status/missing filters above — one click to jump to
-          a common view, Shopify-tab style. Not a new filter dimension. */}
-      <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
-        {SAVED_VIEWS.map(v => {
-          const active = isActiveView(v);
-          return (
-            <button
-              key={v.id}
-              onClick={() => applyView(v)}
-              aria-current={active ? "true" : undefined}
-              className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded-t ${
-                active
-                  ? "border-red-600 text-red-600"
-                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-200"
-              }`}
-            >
-              {v.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Toolbar: search · status · missing · add ───────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-sm">
-        <div className="flex-1 min-w-[180px] relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          <Input
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-            placeholder="Search name or SKU…"
-            className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
-          />
-        </div>
-        <Select
-          value={statusFilter}
-          onValueChange={v => setStatusFilter(v as AdminStatusFilter)}
-        >
-          <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map(o => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
+  // Scope picker — Workbench's replacement for the category tree. Writes the
+  // SAME `selection` state the tree does, so there is no parallel filter.
+  const scopeSelect = (
+    <Select
+      value={serializeNode(selection) ?? "all"}
+      onValueChange={v => setSelection(parseNode(v === "all" ? null : v))}
+    >
+      <SelectTrigger
+        className={`w-56 h-9 border-slate-200 text-sm transition-colors duration-150 focus:ring-2 focus:ring-red-300 ${
+          selection.kind === "all"
+            ? "bg-slate-50"
+            : "bg-red-50 border-red-200 text-red-800 font-semibold"
+        }`}
+        title="Scope the queue to one group or category"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="max-h-80">
+        <SelectItem value="all">
+          All products ({allCount.toLocaleString()})
+        </SelectItem>
+        {groups.map(g => (
+          <SelectGroup key={g.name}>
+            <SelectLabel>{g.name}</SelectLabel>
+            <SelectItem value={`g:${g.name}`}>
+              Everything in {g.name} ({groupCount(g)})
+            </SelectItem>
+            {g.categories.map(c => (
+              <SelectItem key={c.id} value={`c:${c.id}`}>
+                {c.name} ({counts[c.id] ?? 0})
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-        {/* Full 8-dimension "Missing…" filter (parity with AdminProducts).
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const refreshButton = (
+    <button
+      onClick={() => {
+        loadAggregates();
+        loadChipCounts();
+        loadProducts();
+        if (workbenchMode) loadIncompleteIds();
+      }}
+      disabled={loading}
+      title="Reload"
+      className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors duration-150 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+    >
+      <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+    </button>
+  );
+
+  // Mode toggle — same tab, same filters, only the right pane swaps.
+  const modeToggle = (
+    <div
+      role="group"
+      aria-label="Editing mode"
+      className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+    >
+      {(
+        [
+          { id: "table", label: "Table", Icon: Rows3 },
+          { id: "workbench", label: "Workbench", Icon: Images },
+        ] as const
+      ).map(({ id, label, Icon }) => (
+        <button
+          key={id}
+          type="button"
+          aria-pressed={mode === id}
+          title={`${label} mode`}
+          onClick={() => setMode(id)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+            mode === id
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <Icon className="w-4 h-4" />
+          <span className="hidden sm:inline">{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    // Workbench mode is a flex column that claims the viewport (see the height
+    // chain documented in CatalogWorkbench). Table mode keeps its natural
+    // stacked height and lets <main> scroll, exactly as before.
+    <div
+      className={
+        workbenchMode
+          ? "flex flex-col gap-3 flex-1 min-h-0"
+          : "space-y-4 flex-shrink-0"
+      }
+    >
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {workbenchMode ? (
+        // One compact line. The full header + saved-view tabs + search toolbar
+        // + Fix-Missing chips came to ~380px of chrome, which came straight out
+        // of the image pane — the one thing this mode exists to make big. Those
+        // controls all belong to the table; the queue's own readiness markers
+        // cover what the chips were for here.
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          <div className="w-7 h-7 rounded-md bg-red-600 flex items-center justify-center flex-shrink-0">
+            <FolderTree className="w-4 h-4 text-white" />
+          </div>
+          <h1 className="text-base font-bold text-slate-900">Catalog Editor</h1>
+          <span className="text-xs text-slate-400" aria-live="polite">
+            {totalCount.toLocaleString()} product{totalCount === 1 ? "" : "s"}
+            {selection.kind !== "all" && " in scope"}
+          </span>
+          <div className="flex-1" />
+          {scopeSelect}
+          {modeToggle}
+          {refreshButton}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
+              <FolderTree className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Catalog Editor
+              </h1>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Browse by group &amp; category, edit inline, fix what's missing.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {modeToggle}
+            {refreshButton}
+          </div>
+        </div>
+      )}
+
+      {/* Everything from here to the panes is table-mode chrome. */}
+      {!workbenchMode && (
+        <>
+          {/* ── Saved views ──────────────────────────────────────────────── */}
+          {/* Presets over the status/missing filters above — one click to jump to
+          a common view, Shopify-tab style. Not a new filter dimension. */}
+          <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+            {SAVED_VIEWS.map(v => {
+              const active = isActiveView(v);
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => applyView(v)}
+                  aria-current={active ? "true" : undefined}
+                  className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded-t ${
+                    active
+                      ? "border-red-600 text-red-600"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-200"
+                  }`}
+                >
+                  {v.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Toolbar: search · status · missing · add ───────────────────────── */}
+          <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-sm">
+            <div className="flex-1 min-w-[180px] relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Input
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                placeholder="Search name or SKU…"
+                className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
+              />
+            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={v => setStatusFilter(v as AdminStatusFilter)}
+            >
+              <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Full 8-dimension "Missing…" filter (parity with AdminProducts).
             "any" (Needs attention tab) has no single matching item here — it
             falls back to the placeholder rather than a phantom selection. */}
-        <Select
-          value={
-            activeMissing && activeMissing !== "any" ? activeMissing : "none"
-          }
-          onValueChange={v =>
-            applyMissing(v === "none" ? null : (v as MissingFilter))
-          }
-        >
-          <SelectTrigger
-            className={`w-40 h-9 border-slate-200 text-sm ${activeMissing && activeMissing !== "any" ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
-          >
-            <SelectValue placeholder="Missing…" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Missing… (all)</SelectItem>
-            {MISSING_FILTERS.map(f => (
-              <SelectItem key={f} value={f}>
-                {ATTENTION_LABELS[f]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex-1" />
-        {/* Quick add — name auto-focused, saves as draft */}
-        <div className="flex items-center gap-1">
-          <Input
-            ref={addNameRef}
-            value={addName}
-            onChange={e => setAddName(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleAddProduct();
+            <Select
+              value={
+                activeMissing && activeMissing !== "any"
+                  ? activeMissing
+                  : "none"
               }
-            }}
-            placeholder="New product name…"
-            className="h-9 w-44 text-sm"
-            disabled={adding}
-          />
-          <button
-            onClick={handleAddProduct}
-            disabled={adding}
-            className="inline-flex items-center gap-1 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-sm font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-1"
-          >
-            {adding ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Plus className="w-3.5 h-3.5" />
-            )}
-            Add
-          </button>
-        </div>
-      </div>
-
-      {/* ── Fix-Missing quick chips (with live counts) ─────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide mr-1">
-          Fix missing
-        </span>
-        {QUICK_MISSING.map(f => {
-          const active = activeMissing === f;
-          const count = chipCounts[f] ?? 0;
-          return (
-            <button
-              key={f}
-              onClick={() => applyMissing(active ? null : f)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
-                active
-                  ? "bg-red-600 border-red-600 text-white"
-                  : "bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600"
-              }`}
+              onValueChange={v =>
+                applyMissing(v === "none" ? null : (v as MissingFilter))
+              }
             >
-              {ATTENTION_LABELS[f]}
-              <span
-                className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full px-1 text-[11px] font-semibold ${
-                  active
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-100 text-slate-500"
-                }`}
+              <SelectTrigger
+                className={`w-40 h-9 border-slate-200 text-sm ${activeMissing && activeMissing !== "any" ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-        {(activeMissing || statusFilter !== "all" || search) && (
-          <button
-            onClick={() => {
-              applyMissing(null);
-              setStatusFilter("all");
-              setSearchInput("");
-            }}
-            className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 ml-1"
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
+                <SelectValue placeholder="Missing…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Missing… (all)</SelectItem>
+                {MISSING_FILTERS.map(f => (
+                  <SelectItem key={f} value={f}>
+                    {ATTENTION_LABELS[f]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex-1" />
+            {/* Quick add — name auto-focused, saves as draft */}
+            <div className="flex items-center gap-1">
+              <Input
+                ref={addNameRef}
+                value={addName}
+                onChange={e => setAddName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddProduct();
+                  }
+                }}
+                placeholder="New product name…"
+                className="h-9 w-44 text-sm"
+                disabled={adding}
+              />
+              <button
+                onClick={handleAddProduct}
+                disabled={adding}
+                className="inline-flex items-center gap-1 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-sm font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-1"
+              >
+                {adding ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Plus className="w-3.5 h-3.5" />
+                )}
+                Add
+              </button>
+            </div>
+          </div>
+
+          {/* ── Fix-Missing quick chips (with live counts) ─────────────────────── */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide mr-1">
+              Fix missing
+            </span>
+            {QUICK_MISSING.map(f => {
+              const active = activeMissing === f;
+              const count = chipCounts[f] ?? 0;
+              return (
+                <button
+                  key={f}
+                  onClick={() => applyMissing(active ? null : f)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+                    active
+                      ? "bg-red-600 border-red-600 text-white"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600"
+                  }`}
+                >
+                  {ATTENTION_LABELS[f]}
+                  <span
+                    className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full px-1 text-[11px] font-semibold ${
+                      active
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+            {(activeMissing || statusFilter !== "all" || search) && (
+              <button
+                onClick={() => {
+                  applyMissing(null);
+                  setStatusFilter("all");
+                  setSearchInput("");
+                }}
+                className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 ml-1"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {/* ── Bulk action bar ────────────────────────────────────────────────────────
           Docked to the viewport bottom (Shopify pattern) instead of pushing the
@@ -2265,130 +2418,184 @@ export default function CatalogTreeEditor({
       )}
 
       {/* ── Two-pane layout ────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
-        {/* Left: collapsible tree */}
-        <aside className="w-full lg:w-64 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-2 lg:sticky lg:top-4 max-h-[75vh] overflow-y-auto">
-          <button
-            onClick={() => setSelection({ kind: "all" })}
-            className={nodeCls(isSelected({ kind: "all" }))}
-          >
-            <Boxes className="w-4 h-4 flex-shrink-0" />
-            <span className="flex-1 truncate">All Products</span>
-            <span className="text-xs opacity-70">{allCount}</span>
-          </button>
+      <div
+        className={
+          workbenchMode
+            ? "flex flex-1 min-h-0"
+            : "flex flex-col lg:flex-row gap-4 items-start"
+        }
+      >
+        {/* Left: collapsible tree — TABLE MODE ONLY.
+            The Workbench has three panes of its own (queue | image | fields);
+            rendering the tree beside them made four, and at 1280px the fields
+            pane was crushed to the point of truncating "480" to "48(" (DE-08
+            reappearing). The Workbench's queue header already names the active
+            scope, so the tree is redundant there. Selection state is shared, so
+            switching to Table mode, picking a category, and switching back
+            carries the scope across. */}
+        {mode === "table" && (
+          <aside className="w-full lg:w-64 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-2 lg:sticky lg:top-4 max-h-[75vh] overflow-y-auto">
+            <button
+              onClick={() => setSelection({ kind: "all" })}
+              className={nodeCls(isSelected({ kind: "all" }))}
+            >
+              <Boxes className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1 truncate">All Products</span>
+              <span className="text-xs opacity-70">{allCount}</span>
+            </button>
 
-          <div className="mt-1 space-y-0.5">
-            {groups.map(g => {
-              const open = expanded.has(g.name);
-              const gActive = isSelected({ kind: "group", group: g.name });
-              return (
-                <div key={g.name}>
-                  <div className="flex items-center">
-                    <button
-                      onClick={() => toggleGroup(g.name)}
-                      className="p-1 text-slate-400 hover:text-slate-700 flex-shrink-0"
-                      aria-label={open ? "Collapse" : "Expand"}
-                    >
-                      {open ? (
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() =>
-                        setSelection({ kind: "group", group: g.name })
-                      }
-                      className={nodeCls(gActive) + " flex-1"}
-                    >
-                      <HealthDot health={groupHealth(g)} />
-                      <span className="flex-1 truncate">{g.name}</span>
-                      <span className="text-xs opacity-70">
-                        {groupCount(g)}
-                      </span>
-                    </button>
-                  </div>
-
-                  {open && (
-                    <div className="ml-5 mt-0.5 space-y-0.5 border-l border-slate-100 pl-1.5">
-                      {g.categories.map(cat => {
-                        const cActive = isSelected({
-                          kind: "category",
-                          categoryId: cat.id,
-                        });
-                        return (
-                          <button
-                            key={cat.id}
-                            onClick={() =>
-                              setSelection({
-                                kind: "category",
-                                categoryId: cat.id,
-                              })
-                            }
-                            className={nodeCls(cActive)}
-                          >
-                            <HealthDot health={catHealth[cat.id]} />
-                            <span className="flex-1 truncate">{cat.name}</span>
-                            <span className="text-xs opacity-70">
-                              {counts[cat.id] ?? 0}
-                            </span>
-                          </button>
-                        );
-                      })}
+            <div className="mt-1 space-y-0.5">
+              {groups.map(g => {
+                const open = expanded.has(g.name);
+                const gActive = isSelected({ kind: "group", group: g.name });
+                return (
+                  <div key={g.name}>
+                    <div className="flex items-center">
+                      <button
+                        onClick={() => toggleGroup(g.name)}
+                        className="p-1 text-slate-400 hover:text-slate-700 flex-shrink-0"
+                        aria-label={open ? "Collapse" : "Expand"}
+                      >
+                        {open ? (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() =>
+                          setSelection({ kind: "group", group: g.name })
+                        }
+                        className={nodeCls(gActive) + " flex-1"}
+                      >
+                        <HealthDot health={groupHealth(g)} />
+                        <span className="flex-1 truncate">{g.name}</span>
+                        <span className="text-xs opacity-70">
+                          {groupCount(g)}
+                        </span>
+                      </button>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </aside>
 
-        {/* Right: product table */}
-        <div className="flex-1 min-w-0 w-full">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h2 className="text-sm font-semibold text-slate-700 truncate">
-              {scopeTitle}
-              <span className="ml-2 text-xs font-normal text-slate-400">
-                {totalCount.toLocaleString()} product
-                {totalCount === 1 ? "" : "s"}
-              </span>
-            </h2>
-          </div>
+                    {open && (
+                      <div className="ml-5 mt-0.5 space-y-0.5 border-l border-slate-100 pl-1.5">
+                        {g.categories.map(cat => {
+                          const cActive = isSelected({
+                            kind: "category",
+                            categoryId: cat.id,
+                          });
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() =>
+                                setSelection({
+                                  kind: "category",
+                                  categoryId: cat.id,
+                                })
+                              }
+                              className={nodeCls(cActive)}
+                            >
+                              <HealthDot health={catHealth[cat.id]} />
+                              <span className="flex-1 truncate">
+                                {cat.name}
+                              </span>
+                              <span className="text-xs opacity-70">
+                                {counts[cat.id] ?? 0}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+        )}
 
-          <DataTable<Product>
-            data={products}
-            columns={columns}
-            getRowId={p => p.id}
-            loading={loading}
-            emptyMessage={emptyState}
-            persistKey="cat"
-            onVisibleColumnsChange={setVisibleColIds}
-            onDensityChange={setDensity}
-            sorting={sorting}
-            onSortingChange={setSorting}
-            selection={{
-              isSelected: id => selected.has(id),
-              allPageSelected,
-              onToggleRow: toggleRow,
-              onToggleAll: toggleAll,
-            }}
-            pagination={{
-              page,
-              pageSize: PAGE_SIZE,
-              total: totalCount,
-              onPageChange: setPage,
-            }}
-            containerRef={gridRef}
-            containerProps={{ tabIndex: 0, onKeyDown: handleGridKeyDown }}
-            rowClassName={p =>
-              flashRows.has(p.id)
-                ? "bg-emerald-50/70 transition-colors duration-500"
-                : "transition-colors duration-500"
-            }
-            rowContextMenu={p =>
-              renderRowMenuItems(p, ContextMenuItem, ContextMenuSeparator)
-            }
-          />
+        {/* Right: product table (Table mode) or the Workbench (Workbench mode) */}
+        <div
+          className={
+            workbenchMode
+              ? "flex-1 min-w-0 w-full flex flex-col min-h-0"
+              : "flex-1 min-w-0 w-full"
+          }
+        >
+          {/* The Workbench's queue pane already carries the scope title and the
+              N / total counter, and every row above it costs the locked shell
+              image height — so this header is table-mode only. */}
+          {mode === "table" && (
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h2 className="text-sm font-semibold text-slate-700 truncate">
+                {scopeTitle}
+                <span className="ml-2 text-xs font-normal text-slate-400">
+                  {totalCount.toLocaleString()} product
+                  {totalCount === 1 ? "" : "s"}
+                </span>
+              </h2>
+            </div>
+          )}
+
+          {mode === "workbench" ? (
+            <CatalogWorkbench
+              products={products}
+              loading={loading}
+              categories={categories}
+              totalCount={totalCount}
+              pageOffset={(page - 1) * PAGE_SIZE + 1}
+              incompleteIds={incompleteIds}
+              scopeTitle={scopeTitle}
+              hasNextPage={page * PAGE_SIZE < totalCount}
+              onRequestNextPage={() => setPage(p => p + 1)}
+              onProductSaved={updated => {
+                setProducts(prev =>
+                  prev.map(p =>
+                    p.id === updated.id ? { ...p, ...updated } : p
+                  )
+                );
+              }}
+              onAfterSave={() => {
+                loadAggregates();
+                loadChipCounts();
+                loadIncompleteIds();
+              }}
+            />
+          ) : (
+            <DataTable<Product>
+              data={products}
+              columns={columns}
+              getRowId={p => p.id}
+              loading={loading}
+              emptyMessage={emptyState}
+              persistKey="cat"
+              onVisibleColumnsChange={setVisibleColIds}
+              onDensityChange={setDensity}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              selection={{
+                isSelected: id => selected.has(id),
+                allPageSelected,
+                onToggleRow: toggleRow,
+                onToggleAll: toggleAll,
+              }}
+              pagination={{
+                page,
+                pageSize: PAGE_SIZE,
+                total: totalCount,
+                onPageChange: setPage,
+              }}
+              containerRef={gridRef}
+              containerProps={{ tabIndex: 0, onKeyDown: handleGridKeyDown }}
+              rowClassName={p =>
+                flashRows.has(p.id)
+                  ? "bg-emerald-50/70 transition-colors duration-500"
+                  : "transition-colors duration-500"
+              }
+              rowContextMenu={p =>
+                renderRowMenuItems(p, ContextMenuItem, ContextMenuSeparator)
+              }
+            />
+          )}
         </div>
       </div>
 

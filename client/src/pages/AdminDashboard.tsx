@@ -172,7 +172,9 @@ export default function AdminDashboard() {
       {activeTab === "enquiries" && <AdminEnquiries />}
       {activeTab === "seo" && <AdminSEO />}
       {activeTab === "bulk-import" && (
-        <AdminBulkImport onGoToProducts={() => setActiveTab("catalog-editor")} />
+        <AdminBulkImport
+          onGoToProducts={() => setActiveTab("catalog-editor")}
+        />
       )}
       {activeTab === "google-sheets" && <AdminGoogleSheets />}
       {activeTab === "site-content" && <AdminSiteContent />}
@@ -196,7 +198,10 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-admin-bg overflow-hidden">
+    // h-dvh, not h-screen: dvh tracks the *actual* viewport, so the height
+    // chain below (main → content wrapper → Catalog Workbench shell) stays
+    // correct under browser zoom, DPI changes and mobile browser chrome.
+    <div className="flex h-dvh bg-admin-bg overflow-hidden">
       {/* ── Mobile overlay ─────────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
@@ -303,7 +308,10 @@ export default function AdminDashboard() {
       </aside>
 
       {/* ── Main ────────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      {/* min-h-0, not min-h-screen: a flex child defaults to min-height:auto,
+          which refuses to shrink below its content and would stop <main> from
+          ever being the scroll boundary. */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Top bar */}
         <header className="bg-white border-b border-slate-200/80 px-6 py-3 flex items-center gap-4 flex-shrink-0">
           <button
@@ -336,21 +344,36 @@ export default function AdminDashboard() {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto">
+        {/* <main> is the flex column and the scroll box moves onto the wrapper
+            below. That ordering matters: a scroll container needs a DEFINITE
+            height for a `flex-1` descendant to be capped by it. `min-h-full`
+            only sets a minimum, so the Workbench shell sized itself to its
+            content and overflowed by ~700px instead of locking. */}
+        <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {/* max-w-screen-xl centers/caps the width — fits reading-width forms
               (Overview, Settings, etc.) but was capping the Catalog Editor's
               data table to 1280px and centering it, leaving dead space on
               both sides on wide screens. The table itself already fills
               whatever width it's given (DataTable's fillWidth), so this tab
-              alone skips the cap. */}
+              alone skips the cap — and is also the only tab that becomes a
+              flex column, completing the height chain the Catalog Workbench
+              locks against. Table mode is unaffected: its root is
+              `flex-shrink-0`, so it keeps its natural height and this wrapper
+              scrolls exactly as before. */}
           <div
             className={
               activeTab === "catalog-editor"
-                ? "px-6 py-6"
-                : "max-w-screen-xl mx-auto px-6 py-6"
+                ? "flex-1 min-h-0 flex flex-col overflow-y-auto px-6 py-6"
+                : "flex-1 min-h-0 overflow-y-auto"
             }
           >
-            {sectionContent}
+            {activeTab === "catalog-editor" ? (
+              sectionContent
+            ) : (
+              <div className="max-w-screen-xl mx-auto px-6 py-6">
+                {sectionContent}
+              </div>
+            )}
           </div>
         </main>
       </div>

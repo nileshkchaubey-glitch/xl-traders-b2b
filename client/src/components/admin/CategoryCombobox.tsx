@@ -22,11 +22,18 @@ interface CategoryComboboxProps {
   onChange: (categoryId: string) => void;
   placeholder?: string;
   className?: string;
+  /**
+   * Open the picker as soon as it receives focus. Convenient when the field is
+   * usually being changed, but it means Tabbing *past* the field lands in the
+   * search list rather than the next field — so surfaces with a defined
+   * Tab-through order (the Workbench) opt out and open on Enter/Space instead.
+   */
+  openOnFocus?: boolean;
 }
 
 /**
  * Searchable category picker (Popover + cmdk Command).
- * Keyboard-friendly: opens on focus, type to filter, ↑/↓ + Enter selects.
+ * Keyboard-friendly: type to filter, ↑/↓ + Enter selects.
  */
 export default function CategoryCombobox({
   categories,
@@ -34,6 +41,7 @@ export default function CategoryCombobox({
   onChange,
   placeholder = "Select category",
   className,
+  openOnFocus = true,
 }: CategoryComboboxProps) {
   const [open, setOpen] = useState(false);
   const selected = categories.find(c => c.id === value);
@@ -45,7 +53,7 @@ export default function CategoryCombobox({
           type="button"
           role="combobox"
           aria-expanded={open}
-          onFocus={() => setOpen(true)}
+          onFocus={openOnFocus ? () => setOpen(true) : undefined}
           className={cn(
             "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm",
             "focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",

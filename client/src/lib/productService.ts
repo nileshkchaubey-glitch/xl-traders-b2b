@@ -365,9 +365,7 @@ function sortDemoProducts(
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
     case "price-low":
-      return out.sort(
-        (a, b) => (a.price ?? Infinity) - (b.price ?? Infinity)
-      );
+      return out.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
     case "price-high":
       return out.sort(
         (a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity)
@@ -396,7 +394,10 @@ export const productService = {
     }
   ): Promise<Product[]> {
     if (isDemo) {
-      let results = sortDemoProducts(filterDemoProducts(filters), filters?.sort);
+      let results = sortDemoProducts(
+        filterDemoProducts(filters),
+        filters?.sort
+      );
       if (filters?.pageSize != null) {
         const page = filters.page ?? 1;
         const size = filters.pageSize;
@@ -979,6 +980,80 @@ export const storageService = {
       .getPublicUrl(filePath);
 
     return data.publicUrl;
+  },
+
+  // ── SKU-named uploads (Catalog Workbench) ──────────────────────────────────
+  // Files land at products/{SKU}/{SKU}.webp for the primary image and
+  // products/{SKU}/{SKU}-2.webp, -3.webp … for gallery slots, so a file is
+  // identifiable from its name alone AND cannot collide with another SKU's
+  // objects. The existing uploadGlobalImage() path (products/global-{ts}-{rand})
+  // stays for the Image Library, which uploads without a product context.
+
+  // One folder per SKU: products/{SKU}/{SKU}.webp for the primary image and
+  // products/{SKU}/{SKU}-2.webp, -3.webp … for gallery slots.
+  //
+  // The folder is what makes the keys collision-free. With a flat
+  // products/{SKU}-{slot}.webp layout, skuObjectPath("XL0105", 2) and
+  // skuObjectPath("XL0105-2", 1) both resolve to products/XL0105-2.webp — so
+  // uploading a second image for one product could overwrite a different
+  // product's primary image, and listBySku would then offer it as an exact
+  // match. Scoping by folder means a slot suffix can never be confused with
+  // part of another SKU. Filenames keep the SKU so a file is still
+  // identifiable once downloaded.
+  skuFolder(sku: string) {
+    // encodeURIComponent (not a lossy character class) so SKUs that differ only
+    // in punctuation — "A/B" vs "A B" — stay distinct instead of collapsing to
+    // the same key.
+    return encodeURIComponent(sku.trim());
+  },
+
+  skuObjectPath(sku: string, index = 1) {
+    const folder = this.skuFolder(sku);
+    const base = sku.trim().replace(/[^A-Za-z0-9._-]+/g, "-");
+    return `products/${folder}/${base}${index > 1 ? `-${index}` : ""}.webp`;
+  },
+
+  // Existing objects for this SKU. Backs the Workbench's "a file for this SKU
+  // is already in the bucket — attach it instead of re-uploading?" prompt.
+  // Listing the SKU's own folder means no name matching is needed at all: every
+  // object in it belongs to this SKU by construction.
+  async listBySku(sku: string): Promise<{ name: string; url: string }[]> {
+    if (isDemo) return [];
+    const folder = this.skuFolder(sku);
+    if (!folder) return [];
+
+    const { data, error } = await supabase.storage
+      .from("product-images")
+      .list(`products/${folder}`, { limit: 100 });
+    if (error) throw error;
+
+    return (data ?? [])
+      .filter(f => f.name !== ".emptyFolderPlaceholder")
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true })
+      )
+      .map(f => ({
+        name: f.name,
+        url: this.getPublicUrl(`products/${folder}/${f.name}`),
+      }));
+  },
+
+  // upsert:true so re-uploading a corrected photo for the same SKU replaces the
+  // object rather than accumulating duplicates under new random names.
+  async uploadBySku(file: File, sku: string, index = 1): Promise<string> {
+    if (isDemo) {
+      console.warn("Demo mode: Image not uploaded");
+      return "";
+    }
+    const filePath = this.skuObjectPath(sku, index);
+    const { error } = await supabase.storage
+      .from("product-images")
+      .upload(filePath, file, { upsert: true, contentType: file.type });
+    if (error) throw error;
+
+    // Cache-bust: with upsert the URL is stable, so a replaced image would
+    // otherwise keep rendering from cache.
+    return `${this.getPublicUrl(filePath)}?v=${Date.now()}`;
   },
 };
 
