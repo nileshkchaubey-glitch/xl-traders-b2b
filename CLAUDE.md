@@ -532,9 +532,13 @@ inquiries, orders, order_items, import_logs, business_settings
   checks `is_active` only, so drafts are readable through PostgREST by anyone with the
   anon key; `status='published'` is enforced solely in `productService.ts` call sites.
   Same for writes — `auth_update_products`/`auth_delete_products` are `USING (true)`, so
-  any signed-in customer can edit or delete any product. Fix prepared in
-  [`docs/sql/pr1-rls-publish-gate.sql`](docs/sql/pr1-rls-publish-gate.sql) — **owner-run,
-  not yet applied**. Rollback + checklist alongside it in `docs/sql/`.
+  any signed-in customer can edit or delete any product. `auth_insert_products` is also
+  `WITH CHECK (true)`, allowing any authenticated user to insert products; the SQL file's
+  removal of this policy (statement [6]) is explicitly marked optional/skippable, so INSERT
+  authorization can remain open even after update/delete are hardened unless that statement
+  is run too. Fix prepared in [`docs/sql/pr1-rls-publish-gate.sql`](docs/sql/pr1-rls-publish-gate.sql) —
+  **owner-run, not yet applied**. An explicit decision on the INSERT policy is needed
+  before/alongside merge. Rollback + checklist alongside it in `docs/sql/`.
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
