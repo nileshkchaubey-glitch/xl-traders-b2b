@@ -491,12 +491,10 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   single-line field = Save & Next; the description textarea keeps Enter and uses
   Ctrl/Cmd+Enter. Setting a primary image persists immediately (one-column patch) so an
   upload isn't lost by clicking the next product.
-  **Ergonomics pass (same PR):** the shell is **locked to viewport height** — it measures
-  the space above and below itself inside the admin's scrolling `<main>` (measured, not a
-  hardcoded gutter) so the page itself never scrolls; queue and fields scroll
-  independently, the image pane doesn't scroll at all, and Prev / Save / Save & Next sit
-  in a **sticky footer** outside the fields scroll area. The image is `flex-1`, so it
-  takes all slack the shell leaves. A **draggable divider** rebalances image ┃ fields,
+  **Ergonomics pass (same PR):** the shell is **locked to viewport height**; queue and
+  fields scroll independently, the image pane doesn't scroll at all, and Prev / Save /
+  Save & Next sit in a **sticky footer** outside the fields scroll area.
+  A **draggable divider** rebalances image ┃ fields,
   clamped so neither drops below its minimum (340 / 320) and persisted to the URL
   (`wbW`, written on pointer-up only — no localStorage). **Focus mode:** the category
   tree is table-mode only (four panes crushed the fields pane), replaced in Workbench by
@@ -510,6 +508,39 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   `CategoryCombobox` gained an additive `openOnFocus` prop (default `true`, unchanged
   everywhere else) which the Workbench sets `false` so Tab passes through the picker
   instead of falling into its search list.
+  **Space + zoom pass (same PR):** the viewport lock is now **pure CSS** — an unbroken
+  flex-column chain (`AdminDashboard` `h-dvh` → column `min-h-0` → `<main>`
+  `flex flex-col` → the catalog-editor wrapper `flex-1 min-h-0 overflow-y-auto` →
+  `CatalogTreeEditor` `flex-1 min-h-0` in workbench mode → the shell `flex-1`). The
+  previous JS measure-above-and-below set an explicit pixel height, which is correct
+  exactly once: it never re-derived on browser **zoom**, so at 90%/110% the shell kept a
+  stale height and left a blank band below it. Note `<main>` is the flex column and the
+  scroll box moved onto the wrapper — a scroll container needs a _definite_ height for a
+  `flex-1` descendant to be capped by it; `min-h-full` is only a minimum and let the
+  shell grow ~700px past the viewport. **Workbench chrome is one compact line** (icon,
+  title, scoped count, scope select, mode toggle, refresh): the full header + saved-view
+  tabs + search toolbar + Fix-Missing chips came to ~380px that came straight out of the
+  image pane, and all of them belong to the table — search / status / missing /
+  quick-add remain in Table mode. **Image pane:** the border and background now sit on
+  the `<img>` itself rather than on a fixed-size container it floated inside, so the
+  bordered box _is_ the picture; the fields-pane default is viewport-aware (460px on wide
+  screens, 380px below 1250px of shell, since a narrow image pane is width-starved while
+  a wide one only gains margin). Below `LIST_W + FIELDS_MIN + IMAGE_MIN + divider`
+  (908px of shell — reached at 150% zoom on a 1366 laptop) the layout **stacks** rather
+  than squeezing; three-across had left the image pane 37px wide. **Select-image dialog**
+  is now a real picker: 90vw × 85vh (max 1400px), an `auto-fill` grid that reflows with
+  no horizontal scroll, filename search, size toggle, click-to-preview aside before
+  committing, arrow/Enter/Esc keyboard nav, and files whose name matches the current SKU
+  sorted first with a "Matches SKU" badge (`skuHint` prop; loose match ignoring case and
+  separators). Two CSS-layout bugs surfaced there and are fixed: `overflow-hidden` on a
+  grid item drops its automatic minimum size to 0, and the grid's default
+  `align-content` then stretched 34 zero-base rows to 4.6px each — `min-h-fit` on the
+  card plus `auto-rows-max` on the grid. **Polish:** 150ms transitions on hover/focus, a
+  real focus _ring_ on every field (a border-colour shift alone is easy to miss
+  mid-entry), Save / Save & Next disabled with a spinner for the whole commit (`busy`
+  covers the post-request patch/toast/refresh window, not just `saving`, so a second
+  click can't fire a duplicate update), clearer queue hover/selected states, and
+  written-out empty states.
 
 ### Health System
 

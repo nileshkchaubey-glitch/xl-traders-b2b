@@ -1937,258 +1937,305 @@ export default function CatalogTreeEditor({
     },
   ];
 
-  return (
-    <div className="space-y-4">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
-            <FolderTree className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Catalog Editor
-            </h1>
-            <p className="text-slate-400 text-xs mt-0.5">
-              Browse by group &amp; category, edit inline, fix what's missing.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Mode toggle — same tab, same filters, only the right pane swaps. */}
-          <div
-            role="group"
-            aria-label="Editing mode"
-            className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
-          >
-            {(
-              [
-                { id: "table", label: "Table", Icon: Rows3 },
-                { id: "workbench", label: "Workbench", Icon: Images },
-              ] as const
-            ).map(({ id, label, Icon }) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={mode === id}
-                title={`${label} mode`}
-                onClick={() => setMode(id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
-                  mode === id
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{label}</span>
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => {
-              loadAggregates();
-              loadChipCounts();
-              loadProducts();
-              if (mode === "workbench") loadIncompleteIds();
-            }}
-            disabled={loading}
-            title="Reload"
-            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </div>
+  const workbenchMode = mode === "workbench";
 
-      {/* ── Saved views ────────────────────────────────────────────────────── */}
-      {/* Presets over the status/missing filters above — one click to jump to
-          a common view, Shopify-tab style. Not a new filter dimension. */}
-      <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
-        {SAVED_VIEWS.map(v => {
-          const active = isActiveView(v);
-          return (
-            <button
-              key={v.id}
-              onClick={() => applyView(v)}
-              aria-current={active ? "true" : undefined}
-              className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded-t ${
-                active
-                  ? "border-red-600 text-red-600"
-                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-200"
-              }`}
-            >
-              {v.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Toolbar: search · status · missing · add ───────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-sm">
-        <div className="flex-1 min-w-[180px] relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          <Input
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-            placeholder="Search name or SKU…"
-            className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
-          />
-        </div>
-        {/* Focus mode — the Workbench has no tree beside it (four panes crushed
-            the fields pane), so the scope picker lives here instead. It writes
-            the SAME `selection` state the tree does, so the queue, the counter
-            and every chip count stay scoped by one mechanism. */}
-        {mode === "workbench" && (
-          <Select
-            value={serializeNode(selection) ?? "all"}
-            onValueChange={v => setSelection(parseNode(v === "all" ? null : v))}
-          >
-            <SelectTrigger
-              className={`w-56 h-9 border-slate-200 text-sm ${
-                selection.kind === "all"
-                  ? "bg-slate-50"
-                  : "bg-red-50 border-red-200 text-red-800 font-semibold"
-              }`}
-              title="Scope the queue to one group or category"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="max-h-80">
-              <SelectItem value="all">
-                All products ({allCount.toLocaleString()})
+  // Scope picker — Workbench's replacement for the category tree. Writes the
+  // SAME `selection` state the tree does, so there is no parallel filter.
+  const scopeSelect = (
+    <Select
+      value={serializeNode(selection) ?? "all"}
+      onValueChange={v => setSelection(parseNode(v === "all" ? null : v))}
+    >
+      <SelectTrigger
+        className={`w-56 h-9 border-slate-200 text-sm transition-colors duration-150 focus:ring-2 focus:ring-red-300 ${
+          selection.kind === "all"
+            ? "bg-slate-50"
+            : "bg-red-50 border-red-200 text-red-800 font-semibold"
+        }`}
+        title="Scope the queue to one group or category"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="max-h-80">
+        <SelectItem value="all">
+          All products ({allCount.toLocaleString()})
+        </SelectItem>
+        {groups.map(g => (
+          <SelectGroup key={g.name}>
+            <SelectLabel>{g.name}</SelectLabel>
+            <SelectItem value={`g:${g.name}`}>
+              Everything in {g.name} ({groupCount(g)})
+            </SelectItem>
+            {g.categories.map(c => (
+              <SelectItem key={c.id} value={`c:${c.id}`}>
+                {c.name} ({counts[c.id] ?? 0})
               </SelectItem>
-              {groups.map(g => (
-                <SelectGroup key={g.name}>
-                  <SelectLabel>{g.name}</SelectLabel>
-                  <SelectItem value={`g:${g.name}`}>
-                    Everything in {g.name} ({groupCount(g)})
-                  </SelectItem>
-                  {g.categories.map(c => (
-                    <SelectItem key={c.id} value={`c:${c.id}`}>
-                      {c.name} ({counts[c.id] ?? 0})
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Select
-          value={statusFilter}
-          onValueChange={v => setStatusFilter(v as AdminStatusFilter)}
+            ))}
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const refreshButton = (
+    <button
+      onClick={() => {
+        loadAggregates();
+        loadChipCounts();
+        loadProducts();
+        if (workbenchMode) loadIncompleteIds();
+      }}
+      disabled={loading}
+      title="Reload"
+      className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors duration-150 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+    >
+      <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+    </button>
+  );
+
+  // Mode toggle — same tab, same filters, only the right pane swaps.
+  const modeToggle = (
+    <div
+      role="group"
+      aria-label="Editing mode"
+      className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+    >
+      {(
+        [
+          { id: "table", label: "Table", Icon: Rows3 },
+          { id: "workbench", label: "Workbench", Icon: Images },
+        ] as const
+      ).map(({ id, label, Icon }) => (
+        <button
+          key={id}
+          type="button"
+          aria-pressed={mode === id}
+          title={`${label} mode`}
+          onClick={() => setMode(id)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+            mode === id
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-800"
+          }`}
         >
-          <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map(o => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {/* Full 8-dimension "Missing…" filter (parity with AdminProducts).
+          <Icon className="w-4 h-4" />
+          <span className="hidden sm:inline">{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    // Workbench mode is a flex column that claims the viewport (see the height
+    // chain documented in CatalogWorkbench). Table mode keeps its natural
+    // stacked height and lets <main> scroll, exactly as before.
+    <div
+      className={
+        workbenchMode
+          ? "flex flex-col gap-3 flex-1 min-h-0"
+          : "space-y-4 flex-shrink-0"
+      }
+    >
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {workbenchMode ? (
+        // One compact line. The full header + saved-view tabs + search toolbar
+        // + Fix-Missing chips came to ~380px of chrome, which came straight out
+        // of the image pane — the one thing this mode exists to make big. Those
+        // controls all belong to the table; the queue's own readiness markers
+        // cover what the chips were for here.
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          <div className="w-7 h-7 rounded-md bg-red-600 flex items-center justify-center flex-shrink-0">
+            <FolderTree className="w-4 h-4 text-white" />
+          </div>
+          <h1 className="text-base font-bold text-slate-900">Catalog Editor</h1>
+          <span className="text-xs text-slate-400" aria-live="polite">
+            {totalCount.toLocaleString()} product{totalCount === 1 ? "" : "s"}
+            {selection.kind !== "all" && " in scope"}
+          </span>
+          <div className="flex-1" />
+          {scopeSelect}
+          {modeToggle}
+          {refreshButton}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
+              <FolderTree className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Catalog Editor
+              </h1>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Browse by group &amp; category, edit inline, fix what's missing.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {modeToggle}
+            {refreshButton}
+          </div>
+        </div>
+      )}
+
+      {/* Everything from here to the panes is table-mode chrome. */}
+      {!workbenchMode && (
+        <>
+          {/* ── Saved views ──────────────────────────────────────────────── */}
+          {/* Presets over the status/missing filters above — one click to jump to
+          a common view, Shopify-tab style. Not a new filter dimension. */}
+          <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+            {SAVED_VIEWS.map(v => {
+              const active = isActiveView(v);
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => applyView(v)}
+                  aria-current={active ? "true" : undefined}
+                  className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded-t ${
+                    active
+                      ? "border-red-600 text-red-600"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-200"
+                  }`}
+                >
+                  {v.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Toolbar: search · status · missing · add ───────────────────────── */}
+          <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-sm">
+            <div className="flex-1 min-w-[180px] relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Input
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                placeholder="Search name or SKU…"
+                className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
+              />
+            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={v => setStatusFilter(v as AdminStatusFilter)}
+            >
+              <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Full 8-dimension "Missing…" filter (parity with AdminProducts).
             "any" (Needs attention tab) has no single matching item here — it
             falls back to the placeholder rather than a phantom selection. */}
-        <Select
-          value={
-            activeMissing && activeMissing !== "any" ? activeMissing : "none"
-          }
-          onValueChange={v =>
-            applyMissing(v === "none" ? null : (v as MissingFilter))
-          }
-        >
-          <SelectTrigger
-            className={`w-40 h-9 border-slate-200 text-sm ${activeMissing && activeMissing !== "any" ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
-          >
-            <SelectValue placeholder="Missing…" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Missing… (all)</SelectItem>
-            {MISSING_FILTERS.map(f => (
-              <SelectItem key={f} value={f}>
-                {ATTENTION_LABELS[f]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex-1" />
-        {/* Quick add — name auto-focused, saves as draft */}
-        <div className="flex items-center gap-1">
-          <Input
-            ref={addNameRef}
-            value={addName}
-            onChange={e => setAddName(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleAddProduct();
+            <Select
+              value={
+                activeMissing && activeMissing !== "any"
+                  ? activeMissing
+                  : "none"
               }
-            }}
-            placeholder="New product name…"
-            className="h-9 w-44 text-sm"
-            disabled={adding}
-          />
-          <button
-            onClick={handleAddProduct}
-            disabled={adding}
-            className="inline-flex items-center gap-1 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-sm font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-1"
-          >
-            {adding ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Plus className="w-3.5 h-3.5" />
-            )}
-            Add
-          </button>
-        </div>
-      </div>
-
-      {/* ── Fix-Missing quick chips (with live counts) ─────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide mr-1">
-          Fix missing
-        </span>
-        {QUICK_MISSING.map(f => {
-          const active = activeMissing === f;
-          const count = chipCounts[f] ?? 0;
-          return (
-            <button
-              key={f}
-              onClick={() => applyMissing(active ? null : f)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
-                active
-                  ? "bg-red-600 border-red-600 text-white"
-                  : "bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600"
-              }`}
+              onValueChange={v =>
+                applyMissing(v === "none" ? null : (v as MissingFilter))
+              }
             >
-              {ATTENTION_LABELS[f]}
-              <span
-                className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full px-1 text-[11px] font-semibold ${
-                  active
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-100 text-slate-500"
-                }`}
+              <SelectTrigger
+                className={`w-40 h-9 border-slate-200 text-sm ${activeMissing && activeMissing !== "any" ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-        {(activeMissing || statusFilter !== "all" || search) && (
-          <button
-            onClick={() => {
-              applyMissing(null);
-              setStatusFilter("all");
-              setSearchInput("");
-            }}
-            className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 ml-1"
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
+                <SelectValue placeholder="Missing…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Missing… (all)</SelectItem>
+                {MISSING_FILTERS.map(f => (
+                  <SelectItem key={f} value={f}>
+                    {ATTENTION_LABELS[f]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex-1" />
+            {/* Quick add — name auto-focused, saves as draft */}
+            <div className="flex items-center gap-1">
+              <Input
+                ref={addNameRef}
+                value={addName}
+                onChange={e => setAddName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddProduct();
+                  }
+                }}
+                placeholder="New product name…"
+                className="h-9 w-44 text-sm"
+                disabled={adding}
+              />
+              <button
+                onClick={handleAddProduct}
+                disabled={adding}
+                className="inline-flex items-center gap-1 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-sm font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-1"
+              >
+                {adding ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Plus className="w-3.5 h-3.5" />
+                )}
+                Add
+              </button>
+            </div>
+          </div>
+
+          {/* ── Fix-Missing quick chips (with live counts) ─────────────────────── */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide mr-1">
+              Fix missing
+            </span>
+            {QUICK_MISSING.map(f => {
+              const active = activeMissing === f;
+              const count = chipCounts[f] ?? 0;
+              return (
+                <button
+                  key={f}
+                  onClick={() => applyMissing(active ? null : f)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+                    active
+                      ? "bg-red-600 border-red-600 text-white"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600"
+                  }`}
+                >
+                  {ATTENTION_LABELS[f]}
+                  <span
+                    className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full px-1 text-[11px] font-semibold ${
+                      active
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+            {(activeMissing || statusFilter !== "all" || search) && (
+              <button
+                onClick={() => {
+                  applyMissing(null);
+                  setStatusFilter("all");
+                  setSearchInput("");
+                }}
+                className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 ml-1"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {/* ── Bulk action bar ────────────────────────────────────────────────────────
           Docked to the viewport bottom (Shopify pattern) instead of pushing the
@@ -2371,7 +2418,13 @@ export default function CatalogTreeEditor({
       )}
 
       {/* ── Two-pane layout ────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
+      <div
+        className={
+          workbenchMode
+            ? "flex flex-1 min-h-0"
+            : "flex flex-col lg:flex-row gap-4 items-start"
+        }
+      >
         {/* Left: collapsible tree — TABLE MODE ONLY.
             The Workbench has three panes of its own (queue | image | fields);
             rendering the tree beside them made four, and at 1280px the fields
@@ -2461,7 +2514,13 @@ export default function CatalogTreeEditor({
         )}
 
         {/* Right: product table (Table mode) or the Workbench (Workbench mode) */}
-        <div className="flex-1 min-w-0 w-full">
+        <div
+          className={
+            workbenchMode
+              ? "flex-1 min-w-0 w-full flex flex-col min-h-0"
+              : "flex-1 min-w-0 w-full"
+          }
+        >
           {/* The Workbench's queue pane already carries the scope title and the
               N / total counter, and every row above it costs the locked shell
               image height — so this header is table-mode only. */}

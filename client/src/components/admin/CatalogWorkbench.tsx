@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import {
@@ -73,19 +66,38 @@ const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
 const LIST_W = 240;
 const DIVIDER_W = 8;
 const FIELDS_MIN = 340;
-const FIELDS_DEFAULT = 400;
+// Product photos are mostly landscape, so on a wide screen the image pane runs
+// out of *useful* width long before it runs out of pane — past roughly 520px
+// the extra pixels become margin either side of the picture, while the fields
+// pane always spends them (fewer wrapped labels, a taller description box).
+// On a narrow screen the opposite holds: the image is width-starved and every
+// pixel it gives up costs real picture, so the fields pane takes the minimum.
+const FIELDS_WIDE = 460;
+const FIELDS_NARROW = 380;
+/** Shell width below which the image pane is the one that needs the pixels. */
+const NARROW_SHELL = 1250;
 const IMAGE_MIN = 320;
+/**
+ * Narrowest shell that can hold all three panes at their minimums. Below this
+ * the layout stacks instead of squeezing: at 150% zoom on a 1366 laptop the
+ * shell has ~640px, and three-across left the image pane 37px wide — the
+ * fields floor (340) simply wins the arithmetic against the image floor. A
+ * stacked column is the honest answer at that size, and it is the layout the
+ * component already has for mobile.
+ */
+const MIN_THREE_PANE = LIST_W + DIVIDER_W + FIELDS_MIN + IMAGE_MIN;
 /** Divider position lives in the URL — same no-localStorage rule as DataTable. */
 const WIDTH_PARAM = "wbW";
-/**
- * Guard against an absurdly short viewport — deliberately NOT a target height.
- * Every pane scrolls internally, so a short shell only costs image height,
- * whereas a floor set anywhere near a real laptop's available space pushes the
- * shell past the fold and hands back the page scrolling this lock removes.
- * (1366x768 leaves ~333px after browser chrome and the editor's own toolbars;
- * a 340 floor was already enough to reintroduce a scrollbar there.)
- */
+/** Floor for the whole shell, so an absurdly short viewport still renders. */
 const MIN_SHELL_H = 280;
+
+/**
+ * Shared field styling. The focus state is a real 2px ring rather than only a
+ * border-colour shift — at a glance, mid-entry, a changed border is easy to
+ * miss and the operator loses track of which field the keyboard is in.
+ */
+const FIELD_CLS =
+  "h-9 text-sm mt-1 transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:border-red-400";
 
 // Fields validated through the shared PR-A layer before a save is attempted.
 // Order matters: it is the order the errors surface in.
@@ -146,6 +158,8 @@ export default function CatalogWorkbench({
   const [uploading, setUploading] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
+  // Mirrors committingRef for rendering — a ref can't drive the button state.
+  const [committing, setCommitting] = useState(false);
 
   // "A file for this SKU already exists" prompt.
   const [skuMatches, setSkuMatches] = useState<{ name: string; url: string }[]>(
@@ -179,72 +193,35 @@ export default function CatalogWorkbench({
   );
 
   // ── Viewport lock ──────────────────────────────────────────────────────────
-  // The entry loop is "look at the photo, type, Save & Next". If the page
-  // scrolls, Save & Next drifts below the fold and the image scrolls out of
-  // view — so the shell is sized to end exactly at the viewport bottom and each
-  // pane scrolls inside it. Because the shell then consumes precisely the space
-  // that was left, the page itself has nothing to scroll, which keeps the
-  // measured top stable.
-  const [shellHeight, setShellHeight] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    if (isMobile) {
-      setShellHeight(null);
-      return;
-    }
-    const measure = () => {
-      const el = shellRef.current;
-      if (!el) return;
-      // The admin content area scrolls, not the window.
-      let scroller: HTMLElement | null = el.parentElement;
-      while (scroller) {
-        const oy = getComputedStyle(scroller).overflowY;
-        if (oy === "auto" || oy === "scroll") break;
-        scroller = scroller.parentElement;
-      }
-
-      if (!scroller) {
-        const top = el.getBoundingClientRect().top + window.scrollY;
-        setShellHeight(
-          Math.max(MIN_SHELL_H, Math.round(window.innerHeight - top))
-        );
-        return;
-      }
-
-      // Everything above the shell, and everything below it (sibling rows plus
-      // the wrapper's own bottom padding), measured rather than assumed — a
-      // hardcoded gutter left 8px of page scroll, which is the exact thing this
-      // lock exists to remove. `below` doesn't change when the shell's height
-      // changes, so this converges in a single pass.
-      const above =
-        el.getBoundingClientRect().top -
-        scroller.getBoundingClientRect().top +
-        scroller.scrollTop;
-      const below = scroller.scrollHeight - (above + el.offsetHeight);
-      setShellHeight(
-        Math.max(MIN_SHELL_H, Math.round(scroller.clientHeight - above - below))
-      );
-    };
-    measure();
-    // Re-measure after paint: web fonts can reflow the toolbar above us and
-    // shift our top by a row's worth of pixels.
-    const raf = requestAnimationFrame(measure);
-    window.addEventListener("resize", measure);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", measure);
-    };
-  }, [isMobile]);
+  // There is deliberately no JS here. The shell asks for `flex-1 min-h-0` and
+  // an unbroken flex-column chain above it does the rest:
+  //
+  //   AdminDashboard  h-dvh                     ← the one real height
+  //     └ column      flex-1 flex flex-col min-h-0
+  //        └ <main>   flex-1 min-h-0 overflow-y-auto
+  //           └ wrap  min-h-full flex flex-col   (catalog-editor tab only)
+  //              └ CatalogTreeEditor  flex-1 min-h-0   (workbench mode only)
+  //                 └ panes row       flex-1 min-h-0
+  //                    └ this shell   h-full
+  //
+  // The earlier version measured the space above and below itself and set an
+  // explicit pixel height. That is correct exactly once: a computed height in
+  // px doesn't re-derive on browser zoom or a DPI change, so at 90% or 110%
+  // the shell kept its stale height and left a blank band below it. Layout
+  // that has to survive zoom belongs in the layout engine.
 
   // ── Draggable image ┃ fields divider ───────────────────────────────────────
   const [, setLocation] = useLocation();
-  const [fieldsWidth, setFieldsWidth] = useState(() => {
+  // `null` = never dragged, so the width tracks the viewport-dependent default
+  // below instead of being pinned to whatever suited the first screen it saw.
+  const [fieldsWidth, setFieldsWidth] = useState<number | null>(() => {
     const raw = Number(
       new URLSearchParams(window.location.search).get(WIDTH_PARAM)
     );
-    return Number.isFinite(raw) && raw >= FIELDS_MIN ? raw : FIELDS_DEFAULT;
+    return Number.isFinite(raw) && raw >= FIELDS_MIN ? raw : null;
   });
   const [containerW, setContainerW] = useState(0);
-  const widthRef = useRef(fieldsWidth);
+  const widthRef = useRef(fieldsWidth ?? FIELDS_WIDE);
 
   useEffect(() => {
     const el = shellRef.current;
@@ -261,8 +238,13 @@ export default function CatalogWorkbench({
   const maxFieldsWidth = containerW
     ? Math.max(FIELDS_MIN, containerW - LIST_W - DIVIDER_W - IMAGE_MIN)
     : Number.POSITIVE_INFINITY;
+  const defaultFieldsWidth =
+    containerW && containerW < NARROW_SHELL ? FIELDS_NARROW : FIELDS_WIDE;
+  // Measured on the shell itself, so it reacts to the divider/sidebar/zoom
+  // rather than to a viewport breakpoint that doesn't know about them.
+  const stacked = isMobile || (containerW > 0 && containerW < MIN_THREE_PANE);
   const effFieldsWidth = Math.min(
-    Math.max(fieldsWidth, FIELDS_MIN),
+    Math.max(fieldsWidth ?? defaultFieldsWidth, FIELDS_MIN),
     maxFieldsWidth
   );
 
@@ -316,17 +298,24 @@ export default function CatalogWorkbench({
     [containerW, persistWidth]
   );
 
+  // Reset clears the override entirely rather than writing today's default in,
+  // so the width goes back to tracking the viewport.
   const resetDivider = useCallback(() => {
-    widthRef.current = FIELDS_DEFAULT;
-    setFieldsWidth(FIELDS_DEFAULT);
-    persistWidth(FIELDS_DEFAULT);
-  }, [persistWidth]);
+    widthRef.current = defaultFieldsWidth;
+    setFieldsWidth(null);
+    const params = new URLSearchParams(window.location.search);
+    params.delete(WIDTH_PARAM);
+    setLocation(`${window.location.pathname}?${params.toString()}`, {
+      replace: true,
+    });
+  }, [defaultFieldsWidth, setLocation]);
 
   const activeIndex = useMemo(
     () => products.findIndex(p => p.id === activeId),
     [products, activeId]
   );
   const active = activeIndex >= 0 ? products[activeIndex] : null;
+  const busy = saving || committing;
 
   // Read inside the Undo callback, which outlives the render that created it —
   // a ref, not the state value, so it sees the CURRENT selection rather than
@@ -493,6 +482,7 @@ export default function CatalogWorkbench({
 
       const previous = active;
       committingRef.current = true;
+      setCommitting(true);
       try {
         const saved = await save({ productId: active.id });
         if (!saved) return; // useProductForm already toasted
@@ -554,6 +544,7 @@ export default function CatalogWorkbench({
         }
       } finally {
         committingRef.current = false;
+        setCommitting(false);
       }
     },
     [
@@ -698,11 +689,11 @@ export default function CatalogWorkbench({
   const listPane = (
     <div
       className={
-        isMobile
+        stacked
           ? "w-full"
           : "flex-shrink-0 border-r border-slate-200 flex flex-col min-h-0"
       }
-      style={isMobile ? undefined : { width: LIST_W }}
+      style={stacked ? undefined : { width: LIST_W }}
     >
       <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 flex-shrink-0">
         <p className="text-xs font-semibold text-slate-700 truncate">
@@ -715,7 +706,7 @@ export default function CatalogWorkbench({
       <div
         ref={listRef}
         className={
-          isMobile
+          stacked
             ? "max-h-40 overflow-y-auto"
             : "flex-1 overflow-y-auto min-h-0"
         }
@@ -727,9 +718,16 @@ export default function CatalogWorkbench({
             ))}
           </div>
         ) : products.length === 0 ? (
-          <p className="p-4 text-xs text-slate-400">
-            No products in this view.
-          </p>
+          <div className="p-5 text-center">
+            <p className="text-xs font-semibold text-slate-700">
+              Nothing in this scope
+            </p>
+            <p className="text-caption text-slate-400 mt-1">
+              {scopeTitle === "All Products"
+                ? "No products match the current filters."
+                : `“${scopeTitle}” has no products yet. Pick another scope above, or add one in Table mode.`}
+            </p>
+          </div>
         ) : (
           products.map((p, i) => {
             const isActive = p.id === activeId;
@@ -738,12 +736,13 @@ export default function CatalogWorkbench({
                 key={p.id}
                 data-pid={p.id}
                 onClick={() => void selectProduct(p.id)}
-                className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-slate-100 transition-colors ${
+                aria-current={isActive ? "true" : undefined}
+                className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-slate-100 border-l-2 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-300 ${
                   isActive
-                    ? "bg-red-50 border-l-2 border-l-red-600"
+                    ? "bg-red-50 border-l-red-600 shadow-[inset_-2px_0_0_0_theme(colors.red.200)]"
                     : isFlashing(p.id)
-                      ? "bg-emerald-50"
-                      : "hover:bg-slate-50 border-l-2 border-l-transparent"
+                      ? "bg-emerald-50 border-l-emerald-400"
+                      : "border-l-transparent hover:bg-slate-100 hover:border-l-slate-300"
                 }`}
               >
                 <span className="w-8 h-8 rounded border border-slate-200 bg-slate-50 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -784,7 +783,7 @@ export default function CatalogWorkbench({
   const imagePane = (
     <div
       className={
-        isMobile
+        stacked
           ? "w-full p-3 border-b border-slate-200"
           : // Image is the FLEXIBLE pane: it absorbs whatever the fixed list
             // and the (resizable) fields pane don't need, rather than claiming
@@ -793,28 +792,33 @@ export default function CatalogWorkbench({
             "flex-1 min-w-0 p-4 flex flex-col gap-3 min-h-0"
       }
     >
-      {/* THE large image. flex-1 so it grows to whatever the locked shell
-          leaves after the button row and filmstrip — the photo is the point of
-          this surface, so it gets the slack rather than empty container.
-          object-contain on a neutral field so packaging shapes read correctly
-          and nothing is cropped away. */}
+      {/* THE large image. The bordered box is the IMAGE, not a fixed-size
+          container the image floats inside: the button is a centring flex box
+          with no chrome of its own, and the chrome (border, background,
+          rounding) sits on the <img>, which is capped at 100% of the available
+          box in both axes. A landscape photo in a tall pane therefore reads as
+          a wide picture rather than a small picture marooned in a large empty
+          rectangle. */}
       <button
         type="button"
         onClick={() => previewUrl && setZoomOpen(true)}
         disabled={!previewUrl}
         title={previewUrl ? "Click to expand" : undefined}
-        className={`w-full ${isMobile ? "aspect-square" : "flex-1 min-h-[200px]"} rounded-xl border border-slate-200 bg-slate-100 overflow-hidden flex items-center justify-center ${previewUrl ? "cursor-zoom-in" : "cursor-default"}`}
+        className={`w-full ${stacked ? "aspect-square" : "flex-1 min-h-[200px]"} overflow-hidden flex items-center justify-center transition-[transform,box-shadow] duration-150 ${previewUrl ? "cursor-zoom-in motion-safe:hover:scale-[1.005]" : "cursor-default"}`}
       >
         {previewUrl ? (
           <img
             src={previewUrl}
             alt={formData.name || "Product"}
-            className="max-w-full max-h-full object-contain"
+            className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl border border-slate-200 bg-slate-50 shadow-sm"
           />
         ) : (
-          <span className="flex flex-col items-center gap-2 text-slate-300">
-            <ImageIcon className="w-12 h-12" />
-            <span className="text-xs">No image yet</span>
+          <span className="w-full h-full rounded-xl border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-2 text-slate-400">
+            <ImageIcon className="w-10 h-10 text-slate-300" />
+            <span className="text-xs font-medium">No image yet</span>
+            <span className="text-caption text-slate-400">
+              Upload one, or pick from the library
+            </span>
           </span>
         )}
       </button>
@@ -991,7 +995,7 @@ export default function CatalogWorkbench({
           onKeyDown={e => onFieldKeyDown(e)}
           onBlur={() => markTouched("name")}
           aria-invalid={!!shownError("name")}
-          className={`h-9 text-sm mt-1 ${errorClass("name")}`}
+          className={`${FIELD_CLS} ${errorClass("name")}`}
           placeholder="Full product name"
         />
         {renderFieldError("name")}
@@ -1008,7 +1012,7 @@ export default function CatalogWorkbench({
             onBlur={() => markTouched("price")}
             aria-invalid={!!shownError("price")}
             inputMode="decimal"
-            className={`h-9 text-sm mt-1 ${errorClass("price")}`}
+            className={`${FIELD_CLS} ${errorClass("price")}`}
             placeholder="blank = On Enquiry"
           />
           {renderFieldError("price")}
@@ -1023,7 +1027,7 @@ export default function CatalogWorkbench({
             onBlur={() => markTouched("quantity_in_unit")}
             aria-invalid={!!shownError("quantity_in_unit")}
             inputMode="numeric"
-            className={`h-9 text-sm mt-1 ${errorClass("quantity_in_unit")}`}
+            className={`${FIELD_CLS} ${errorClass("quantity_in_unit")}`}
             placeholder="e.g. 480"
           />
           {renderFieldError("quantity_in_unit") ?? (
@@ -1073,7 +1077,7 @@ export default function CatalogWorkbench({
             onBlur={() => markTouched("moq")}
             aria-invalid={!!shownError("moq")}
             inputMode="numeric"
-            className={`h-9 text-sm mt-1 ${errorClass("moq")}`}
+            className={`${FIELD_CLS} ${errorClass("moq")}`}
             placeholder="e.g. 1"
           />
           {renderFieldError("moq")}
@@ -1084,7 +1088,7 @@ export default function CatalogWorkbench({
             value={formData.unit_of_measure}
             onValueChange={v => updateForm("unit_of_measure", v)}
           >
-            <SelectTrigger className="h-9 text-sm mt-1">
+            <SelectTrigger className={FIELD_CLS}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1108,7 +1112,7 @@ export default function CatalogWorkbench({
           value={formData.brand}
           onChange={e => updateForm("brand", e.target.value)}
           onKeyDown={e => onFieldKeyDown(e)}
-          className="h-9 text-sm mt-1"
+          className={FIELD_CLS}
           placeholder="Brand"
         />
       </div>
@@ -1118,7 +1122,7 @@ export default function CatalogWorkbench({
           value={formData.sku}
           onChange={e => updateForm("sku", e.target.value)}
           onKeyDown={e => onFieldKeyDown(e)}
-          className="h-9 text-sm mt-1 font-mono"
+          className={`${FIELD_CLS} font-mono`}
           placeholder="XL0105"
         />
       </div>
@@ -1143,7 +1147,7 @@ export default function CatalogWorkbench({
           onChange={e => updateForm("description", e.target.value)}
           onKeyDown={e => onFieldKeyDown(e)}
           rows={5}
-          className="text-sm mt-1 resize-y min-h-[132px]"
+          className={`${FIELD_CLS} resize-y min-h-[132px] h-auto`}
           placeholder="Short B2B description — material, size, use case…"
         />
         <p className="text-caption text-slate-400 mt-1">
@@ -1176,31 +1180,39 @@ export default function CatalogWorkbench({
         type="button"
         variant="outline"
         size="sm"
-        className="h-9"
-        disabled={activeIndex <= 0}
+        className="h-9 transition-colors duration-150"
+        disabled={activeIndex <= 0 || busy}
+        title="Previous product"
         onClick={() => goTo(activeIndex - 1)}
       >
         <ChevronLeft className="w-4 h-4" />
       </Button>
+      {/* `busy` spans the WHOLE commit, not just useProductForm's `saving`: the
+          row patch, Undo toast and aggregate refresh all run after the request
+          resolves, and a second click landing in that window would fire a
+          duplicate update. */}
       <Button
         type="button"
         variant="outline"
         size="sm"
-        className="h-9"
-        disabled={saving || !active}
+        className="h-9 gap-1.5 transition-colors duration-150"
+        disabled={busy || !active}
         onClick={() => void doSave(false)}
       >
+        {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
         Save
       </Button>
       <Button
         type="button"
         size="sm"
-        className="h-9 flex-1 bg-red-600 hover:bg-red-700 text-white gap-1.5"
-        disabled={saving || !active}
+        className="h-9 flex-1 bg-red-600 hover:bg-red-700 text-white gap-1.5 transition-colors duration-150"
+        disabled={busy || !active}
         onClick={() => void doSave(true)}
       >
-        {saving ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+        {busy ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" /> Saving…
+          </>
         ) : (
           <>
             Save &amp; Next <ChevronRight className="w-4 h-4" />
@@ -1210,7 +1222,7 @@ export default function CatalogWorkbench({
     </div>
   );
 
-  const fieldsPane = isMobile ? (
+  const fieldsPane = stacked ? (
     <div className="w-full p-3 flex flex-col gap-3">
       {fieldsBody}
       {actions}
@@ -1232,17 +1244,32 @@ export default function CatalogWorkbench({
   return (
     <div
       ref={shellRef}
-      className="bg-white border border-slate-200 rounded-xl overflow-hidden"
-      style={isMobile || !shellHeight ? undefined : { height: shellHeight }}
+      className={
+        isMobile
+          ? "bg-white border border-slate-200 rounded-xl overflow-hidden"
+          : // flex-1, not h-full: a percentage height needs a definite parent,
+            // whereas flex-1 + min-h-0 is capped by the column above it
+            // regardless of how that column got its size.
+            "bg-white border border-slate-200 rounded-xl overflow-hidden flex-1 flex flex-col min-h-0"
+      }
+      style={isMobile ? undefined : { minHeight: MIN_SHELL_H }}
     >
-      {isMobile ? (
-        <div className="flex flex-col">
+      {stacked ? (
+        // Still inside the locked shell on desktop, so the column scrolls
+        // within it rather than pushing the page.
+        <div
+          className={
+            isMobile
+              ? "flex flex-col"
+              : "flex flex-col flex-1 min-h-0 overflow-y-auto"
+          }
+        >
           {listPane}
           {imagePane}
           {fieldsPane}
         </div>
       ) : (
-        <div className="flex items-stretch h-full min-h-0">
+        <div className="flex items-stretch flex-1 min-h-0">
           {listPane}
           {imagePane}
           {divider}
@@ -1252,20 +1279,29 @@ export default function CatalogWorkbench({
 
       {/* Library picker */}
       <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        {/* Big enough to actually browse a few hundred files: the picker lays
+            itself out as a flex column, so the grid scrolls inside the dialog
+            rather than the dialog scrolling as a whole. */}
+        <DialogContent className="w-[90vw] max-w-[1400px] h-[85vh] flex flex-col gap-3 overflow-hidden sm:max-w-[1400px]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Select image</DialogTitle>
-            <DialogDescription className="sr-only">
-              Pick an existing image for this product
+            <DialogDescription>
+              {formData.sku
+                ? `Files named after ${formData.sku} are listed first.`
+                : "Pick an existing image for this product."}
             </DialogDescription>
           </DialogHeader>
-          <AdminImageLibrary
-            isSelectionMode
-            onSelectImage={url => {
-              void setPrimaryImage(url);
-              setLibraryOpen(false);
-            }}
-          />
+          <div className="flex-1 min-h-0">
+            <AdminImageLibrary
+              isSelectionMode
+              skuHint={formData.sku}
+              onCancel={() => setLibraryOpen(false)}
+              onSelectImage={url => {
+                void setPrimaryImage(url);
+                setLibraryOpen(false);
+              }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
