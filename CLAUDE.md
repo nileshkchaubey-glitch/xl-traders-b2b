@@ -112,7 +112,14 @@ inquiries, orders, order_items, import_logs, business_settings
 
 1. **All DB logic in `client/src/lib/*Service.ts`** — components never call Supabase directly.
 2. **`v_product_health` is the ONLY missing-logic source** — never re-implement checks in TS.
-3. **Price security:** `productSelectCols()` gates price columns. Null price ≠ public price.
+3. **Price security is enforced by Postgres, not by TypeScript.** The real boundary is
+   **column-level SELECT grants** on `products`: the `anon` role has no grant on `price`,
+   `mrp`, `moq`, `barcode`, `bulk_price` or `bulk_threshold`, so an anonymous request for
+   those columns fails with a permission error no matter what the client sends.
+   `productSelectCols()` narrows the SELECT list to match, which keeps guests from
+   triggering that error — it is a UX convenience, **not** the gate. Never weaken the
+   grants on the assumption that the TS helper is protecting anything.
+   Null price ≠ public price. (Verified against the live DB, 25 Jul 2026.)
 4. **No missing/health logic in component files** — only in view + services.
 
 ---
@@ -521,6 +528,13 @@ inquiries, orders, order_items, import_logs, business_settings
 
 ## 🔴 Known Issues
 
+- **Publish gate is TypeScript-only until the PR-1 SQL is applied.** RLS on `products`
+  checks `is_active` only, so drafts are readable through PostgREST by anyone with the
+  anon key; `status='published'` is enforced solely in `productService.ts` call sites.
+  Same for writes — `auth_update_products`/`auth_delete_products` are `USING (true)`, so
+  any signed-in customer can edit or delete any product. Fix prepared in
+  [`docs/sql/pr1-rls-publish-gate.sql`](docs/sql/pr1-rls-publish-gate.sql) — **owner-run,
+  not yet applied**. Rollback + checklist alongside it in `docs/sql/`.
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
@@ -571,7 +585,10 @@ roadmap commitment yet.
 
 ## ⚠️ Critical Rules
 
-1. **Price security** — `productSelectCols()` gates price. Cache invalidates on auth change. Null price not public.
+1. **Price security** — enforced by **column-level grants** (`anon` has no SELECT on
+   `price`/`mrp`/`moq`/`barcode`/`bulk_*`). `productSelectCols()` only matches the SELECT
+   list to those grants so guests don't hit a 403; its cache invalidates on auth change.
+   Null price not public. See Architecture Rule #3.
 2. **`pnpm-lock.yaml` must NOT exist** — Cloudflare build fails.
 3. **SQL migrations** — Supabase SQL Editor only. Never via agent.
 4. **`CREATE POLICY IF NOT EXISTS` invalid Postgres** — use `CREATE POLICY`.
