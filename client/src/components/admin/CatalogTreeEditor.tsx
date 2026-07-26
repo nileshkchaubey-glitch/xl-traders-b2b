@@ -1919,7 +1919,7 @@ export default function CatalogTreeEditor({
         <div className="flex items-center gap-2">
           {/* Mode toggle — same tab, same filters, only the right pane swaps. */}
           <div
-            role="tablist"
+            role="group"
             aria-label="Editing mode"
             className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
           >
@@ -1931,8 +1931,9 @@ export default function CatalogTreeEditor({
             ).map(({ id, label, Icon }) => (
               <button
                 key={id}
-                role="tab"
-                aria-selected={mode === id}
+                type="button"
+                aria-pressed={mode === id}
+                title={`${label} mode`}
                 onClick={() => setMode(id)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
                   mode === id
@@ -2397,7 +2398,9 @@ export default function CatalogTreeEditor({
               onRequestNextPage={() => setPage(p => p + 1)}
               onProductSaved={updated => {
                 setProducts(prev =>
-                  prev.map(p => (p.id === updated.id ? { ...p, ...updated } : p))
+                  prev.map(p =>
+                    p.id === updated.id ? { ...p, ...updated } : p
+                  )
                 );
               }}
               onAfterSave={() => {
@@ -2407,40 +2410,40 @@ export default function CatalogTreeEditor({
               }}
             />
           ) : (
-          <DataTable<Product>
-            data={products}
-            columns={columns}
-            getRowId={p => p.id}
-            loading={loading}
-            emptyMessage={emptyState}
-            persistKey="cat"
-            onVisibleColumnsChange={setVisibleColIds}
-            onDensityChange={setDensity}
-            sorting={sorting}
-            onSortingChange={setSorting}
-            selection={{
-              isSelected: id => selected.has(id),
-              allPageSelected,
-              onToggleRow: toggleRow,
-              onToggleAll: toggleAll,
-            }}
-            pagination={{
-              page,
-              pageSize: PAGE_SIZE,
-              total: totalCount,
-              onPageChange: setPage,
-            }}
-            containerRef={gridRef}
-            containerProps={{ tabIndex: 0, onKeyDown: handleGridKeyDown }}
-            rowClassName={p =>
-              flashRows.has(p.id)
-                ? "bg-emerald-50/70 transition-colors duration-500"
-                : "transition-colors duration-500"
-            }
-            rowContextMenu={p =>
-              renderRowMenuItems(p, ContextMenuItem, ContextMenuSeparator)
-            }
-          />
+            <DataTable<Product>
+              data={products}
+              columns={columns}
+              getRowId={p => p.id}
+              loading={loading}
+              emptyMessage={emptyState}
+              persistKey="cat"
+              onVisibleColumnsChange={setVisibleColIds}
+              onDensityChange={setDensity}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              selection={{
+                isSelected: id => selected.has(id),
+                allPageSelected,
+                onToggleRow: toggleRow,
+                onToggleAll: toggleAll,
+              }}
+              pagination={{
+                page,
+                pageSize: PAGE_SIZE,
+                total: totalCount,
+                onPageChange: setPage,
+              }}
+              containerRef={gridRef}
+              containerProps={{ tabIndex: 0, onKeyDown: handleGridKeyDown }}
+              rowClassName={p =>
+                flashRows.has(p.id)
+                  ? "bg-emerald-50/70 transition-colors duration-500"
+                  : "transition-colors duration-500"
+              }
+              rowContextMenu={p =>
+                renderRowMenuItems(p, ContextMenuItem, ContextMenuSeparator)
+              }
+            />
           )}
         </div>
       </div>

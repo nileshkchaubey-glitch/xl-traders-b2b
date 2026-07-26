@@ -12,6 +12,7 @@ import {
   Check,
   AlertCircle,
   Link2,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,6 +121,7 @@ export default function CatalogWorkbench({
   const pendingFileRef = useRef<File | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -286,13 +288,32 @@ export default function CatalogWorkbench({
   );
 
   // ── Images ─────────────────────────────────────────────────────────────────
-  const attachUrl = useCallback(
-    async (url: string, asPrimary: boolean) => {
+  // Setting the primary image persists immediately rather than waiting for
+  // Save. In an image-first workflow the operator uploads a photo and then
+  // clicks the next product in the queue; without this the upload would sit
+  // only in form state and be silently dropped, leaving an orphaned file in the
+  // bucket and the old image on the product. It is a targeted one-column patch,
+  // so it cannot clobber whatever else is being typed.
+  const setPrimaryImage = useCallback(
+    async (url: string) => {
+      updateForm("image_url", url);
       if (!active) return;
-      if (asPrimary) {
-        updateForm("image_url", url);
-        return;
+      try {
+        const saved = await productService.update(active.id, {
+          image_url: url,
+        } as Partial<Product>);
+        onProductSaved(saved);
+        onAfterSave();
+      } catch {
+        toast.error("Image set locally but not saved — press Save");
       }
+    },
+    [active, onAfterSave, onProductSaved, updateForm]
+  );
+
+  const addToGallery = useCallback(
+    async (url: string) => {
+      if (!active) return;
       try {
         await productImageService.create({
           product_id: active.id,
@@ -305,7 +326,7 @@ export default function CatalogWorkbench({
         toast.error("Could not add image");
       }
     },
-    [active, gallery.length, updateForm]
+    [active, gallery.length]
   );
 
   const uploadFile = useCallback(
@@ -325,8 +346,8 @@ export default function CatalogWorkbench({
         const url = sku
           ? await storageService.uploadBySku(resized, sku, slot)
           : await mediaService.uploadGlobalImage(resized);
-        if (slot === 1) updateForm("image_url", url);
-        else await attachUrl(url, false);
+        if (slot === 1) await setPrimaryImage(url);
+        else await addToGallery(url);
         toast.success(sku ? `Uploaded as ${sku}` : "Uploaded");
       } catch {
         toast.error("Upload failed");
@@ -334,7 +355,7 @@ export default function CatalogWorkbench({
         setUploading(false);
       }
     },
-    [active, attachUrl, formData.sku, updateForm]
+    [active, addToGallery, formData.sku, setPrimaryImage]
   );
 
   // Before uploading, check whether the bucket already holds a file for this
@@ -515,6 +536,18 @@ export default function CatalogWorkbench({
             e.target.value = "";
           }}
         />
+        {/* Gallery slots — products/{SKU}-2.webp, -3.webp … */}
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0];
+            if (f) void uploadFile(f, gallery.length + 2);
+            e.target.value = "";
+          }}
+        />
         <Button
           type="button"
           size="sm"
@@ -570,7 +603,7 @@ export default function CatalogWorkbench({
                   <button
                     type="button"
                     title={isPrimary ? "Primary image" : "Set as primary"}
-                    onClick={() => updateForm("image_url", img.image_url)}
+                    onClick={() => void setPrimaryImage(img.image_url)}
                     className={`p-1 rounded ${isPrimary ? "text-amber-300" : "text-white hover:text-amber-300"}`}
                   >
                     <Star
@@ -596,10 +629,18 @@ export default function CatalogWorkbench({
             );
           })
         )}
+        <button
+          type="button"
+          onClick={() => galleryInputRef.current?.click()}
+          disabled={uploading || !active}
+          title="Add a gallery image"
+          className="w-16 h-16 rounded-md border border-dashed border-slate-300 text-slate-400 hover:border-red-400 hover:text-red-500 flex items-center justify-center disabled:opacity-50"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
         {!galleryLoading && gallery.length === 0 && (
-          <p className="text-caption text-slate-400">
-            No gallery images. Upload adds to the primary slot; use the Library
-            to add more.
+          <p className="text-caption text-slate-400 self-center">
+            No extra images yet.
           </p>
         )}
       </div>
@@ -840,7 +881,7 @@ export default function CatalogWorkbench({
           <AdminImageLibrary
             isSelectionMode
             onSelectImage={url => {
-              updateForm("image_url", url);
+              void setPrimaryImage(url);
               setLibraryOpen(false);
             }}
           />
@@ -866,7 +907,7 @@ export default function CatalogWorkbench({
                 key={m.name}
                 type="button"
                 onClick={() => {
-                  updateForm("image_url", m.url);
+                  void setPrimaryImage(m.url);
                   setSkuPromptOpen(false);
                   pendingFileRef.current = null;
                   toast.success("Attached existing image");
