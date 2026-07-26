@@ -219,6 +219,15 @@ export default function CatalogWorkbench({
   // Mirrors committingRef for rendering — a ref can't drive the button state.
   const [committing, setCommitting] = useState(false);
 
+  /**
+   * Drag-over highlight for the image pane. Counted rather than boolean:
+   * dragenter/dragleave fire for every descendant the pointer crosses, so a
+   * plain flag flickers off the moment the cursor moves from the pane onto the
+   * filmstrip inside it.
+   */
+  const [dropDepth, setDropDepth] = useState(0);
+  const dropActive = dropDepth > 0;
+
   // "A file for this SKU already exists" prompt.
   const [skuMatches, setSkuMatches] = useState<{ name: string; url: string }[]>(
     []
@@ -700,25 +709,30 @@ export default function CatalogWorkbench({
   );
 
   const addToGallery = useCallback(
-    async (url: string) => {
+    async (url: string, quiet = false) => {
       if (!active) return;
       try {
+        // display_order comes from a fresh read, not from `gallery` state: a
+        // multi-file drop uploads in a loop within one render, so the state
+        // copy is stale from the second file onward and every image would land
+        // on the same position.
+        const current = await productImageService.getByProductId(active.id);
         await productImageService.create({
           product_id: active.id,
           image_url: url,
-          display_order: gallery.length,
+          display_order: current.length,
         });
         setGallery(await productImageService.getByProductId(active.id));
-        toast.success("Added to gallery");
+        if (!quiet) toast.success("Added to gallery");
       } catch {
         toast.error("Could not add image");
       }
     },
-    [active, gallery.length]
+    [active]
   );
 
   const uploadFile = useCallback(
-    async (file: File, slot: number, replaceId?: string) => {
+    async (file: File, slot: number, replaceId?: string, quiet = false) => {
       if (!active) return;
       const sku = formData.sku.trim();
       setUploading(true);
@@ -750,11 +764,13 @@ export default function CatalogWorkbench({
             await setPrimaryImage(url);
           }
         } else {
-          await addToGallery(url);
+          await addToGallery(url, quiet);
         }
-        toast.success(sku ? `Uploaded as ${sku}` : "Uploaded");
+        if (!quiet) toast.success(sku ? `Uploaded as ${sku}` : "Uploaded");
+        return true;
       } catch {
         toast.error("Upload failed");
+        return false;
       } finally {
         setUploading(false);
       }
@@ -793,6 +809,43 @@ export default function CatalogWorkbench({
       void uploadFile(file, 1);
     },
     [formData.sku, uploadFile]
+  );
+
+  /**
+   * Files dropped on the image pane (or on the Select-image dialog's dropzone).
+   * Same SKU naming as the Upload button — slot 1 is `{SKU}.webp`, gallery
+   * slots are `-2`, `-3`. The first file takes the primary spot only when the
+   * product has none; anything after it appends to the gallery.
+   *
+   * Sequential, not Promise.all: uploadBySku derives its key from the slot, and
+   * two uploads racing for consecutive slots would both read the same gallery
+   * length. Individual toasts are suppressed in favour of one summary.
+   */
+  const handleDroppedFiles = useCallback(
+    async (files: File[]) => {
+      if (!active || !files.length) return;
+      const images = files.filter(f => f.type.startsWith("image/"));
+      if (!images.length) {
+        toast.error("Only image files can be dropped here");
+        return;
+      }
+      const multiple = images.length > 1;
+      let takePrimary = !formData.image_url;
+      let nextSlot = gallery.length + 2;
+      let ok = 0;
+      for (const file of images) {
+        const slot = takePrimary ? 1 : nextSlot++;
+        const done = await uploadFile(file, slot, undefined, multiple);
+        if (done) {
+          ok++;
+          if (takePrimary) takePrimary = false;
+        }
+      }
+      if (multiple && ok > 0) {
+        toast.success(`${ok} image${ok === 1 ? "" : "s"} uploaded`);
+      }
+    },
+    [active, formData.image_url, gallery.length, uploadFile]
   );
 
   const removeGalleryImage = async (id: string) => {
@@ -971,16 +1024,54 @@ export default function CatalogWorkbench({
 
   const imagePane = (
     <div
+      // Drop anywhere on the pane, not just on a small zone — the pane is
+      // mostly image, and the image is what you are dragging a file onto.
+      // dragover must preventDefault on every event or the browser navigates
+      // to the file instead of firing drop.
+      onDragEnter={e => {
+        if (!active || !e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        setDropDepth(d => d + 1);
+      }}
+      onDragOver={e => {
+        if (!active || !e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+      }}
+      onDragLeave={() => setDropDepth(d => Math.max(0, d - 1))}
+      onDrop={e => {
+        if (!active) return;
+        e.preventDefault();
+        setDropDepth(0);
+        void handleDroppedFiles(Array.from(e.dataTransfer.files || []));
+      }}
       className={
-        stacked
-          ? "w-full p-3 border-b border-slate-200"
+        (stacked
+          ? "relative w-full p-3 border-b border-slate-200"
           : // Image is the FLEXIBLE pane: it absorbs whatever the fixed list
             // and the (resizable) fields pane don't need, rather than claiming
             // a fixed width and squeezing the fields into what's left (DE-08).
             // min-w-0 because the drag clamp, not flexbox, enforces IMAGE_MIN.
-            "flex-1 min-w-0 p-4 flex flex-col gap-3 min-h-0 bg-white border border-slate-200 rounded-xl overflow-hidden"
+            "relative flex-1 min-w-0 p-4 flex flex-col gap-3 min-h-0 bg-white border border-slate-200 rounded-xl overflow-hidden") +
+        (dropActive ? " ring-2 ring-red-400 ring-offset-0 bg-red-50/40" : "")
       }
     >
+      {/* Drop-target overlay. pointer-events-none so it can't swallow the
+          dragleave/drop events on the pane underneath it. */}
+      {dropActive && (
+        <div className="absolute inset-0 z-20 pointer-events-none flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-red-400 bg-white/85">
+          <Upload className="w-7 h-7 text-red-500" />
+          <span className="text-sm font-semibold text-red-700">
+            Drop to upload
+          </span>
+          <span className="text-caption text-red-600/80">
+            {formData.sku
+              ? `Stored as ${formData.sku}.webp`
+              : "Stored in the image library"}
+          </span>
+        </div>
+      )}
+
       {/* THE large image. The bordered box is the IMAGE, not a fixed-size
           container the image floats inside: the button is a centring flex box
           with no chrome of its own, and the chrome (border, background,
@@ -990,7 +1081,7 @@ export default function CatalogWorkbench({
           rectangle. */}
       <SectionHeading
         title="Media"
-        hint="Click the photo for a full-page view. Uploads are named after the SKU."
+        hint="Drop a photo anywhere here, or click it for a full-page view. Uploads are named after the SKU."
       />
       <button
         type="button"
@@ -1010,7 +1101,7 @@ export default function CatalogWorkbench({
             <ImageIcon className="w-10 h-10 text-slate-300" />
             <span className="text-xs font-medium">No image yet</span>
             <span className="text-caption text-slate-400">
-              Upload one, or pick from the library
+              Drag one here, upload, or pick from the library
             </span>
           </span>
         )}
@@ -1554,6 +1645,19 @@ export default function CatalogWorkbench({
               isSelectionMode
               skuHint={formData.sku}
               onCancel={() => setLibraryOpen(false)}
+              busy={uploading}
+              uploadHint={
+                formData.sku
+                  ? `Stored as ${formData.sku}.webp`
+                  : "PNG, JPG or WebP"
+              }
+              // Dropped here, the file goes through the Workbench's own SKU
+              // upload and is attached to the product — so the dialog has
+              // nothing left to pick and closes, same as choosing an image.
+              onDropFiles={async files => {
+                await handleDroppedFiles(files);
+                setLibraryOpen(false);
+              }}
               onSelectImage={url => {
                 void setPrimaryImage(url);
                 setLibraryOpen(false);

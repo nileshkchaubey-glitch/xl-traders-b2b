@@ -101,6 +101,7 @@ import CatalogProductPanel from "@/components/admin/CatalogProductPanel";
 import CatalogWorkbench from "@/components/admin/CatalogWorkbench";
 import { validateEdit } from "@/lib/productValidation";
 import { useSaveFeedback } from "@/hooks/useSaveFeedback";
+import { useIsMobile } from "@/hooks/useMobile";
 
 const PAGE_SIZE = 50;
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
@@ -414,6 +415,14 @@ export default function CatalogTreeEditor({
   // Current DataTable density, mirrored here so cell renderers (thumbnail
   // size) can match it — see onDensityChange on <DataTable> below.
   const [density, setDensity] = useState<DataTableDensity>("comfortable");
+
+  // Lock the editor to the viewport (and hand the table body its own vertical
+  // scroller) only on the desktop admin, whose <main> is a definite-height flex
+  // column. MobileAdminShell renders its children inside a plain block in a
+  // scrolling <main>, where `flex-1` has nothing to resolve against — the
+  // table would flex-basis to 0 and collapse. Mobile keeps page scrolling.
+  const isMobile = useIsMobile();
+  const lockHeight = !isMobile;
 
   // Apply an external attention change (Overview deep-link) without clobbering
   // internal filter changes: only sync when the PROP itself changes.
@@ -2053,14 +2062,21 @@ export default function CatalogTreeEditor({
   );
 
   return (
-    // Workbench mode is a flex column that claims the viewport (see the height
-    // chain documented in CatalogWorkbench). Table mode keeps its natural
-    // stacked height and lets <main> scroll, exactly as before.
+    // Both modes are a flex column that claims the viewport (see the height
+    // chain documented in CatalogWorkbench). Table mode joined them so the
+    // table body — not the page — is the vertical scroller, which is the only
+    // way its column header can stick: `overflow-x: auto` on the table's
+    // viewport forces `overflow-y: auto` too, so the header was pinning to a
+    // box that itself scrolled off the page. The cost is that the chrome above
+    // (title, tabs, toolbar, chips) no longer scrolls away; the upside is that
+    // it, and the pagination footer, stay reachable at row 100.
     <div
       className={
         workbenchMode
           ? "flex flex-col gap-3 flex-1 min-h-0"
-          : "space-y-2.5 flex-shrink-0"
+          : lockHeight
+            ? "flex flex-col gap-2.5 flex-1 min-h-0"
+            : "space-y-2.5"
       }
     >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -2306,7 +2322,14 @@ export default function CatalogTreeEditor({
           bottom-16 clears MobileAdminShell's 64px bottom tab bar below `md`;
           lg:left-[220px] clears AdminDashboard's static sidebar at that width. */}
       {selectionCount > 0 && (
-        <div style={{ height: bulkBarHeight }} aria-hidden="true" />
+        // flex-shrink-0: the root is a flex column now, and an empty div's
+        // automatic minimum is 0 — without this the spacer would collapse and
+        // the floating bar would cover the last rows again.
+        <div
+          style={{ height: bulkBarHeight }}
+          className="flex-shrink-0"
+          aria-hidden="true"
+        />
       )}
       {selectionCount > 0 && (
         <div
@@ -2485,7 +2508,12 @@ export default function CatalogTreeEditor({
         className={
           workbenchMode
             ? "flex flex-1 min-h-0"
-            : "flex flex-col lg:flex-row gap-4 items-start"
+            : // lg:items-stretch so the table pane is as tall as the row and can
+              // cap its own scroller; below lg the panes stack and the tree keeps
+              // its natural height above the table.
+              `flex flex-col lg:flex-row gap-4 items-start lg:items-stretch ${
+                lockHeight ? "flex-1 min-h-0" : ""
+              }`
         }
       >
         {/* Left: collapsible tree — TABLE MODE ONLY.
@@ -2497,7 +2525,7 @@ export default function CatalogTreeEditor({
             switching to Table mode, picking a category, and switching back
             carries the scope across. */}
         {mode === "table" && treeCollapsed && (
-          <aside className="hidden lg:flex flex-shrink-0 w-10 flex-col items-center gap-2 bg-white border border-slate-200 rounded-xl py-2 lg:sticky lg:top-4">
+          <aside className="hidden lg:flex flex-shrink-0 w-10 flex-col items-center gap-2 bg-white border border-slate-200 rounded-xl py-2">
             <button
               onClick={() => setTreeCollapsed(false)}
               title="Show categories"
@@ -2517,7 +2545,7 @@ export default function CatalogTreeEditor({
           </aside>
         )}
         {mode === "table" && !treeCollapsed && (
-          <aside className="w-full lg:w-56 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-2 lg:sticky lg:top-4 max-h-[75vh] overflow-y-auto">
+          <aside className="w-full lg:w-56 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-2 max-h-[75vh] lg:max-h-none overflow-y-auto">
             <div className="flex items-center justify-between gap-1 px-1 pb-1.5 mb-1 border-b border-slate-100">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 Categories
@@ -2612,11 +2640,9 @@ export default function CatalogTreeEditor({
 
         {/* Right: product table (Table mode) or the Workbench (Workbench mode) */}
         <div
-          className={
-            workbenchMode
-              ? "flex-1 min-w-0 w-full flex flex-col min-h-0"
-              : "flex-1 min-w-0 w-full"
-          }
+          className={`flex-1 min-w-0 w-full ${
+            workbenchMode || lockHeight ? "flex flex-col min-h-0" : ""
+          }`}
         >
           {/* The Workbench's queue pane already carries the scope title and the
               N / total counter, and every row above it costs the locked shell
@@ -2675,6 +2701,9 @@ export default function CatalogTreeEditor({
               getRowId={p => p.id}
               loading={loading}
               emptyMessage={emptyState}
+              // The table body scrolls, not the page — that's what pins the
+              // column header. See DataTable's `fillHeight`.
+              fillHeight={lockHeight}
               persistKey="cat"
               onVisibleColumnsChange={setVisibleColIds}
               onDensityChange={setDensity}

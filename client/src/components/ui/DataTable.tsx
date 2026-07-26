@@ -168,6 +168,22 @@ export interface DataTableProps<T> {
   /** Spread onto the scroll container (e.g. tabIndex/onKeyDown for grid nav). */
   containerProps?: React.HTMLAttributes<HTMLDivElement>;
   containerRef?: React.Ref<HTMLDivElement>;
+
+  /**
+   * Make the table body the vertical scroller instead of the page.
+   *
+   * This is what makes the sticky column header actually stick. `position:
+   * sticky` resolves against the nearest scrollport, and the scroll container
+   * below is already one — `overflow-x: auto` forces `overflow-y` to compute
+   * to `auto` too. With no height constraint that container never scrolls
+   * vertically, so `top-0` pinned the header to a box that itself scrolled off
+   * the page. Giving the container a definite height (via the flex chain here)
+   * makes it the real scroller, and the header pins where you'd expect.
+   *
+   * The consumer must give this component a definite-height flex-column
+   * ancestor; outside one, `flex-1` is inert and nothing changes.
+   */
+  fillHeight?: boolean;
 }
 
 // Background is added per use-site: body cells stay white, header cells share
@@ -212,6 +228,7 @@ export function DataTable<T>({
   defaultDensity = "comfortable",
   containerProps,
   containerRef,
+  fillHeight = false,
 }: DataTableProps<T>) {
   const urlSearch = useSearch();
   const [, setLocation] = useLocation();
@@ -558,9 +575,13 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="space-y-2">
+    <div
+      className={
+        fillHeight ? "flex flex-col gap-2 flex-1 min-h-0" : "space-y-2"
+      }
+    >
       {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
         {search && (
           <div className="flex-1 min-w-[180px] relative">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -642,7 +663,9 @@ export function DataTable<T>({
           sticks to the viewport bottom only while the table itself is still
           in view (see the bar below), the same way sticky columns/header
           bound themselves to this component rather than the whole page. */}
-      <div className="relative">
+      <div
+        className={`relative ${fillHeight ? "flex-1 min-h-0 flex flex-col" : ""}`}
+      >
         <div
           ref={node => {
             wrapRef.current = node;
@@ -659,7 +682,9 @@ export function DataTable<T>({
           // horizontal control.
           className={`bg-white border border-slate-200 overflow-x-auto scrollbar-hide focus:outline-none ${
             hasHorizontalOverflow ? "rounded-t-xl border-b-0" : "rounded-xl"
-          } ${containerProps?.className ?? ""}`}
+          } ${fillHeight ? "flex-1 min-h-0 overflow-y-auto" : ""} ${
+            containerProps?.className ?? ""
+          }`}
         >
           {/* Width = max(natural column-size sum, container width) — never
             min-w-full (which let auto layout silently redistribute a dragged
@@ -883,7 +908,7 @@ export function DataTable<T>({
             ref={bottomScrollRef}
             onScroll={handleBottomScroll}
             aria-hidden="true"
-            className="sticky bottom-0 z-20 min-h-11 flex items-center overflow-x-auto overflow-y-hidden rounded-b-xl border border-slate-200 bg-white"
+            className="sticky bottom-0 z-20 min-h-11 flex-shrink-0 flex items-center overflow-x-auto overflow-y-hidden rounded-b-xl border border-slate-200 bg-white"
           >
             <div className="h-4 w-full">
               <div
@@ -900,7 +925,7 @@ export function DataTable<T>({
       {/* ── Pagination footer (Dukaan-style: results text left, Previous /
              numbered pages / Next right) — same pagination state, visual only. */}
       {pagination && pageCount > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 flex-shrink-0">
           <p className="text-sm text-slate-500">
             Viewing {(pagination.page - 1) * pagination.pageSize + 1}–
             {Math.min(pagination.page * pagination.pageSize, pagination.total)}{" "}
