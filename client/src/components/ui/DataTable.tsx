@@ -593,7 +593,12 @@ export function DataTable<T>({
             />
           </div>
         )}
-        {!search && <div className="flex-1" />}
+        {/* Only push the density/Columns buttons right when nothing else is
+            here to fill the row. A consumer that passes toolbarActions gets
+            them left-aligned and decides its own spacing — CatalogTreeEditor
+            hangs its Fix-Missing chips here rather than spending another row
+            of vertical space on them above the table. */}
+        {!search && !toolbarActions && <div className="flex-1" />}
         {toolbarActions}
 
         {/* Density toggle */}

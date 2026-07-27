@@ -30,6 +30,13 @@ import { useProductForm } from "@/hooks/useProductForm";
 import { productToForm, EMPTY_PRODUCT_FORM } from "@/lib/productForm";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry } from "@/lib/priceUtils";
+import {
+  type PriceEntryMode,
+  DEFAULT_PRICE_MODE,
+  perPieceRate,
+  formatPerPiece,
+} from "@/lib/priceEntryMode";
+import { usePriceEntry } from "@/hooks/usePriceEntry";
 import { Category, Product } from "@/lib/supabase";
 import { ParsedProduct } from "@/lib/aiService";
 
@@ -41,6 +48,13 @@ interface CatalogProductPanelProps {
   categories: Category[];
   onClose: () => void;
   onSaved: (product: Product) => void;
+  /**
+   * Price entry unit, shared with the table's inline cell and the Workbench
+   * (one URL param, owned by CatalogTreeEditor). Optional so the drawer still
+   * renders standalone; it then behaves exactly as it always did — per pack.
+   */
+  priceMode?: PriceEntryMode;
+  onPriceModeChange?: (mode: PriceEntryMode) => void;
 }
 
 interface SpecRow {
@@ -91,7 +105,13 @@ export default function CatalogProductPanel({
   categories,
   onClose,
   onSaved,
+  priceMode: priceModeProp = DEFAULT_PRICE_MODE,
+  onPriceModeChange,
 }: CatalogProductPanelProps) {
+  // Without a change handler there is no way out of per-piece mode, so an
+  // unwired drawer keeps the pack semantics it has always had rather than
+  // reinterpreting the operator's number with no way to say otherwise.
+  const priceMode = onPriceModeChange ? priceModeProp : "pack";
   const [, setLocation] = useLocation();
   const { formData, updateForm, load, saving, save, isNA, toggleNA } =
     useProductForm(product);
@@ -116,7 +136,10 @@ export default function CatalogProductPanel({
     if (JSON.stringify(formData) !== JSON.stringify(pristine)) return true;
     if (metaTitle !== (product?.meta_title || "")) return true;
     if (metaDescription !== (product?.meta_description || "")) return true;
-    if (JSON.stringify(specs) !== JSON.stringify(specsToRows(product?.specifications)))
+    if (
+      JSON.stringify(specs) !==
+      JSON.stringify(specsToRows(product?.specifications))
+    )
       return true;
     return false;
   }, [formData, metaTitle, metaDescription, specs, product]);
@@ -134,15 +157,64 @@ export default function CatalogProductPanel({
     onClose();
   };
 
-  const onEnquiry = isPriceOnEnquiry(
-    formData.price ? parseFloat(formData.price) : null
-  );
+  // ── On-Enquiry ──────────────────────────────────────────────────────────────
+  // Explicit state, seeded from the product, and thereafter owned ONLY by the
+  // toggle below.
+  //
+  // It used to be derived live from formData.price, which meant clearing the
+  // box to retype a price flipped it true mid-keystroke: the pricing block —
+  // and the focused input inside it — unmounted under the cursor, and the
+  // product silently became On-Enquiry without anyone choosing that. Deleting
+  // and retyping a price is the single most common action during a catalogue
+  // rebuild, so that fired constantly.
+  //
+  // It is also what productValidation.ts already says out loud: a blank price
+  // is never coerced to "on enquiry", because On-Enquiry is a deliberate
+  // business decision with its own toggle (DE-01). An empty box means "I am
+  // retyping", not "no price".
+  const [onEnquiry, setOnEnquiry] = useState(false);
+  useEffect(() => {
+    setOnEnquiry(isPriceOnEnquiry(product?.price ?? null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
+
+  // ── Per-piece price entry ───────────────────────────────────────────────────
+  // This drawer is the third surface that edits a price, alongside the table's
+  // inline cell and the Workbench fields pane. Before this it silently took a
+  // raw pack price while the other two were in per-piece mode — so a per-piece
+  // figure typed here would have been stored as the pack price, ~480x low.
+  // Same shared hook, same URL-backed mode, same storage contract: what lands
+  // in formData.price (and therefore in saveProductForm) is always the price
+  // of one selling unit.
+  const {
+    available: canEnterPerPiece,
+    active: enteringPerPiece,
+    value: priceFieldValue,
+    onChange: onPriceFieldChange,
+    settle: settlePriceEntry,
+  } = usePriceEntry({
+    mode: priceMode,
+    price: formData.price,
+    quantityInUnit: formData.quantity_in_unit,
+    onPriceChange: v => updateForm("price", v),
+    resetKey: product?.id ?? null,
+  });
+
+  // Live readout, mirroring the Workbench's: the figure the operator is NOT
+  // typing is the one they need to see confirmed.
+  const priceNum = formData.price.trim() === "" ? null : Number(formData.price);
+  const priceInvalid = priceNum !== null && !Number.isFinite(priceNum);
+  const perPiece =
+    priceNum != null && !priceInvalid && !isPriceOnEnquiry(priceNum)
+      ? perPieceRate(priceNum, formData.quantity_in_unit)
+      : null;
 
   const handleAutofill = (data: ParsedProduct) => {
     if (data.name) updateForm("name", data.name);
     if (data.price != null) updateForm("price", String(data.price));
     if (data.mrp != null) updateForm("mrp", String(data.mrp));
-    if (data.unit_of_measure) updateForm("unit_of_measure", data.unit_of_measure);
+    if (data.unit_of_measure)
+      updateForm("unit_of_measure", data.unit_of_measure);
     if (data.quantity_in_unit != null)
       updateForm("quantity_in_unit", String(data.quantity_in_unit));
     if (data.brand) updateForm("brand", data.brand);
@@ -272,35 +344,153 @@ export default function CatalogProductPanel({
                 </div>
                 <Switch
                   checked={onEnquiry}
-                  onCheckedChange={c => updateForm("price", c ? "" : "1")}
+                  onCheckedChange={c => {
+                    setOnEnquiry(c);
+                    // Turning it ON clears the price, because that IS the
+                    // stored meaning (NULL). Turning it OFF just reveals an
+                    // empty box to type into — the old code wrote a sentinel
+                    // "1" here purely so the derived flag would go false,
+                    // which showed up as a phantom ₹1 (and as ₹0.0021 once
+                    // per-piece display landed).
+                    if (c) updateForm("price", "");
+                  }}
                 />
               </div>
               {!onEnquiry && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Price ₹</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.price}
-                      onChange={e => updateForm("price", e.target.value)}
-                      placeholder="Enquiry"
-                      className="h-9"
-                    />
+                <>
+                  {/* Entry unit — the same URL-backed preference the table and
+                      the Workbench use, so all three surfaces agree on what
+                      the number in the box means. */}
+                  <div
+                    className={`items-center gap-2 flex-wrap ${onPriceModeChange ? "flex" : "hidden"}`}
+                  >
+                    <span className="text-xs font-medium text-slate-500">
+                      Enter as
+                    </span>
+                    <div
+                      role="group"
+                      aria-label="Price entry unit"
+                      className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+                    >
+                      {(
+                        [
+                          { id: "pack", label: "Per pack" },
+                          { id: "piece", label: "Per piece" },
+                        ] as const
+                      ).map(({ id, label }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-pressed={priceMode === id}
+                          disabled={id === "piece" && !canEnterPerPiece}
+                          title={
+                            id === "piece" && !canEnterPerPiece
+                              ? "Set Qty / pack above 1 first"
+                              : undefined
+                          }
+                          onClick={() => onPriceModeChange?.(id)}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+                            priceMode === id
+                              ? "bg-white text-slate-900 shadow-sm"
+                              : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">MRP ₹</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.mrp}
-                      onChange={e => updateForm("mrp", e.target.value)}
-                      className="h-9"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">
+                        {enteringPerPiece
+                          ? "Price ₹ / piece"
+                          : "Price ₹ / pack"}
+                      </Label>
+                      {/* text + inputMode, not type="number": a number input
+                          reports "" for anything the browser can't parse, so a
+                          typo arrives looking like a deliberate blank — that is
+                          DE-01, fixed in the table's inline editor and missed
+                          here. It also lets 0.025 be typed without fighting
+                          step="0.01". */}
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={priceFieldValue}
+                        onChange={e => onPriceFieldChange(e.target.value)}
+                        onBlur={settlePriceEntry}
+                        placeholder={
+                          enteringPerPiece ? "e.g. 10.20" : "Price per pack"
+                        }
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">MRP ₹</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.mrp}
+                        onChange={e => updateForm("mrp", e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
                   </div>
-                </div>
+                  {/* Says plainly what gets stored, and shows the derived rate
+                      live — the drawer previously gave no signal at all that
+                      its Price field meant one whole pack. */}
+                  <p className="text-[11px] leading-tight">
+                    {priceInvalid ? (
+                      <span className="text-red-600 font-semibold">
+                        Not a number — this won't save
+                      </span>
+                    ) : priceNum == null ? (
+                      // The box no longer collapses when it is emptied, so it
+                      // has to say what an empty box actually saves as —
+                      // otherwise "not collapsing" would just hide the outcome
+                      // instead of the input.
+                      <span className="text-amber-700">
+                        Empty saves as no price (On Enquiry). Type the price of
+                        ONE selling unit — the pack.
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">
+                        Stores ₹
+                        <strong
+                          className={
+                            enteringPerPiece ? "font-semibold" : "font-normal"
+                          }
+                        >
+                          {priceNum.toLocaleString()}
+                        </strong>{" "}
+                        {/* "one pack of 480 pcs", never "one pcs of 480":
+                            unit_of_measure names the pieces INSIDE the pack,
+                            not the selling unit. Same phrasing as the PDP
+                            price card. */}
+                        {formData.quantity_in_unit
+                          ? `for one pack of ${formData.quantity_in_unit} ${formData.unit_of_measure || "pcs"}`
+                          : "for one selling unit"}
+                        {perPiece != null && (
+                          <>
+                            {" "}
+                            · ₹
+                            <strong
+                              className={
+                                enteringPerPiece
+                                  ? "font-normal"
+                                  : "font-semibold"
+                              }
+                            >
+                              {formatPerPiece(perPiece)}
+                            </strong>
+                            /pc
+                          </>
+                        )}
+                      </span>
+                    )}
+                  </p>
+                </>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -491,7 +681,11 @@ export default function CatalogProductPanel({
               disabled={saving}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save"}
+              {saving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                "Save"
+              )}
             </Button>
           </SheetFooter>
         </SheetContent>

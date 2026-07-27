@@ -641,6 +641,98 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   `addToGallery` now reads `display_order` from a fresh fetch rather than `gallery`
   state, which is stale from the second file of a multi-drop onward.
 
+- **Dead space above the table + per-piece price entry (July 2026, PR-5):**
+  **The gap was the bulk-bar spacer, not the collapsed tree.** The floating bulk
+  bar is `fixed`, with a spacer of matching height reserving its space — but the
+  spacer was rendered _before_ the two-pane row in a flex column, so ticking one
+  checkbox inserted ~120px of blank page between the Fix chips and the table and
+  pushed every row down with it. (The collapsed rail was already `w-10` and
+  innocent; the reported repro had a row selected.) Moved after the panes, where
+  it shortens them from the bottom — which is where the bar actually is — and
+  keeps the pagination footer clear. **Table-mode chrome compacted** alongside
+  it, nothing removed: the Fix-Missing chips moved into `<DataTable>`'s own
+  toolbar row (which already existed and held nothing but the density/Columns
+  buttons on its right), saving a whole band; title row, saved-view tabs and the
+  search toolbar tightened (`h-9` → `h-8`, `py-2` → `py-1.5`); root gap
+  `2.5` → `2`. `<DataTable>` now only inserts its right-pushing spacer when the
+  consumer passes no `toolbarActions`. Verified live at 1366x768 (headless
+  Chrome, demo data + a temporary never-committed auth bypass), tree collapsed
+  and expanded, with and without a selection: no dead space above the toolbar,
+  first row and pagination footer both above the fold. Screenshots
+  `docs/screenshots/catalog-editor-fold-{tree-open,tree-collapsed,selected}.png`.
+- **Per-piece price entry (same PR):** new `lib/priceEntryMode.ts` + an
+  "Enter as: Per pack | Per piece" toggle (**default per piece**) in the
+  Workbench fields pane and in the Table toolbar, sharing one URL param
+  (`priceEntry`, no localStorage) so the mode persists across products, pages
+  and both modes. **This changes only what is TYPED.** `products.price` is
+  still the price of ONE SELLING UNIT in every path: a per-piece figure is
+  multiplied back up by `quantity_in_unit` before `validateEdit`, the no-op
+  guard, the optimistic patch or `productService.update` ever see it. No schema
+  column, no per-product or per-category pricing basis, no change to cart,
+  orders or the storefront. Blank still means On Enquiry (only via the
+  deliberate panel toggle — DE-01 stands), and junk is still passed through
+  verbatim so `validateEdit` refuses it rather than coercing. Pack qty missing
+  or 1 → per-piece is unavailable (disabled with a hint in the Workbench;
+  per-row fallback with a hint in the table, since it varies by row). Switching
+  modes converts the value in the box instead of wiping it; the Workbench keeps
+  both readouts visible with the derived side bolded, and the table's price
+  cell shows a live `= ₹N/pack of 480` preview under the input while editing
+  plus a `/pc` marker on the column header. **Display follows the mode too**
+  (fixed immediately after the first pass, which shipped the toggle wired to
+  the inline editor and the header label ONLY — so per-piece mode rendered
+  `₹12` for a ₹12/pack-of-480 row under a `/pc` header, i.e. a rate 480x too
+  high to type against): in per-piece mode the cell renders
+  `price ÷ quantity_in_unit` via `perPieceRate`/`formatPerPiece` (2–4 dp, so
+  ₹0.025 doesn't round to ₹0.03), and a row with no usable pack qty keeps its
+  pack figure with an amber `/pack` marker rather than dividing by null. Known
+  limitation, surfaced in the header tooltip: **sorting stays on the stored
+  pack price**, because the sort runs in Postgres over the `price` column and
+  a per-piece ordering would need `price / quantity_in_unit` computed there —
+  so rows with different pack sizes will not appear in per-piece order.
+  **All three editing surfaces now share the mode** — the table's inline cell,
+  the Workbench fields pane, and `CatalogProductPanel` (the side drawer), which
+  was the last one still taking a raw pack price with no signal that it did.
+  The form-surface conversion lives in one place, `hooks/usePriceEntry.ts`,
+  rather than being copied per surface: three hand-rolled conversions is
+  precisely how one of them ends up storing a per-piece figure as a pack price.
+  The drawer also gained a permanent one-line readout under its Price field
+  ("Stores ₹12 for one pack of 480 pcs · ₹0.025/pc" — the phrasing the PDP
+  price card uses, since `unit_of_measure` names the pieces INSIDE the pack and
+  never the selling unit), and its price input moved from `type="number"` to
+  `text` + `inputMode="decimal"` — the DE-01 hazard (a number input reports `""`
+  for anything unparseable, so a typo arrives looking like a deliberate blank)
+  was fixed in the table's inline editor but had been missed here. The drawer's
+  `priceMode` prop is optional and falls back to per-pack when no change handler
+  is supplied, so an unwired instance keeps its original semantics.
+  **Round-trip safety (CodeRabbit, PR #121):** `pieceFromPack`/`packFromPiece`
+  are NOT a lossless pair — display rounds to 4 dp, storage to 2 — so ₹4897 over
+  a pack of 480 shows as 10.2021 and converts back to ₹4897.01. Converting
+  unconditionally meant _opening a price cell and pressing Enter rewrote a price
+  nobody typed_, and the no-op guard compares strings so it never caught it
+  (₹5.25→5.22 and ₹1→0.99 on 900-packs were worse than the reported case).
+  Widening precision only moves the boundary; instead both paths keep the
+  original pack string beside the draft and reuse it verbatim when the
+  displayed rate is untouched — `CellEdit.originalPack`/`.seededPiece` via
+  `packValueOf()` in the table, `originRef` via `onChange` in `usePriceEntry`.
+  Regression check: `npm run check:price` (`scripts/check-price-entry.ts`, run
+  by Node's native type stripping — no test runner, no new dependency; note
+  `tsconfig.json` only includes `client/src`, so this file is executed rather
+  than type-checked). Deleting either guard makes it fail.
+  **On-Enquiry is toggle-only (same review):** the drawer derived `onEnquiry`
+  live from `formData.price`, so clearing the box to retype a price flipped it
+  true mid-keystroke — the pricing block and the focused input unmounted under
+  the cursor and the product silently became On-Enquiry. It is now explicit
+  state, seeded from the product and owned only by the Switch, which is what
+  `productValidation.ts` already required (a blank price is never coerced to
+  On-Enquiry; DE-01). Turning the toggle OFF no longer writes a sentinel `"1"`
+  (that showed up as a phantom ₹1, and as ₹0.0021 once per-piece display
+  landed) — it just reveals an empty box, and the readout says in amber that an
+  empty box saves as no price. The Workbench was never affected: its price
+  field is unconditionally mounted. One implementation note: the
+  displayed per-piece value is DERIVED from `formData.price` with a local
+  draft override, because a half-typed `10.` round-trips through `Number()` as
+  `10` — without the draft the decimal point can never be typed.
+
 ### Health System
 
 - `v_product_health` PostgreSQL view — single source of truth

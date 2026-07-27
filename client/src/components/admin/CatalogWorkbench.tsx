@@ -63,6 +63,8 @@ import {
 } from "@/lib/productService";
 import { autoResizeImage, normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry } from "@/lib/priceUtils";
+import { type PriceEntryMode, formatPerPiece } from "@/lib/priceEntryMode";
+import { usePriceEntry } from "@/hooks/usePriceEntry";
 import { useIsMobile } from "@/hooks/useMobile";
 import { Category, Product, ProductImage, ProductStatus } from "@/lib/supabase";
 
@@ -177,6 +179,14 @@ interface CatalogWorkbenchProps {
   ) => React.ReactNode;
   /** Switch to Table mode focused on this product. */
   onOpenInTable?: (p: Product) => void;
+  /**
+   * Whether the price box takes a per-pack or a per-piece figure. Owned by
+   * CatalogTreeEditor (one URL param, one preference shared with the table's
+   * inline price cell) — it changes only what is TYPED here. The saved value
+   * is always the price of one pack; see lib/priceEntryMode.ts.
+   */
+  priceMode: PriceEntryMode;
+  onPriceModeChange: (mode: PriceEntryMode) => void;
 }
 
 export default function CatalogWorkbench({
@@ -193,6 +203,8 @@ export default function CatalogWorkbench({
   scopeTitle,
   rowMenuItems,
   onOpenInTable,
+  priceMode,
+  onPriceModeChange,
 }: CatalogWorkbenchProps) {
   const isMobile = useIsMobile();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -507,6 +519,25 @@ export default function CatalogWorkbench({
     !onEnquiry && !priceInvalid && Number.isFinite(packQty) && packQty > 1
       ? (priceNum as number) / packQty
       : null;
+
+  // ── Per-piece price entry ───────────────────────────────────────────────────
+  // `formData.price` remains the pack price at all times — it is what
+  // validation reads, what `save()` writes and what the storefront divides.
+  // Per-piece mode only changes the string in the box. Shared with the Catalog
+  // Editor's drawer via usePriceEntry so the two cannot drift.
+  const {
+    available: canEnterPerPiece,
+    active: enteringPerPiece,
+    value: priceFieldValue,
+    onChange: onPriceFieldChange,
+    settle: settlePriceEntry,
+  } = usePriceEntry({
+    mode: priceMode,
+    price: formData.price,
+    quantityInUnit: formData.quantity_in_unit,
+    onPriceChange: v => updateForm("price", v),
+    resetKey: active?.id ?? null,
+  });
 
   // ── Validation via the shared PR-A layer ───────────────────────────────────
   // Runs before any network call so a refused value keeps focus for correction
@@ -1327,19 +1358,72 @@ export default function CatalogWorkbench({
           {renderFieldError("name")}
         </div>
 
+        {/* Entry unit for the price box below. Supplier lists quote a
+            per-piece rate, so that is the default — but the number that
+            reaches the database is the pack price either way. */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-slate-500">Enter as</span>
+          <div
+            role="group"
+            aria-label="Price entry unit"
+            className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+          >
+            {(
+              [
+                { id: "pack", label: "Per pack" },
+                { id: "piece", label: "Per piece" },
+              ] as const
+            ).map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={priceMode === id}
+                // Per piece is meaningless without a pack size to divide by,
+                // and silently doing nothing would be worse than saying so.
+                disabled={id === "piece" && !canEnterPerPiece}
+                title={
+                  id === "piece" && !canEnterPerPiece
+                    ? "Set a pack qty above 1 first"
+                    : undefined
+                }
+                onClick={() => onPriceModeChange(id)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+                  priceMode === id
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {priceMode === "piece" && !canEnterPerPiece && (
+            <span className="text-caption text-amber-700">
+              Needs a pack qty — entering per pack
+            </span>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label className="text-xs whitespace-nowrap">Price ₹</Label>
+            <Label className="text-xs whitespace-nowrap">
+              {enteringPerPiece ? "Price ₹ / piece" : "Price ₹ / pack"}
+            </Label>
             <Input
               ref={priceInputRef}
-              value={formData.price}
-              onChange={e => updateForm("price", e.target.value)}
+              value={priceFieldValue}
+              onChange={e => onPriceFieldChange(e.target.value)}
               onKeyDown={e => onFieldKeyDown(e)}
-              onBlur={() => markTouched("price")}
+              onBlur={() => {
+                markTouched("price");
+                settlePriceEntry();
+              }}
               aria-invalid={!!shownError("price")}
               inputMode="decimal"
               className={`${FIELD_CLS} ${errorClass("price")}`}
-              placeholder="blank = On Enquiry"
+              placeholder={
+                enteringPerPiece ? "e.g. 10.20" : "blank = On Enquiry"
+              }
             />
             {renderFieldError("price")}
           </div>
@@ -1376,16 +1460,29 @@ export default function CatalogWorkbench({
               On Enquiry — no price shown on the storefront
             </span>
           ) : (
+            // Both figures, always — whichever one the operator is NOT typing
+            // is the one they need to see, so the derived side is the bold one.
             <span className="text-slate-500">
-              ₹{Number(priceNum).toLocaleString()} per pack of{" "}
-              {formData.quantity_in_unit || "?"} {formData.unit_of_measure}
+              ₹
+              <strong
+                className={enteringPerPiece ? "font-semibold" : "font-normal"}
+              >
+                {Number(priceNum).toLocaleString()}
+              </strong>{" "}
+              per pack of {formData.quantity_in_unit || "?"}{" "}
+              {formData.unit_of_measure}
               {perPiece != null && (
                 <>
                   {" "}
-                  ·{" "}
-                  <strong className="font-semibold">
-                    ₹{(Math.round(perPiece * 100) / 100).toLocaleString()}/pc
+                  · ₹
+                  <strong
+                    className={
+                      enteringPerPiece ? "font-normal" : "font-semibold"
+                    }
+                  >
+                    {formatPerPiece(perPiece)}
                   </strong>
+                  /pc
                 </>
               )}
             </span>
