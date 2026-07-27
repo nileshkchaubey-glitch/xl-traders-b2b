@@ -85,3 +85,30 @@ export function pieceFromPack(pack: string, divisor: number): string {
   if (!Number.isFinite(n)) return t;
   return String(roundTo(n / divisor, 4));
 }
+
+/**
+ * The per-piece rate for DISPLAY, or null when this row cannot express one —
+ * no usable pack quantity, or no real price. Callers must fall back to the
+ * pack figure (and say so) rather than rendering a divide-by-null.
+ */
+export function perPieceRate(
+  price: number | null | undefined,
+  quantityInUnit: number | string | null | undefined
+): number | null {
+  const divisor = packDivisor(quantityInUnit);
+  if (divisor == null) return null;
+  if (price == null || !Number.isFinite(Number(price))) return null;
+  return Number(price) / divisor;
+}
+
+/**
+ * 2–4 decimals. A pack of 480 at ₹12 is ₹0.025 a piece: 2 dp alone would
+ * render that as ₹0.03 and quietly overstate the rate the operator is about
+ * to type against, which is the whole reason this figure is on screen.
+ */
+export function formatPerPiece(rate: number): string {
+  return rate.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+}

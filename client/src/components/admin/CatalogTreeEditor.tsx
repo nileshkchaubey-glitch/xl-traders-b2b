@@ -108,6 +108,8 @@ import {
   packDivisor,
   packFromPiece,
   pieceFromPack,
+  perPieceRate,
+  formatPerPiece,
 } from "@/lib/priceEntryMode";
 import { useSaveFeedback } from "@/hooks/useSaveFeedback";
 import { useIsMobile } from "@/hooks/useMobile";
@@ -1850,7 +1852,14 @@ export default function CatalogTreeEditor({
       // real control sits in the toolbar directly below.
       header: () =>
         priceMode === "piece" ? (
-          <span className="inline-flex items-baseline gap-1">
+          <span
+            className="inline-flex items-baseline gap-1"
+            // Sorting stays on the STORED pack price: the sort runs in
+            // Postgres over the price column, and a per-piece ordering would
+            // need price/quantity_in_unit computed there. Rows with different
+            // pack sizes will therefore not appear in per-piece order.
+            title="Showing price per piece (price ÷ pack qty). Sorting still uses the stored pack price."
+          >
             Price
             <span className="text-[10px] font-semibold text-red-600 normal-case">
               /pc
@@ -1913,16 +1922,25 @@ export default function CatalogTreeEditor({
             </div>
           );
         }
-        // Read state always shows the stored pack price — the entry mode is an
-        // input transform, not a display one, and the per-piece figure has its
-        // own home in the Workbench readout and on the storefront.
+        // Read state follows the mode. It used to always render the stored
+        // pack price on the theory that the entry mode was "an input
+        // transform, not a display one" — but under a "/pc" column header
+        // that shows ₹12 for a ₹12/pack-of-480 row, i.e. it states a
+        // per-piece rate that is 480x too high, and an operator retyping
+        // against that baseline would be working from a wrong number.
+        // Display and editing now agree: what the cell shows is what
+        // clicking it lets you type.
+        const rate =
+          priceMode === "piece"
+            ? perPieceRate(p.price, p.quantity_in_unit)
+            : null;
         return (
           <button
             onClick={() => startEdit(p, "price")}
             className="text-left w-full"
             title={
-              priceMode === "piece" && packDivisor(p.quantity_in_unit) != null
-                ? `Click to edit — enter a per-piece rate (pack of ${p.quantity_in_unit})`
+              rate != null
+                ? `₹${Number(p.price).toLocaleString()} per pack of ${p.quantity_in_unit} — click to edit as a per-piece rate`
                 : "Click to edit price"
             }
           >
@@ -1930,9 +1948,21 @@ export default function CatalogTreeEditor({
               <span className="text-amber-700 text-xs font-semibold">
                 On Enquiry
               </span>
+            ) : rate != null ? (
+              <span className="font-semibold text-slate-800">
+                ₹{formatPerPiece(rate)}
+              </span>
             ) : (
               <span className="font-semibold text-slate-800">
                 ₹{Number(p.price).toLocaleString()}
+                {/* Per-piece is on but this row has no pack qty to divide by,
+                    so it is still a pack figure under a "/pc" header. Marked
+                    per-row because the two kinds of row sit side by side. */}
+                {priceMode === "piece" && (
+                  <span className="ml-1 text-[10px] font-semibold text-amber-700">
+                    /pack
+                  </span>
+                )}
               </span>
             )}
           </button>

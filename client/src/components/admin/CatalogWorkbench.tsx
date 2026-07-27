@@ -68,6 +68,7 @@ import {
   packDivisor,
   packFromPiece,
   pieceFromPack,
+  formatPerPiece,
 } from "@/lib/priceEntryMode";
 import { useIsMobile } from "@/hooks/useMobile";
 import { Category, Product, ProductImage, ProductStatus } from "@/lib/supabase";
@@ -1497,10 +1498,7 @@ export default function CatalogWorkbench({
                       enteringPerPiece ? "font-normal" : "font-semibold"
                     }
                   >
-                    {perPiece.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    })}
+                    {formatPerPiece(perPiece)}
                   </strong>
                   /pc
                 </>

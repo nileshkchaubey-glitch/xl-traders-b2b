@@ -677,7 +677,19 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   modes converts the value in the box instead of wiping it; the Workbench keeps
   both readouts visible with the derived side bolded, and the table's price
   cell shows a live `= ₹N/pack of 480` preview under the input while editing
-  plus a `/pc` marker on the column header. One implementation note: the
+  plus a `/pc` marker on the column header. **Display follows the mode too**
+  (fixed immediately after the first pass, which shipped the toggle wired to
+  the inline editor and the header label ONLY — so per-piece mode rendered
+  `₹12` for a ₹12/pack-of-480 row under a `/pc` header, i.e. a rate 480x too
+  high to type against): in per-piece mode the cell renders
+  `price ÷ quantity_in_unit` via `perPieceRate`/`formatPerPiece` (2–4 dp, so
+  ₹0.025 doesn't round to ₹0.03), and a row with no usable pack qty keeps its
+  pack figure with an amber `/pack` marker rather than dividing by null. Known
+  limitation, surfaced in the header tooltip: **sorting stays on the stored
+  pack price**, because the sort runs in Postgres over the `price` column and
+  a per-piece ordering would need `price / quantity_in_unit` computed there —
+  so rows with different pack sizes will not appear in per-piece order. One
+  implementation note: the
   displayed per-piece value is DERIVED from `formData.price` with a local
   draft override, because a half-typed `10.` round-trips through `Number()` as
   `10` — without the draft the decimal point can never be typed.
