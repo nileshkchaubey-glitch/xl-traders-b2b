@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
+    "check:price": "node scripts/check-price-entry.ts",
     "format": "prettier --write ."
   },
   "dependencies": {

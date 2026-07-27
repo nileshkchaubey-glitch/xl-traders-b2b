@@ -157,9 +157,26 @@ export default function CatalogProductPanel({
     onClose();
   };
 
-  const onEnquiry = isPriceOnEnquiry(
-    formData.price ? parseFloat(formData.price) : null
-  );
+  // ── On-Enquiry ──────────────────────────────────────────────────────────────
+  // Explicit state, seeded from the product, and thereafter owned ONLY by the
+  // toggle below.
+  //
+  // It used to be derived live from formData.price, which meant clearing the
+  // box to retype a price flipped it true mid-keystroke: the pricing block —
+  // and the focused input inside it — unmounted under the cursor, and the
+  // product silently became On-Enquiry without anyone choosing that. Deleting
+  // and retyping a price is the single most common action during a catalogue
+  // rebuild, so that fired constantly.
+  //
+  // It is also what productValidation.ts already says out loud: a blank price
+  // is never coerced to "on enquiry", because On-Enquiry is a deliberate
+  // business decision with its own toggle (DE-01). An empty box means "I am
+  // retyping", not "no price".
+  const [onEnquiry, setOnEnquiry] = useState(false);
+  useEffect(() => {
+    setOnEnquiry(isPriceOnEnquiry(product?.price ?? null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
 
   // ── Per-piece price entry ───────────────────────────────────────────────────
   // This drawer is the third surface that edits a price, alongside the table's
@@ -327,7 +344,16 @@ export default function CatalogProductPanel({
                 </div>
                 <Switch
                   checked={onEnquiry}
-                  onCheckedChange={c => updateForm("price", c ? "" : "1")}
+                  onCheckedChange={c => {
+                    setOnEnquiry(c);
+                    // Turning it ON clears the price, because that IS the
+                    // stored meaning (NULL). Turning it OFF just reveals an
+                    // empty box to type into — the old code wrote a sentinel
+                    // "1" here purely so the derived flag would go false,
+                    // which showed up as a phantom ₹1 (and as ₹0.0021 once
+                    // per-piece display landed).
+                    if (c) updateForm("price", "");
+                  }}
                 />
               </div>
               {!onEnquiry && (
@@ -420,8 +446,13 @@ export default function CatalogProductPanel({
                         Not a number — this won't save
                       </span>
                     ) : priceNum == null ? (
-                      <span className="text-slate-400">
-                        Stores the price of ONE selling unit (the pack).
+                      // The box no longer collapses when it is emptied, so it
+                      // has to say what an empty box actually saves as —
+                      // otherwise "not collapsing" would just hide the outcome
+                      // instead of the input.
+                      <span className="text-amber-700">
+                        Empty saves as no price (On Enquiry). Type the price of
+                        ONE selling unit — the pack.
                       </span>
                     ) : (
                       <span className="text-slate-500">

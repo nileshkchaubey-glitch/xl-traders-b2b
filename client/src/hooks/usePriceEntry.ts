@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type PriceEntryMode,
   packDivisor,
@@ -47,8 +47,24 @@ export function usePriceEntry({
   // "10." round-trips through Number() as "10" and the decimal point can
   // never be typed at all.
   const [draft, setDraft] = useState<string | null>(null);
+
+  /**
+   * The (pack price, displayed rate) pair as it stood before the current edit
+   * began.
+   *
+   * `pieceFromPack` and `packFromPiece` are NOT a lossless pair — display
+   * rounds to 4 dp, storage to 2 — so ₹4897 over a pack of 480 shows as
+   * 10.2021 and converts back to ₹4897.01. Converting unconditionally would
+   * therefore rewrite a price the operator never touched. Widening the
+   * precision only moves that boundary; the fix is to not convert at all
+   * unless the displayed rate actually changed, and to hand back the original
+   * string byte-for-byte when it didn't.
+   */
+  const originRef = useRef<{ pack: string; shown: string } | null>(null);
+
   useEffect(() => {
     setDraft(null);
+    originRef.current = null;
   }, [resetKey, mode]);
 
   const value =
@@ -61,7 +77,19 @@ export function usePriceEntry({
       onPriceChange(raw);
       return;
     }
+    // First keystroke of this edit. `draft === null` guarantees the box was
+    // still showing the derived value, so `price` here is the untouched
+    // original — the only moment this pair can be captured safely.
+    if (draft === null) {
+      originRef.current = { pack: price, shown: pieceFromPack(price, divisor) };
+    }
     setDraft(raw);
+
+    const origin = originRef.current;
+    if (origin && raw === origin.shown) {
+      onPriceChange(origin.pack);
+      return;
+    }
     onPriceChange(packFromPiece(raw, divisor));
   };
 

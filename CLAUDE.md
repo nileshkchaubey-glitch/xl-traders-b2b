@@ -703,8 +703,32 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   for anything unparseable, so a typo arrives looking like a deliberate blank)
   was fixed in the table's inline editor but had been missed here. The drawer's
   `priceMode` prop is optional and falls back to per-pack when no change handler
-  is supplied, so an unwired instance keeps its original semantics. One
-  implementation note: the
+  is supplied, so an unwired instance keeps its original semantics.
+  **Round-trip safety (CodeRabbit, PR #121):** `pieceFromPack`/`packFromPiece`
+  are NOT a lossless pair — display rounds to 4 dp, storage to 2 — so ₹4897 over
+  a pack of 480 shows as 10.2021 and converts back to ₹4897.01. Converting
+  unconditionally meant _opening a price cell and pressing Enter rewrote a price
+  nobody typed_, and the no-op guard compares strings so it never caught it
+  (₹5.25→5.22 and ₹1→0.99 on 900-packs were worse than the reported case).
+  Widening precision only moves the boundary; instead both paths keep the
+  original pack string beside the draft and reuse it verbatim when the
+  displayed rate is untouched — `CellEdit.originalPack`/`.seededPiece` via
+  `packValueOf()` in the table, `originRef` via `onChange` in `usePriceEntry`.
+  Regression check: `npm run check:price` (`scripts/check-price-entry.ts`, run
+  by Node's native type stripping — no test runner, no new dependency; note
+  `tsconfig.json` only includes `client/src`, so this file is executed rather
+  than type-checked). Deleting either guard makes it fail.
+  **On-Enquiry is toggle-only (same review):** the drawer derived `onEnquiry`
+  live from `formData.price`, so clearing the box to retype a price flipped it
+  true mid-keystroke — the pricing block and the focused input unmounted under
+  the cursor and the product silently became On-Enquiry. It is now explicit
+  state, seeded from the product and owned only by the Switch, which is what
+  `productValidation.ts` already required (a blank price is never coerced to
+  On-Enquiry; DE-01). Turning the toggle OFF no longer writes a sentinel `"1"`
+  (that showed up as a phantom ₹1, and as ₹0.0021 once per-piece display
+  landed) — it just reveals an empty box, and the readout says in amber that an
+  empty box saves as no price. The Workbench was never affected: its price
+  field is unconditionally mounted. One implementation note: the
   displayed per-piece value is DERIVED from `formData.price` with a local
   draft override, because a half-typed `10.` round-trips through `Number()` as
   `10` — without the draft the decimal point can never be typed.

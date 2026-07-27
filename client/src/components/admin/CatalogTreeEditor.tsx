@@ -221,6 +221,22 @@ interface CellEdit {
    * is what every non-price edit and every pack-mode edit is.
    */
   pieceDivisor?: number;
+  /**
+   * The stored pack price exactly as it was when this edit opened, and the
+   * per-piece string first shown in the box.
+   *
+   * These exist because `pieceFromPack`/`packFromPiece` are not a lossless
+   * pair (display rounds to 4 dp, storage to 2). ₹4897 over a pack of 480
+   * displays as 10.2021 and converts back to ₹4897.01 — so simply opening a
+   * price cell and pressing Enter would have written a value nobody typed,
+   * and the no-op guard compares strings so it would not have caught it.
+   * When the box still reads what it was seeded with, the original string is
+   * reused verbatim and no conversion happens at all. (Same class as DE-01:
+   * a silent data change, which is the thing this whole surface exists to
+   * prevent.)
+   */
+  originalPack?: string;
+  seededPiece?: string;
 }
 
 // ── Tree selection ────────────────────────────────────────────────────────────
@@ -676,11 +692,15 @@ export default function CatalogTreeEditor({
       field === "price" && priceMode === "piece"
         ? packDivisor(prod.quantity_in_unit)
         : null;
+    const seededPiece =
+      divisor == null ? undefined : pieceFromPack(raw, divisor);
     setCellEdit({
       productId: prod.id,
       field,
-      value: divisor == null ? raw : pieceFromPack(raw, divisor),
+      value: divisor == null ? raw : seededPiece!,
       pieceDivisor: divisor ?? undefined,
+      originalPack: divisor == null ? undefined : raw,
+      seededPiece,
     });
     setFocused({ id: prod.id, field });
   };
@@ -691,10 +711,16 @@ export default function CatalogTreeEditor({
    * the no-op guard, productService.update) sees only this, so the storage
    * contract is untouched by the entry mode.
    */
-  const packValueOf = (edit: CellEdit) =>
-    edit.pieceDivisor != null
-      ? packFromPiece(edit.value, edit.pieceDivisor)
-      : edit.value;
+  const packValueOf = (edit: CellEdit) => {
+    if (edit.pieceDivisor == null) return edit.value;
+    // Displayed rate untouched (or typed back to exactly what it was): reuse
+    // the stored string verbatim rather than round-tripping it through a
+    // conversion pair that isn't lossless. See CellEdit.originalPack.
+    if (edit.originalPack != null && edit.value === edit.seededPiece) {
+      return edit.originalPack;
+    }
+    return packFromPiece(edit.value, edit.pieceDivisor);
+  };
   const cancelEdit = () => setCellEdit(null);
 
   const moveFocus = (dRow: number, dCol: number) =>
