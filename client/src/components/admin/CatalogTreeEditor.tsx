@@ -2960,6 +2960,8 @@ export default function CatalogTreeEditor({
         product={panelProduct}
         open={!!panelProduct}
         categories={categories}
+        priceMode={priceMode}
+        onPriceModeChange={setPriceMode}
         onClose={() => setPanelProduct(null)}
         onSaved={updated => {
           setProducts(prev =>

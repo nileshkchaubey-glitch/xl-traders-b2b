@@ -63,13 +63,8 @@ import {
 } from "@/lib/productService";
 import { autoResizeImage, normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry } from "@/lib/priceUtils";
-import {
-  type PriceEntryMode,
-  packDivisor,
-  packFromPiece,
-  pieceFromPack,
-  formatPerPiece,
-} from "@/lib/priceEntryMode";
+import { type PriceEntryMode, formatPerPiece } from "@/lib/priceEntryMode";
+import { usePriceEntry } from "@/hooks/usePriceEntry";
 import { useIsMobile } from "@/hooks/useMobile";
 import { Category, Product, ProductImage, ProductStatus } from "@/lib/supabase";
 
@@ -528,32 +523,21 @@ export default function CatalogWorkbench({
   // ── Per-piece price entry ───────────────────────────────────────────────────
   // `formData.price` remains the pack price at all times — it is what
   // validation reads, what `save()` writes and what the storefront divides.
-  // Per-piece mode only changes the string in the box.
-  //
-  // The displayed value is DERIVED from formData.price, with one local
-  // override: `pieceDraft`. Without it a half-typed "10." round-trips through
-  // Number() and comes back "10", so the decimal point can never be typed.
-  // The draft is dropped (back to null = derived) as soon as the operator
-  // leaves the field, or the product or the mode changes, so nothing stale
-  // can survive into another row.
-  const priceDivisor = packDivisor(formData.quantity_in_unit);
-  const canEnterPerPiece = priceDivisor != null;
-  const enteringPerPiece = priceMode === "piece" && canEnterPerPiece;
-  const [pieceDraft, setPieceDraft] = useState<string | null>(null);
-  useEffect(() => {
-    setPieceDraft(null);
-  }, [active?.id, priceMode]);
-  const priceFieldValue = enteringPerPiece
-    ? (pieceDraft ?? pieceFromPack(formData.price, priceDivisor))
-    : formData.price;
-  const onPriceFieldChange = (raw: string) => {
-    if (!enteringPerPiece) {
-      updateForm("price", raw);
-      return;
-    }
-    setPieceDraft(raw);
-    updateForm("price", packFromPiece(raw, priceDivisor));
-  };
+  // Per-piece mode only changes the string in the box. Shared with the Catalog
+  // Editor's drawer via usePriceEntry so the two cannot drift.
+  const {
+    available: canEnterPerPiece,
+    active: enteringPerPiece,
+    value: priceFieldValue,
+    onChange: onPriceFieldChange,
+    settle: settlePriceEntry,
+  } = usePriceEntry({
+    mode: priceMode,
+    price: formData.price,
+    quantityInUnit: formData.quantity_in_unit,
+    onPriceChange: v => updateForm("price", v),
+    resetKey: active?.id ?? null,
+  });
 
   // ── Validation via the shared PR-A layer ───────────────────────────────────
   // Runs before any network call so a refused value keeps focus for correction
@@ -1432,9 +1416,7 @@ export default function CatalogWorkbench({
               onKeyDown={e => onFieldKeyDown(e)}
               onBlur={() => {
                 markTouched("price");
-                // Back to the derived value: normalises "10." and stops a
-                // stale rate from surviving an edit to the pack qty.
-                setPieceDraft(null);
+                settlePriceEntry();
               }}
               aria-invalid={!!shownError("price")}
               inputMode="decimal"

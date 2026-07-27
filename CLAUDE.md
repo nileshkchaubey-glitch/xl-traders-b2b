@@ -688,7 +688,22 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   limitation, surfaced in the header tooltip: **sorting stays on the stored
   pack price**, because the sort runs in Postgres over the `price` column and
   a per-piece ordering would need `price / quantity_in_unit` computed there —
-  so rows with different pack sizes will not appear in per-piece order. One
+  so rows with different pack sizes will not appear in per-piece order.
+  **All three editing surfaces now share the mode** — the table's inline cell,
+  the Workbench fields pane, and `CatalogProductPanel` (the side drawer), which
+  was the last one still taking a raw pack price with no signal that it did.
+  The form-surface conversion lives in one place, `hooks/usePriceEntry.ts`,
+  rather than being copied per surface: three hand-rolled conversions is
+  precisely how one of them ends up storing a per-piece figure as a pack price.
+  The drawer also gained a permanent one-line readout under its Price field
+  ("Stores ₹12 for one pack of 480 pcs · ₹0.025/pc" — the phrasing the PDP
+  price card uses, since `unit_of_measure` names the pieces INSIDE the pack and
+  never the selling unit), and its price input moved from `type="number"` to
+  `text` + `inputMode="decimal"` — the DE-01 hazard (a number input reports `""`
+  for anything unparseable, so a typo arrives looking like a deliberate blank)
+  was fixed in the table's inline editor but had been missed here. The drawer's
+  `priceMode` prop is optional and falls back to per-pack when no change handler
+  is supplied, so an unwired instance keeps its original semantics. One
   implementation note: the
   displayed per-piece value is DERIVED from `formData.price` with a local
   draft override, because a half-typed `10.` round-trips through `Number()` as
