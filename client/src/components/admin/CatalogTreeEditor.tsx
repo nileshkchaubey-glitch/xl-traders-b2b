@@ -100,6 +100,15 @@ import {
 import CatalogProductPanel from "@/components/admin/CatalogProductPanel";
 import CatalogWorkbench from "@/components/admin/CatalogWorkbench";
 import { validateEdit } from "@/lib/productValidation";
+import {
+  type PriceEntryMode,
+  PRICE_MODE_PARAM,
+  DEFAULT_PRICE_MODE,
+  parsePriceMode,
+  packDivisor,
+  packFromPiece,
+  pieceFromPack,
+} from "@/lib/priceEntryMode";
 import { useSaveFeedback } from "@/hooks/useSaveFeedback";
 import { useIsMobile } from "@/hooks/useMobile";
 
@@ -202,6 +211,14 @@ interface CellEdit {
   productId: string;
   field: EditField;
   value: string;
+  /**
+   * Pieces per pack, set only when this price is being TYPED as a per-piece
+   * rate. Captured once at startEdit rather than read live, so editing the
+   * pack quantity elsewhere can't shift the multiplier under a half-typed
+   * value. `undefined` = the value in the box is already a pack price, which
+   * is what every non-price edit and every pack-mode edit is.
+   */
+  pieceDivisor?: number;
 }
 
 // ── Tree selection ────────────────────────────────────────────────────────────
@@ -350,6 +367,27 @@ export default function CatalogTreeEditor({
   const [treeCollapsed, setTreeCollapsed] = useState(
     () => new URLSearchParams(window.location.search).get(TREE_PARAM) === "0"
   );
+
+  // ── Price entry mode ────────────────────────────────────────────────────────
+  // Shared by the inline price cell here and the Workbench's price field: it
+  // changes what the operator TYPES, never what is stored. `products.price`
+  // stays the price of one selling unit in every path (lib/priceEntryMode.ts).
+  // URL-persisted like every other layout/preference bit in this editor, so a
+  // whole entry session keeps the mode across products, pages and modes.
+  const [priceMode, setPriceMode] = useState<PriceEntryMode>(() =>
+    parsePriceMode(
+      new URLSearchParams(window.location.search).get(PRICE_MODE_PARAM)
+    )
+  );
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (priceMode === DEFAULT_PRICE_MODE) params.delete(PRICE_MODE_PARAM);
+    else params.set(PRICE_MODE_PARAM, priceMode);
+    setLocation(`${window.location.pathname}?${params.toString()}`, {
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceMode]);
 
   // Per-category / per-group aggregates for the tree.
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -624,18 +662,37 @@ export default function CatalogTreeEditor({
     return f;
   }, [visibleColIds]);
 
-  const startEdit = (
-    productId: string,
-    field: EditField,
-    current: string | number | null | undefined
-  ) => {
+  // Takes the product rather than a raw value because the price cell needs the
+  // row's pack quantity to seed a per-piece edit.
+  const startEdit = (prod: Product, field: EditField) => {
+    const current = fieldValue(prod, field);
+    const raw = current == null ? "" : String(current);
+    // Per-piece entry is offered only where it means something: price cells on
+    // rows that actually declare a pack size (packDivisor rejects blank, junk
+    // and 1). Every other cell is edited exactly as before.
+    const divisor =
+      field === "price" && priceMode === "piece"
+        ? packDivisor(prod.quantity_in_unit)
+        : null;
     setCellEdit({
-      productId,
+      productId: prod.id,
       field,
-      value: current == null ? "" : String(current),
+      value: divisor == null ? raw : pieceFromPack(raw, divisor),
+      pieceDivisor: divisor ?? undefined,
     });
-    setFocused({ id: productId, field });
+    setFocused({ id: prod.id, field });
   };
+
+  /**
+   * The value an in-progress edit would actually store — a per-piece entry
+   * multiplied back up to the pack price. Everything downstream (validateEdit,
+   * the no-op guard, productService.update) sees only this, so the storage
+   * contract is untouched by the entry mode.
+   */
+  const packValueOf = (edit: CellEdit) =>
+    edit.pieceDivisor != null
+      ? packFromPiece(edit.value, edit.pieceDivisor)
+      : edit.value;
   const cancelEdit = () => setCellEdit(null);
 
   const moveFocus = (dRow: number, dCol: number) =>
@@ -667,7 +724,10 @@ export default function CatalogTreeEditor({
       // otherwise Enter looks like it saved and quietly moved on.
       if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        const result = validateEdit(cellEdit.field, cellEdit.value);
+        // packValueOf, not cellEdit.value: in per-piece mode the box holds a
+        // rate, and it is the pack price the validator must judge (and the
+        // pack price the operator must be told about if it's refused).
+        const result = validateEdit(cellEdit.field, packValueOf(cellEdit));
         if ("error" in result) {
           toast.error(result.error);
           return;
@@ -711,8 +771,7 @@ export default function CatalogTreeEditor({
         break;
       case "Enter": {
         const prod = products.find(p => p.id === focused.id);
-        if (prod)
-          startEdit(prod.id, focused.field, fieldValue(prod, focused.field));
+        if (prod) startEdit(prod, focused.field);
         break;
       }
     }
@@ -833,7 +892,11 @@ export default function CatalogTreeEditor({
   // overwrite a real price.
   const commitEdit = async () => {
     if (!cellEdit || committingRef.current) return;
-    const { productId, field, value } = cellEdit;
+    const { productId, field } = cellEdit;
+    // A per-piece entry becomes the pack price HERE, before anything else sees
+    // it: validation, the no-op guard, the optimistic patch and the service
+    // call all operate on the stored unit, exactly as they did before.
+    const value = packValueOf(cellEdit);
     const prod = products.find(p => p.id === productId);
     if (!prod) {
       setCellEdit(null);
@@ -1652,7 +1715,7 @@ export default function CatalogTreeEditor({
                 <InlineInput {...editorProps} placeholder="Product name" />
               ) : (
                 <button
-                  onClick={() => startEdit(p.id, "name", p.name)}
+                  onClick={() => startEdit(p, "name")}
                   className="text-left w-full px-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
                   title="Click to edit"
                 >
@@ -1780,23 +1843,88 @@ export default function CatalogTreeEditor({
     {
       id: "price",
       accessorFn: p => p.price ?? null,
-      header: "Price",
+      // The header carries the entry mode because the cell is where the
+      // consequence lands: a bare "Price" box that silently multiplies by 480
+      // would be the worst possible surprise. Sortable headers wrap their
+      // content in a <button>, so this is a label, not a second toggle — the
+      // real control sits in the toolbar directly below.
+      header: () =>
+        priceMode === "piece" ? (
+          <span className="inline-flex items-baseline gap-1">
+            Price
+            <span className="text-[10px] font-semibold text-red-600 normal-case">
+              /pc
+            </span>
+          </span>
+        ) : (
+          <>Price</>
+        ),
       enableSorting: true,
       size: 108,
       minSize: 90,
       meta: {
+        // The header is a node now, so the Columns menu needs the plain label.
+        toggleLabel: "Price",
         cellClassName: (p: Product) =>
           `${isPriceOnEnquiry(p.price) && !editingHere(p.id, "price") ? RED_CELL : ""} ${focusRing(p.id, "price")}`,
       },
       cell: ({ row }) => {
         const p = row.original;
-        return editingHere(p.id, "price") ? (
-          <InlineInput {...editorProps} numeric placeholder="e.g. 4450" />
-        ) : (
+        if (editingHere(p.id, "price")) {
+          const divisor = cellEdit?.pieceDivisor;
+          const packPreview = divisor != null ? packValueOf(cellEdit!) : "";
+          const previewNum = Number(packPreview);
+          return (
+            <div className="relative">
+              <InlineInput
+                {...editorProps}
+                numeric
+                placeholder={divisor != null ? "e.g. 10.20" : "e.g. 4450"}
+              />
+              {/* Per-piece entry shows what it is about to store, live. The
+                  operator is typing one number and saving another; that has
+                  to be visible before Enter, not discovered afterwards. */}
+              {divisor != null ? (
+                <span className="block mt-0.5 text-[10px] leading-tight text-slate-500 whitespace-nowrap">
+                  {packPreview === "" ? (
+                    "/pc → pack price"
+                  ) : Number.isFinite(previewNum) ? (
+                    <>
+                      = ₹
+                      <strong className="font-semibold">
+                        {previewNum.toLocaleString()}
+                      </strong>
+                      /pack of {divisor}
+                    </>
+                  ) : (
+                    <span className="text-red-600">not a number</span>
+                  )}
+                </span>
+              ) : (
+                // Per-piece is on, but this row has no pack size to divide by,
+                // so it falls back to pack entry. Saying so beats a "/pc"
+                // column header quietly not applying to this one cell.
+                priceMode === "piece" && (
+                  <span className="block mt-0.5 text-[10px] leading-tight text-amber-700 whitespace-nowrap">
+                    per pack — no pack qty
+                  </span>
+                )
+              )}
+            </div>
+          );
+        }
+        // Read state always shows the stored pack price — the entry mode is an
+        // input transform, not a display one, and the per-piece figure has its
+        // own home in the Workbench readout and on the storefront.
+        return (
           <button
-            onClick={() => startEdit(p.id, "price", p.price)}
+            onClick={() => startEdit(p, "price")}
             className="text-left w-full"
-            title="Click to edit price"
+            title={
+              priceMode === "piece" && packDivisor(p.quantity_in_unit) != null
+                ? `Click to edit — enter a per-piece rate (pack of ${p.quantity_in_unit})`
+                : "Click to edit price"
+            }
           >
             {isPriceOnEnquiry(p.price) ? (
               <span className="text-amber-700 text-xs font-semibold">
@@ -1830,7 +1958,7 @@ export default function CatalogTreeEditor({
           <InlineInput {...editorProps} placeholder="Short description" />
         ) : (
           <button
-            onClick={() => startEdit(p.id, "description", p.description)}
+            onClick={() => startEdit(p, "description")}
             className="text-left w-full min-w-[180px]"
             title="Click to edit description"
           >
@@ -2061,6 +2189,98 @@ export default function CatalogTreeEditor({
     </div>
   );
 
+  // Price entry mode. Reads as a sentence rather than two icons because it
+  // changes the MEANING of a number the operator is about to type — the one
+  // control here that is worth spelling out.
+  const priceModeToggle = (
+    <div
+      role="group"
+      aria-label="Price entry unit"
+      title="Changes what you type. The stored price is always the price of one pack."
+      className="inline-flex items-center gap-1.5"
+    >
+      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+        Enter ₹
+      </span>
+      <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+        {(
+          [
+            { id: "pack", label: "Per pack" },
+            { id: "piece", label: "Per piece" },
+          ] as const
+        ).map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={priceMode === id}
+            onClick={() => setPriceMode(id)}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+              priceMode === id
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Fix-Missing quick chips + the price-entry toggle, handed to <DataTable>'s
+  // own toolbar row rather than rendered above it. That row already existed
+  // and held nothing but the density/Columns buttons on its right — reusing it
+  // saves a whole band of chrome at 1366x768, where every ~32px is a product
+  // row that would otherwise be below the fold.
+  const tableToolbarActions = (
+    <>
+      <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+          Fix
+        </span>
+        {QUICK_MISSING.map(f => {
+          const active = activeMissing === f;
+          const count = chipCounts[f] ?? 0;
+          return (
+            <button
+              key={f}
+              onClick={() => applyMissing(active ? null : f)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+                active
+                  ? "bg-red-600 border-red-600 text-white"
+                  : "bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600"
+              }`}
+            >
+              {ATTENTION_LABELS[f]}
+              <span
+                className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full px-1 text-[11px] font-semibold ${
+                  active
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+        {(activeMissing || statusFilter !== "all" || search) && (
+          <button
+            onClick={() => {
+              applyMissing(null);
+              setStatusFilter("all");
+              setSearchInput("");
+            }}
+            className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+      {priceModeToggle}
+    </>
+  );
+
   return (
     // Both modes are a flex column that claims the viewport (see the height
     // chain documented in CatalogWorkbench). Table mode joined them so the
@@ -2075,8 +2295,8 @@ export default function CatalogTreeEditor({
         workbenchMode
           ? "flex flex-col gap-3 flex-1 min-h-0"
           : lockHeight
-            ? "flex flex-col gap-2.5 flex-1 min-h-0"
-            : "space-y-2.5"
+            ? "flex flex-col gap-2 flex-1 min-h-0"
+            : "space-y-2"
       }
     >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -2137,15 +2357,19 @@ export default function CatalogTreeEditor({
           </DropdownMenu>
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center justify-between gap-3 flex-wrap flex-shrink-0">
           {/* One line, like Workbench mode: the strapline was costing ~40px
               above the fold on every load without telling the operator
-              anything they don't already know by the second visit. */}
-          <div className="flex items-center gap-2.5">
+              anything they don't already know by the second visit. The icon
+              and title match the Workbench header's size for the same
+              reason — every row here is a row of products lost at 768px. */}
+          <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-md bg-red-600 flex items-center justify-center flex-shrink-0">
               <FolderTree className="w-4 h-4 text-white" />
             </div>
-            <h1 className="text-lg font-bold text-slate-900">Catalog Editor</h1>
+            <h1 className="text-base font-bold text-slate-900">
+              Catalog Editor
+            </h1>
             <span className="text-xs text-slate-400">
               {totalCount.toLocaleString()} product
               {totalCount === 1 ? "" : "s"}
@@ -2164,7 +2388,7 @@ export default function CatalogTreeEditor({
           {/* ── Saved views ──────────────────────────────────────────────── */}
           {/* Presets over the status/missing filters above — one click to jump to
           a common view, Shopify-tab style. Not a new filter dimension. */}
-          <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+          <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto flex-shrink-0">
             {SAVED_VIEWS.map(v => {
               const active = isActiveView(v);
               return (
@@ -2172,7 +2396,7 @@ export default function CatalogTreeEditor({
                   key={v.id}
                   onClick={() => applyView(v)}
                   aria-current={active ? "true" : undefined}
-                  className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded-t ${
+                  className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded-t ${
                     active
                       ? "border-red-600 text-red-600"
                       : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-200"
@@ -2185,21 +2409,21 @@ export default function CatalogTreeEditor({
           </div>
 
           {/* ── Toolbar: search · status · missing · add ───────────────────────── */}
-          <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-sm flex-shrink-0">
             <div className="flex-1 min-w-[180px] relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <Input
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 placeholder="Search name or SKU…"
-                className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
+                className="pl-9 h-8 bg-slate-50 border-slate-200 text-sm"
               />
             </div>
             <Select
               value={statusFilter}
               onValueChange={v => setStatusFilter(v as AdminStatusFilter)}
             >
-              <SelectTrigger className="w-36 h-9 bg-slate-50 border-slate-200 text-sm">
+              <SelectTrigger className="w-32 h-8 data-[size=default]:h-8 bg-slate-50 border-slate-200 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2224,7 +2448,7 @@ export default function CatalogTreeEditor({
               }
             >
               <SelectTrigger
-                className={`w-40 h-9 border-slate-200 text-sm ${activeMissing && activeMissing !== "any" ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
+                className={`w-36 h-8 data-[size=default]:h-8 border-slate-200 text-sm ${activeMissing && activeMissing !== "any" ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold" : "bg-slate-50"}`}
               >
                 <SelectValue placeholder="Missing…" />
               </SelectTrigger>
@@ -2251,13 +2475,13 @@ export default function CatalogTreeEditor({
                   }
                 }}
                 placeholder="New product name…"
-                className="h-9 w-44 text-sm"
+                className="h-8 w-44 text-sm"
                 disabled={adding}
               />
               <button
                 onClick={handleAddProduct}
                 disabled={adding}
-                className="inline-flex items-center gap-1 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-sm font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-1"
+                className="inline-flex items-center gap-1 h-8 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 text-sm font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-1"
               >
                 {adding ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2268,51 +2492,6 @@ export default function CatalogTreeEditor({
               </button>
             </div>
           </div>
-
-          {/* ── Fix-Missing quick chips (with live counts) ─────────────────────── */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mr-0.5">
-              Fix
-            </span>
-            {QUICK_MISSING.map(f => {
-              const active = activeMissing === f;
-              const count = chipCounts[f] ?? 0;
-              return (
-                <button
-                  key={f}
-                  onClick={() => applyMissing(active ? null : f)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
-                    active
-                      ? "bg-red-600 border-red-600 text-white"
-                      : "bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600"
-                  }`}
-                >
-                  {ATTENTION_LABELS[f]}
-                  <span
-                    className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full px-1 text-[11px] font-semibold ${
-                      active
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-            {(activeMissing || statusFilter !== "all" || search) && (
-              <button
-                onClick={() => {
-                  applyMissing(null);
-                  setStatusFilter("all");
-                  setSearchInput("");
-                }}
-                className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 ml-1"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
         </>
       )}
 
@@ -2321,16 +2500,6 @@ export default function CatalogTreeEditor({
           table down — the same actions/handlers/icons as before, layout only.
           bottom-16 clears MobileAdminShell's 64px bottom tab bar below `md`;
           lg:left-[220px] clears AdminDashboard's static sidebar at that width. */}
-      {selectionCount > 0 && (
-        // flex-shrink-0: the root is a flex column now, and an empty div's
-        // automatic minimum is 0 — without this the spacer would collapse and
-        // the floating bar would cover the last rows again.
-        <div
-          style={{ height: bulkBarHeight }}
-          className="flex-shrink-0"
-          aria-hidden="true"
-        />
-      )}
       {selectionCount > 0 && (
         <div
           ref={bulkBarRef}
@@ -2672,6 +2841,8 @@ export default function CatalogTreeEditor({
               pageOffset={(page - 1) * PAGE_SIZE + 1}
               incompleteIds={incompleteIds}
               scopeTitle={scopeTitle}
+              priceMode={priceMode}
+              onPriceModeChange={setPriceMode}
               hasNextPage={page * PAGE_SIZE < totalCount}
               onRequestNextPage={() => setPage(p => p + 1)}
               onProductSaved={updated => {
@@ -2704,6 +2875,7 @@ export default function CatalogTreeEditor({
               // The table body scrolls, not the page — that's what pins the
               // column header. See DataTable's `fillHeight`.
               fillHeight={lockHeight}
+              toolbarActions={tableToolbarActions}
               persistKey="cat"
               onVisibleColumnsChange={setVisibleColIds}
               onDensityChange={setDensity}
@@ -2735,6 +2907,23 @@ export default function CatalogTreeEditor({
           )}
         </div>
       </div>
+
+      {/* Spacer for the fixed bulk bar above.
+          It belongs AFTER the panes, not before them: the root is a flex
+          column, so a spacer rendered above the two-pane row pushed the whole
+          table down by the bar's height the moment a row was ticked — ~120px
+          of dead space between the Fix chips and the table, which is exactly
+          the gap the bar is supposed to be reserving at the BOTTOM. Here it
+          shortens the panes instead, keeping the pagination footer clear.
+          flex-shrink-0 because an empty div's automatic minimum is 0 in a
+          flex column, and it would otherwise collapse to nothing. */}
+      {selectionCount > 0 && (
+        <div
+          style={{ height: bulkBarHeight }}
+          className="flex-shrink-0"
+          aria-hidden="true"
+        />
+      )}
 
       {/* Side-panel editor */}
       <CatalogProductPanel
