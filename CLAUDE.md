@@ -641,6 +641,47 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   `addToGallery` now reads `display_order` from a fresh fetch rather than `gallery`
   state, which is stale from the second file of a multi-drop onward.
 
+- **Dead space above the table + per-piece price entry (July 2026, PR-5):**
+  **The gap was the bulk-bar spacer, not the collapsed tree.** The floating bulk
+  bar is `fixed`, with a spacer of matching height reserving its space — but the
+  spacer was rendered _before_ the two-pane row in a flex column, so ticking one
+  checkbox inserted ~120px of blank page between the Fix chips and the table and
+  pushed every row down with it. (The collapsed rail was already `w-10` and
+  innocent; the reported repro had a row selected.) Moved after the panes, where
+  it shortens them from the bottom — which is where the bar actually is — and
+  keeps the pagination footer clear. **Table-mode chrome compacted** alongside
+  it, nothing removed: the Fix-Missing chips moved into `<DataTable>`'s own
+  toolbar row (which already existed and held nothing but the density/Columns
+  buttons on its right), saving a whole band; title row, saved-view tabs and the
+  search toolbar tightened (`h-9` → `h-8`, `py-2` → `py-1.5`); root gap
+  `2.5` → `2`. `<DataTable>` now only inserts its right-pushing spacer when the
+  consumer passes no `toolbarActions`. Verified live at 1366x768 (headless
+  Chrome, demo data + a temporary never-committed auth bypass), tree collapsed
+  and expanded, with and without a selection: no dead space above the toolbar,
+  first row and pagination footer both above the fold. Screenshots
+  `docs/screenshots/catalog-editor-fold-{tree-open,tree-collapsed,selected}.png`.
+- **Per-piece price entry (same PR):** new `lib/priceEntryMode.ts` + an
+  "Enter as: Per pack | Per piece" toggle (**default per piece**) in the
+  Workbench fields pane and in the Table toolbar, sharing one URL param
+  (`priceEntry`, no localStorage) so the mode persists across products, pages
+  and both modes. **This changes only what is TYPED.** `products.price` is
+  still the price of ONE SELLING UNIT in every path: a per-piece figure is
+  multiplied back up by `quantity_in_unit` before `validateEdit`, the no-op
+  guard, the optimistic patch or `productService.update` ever see it. No schema
+  column, no per-product or per-category pricing basis, no change to cart,
+  orders or the storefront. Blank still means On Enquiry (only via the
+  deliberate panel toggle — DE-01 stands), and junk is still passed through
+  verbatim so `validateEdit` refuses it rather than coercing. Pack qty missing
+  or 1 → per-piece is unavailable (disabled with a hint in the Workbench;
+  per-row fallback with a hint in the table, since it varies by row). Switching
+  modes converts the value in the box instead of wiping it; the Workbench keeps
+  both readouts visible with the derived side bolded, and the table's price
+  cell shows a live `= ₹N/pack of 480` preview under the input while editing
+  plus a `/pc` marker on the column header. One implementation note: the
+  displayed per-piece value is DERIVED from `formData.price` with a local
+  draft override, because a half-typed `10.` round-trips through `Number()` as
+  `10` — without the draft the decimal point can never be typed.
+
 ### Health System
 
 - `v_product_health` PostgreSQL view — single source of truth
