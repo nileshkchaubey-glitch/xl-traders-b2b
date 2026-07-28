@@ -89,11 +89,21 @@ the `--chart-*` and `--sidebar-*` ramps, etc.). Notable:
   rather than forced into it).
 - **Radii:** come from `--radius` (0.65rem) via `rounded-lg`/`rounded-xl`. Cards are
   typically `rounded-xl border border-slate-200`.
-- **Container:** `client/src/index.css`'s `.container` utility (responsive padding, caps at
-  1280px above 1024px) is now the single mechanism for page-width sections — storefront
-  pages previously hand-rolled `max-w-7xl mx-auto px-4 lg:px-8` inline in ~14 places; those
-  now all use `className="container"` instead. Use `.container` for any new full-width
-  section rather than reintroducing the inline pattern.
+- **Container:** `client/src/index.css`'s `.container` utility is the single mechanism for
+  page-width sections — storefront pages previously hand-rolled
+  `max-w-7xl mx-auto px-4 lg:px-8` inline in ~14 places; those now all use
+  `className="container"` instead. Use `.container` for any new full-width section rather
+  than reintroducing the inline pattern.
+
+  > **Discrepancy (found July 2026, not yet fixed).** This entry used to claim `.container`
+  > "caps at 1280px above 1024px". It does not. **Two `.container` rules ship**: ours in
+  > `@layer components`, and **Tailwind's own `container` utility**, which emits
+  > `max-width` at 40/48/64/80/96rem. Tailwind's rules win the cascade, so the effective
+  > caps are **640 / 768 / 1024 / 1280 / 1536px**. Two visible consequences: at a 1000px
+  > viewport the content is only **768px** wide, and above 1536px the container expands to
+  > **1536px** rather than staying at 1280px. Verified in the compiled CSS and live at
+  > 1000 / 1440 / 1920px. Deciding which cap we actually want (adopt Tailwind's, or disable
+  > its container and pin our own) is an open item — see `STYLE_REFERENCE.md` §5.
 
 > Still open: the token comment in `client/src/index.css` originally promised a brand color
 > ramp and WhatsApp colors "in a later pass" — those remain **not** in `@theme` yet; call
@@ -129,6 +139,23 @@ cartLinePrice(price)     // 0 for on-enquiry items, else the real price
 - Every render site and every save path funnels through this. On save, blank/0/negative
   coerces to `NULL` (`saveProductForm`, the Catalog Editor inline edit, quick-add, bulk
   import). Consolidated in `CLAUDE.md` under "Null-price safety."
+- **Colour:** the On-Enquiry state renders **amber** (§1.3), not slate. It was slate italic
+  on `ProductCard` until the PR-0 pass.
+
+### 1.7 Brand display rule (storefront)
+
+`brandLabel(brand)` / `realBrands(brands)` in
+[`client/src/lib/brandUtils.ts`](../client/src/lib/brandUtils.ts) are the single source of
+truth for "is this a real brand?".
+
+- **`'Generic'` is a null-brand placeholder, not a supplier.** It must never render as a
+  brand — product cards, product detail, the Home brand chips, or the marquee. Treated
+  exactly like `NULL`/empty.
+- This is a **presentation** rule. `productService.getBrands()` still returns the stored
+  value, so the admin PIM keeps seeing `Generic` as the data it is — filtering happens at
+  the render site.
+- Same shape as `priceUtils`: one rule, one module, every render site funnels through it.
+  See `STYLE_REFERENCE.md` §4.4.
 
 ---
 
@@ -152,7 +179,7 @@ Service modules that exist today (`client/src/lib/`):
 | `bulkImportService.ts` / `googleSheetsService.ts` | CSV / Google Sheets import (SKU upsert) |
 | `aiService.ts` | AI Smart Paste / description (browser-side API key — see Known Issues) |
 | `templateService.ts` | Import template generation |
-| Support libs | `catalogHealth.ts` (colors/labels only), `priceUtils.ts`, `imageUtils.ts`, `productForm.ts`, `demoData.ts`, `utils.ts`, `supabase.ts` |
+| Support libs | `catalogHealth.ts` (colors/labels only), `priceUtils.ts`, `brandUtils.ts`, `imageUtils.ts`, `productForm.ts`, `demoData.ts`, `utils.ts`, `supabase.ts` |
 | Stores | `authStore.ts` (`useAuthStore`), `stores/cartStore.ts` |
 
 > **Known discrepancy (flagged, not hidden):** `CLAUDE.md` Rule #1 states "components never

@@ -7,6 +7,7 @@ import { useCartStore } from "@/stores/cartStore";
 import { ImagePlaceholder } from "./ImagePlaceholder";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry, cartLinePrice } from "@/lib/priceUtils";
+import { brandLabel } from "@/lib/brandUtils";
 import { toast } from "sonner";
 
 interface ProductCardProps {
@@ -129,7 +130,23 @@ export default function ProductCard({
     }
   };
 
-  const brandLine = [product.brand, product.unit_of_measure]
+  // Brand only — unit_of_measure used to be appended here, which rendered as
+  // "Fortune Petpack · pcs". The unit is not brand information; pack size now
+  // lives in the spec line below. 'Generic' is a null-brand placeholder and is
+  // suppressed by brandLabel (docs/STYLE_REFERENCE.md §4.4).
+  const brandLine = brandLabel(product.brand);
+
+  // Permanent spec line (docs/STYLE_REFERENCE.md §3.1 #7, §2.2-B2). Our SKUs
+  // look alike — black containers, white cups — so pack size + MOQ is the card's
+  // primary differentiator, not decoration. It renders in every auth state:
+  // signed-out visitors never see the price block's detail, so without this they
+  // get no pack or MOQ information at all. Never truncated.
+  // quantity_in_unit counts PIECES inside one selling unit, so "pcs" is literal
+  // here and is not unit_of_measure (CLAUDE.md, unit-of-sale canonical rule).
+  const specLine = [
+    product.quantity_in_unit ? `${product.quantity_in_unit} pcs/pack` : null,
+    product.moq ? `MOQ ${product.moq}` : null,
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -141,9 +158,9 @@ export default function ProductCard({
             ₹{product.price!.toLocaleString()}
           </span>
           {product.quantity_in_unit ? (
-            <span className="text-caption text-slate-500">
-              / pack of {product.quantity_in_unit}
-            </span>
+            // Just "/pack" — the spec line above already states the pack size,
+            // so "/ pack of 480" would repeat it two lines apart.
+            <span className="text-caption text-slate-500">/pack</span>
           ) : (
             product.unit_of_measure && (
               <span className="text-caption text-slate-500">
@@ -152,22 +169,21 @@ export default function ProductCard({
             )
           )}
         </div>
-        <div className="text-caption text-slate-500">
-          {product.quantity_in_unit && product.quantity_in_unit > 1
-            ? `₹${(Math.round((product.price! / product.quantity_in_unit) * 100) / 100).toLocaleString()}/pc · `
-            : ""}
-          {product.moq ? `MOQ ${product.moq}` : "No minimum"}
-        </div>
+        {/* Per-piece stays derived, never stored, and keeps its divisor guard
+            so a missing/1 quantity_in_unit can't print a bogus rate. MOQ moved
+            up to the spec line, where signed-out visitors can see it too. */}
+        {product.quantity_in_unit && product.quantity_in_unit > 1 && (
+          <div className="text-caption text-slate-500">
+            {`₹${(Math.round((product.price! / product.quantity_in_unit) * 100) / 100).toLocaleString()}/pc`}
+          </div>
+        )}
       </>
     ) : (
-      <>
-        <div className="text-body-sm font-bold text-slate-600 italic">
-          Price on enquiry
-        </div>
-        <div className="text-caption text-slate-500">
-          {product.moq ? `MOQ ${product.moq}` : "Ask for best rate"}
-        </div>
-      </>
+      // Amber is the documented On-Enquiry colour (docs/DESIGN_SYSTEM.md §1.3,
+      // STYLE_REFERENCE §3.1) — this rendered slate italic before.
+      <div className="text-body-sm font-bold text-amber-700">
+        Price on enquiry
+      </div>
     )
   ) : (
     <>
@@ -268,6 +284,9 @@ export default function ProductCard({
               {product.name}
             </h3>
           </Link>
+          {specLine && (
+            <div className="text-caption text-slate-600 mt-1">{specLine}</div>
+          )}
           <div className="mt-1.5">{priceBlock}</div>
           <div className="mt-auto pt-2.5 max-w-[220px]">{cartControls}</div>
         </div>
@@ -299,6 +318,9 @@ export default function ProductCard({
             {product.name}
           </h3>
         </Link>
+        {specLine && (
+          <div className="text-caption text-slate-600 mt-1">{specLine}</div>
+        )}
         <div className="mt-1.5 mb-2.5">{priceBlock}</div>
         {cartControls}
       </div>

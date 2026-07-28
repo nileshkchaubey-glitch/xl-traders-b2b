@@ -23,6 +23,7 @@ import {
 import { productService } from "@/lib/productService";
 import { useAuthStore } from "@/lib/authStore";
 import { settingsService, FALLBACKS } from "@/lib/settingsService";
+import { realBrands } from "@/lib/brandUtils";
 
 // Shared scroll-reveal: sections fade up once as they enter the viewport.
 // Skips the y-translate (opacity-only) when the visitor prefers reduced
@@ -57,8 +58,12 @@ export default function Home() {
 
   useEffect(() => {
     productService
+      // realBrands drops the 'Generic' null-brand placeholder before it can
+      // render as a supplier we stock — in the brand chips below and in the
+      // marquee, which both read this one piece of state
+      // (docs/STYLE_REFERENCE.md §2.4 item 4, §4.4).
       .getBrands()
-      .then(b => setBrands(b.slice(0, 10)))
+      .then(b => setBrands(realBrands(b).slice(0, 10)))
       .catch(() => {});
 
     settingsService
