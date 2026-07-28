@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
+import BrandCombobox from "@/components/admin/BrandCombobox";
 import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
 import ProductMediaSection from "@/components/admin/products/ProductMediaSection";
 import { confirm } from "@/components/ui/confirm-dialog";
@@ -37,7 +38,8 @@ import {
   formatPerPiece,
 } from "@/lib/priceEntryMode";
 import { usePriceEntry } from "@/hooks/usePriceEntry";
-import { Category, Product } from "@/lib/supabase";
+import { Brand, Category, Product } from "@/lib/supabase";
+import { brandsService } from "@/lib/brandsService";
 import { ParsedProduct } from "@/lib/aiService";
 
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
@@ -119,6 +121,19 @@ export default function CatalogProductPanel({
   const [metaDescription, setMetaDescription] = useState("");
   const [specs, setSpecs] = useState<SpecRow[]>([]);
   const [aiOpen, setAiOpen] = useState(false);
+
+  // Full admin brand list (active + inactive) for the Brand picker — inactive
+  // brands are needed so a product pointing at one still resolves to its name.
+  // Loaded once when the panel first opens, not per product.
+  const [brands, setBrands] = useState<Brand[]>([]);
+  useEffect(() => {
+    if (!open || brands.length) return;
+    brandsService
+      .getAllAdmin()
+      .then(setBrands)
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Load form + extras whenever a different product opens (keyed on id).
   useEffect(() => {
@@ -217,7 +232,17 @@ export default function CatalogProductPanel({
       updateForm("unit_of_measure", data.unit_of_measure);
     if (data.quantity_in_unit != null)
       updateForm("quantity_in_unit", String(data.quantity_in_unit));
-    if (data.brand) updateForm("brand", data.brand);
+    if (data.brand) {
+      // Keep the brand_id ↔ brand-text pair consistent: resolve the pasted
+      // name against known brands (case-insensitive). No match → text is kept
+      // for the operator to see, but brand_id clears so the stale link from a
+      // previously assigned brand can't be silently dual-written back.
+      const match = brands.find(
+        b => b.name.toLowerCase() === data.brand!.trim().toLowerCase()
+      );
+      updateForm("brand", data.brand);
+      updateForm("brand_id", match?.id ?? "");
+    }
     if (data.description) updateForm("description", data.description);
     if (data.category_name) {
       const match = categories.find(
@@ -328,6 +353,25 @@ export default function CatalogProductPanel({
                   value={formData.category_id}
                   onChange={v => updateForm("category_id", v)}
                   placeholder="Uncategorized"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Brand</Label>
+                <BrandCombobox
+                  brands={brands}
+                  value={formData.brand_id}
+                  onChange={id => {
+                    // Dual-write source: picking a brand syncs the legacy text
+                    // column to the brand's name; "No brand" clears it to ''
+                    // (the text column's sentinel). saveProductForm persists
+                    // both together.
+                    updateForm("brand_id", id);
+                    updateForm(
+                      "brand",
+                      id ? (brands.find(b => b.id === id)?.name ?? "") : ""
+                    );
+                  }}
                   className="h-9"
                 />
               </div>

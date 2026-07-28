@@ -16,6 +16,9 @@ export const EMPTY_PRODUCT_FORM = {
   quantity_in_unit: "",
   discount_percent: "0",
   brand: "",
+  // Canonical brand link ("" = no brand — form fields are strings). The panel's
+  // BrandCombobox keeps `brand` (text) in sync with this; save writes both.
+  brand_id: "",
   is_active: true,
   is_featured: false,
   sku: "",
@@ -40,6 +43,7 @@ export function productToForm(product: Product): ProductForm {
     quantity_in_unit: product.quantity_in_unit?.toString() || "",
     discount_percent: (product.discount_percent || 0).toString(),
     brand: product.brand || "",
+    brand_id: product.brand_id || "",
     is_active: product.is_active,
     is_featured: product.is_featured || false,
     sku: product.sku || "",
@@ -94,7 +98,13 @@ export async function saveProductForm(
       ? parseInt(formData.quantity_in_unit)
       : undefined,
     discount_percent: parseInt(formData.discount_percent) || 0,
-    brand: formData.brand.trim() || undefined,
+    // PIM P1 dual-write: brand_id is canonical; the legacy text column is
+    // written in the same save so health/storefront/getBrands stay consistent
+    // during the transition. '' (not NULL) is the text column's "no brand"
+    // sentinel. Note this replaces the old `|| undefined` mapping, under which
+    // clearing the brand field never actually persisted.
+    brand_id: formData.brand_id || null,
+    brand: formData.brand.trim(),
     is_active: formData.is_active,
     is_featured: formData.is_featured,
     sku: formData.sku.trim() || undefined,

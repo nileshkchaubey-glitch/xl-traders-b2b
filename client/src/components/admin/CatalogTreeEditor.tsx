@@ -79,7 +79,9 @@ import {
 import { DataTable, DataTableDensity } from "@/components/ui/DataTable";
 import { confirm } from "@/components/ui/confirm-dialog";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
-import { Category, Product, ProductStatus } from "@/lib/supabase";
+import BrandCombobox from "@/components/admin/BrandCombobox";
+import { Brand, Category, Product, ProductStatus } from "@/lib/supabase";
+import { brandsService } from "@/lib/brandsService";
 import {
   productService,
   categoryService,
@@ -192,8 +194,15 @@ const SAVED_VIEWS: SavedView[] = [
 
 // Fields a reversible bulk action can snapshot + restore for Undo. "status" is
 // a synthetic key (bulkSetStatus, not bulkUpdateField) alongside the real
-// BulkEditableField columns.
-type UndoField = BulkEditableField | "status";
+// BulkEditableField columns. "brand_pair" is likewise synthetic: the PIM P1
+// dual-write sets brand_id AND the legacy brand text in one update
+// (bulkSetBrand), so its snapshot/restore must carry both columns together —
+// restoring either alone would desync the pair.
+type UndoField = BulkEditableField | "status" | "brand_pair";
+interface BrandPairValue {
+  brand_id: string | null;
+  brand: string;
+}
 // Beyond this many targeted ids, skip the pre-write snapshot (and thus the
 // Undo offer) — the action still runs normally, just without the safety net,
 // bounding the extra read + in-memory snapshot to a sane size.
@@ -519,8 +528,20 @@ export default function CatalogTreeEditor({
   const [selectAllMatching, setSelectAllMatching] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   // Bulk field-setters (brand/MOQ) + the N/A dialog — same behavior as AdminProducts.
-  const [bulkBrand, setBulkBrand] = useState("");
+  // bulkBrandId: "" = nothing picked yet; "none" = the explicit "No brand"
+  // choice (distinct so an untouched picker can't accidentally clear brands).
+  const [bulkBrandId, setBulkBrandId] = useState("");
   const [bulkMoq, setBulkMoq] = useState("");
+  // Brand list for the bulk picker + the (hidden-by-default) Brand column.
+  const [brands, setBrands] = useState<Brand[]>([]);
+  useEffect(() => {
+    brandsService
+      .getAllAdmin()
+      .then(setBrands)
+      .catch(() => {});
+  }, []);
+  // PIM P1 assignment filter — canonical definition: brand_id IS NULL.
+  const [unbrandedOnly, setUnbrandedOnly] = useState(false);
   const [naDialogOpen, setNaDialogOpen] = useState(false);
   const [naSelected, setNaSelected] = useState<string[]>([]);
   // Bumped after a one-shot "Set unit" so the Select remounts back to its
@@ -617,6 +638,7 @@ export default function CatalogTreeEditor({
         categoryIds: scopedCategoryIds,
         ids,
         status: statusFilter,
+        unbranded: unbrandedOnly || undefined,
         search: search || undefined,
         sortField: sort ? SORT_FIELD[sort.id] : undefined,
         sortAscending: sort ? !sort.desc : undefined,
@@ -630,7 +652,15 @@ export default function CatalogTreeEditor({
     } finally {
       setLoading(false);
     }
-  }, [page, scopedCategoryIds, activeMissing, statusFilter, search, sorting]);
+  }, [
+    page,
+    scopedCategoryIds,
+    activeMissing,
+    statusFilter,
+    unbrandedOnly,
+    search,
+    sorting,
+  ]);
 
   // Side-panel editor — holds the product being edited (null = closed).
   const [panelProduct, setPanelProduct] = useState<Product | null>(null);
@@ -1048,6 +1078,7 @@ export default function CatalogTreeEditor({
       categoryIds: scopedCategoryIds,
       ids,
       status: statusFilter,
+      unbranded: unbrandedOnly || undefined,
       search: search || undefined,
     });
   };
@@ -1069,7 +1100,13 @@ export default function CatalogTreeEditor({
       });
       return data.map(p => ({
         id: p.id,
-        prevValue: (p as unknown as Record<string, unknown>)[field],
+        prevValue:
+          field === "brand_pair"
+            ? ({
+                brand_id: p.brand_id ?? null,
+                brand: p.brand ?? "",
+              } satisfies BrandPairValue)
+            : (p as unknown as Record<string, unknown>)[field],
       }));
     } catch {
       return null;
@@ -1097,6 +1134,9 @@ export default function CatalogTreeEditor({
       for (const g of groupByPrevValue(snap)) {
         if (field === "status") {
           await productService.bulkSetStatus(g.ids, g.value as ProductStatus);
+        } else if (field === "brand_pair") {
+          const pair = g.value as BrandPairValue;
+          await productService.bulkSetBrand(g.ids, pair.brand_id, pair.brand);
         } else {
           await productService.bulkUpdateField(
             g.ids,
@@ -1203,18 +1243,34 @@ export default function CatalogTreeEditor({
     );
 
   // ── Bulk field setters (same service methods AdminProducts uses) ───────────────
+  // PIM P1: brand is now picked from the brands table (BrandCombobox), not
+  // typed free-text, and writes brand_id + the legacy text column together
+  // (bulkSetBrand). Undo restores both via the "brand_pair" snapshot.
   const doSetBrand = async () => {
-    const value = bulkBrand.trim();
-    if (!value) {
-      toast.error("Enter a brand first");
+    if (!bulkBrandId) {
+      toast.error("Pick a brand first");
+      return;
+    }
+    const clearing = bulkBrandId === "none";
+    const brand = clearing ? null : brands.find(b => b.id === bulkBrandId);
+    if (!clearing && !brand) {
+      toast.error("Pick a brand first");
       return;
     }
     const ok = await runBulk(
-      n => `Set brand to "${value}" for ${n} products?`,
-      ids => productService.bulkUpdateField(ids, "brand", value),
-      { undoField: "brand" }
+      n =>
+        clearing
+          ? `Clear brand on ${n} product${n === 1 ? "" : "s"}?`
+          : `Set brand to "${brand!.name}" for ${n} product${n === 1 ? "" : "s"}?`,
+      ids =>
+        productService.bulkSetBrand(
+          ids,
+          clearing ? null : brand!.id,
+          clearing ? "" : brand!.name
+        ),
+      { undoField: "brand_pair" }
     );
-    if (ok) setBulkBrand("");
+    if (ok) setBulkBrandId("");
   };
 
   const doSetMoq = async () => {
@@ -1484,6 +1540,7 @@ export default function CatalogTreeEditor({
       scopedCategoryIds ?? "all",
       activeMissing,
       statusFilter,
+      unbrandedOnly,
       search,
       sorting,
     ]);
@@ -1497,7 +1554,15 @@ export default function CatalogTreeEditor({
     }
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedCategoryIds, activeMissing, statusFilter, search, sorting, page]);
+  }, [
+    scopedCategoryIds,
+    activeMissing,
+    statusFilter,
+    unbrandedOnly,
+    search,
+    sorting,
+    page,
+  ]);
 
   // ── Tree derived helpers ─────────────────────────────────────────────────────
   const groupCount = (g: TreeGroup) =>
@@ -1553,6 +1618,7 @@ export default function CatalogTreeEditor({
   const hasActiveFilters = !!(
     activeMissing ||
     statusFilter !== "all" ||
+    unbrandedOnly ||
     search
   );
   const emptyState =
@@ -1583,6 +1649,7 @@ export default function CatalogTreeEditor({
             onClick={() => {
               applyMissing(null);
               setStatusFilter("all");
+              setUnbrandedOnly(false);
               setSearchInput("");
             }}
             className="text-xs text-red-600 hover:text-red-700 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded"
@@ -1821,6 +1888,38 @@ export default function CatalogTreeEditor({
           {categoryById.get(row.original.category_id)?.group_name ?? "—"}
         </span>
       ),
+    },
+    {
+      id: "brand",
+      header: "Brand",
+      enableSorting: false,
+      size: 130,
+      minSize: 100,
+      meta: { defaultHidden: true },
+      cell: ({ row }) => {
+        const p = row.original;
+        // brand_id is canonical; a text-only value (legacy, no id link — e.g.
+        // 'Generic') is shown amber so unmigrated rows are visible at a glance.
+        const linked = p.brand_id
+          ? brands.find(b => b.id === p.brand_id)
+          : null;
+        if (linked)
+          return (
+            <span className="text-xs text-slate-600">
+              {linked.name}
+              {!linked.is_active && (
+                <span className="text-slate-400"> (inactive)</span>
+              )}
+            </span>
+          );
+        return p.brand ? (
+          <span className="text-xs text-amber-700" title="Text only — no brand link">
+            {p.brand}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">—</span>
+        );
+      },
     },
     {
       id: "unit",
@@ -2320,11 +2419,15 @@ export default function CatalogTreeEditor({
             </button>
           );
         })}
-        {(activeMissing || statusFilter !== "all" || search) && (
+        {(activeMissing ||
+          statusFilter !== "all" ||
+          unbrandedOnly ||
+          search) && (
           <button
             onClick={() => {
               applyMissing(null);
               setStatusFilter("all");
+              setUnbrandedOnly(false);
               setSearchInput("");
             }}
             className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2"
@@ -2517,6 +2620,22 @@ export default function CatalogTreeEditor({
                 ))}
               </SelectContent>
             </Select>
+            {/* PIM P1 assignment filter. Deliberately separate from Missing…
+            (which is v_product_health over the legacy text column): this is
+            the canonical brand_id IS NULL, the set that actually needs
+            assignment work. Toggle chip, ANDs with every other filter. */}
+            <button
+              type="button"
+              onClick={() => setUnbrandedOnly(v => !v)}
+              className={`h-8 px-3 rounded-md border text-sm font-medium transition ${
+                unbrandedOnly
+                  ? "bg-amber-50 border-amber-200 text-amber-800 font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
+              }`}
+              aria-pressed={unbrandedOnly}
+            >
+              Unbranded
+            </button>
             <div className="flex-1" />
             {/* Quick add — name auto-focused, saves as draft */}
             <div className="flex items-center gap-1">
@@ -2602,18 +2721,21 @@ export default function CatalogTreeEditor({
           {/* Actions — each confirms with the exact target count before writing */}
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
             <div className="flex items-center gap-1">
-              <Input
-                value={bulkBrand}
-                onChange={e => setBulkBrand(e.target.value)}
-                placeholder="Brand…"
-                className="h-8 w-28 text-sm"
-                disabled={bulkBusy}
+              <BrandCombobox
+                brands={brands}
+                value={bulkBrandId === "none" ? "" : bulkBrandId}
+                onChange={id => setBulkBrandId(id === "" ? "none" : id)}
+                // "" doubles as untouched AND the explicit No-brand choice in
+                // the underlying picker, so reflect which one this is.
+                placeholder={bulkBrandId === "none" ? "No brand" : "Brand…"}
+                className="h-8 w-36 text-xs"
+                openOnFocus={false}
               />
               <Button
                 size="sm"
                 variant="outline"
                 className="h-8 text-xs"
-                disabled={bulkBusy}
+                disabled={bulkBusy || !bulkBrandId}
                 onClick={doSetBrand}
               >
                 Set

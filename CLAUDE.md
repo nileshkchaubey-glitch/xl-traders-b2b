@@ -767,6 +767,27 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   draft override, because a half-typed `10.` round-trips through `Number()` as
   `10` — without the draft the decimal point can never be typed.
 
+- **PIM P1 — Brands (July 2026):** first-class brand entity. Schema (owner-run, verified):
+  `public.brands` (name/slug UNIQUE, certifications text[], is_active, sort_order; RLS:
+  admin-manage + anon/auth read-active) and `products.brand_id` FK (ON DELETE SET NULL),
+  backfilled. App: `lib/brandsService.ts` (categoryService-pattern: safe-fallback reads,
+  throwing writes, `getProductCounts`, soft-delete `setActive`; `isUniqueViolation` for
+  inline 23505); **Brands manager tab** in `/admin` (Catalogue group, mobile via "More") —
+  list + counts + active switch + create/edit dialog (slug auto-derives until hand-edited;
+  duplicate name/slug shows an inline field error, never a raw toast); **`BrandCombobox`**
+  (CategoryCombobox clone + explicit "No brand" entry + "(inactive)" suffix for values
+  pointing at deactivated brands) wired into `CatalogProductPanel` Basic; **bulk "Set
+  brand"** in the Catalog Editor (replaces the free-text input) via new
+  `productService.bulkSetBrand` with a paired-snapshot Undo (`brand_pair` — restoring
+  brand_id or text alone would desync them); **Unbranded toolbar filter**
+  (`brand_id IS NULL`, additive `unbranded` param on `getAllAdmin`/`getAdminMatchingIds`)
+  and a hidden-by-default **Brand column** (amber "text only" marker for unmigrated rows).
+  **Dual-write everywhere** (brand_id + legacy text in one update; "No brand" = NULL + '');
+  free-text brand edits in the route editor clear `brand_id` so a stale link can't rebind;
+  AI Paste resolves pasted brand names against the brands table. `products.brand` is
+  retained deliberately until after storefront PR-2 (separate owner-run drop). Logo upload
+  deferred to P4 (`logo_url` is plain text for now).
+
 ### Health System
 
 - `v_product_health` PostgreSQL view — single source of truth
@@ -788,19 +809,34 @@ sticky-right-many-cols,flex-cap-1920}.png`.
 
 ## 🗺️ Roadmap (next, in order)
 
-0. **Phase 2 — PIM Image Management & QC** (planned, grounded in 2026-06-25 Supabase audit). No new tables.
-   - **Prereqs (you, via SQL Editor — not the agent):** standardize 4 canonical `group_name` values
-     (`Disposal & Food Packaging`, `Decoration`, `Cleaning`, `Packaging`); confirm `product-images`
-     bucket public-read.
-   - **A. SKU upload pipeline:** `autoResizeImage` gains a webp option; `isOwnImage(url)` host check;
-     `storageService.uploadBySku` → `products/{SKU}/{SKU}.webp` (+ `_NN` for gallery), `upsert:true`,
-     id-fallback when SKU null; `productImageService.assignOwnImage`.
-   - **B. Image QC grid mode:** new `ProductsQCGrid` reusing AdminProducts' data/filters/selection (no fork);
-     OWN / PLACEHOLDER / MISSING badge, group›category breadcrumb, draft/published toggle; `viewMode`
-     toggle swaps table↔grid; Replace-image reuses the existing `AdminImageGallery` dialog with an
-     "Upload own image" button; server-side "needs own image" filter ANDs with existing filters.
-   - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
-     shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.)
+0. **PIM — phase order (authoritative):** `P1 brands (current) → P2 series → P3 spec fields → P4 images`.
+   Work in exactly this sequence; do not reorder or merge phases.
+   - **P1 — brands (in progress).** First-class `public.brands` entity (table + RLS + seed +
+     `products.brand_id` FK + backfill already applied by the owner via SQL Editor).
+     App side: `lib/brandsService.ts`, Brands manager tab in `/admin` (Catalogue group),
+     `BrandCombobox` picker in `CatalogProductPanel`, bulk "Set brand", `brand_id IS NULL`
+     admin filter + hidden Brand column. **Dual-write transition (expand → migrate →
+     contract):** every brand assign writes `brand_id` AND the legacy `products.brand` text
+     in the same update ("No brand" = `brand_id NULL` + `brand ''`); the text column is
+     retained deliberately and dropped only after storefront PR-2, in a separate owner-run
+     migration. Canonical rule: **unbranded == `brand_id IS NULL`.**
+   - **P2 — series.** (scoped later)
+   - **P3 — spec fields.** (scoped later)
+   - **P4 — images** (formerly "Phase 2 — PIM Image Management & QC", planned, grounded in the
+     2026-06-25 Supabase audit; detail preserved verbatim below). No new tables.
+     - **Prereqs (you, via SQL Editor — not the agent):** standardize 4 canonical `group_name` values
+       (`Disposal & Food Packaging`, `Decoration`, `Cleaning`, `Packaging`); confirm `product-images`
+       bucket public-read.
+     - **A. SKU upload pipeline:** `autoResizeImage` gains a webp option; `isOwnImage(url)` host check;
+       `storageService.uploadBySku` → `products/{SKU}/{SKU}.webp` (+ `_NN` for gallery), `upsert:true`,
+       id-fallback when SKU null; `productImageService.assignOwnImage`.
+     - **B. Image QC grid mode:** new `ProductsQCGrid` reusing AdminProducts' data/filters/selection (no fork);
+       OWN / PLACEHOLDER / MISSING badge, group›category breadcrumb, draft/published toggle; `viewMode`
+       toggle swaps table↔grid; Replace-image reuses the existing `AdminImageGallery` dialog with an
+       "Upload own image" button; server-side "needs own image" filter ANDs with existing filters.
+     - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
+       shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.)
+     - Brand logo upload also lands here (P1 ships `logo_url` as plain text only).
 0b. **Storefront rebuild — phase order (authoritative).** Work the storefront in exactly this
    sequence; do not reorder or merge phases. Composition guidance for each lives in
    [`docs/STYLE_REFERENCE.md`](docs/STYLE_REFERENCE.md).

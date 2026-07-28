@@ -14,6 +14,7 @@ import AdminSiteContent from "@/components/admin/AdminSiteContent";
 import AdminOrders from "@/components/admin/AdminOrders";
 import AdminSEO from "@/components/admin/AdminSEO";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
+import AdminBrands from "@/components/admin/AdminBrands";
 import CatalogTreeEditor from "@/components/admin/CatalogTreeEditor";
 import { AttentionFilter, isMissingFilter } from "@/lib/catalogHealth";
 import { categoryService } from "@/lib/productService";
@@ -168,6 +169,8 @@ export default function AdminDashboard() {
           refreshCategories={refreshCategories}
         />
       )}
+
+      {activeTab === "brands" && <AdminBrands />}
 
       {activeTab === "enquiries" && <AdminEnquiries />}
       {activeTab === "seo" && <AdminSEO />}

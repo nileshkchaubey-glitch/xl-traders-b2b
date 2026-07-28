@@ -20,6 +20,24 @@ export interface Category {
   updated_at: string;
 }
 
+// PIM P1: first-class brand entity (public.brands). products.brand_id is the
+// canonical link; the legacy products.brand TEXT column is dual-written during
+// the transition (expand → migrate → contract) and will be dropped in a later
+// PR, after the storefront reads brand_id.
+export interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url?: string | null;
+  website?: string | null;
+  description?: string | null;
+  certifications: string[];
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // Publish gate — a product is only visible on the storefront when
 // status === 'published' AND is_active === true. New products default to draft.
 export type ProductStatus = "draft" | "published";
@@ -37,7 +55,12 @@ export interface Product {
   sku?: string;
   barcode?: string;
   moq?: number;
+  // Legacy free-text brand. Dual-written alongside brand_id during the PIM P1
+  // transition; '' (the column default) and NULL both mean "no brand".
   brand?: string;
+  // Canonical brand link (FK → brands.id, ON DELETE SET NULL).
+  // Unbranded == brand_id IS NULL.
+  brand_id?: string | null;
   discount_percent?: number;
   image_url?: string | null;
   image_alt_text?: string;
