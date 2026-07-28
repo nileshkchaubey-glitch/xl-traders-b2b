@@ -24,6 +24,26 @@ reference apps. We are not reproducing any other company's visual identity — n
 illustrations, color palettes, brand voice, or photography. XL Traders' own tokens (red `#DC2626`,
 green `#16A34A`, slate) stay unchanged.
 
+### Phase order (authoritative)
+
+Work the storefront in exactly this sequence. Do not reorder or merge phases. `CLAUDE.md`
+§Roadmap 0b carries the same list — keep the two in sync.
+
+```
+PR-0 bugs → A-1 asset audit → PR-1 trust/hero → PR-2 card
+  → PR-3 category tiles → PR-4 mobile shell → PR-5 order again
+```
+
+| Phase | Owns | Sections |
+|---|---|---|
+| **PR-0** ✅ shipped | The four anti-patterns live in our own build | §2.4 #1–#4 |
+| **A-1** | Asset audit — bucket, path convention, `product_images` scope. Gates every later visual phase | §4.2 |
+| **PR-1** | Trust de-duplication + hero, incl. delivery promise | §2.4 #5, §2.1-A6 |
+| **PR-2** | **`toCardModel` + the spec line**, then the rest of the card spec | §4.1, §3.1 |
+| **PR-3** | Category tiles, incl. **product counts** | §3.2, §2.2-B1 |
+| **PR-4** | Mobile shell — sticky cart, mobile category grid | §2.1-A4, §5 |
+| **PR-5** | Order again | §2.3 |
+
 ---
 
 ## 1. Reference set
@@ -130,7 +150,7 @@ Fix these before layering anything new on top.
    centrally by `brandLabel()` (§4.4) across product cards, product detail, the Home brand chips and
    the marquee.
 5. **Trust content repeated 4×** — trust row, marquee, stats block, GST/pricing/quality cards.
-   **STILL OPEN.** Not addressed in PR-0.
+   **STILL OPEN → PR-1 (trust/hero).** Not addressed in PR-0.
 
 ---
 
@@ -153,8 +173,9 @@ Fix these before layering anything new on top.
 > `stock_status` belongs to a different schema and is omitted. Do not reintroduce it without a
 > schema change (owner-run SQL).
 
-> **Not yet built:** items 1–2 (image proportion, action overlapping the image bottom-right) and the
-> mono/green-badge treatment on 3 and 6. PR-0 shipped items 3, 4, 5 and the On-Enquiry colour only.
+> **Not yet built → PR-2 (card):** items 1–2 (image proportion, action overlapping the image
+> bottom-right) and the mono/green-badge treatment on 3 and 6. PR-0 shipped items 3, 4, 5 and the
+> On-Enquiry colour only; PR-2 completes the rest alongside `toCardModel` (§4.1).
 
 **Hard rules**
 - `price === null || price === 0` → render **"On enquiry"** in amber. **Never `₹0`.** Never a
@@ -175,11 +196,11 @@ Fix these before layering anything new on top.
 
 **Never** composite multiple images. **Never** render a tile with count 0.
 
-> **Product count is backlog, not shipped.** `productService.countPublished()` already exists and
-> accepts `categoryId` / `categoryIds`, but it is per-category — 25 calls for one Home render. A
-> grouped variant (one published+active query returning `Record<categoryId, number>`) is needed
-> first, which is a **service addition** and therefore outside a presentation-only PR. Until it
-> lands, the "never render a count of 0" half of §2.2-B1 cannot be enforced either; `Bouffant Cap`
+> **Product count → PR-3 (category tiles).** Not shipped. `productService.countPublished()` already
+> exists and accepts `categoryId` / `categoryIds`, but it is per-category — 25 calls for one Home
+> render. A grouped variant (one published+active query returning `Record<categoryId, number>`) is
+> needed first, which is a **service addition** and therefore outside a presentation-only PR. Until
+> it lands, the "never render a count of 0" half of §2.2-B1 cannot be enforced either; `Bouffant Cap`
 > and `Gloves` are the likely zero-count candidates.
 
 ---
@@ -214,10 +235,11 @@ type ProductCardModel = {
 **Why a mapper and not inline logic:** the On-Enquiry rule and the per-piece formula must exist in
 **exactly one place**. One pure function is also unit-testable without a DB.
 
-> **Status:** the full mapper is **not built**. PR-0 shipped only the brand half of it as
-> `client/src/lib/brandUtils.ts` (`brandLabel`, `realBrands`), because that rule alone had four
-> divergent call sites. Fold it into `toCardModel.ts` when that lands. The price rule already lives
-> in one place — `lib/priceUtils.ts`.
+> **Status: `toCardModel` is PR-2 (card).** The full mapper is **not built**. PR-0 shipped only the
+> brand half of it as `client/src/lib/brandUtils.ts` (`brandLabel`, `realBrands`), because that rule
+> alone had four divergent call sites, plus the **spec line** — which PR-2 also owns and folds in.
+> The price rule already lives in one place — `lib/priceUtils.ts`. PR-2 consolidates all three
+> (brand, spec line, price/per-piece) into `toCardModel.ts`.
 
 > **Resolved:** the per-piece divisor concern is **data-only, not code.** `ProductCard` already
 > guards `quantity_in_unit > 1` before dividing, so no code fix is needed; inconsistent hinged-box
@@ -225,7 +247,8 @@ type ProductCardModel = {
 
 ### 4.2 Image storage
 
-⚠️ **STILL OPEN — confirm before the image PR.** Proposal:
+⚠️ **STILL OPEN → A-1 (asset audit).** This is the phase immediately after PR-0 and gates every
+later visual phase. Proposal:
 
 - Supabase Storage bucket `product-images`, public read.
 - Path convention: `products/{sku}/main.webp`, `products/{sku}/2.webp`, …
@@ -296,7 +319,7 @@ Do **not** branch on `useIsMobile` for grid columns, spacing, or type size; thos
 > caps a group at 5, so a 6-column grid would leave a permanently empty cell — reintroducing the
 > exact dead-space bug §2.4 #2 is about. Columns are instead derived from `shown.length` via a static
 > `GROUP_COLS` map, guaranteeing a full row for any group size. Mobile keeps its horizontal scroll
-> strip; converting it to a 3-up grid is still open.
+> strip; converting it to a 3-up grid is **PR-4 (mobile shell)**.
 
 **Container.** Single shared container class, applied consistently. Grids must **stretch** (`grid` +
 `1fr`), never fixed-width children that leave a ragged right edge.
@@ -323,12 +346,19 @@ are made — do not invent them at implementation time.
 
 ## ⚠️ Open items
 
-- [ ] §4.2 — confirm bucket name, path convention, and whether a `product_images` table is in scope
-- [ ] §3.2 — grouped category product-count service method, then enforce "never render count 0"
-- [ ] §2.4 #5 — de-duplicate the trust content (currently 4 surfaces)
-- [ ] §5 — decide whether sub-11px type and a project `--font-mono` token enter `@theme`
-- [ ] §5 — decide the `.container` cap (adopt Tailwind's 1536px, or pin our own) and fix the
-      `DESIGN_SYSTEM.md` §1.4 claim to match
+- [ ] **A-1** · §4.2 — confirm bucket name, path convention, and whether a `product_images` table is
+      in scope. Gates every later visual phase
+- [ ] **PR-1** · §2.4 #5 — de-duplicate the trust content (currently 4 surfaces)
+- [ ] **PR-2** · §4.1 — build `toCardModel.ts`, folding in the spec line, brand and price rules;
+      then finish §3.1 (image proportion, overlapping action, mono / green badge)
+- [ ] **PR-3** · §3.2 — grouped category product-count service method, then enforce "never render
+      count 0"
+- [ ] **PR-4** · §5 — mobile category strip → 3-up grid; sticky cart affordance (§2.1-A4)
+- [ ] **PR-5** · §2.3 — order again, off cart + order history
+- [ ] *unassigned* · §5 — decide whether sub-11px type and a project `--font-mono` token enter
+      `@theme`
+- [ ] *unassigned* · §5 — decide the `.container` cap (adopt Tailwind's 1536px, or pin our own) and
+      fix the `DESIGN_SYSTEM.md` §1.4 claim to match
 - [x] ~~§3.1 stock state~~ — dropped; field does not exist
 - [x] ~~per-piece divisor~~ — data-only, code already guards it
 - [x] ~~§5 token reconciliation~~ — done above

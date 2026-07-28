@@ -610,15 +610,46 @@ sticky-right-many-cols,flex-cap-1920}.png`.
      "Upload own image" button; server-side "needs own image" filter ANDs with existing filters.
    - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
      shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.)
-0b. **Storefront PR-1 — category product counts** (backlog from PR-0, deliberately deferred).
-   `docs/STYLE_REFERENCE.md` §3.2 wants a product count on every category tile, and §2.2-B1
-   says never render a category whose count is 0 (`Bouffant Cap` / `Gloves` are the likely
-   zero-count tiles). Blocked on data access, not design: `productService.countPublished()`
-   exists and takes `categoryId`/`categoryIds` but is **per-category** — 25 calls for one Home
-   render. Needs a grouped variant (one published+active query → `Record<categoryId, number>`),
-   which is a **service addition** and so was out of scope for a presentation-only PR.
-   Also queued from PR-0: de-duplicate the trust content (§2.4 #5, still open), and decide the
-   `.container` cap + whether sub-11px type and a project `--font-mono` token enter `@theme`.
+0b. **Storefront rebuild — phase order (authoritative).** Work the storefront in exactly this
+   sequence; do not reorder or merge phases. Composition guidance for each lives in
+   [`docs/STYLE_REFERENCE.md`](docs/STYLE_REFERENCE.md).
+
+   ```
+   PR-0 bugs → A-1 asset audit → PR-1 trust/hero → PR-2 card
+     → PR-3 category tiles → PR-4 mobile shell → PR-5 order again
+   ```
+
+   - **PR-0 — §2.4 bug fixes.** ✅ **SHIPPED** (see Shipped Features). The four anti-patterns
+     live in our own build: fake 2×2 collage, non-stretching grid, `unit_of_measure` in the
+     brand line, `Generic` rendered as a brand.
+   - **A-1 — asset audit.** Comes *before* any further visual work. Category/product imagery
+     is Google-Drive-hosted and unmanaged; PR-0 measured **90/90 Drive images failing on
+     localhost while loading fine in production**, so no image-dependent design can be judged
+     locally today. Settles `STYLE_REFERENCE.md` §4.2 (bucket name, path convention, whether a
+     `product_images` table is in scope) — the SQL half is owner-run, never the agent.
+   - **PR-1 — trust / hero.** De-duplicate the trust content (§2.4 #5, **still open** — it
+     currently repeats across the trust row, marquee, stats block and GST/quality cards) and
+     the hero treatment, incl. §2.1-A6 (delivery promise as a first-class element).
+   - **PR-2 — card.** Owns `toCardModel` (`STYLE_REFERENCE.md` §4.1) **and the spec line.**
+     The spec line itself already shipped early in PR-0 (it was the replacement for the
+     `unit_of_measure` leak); PR-2 folds it, the On-Enquiry rule and the per-piece formula into
+     the one pure mapper, then completes §3.1 — image proportion, action overlapping the image,
+     and the mono / green-badge treatment.
+   - **PR-3 — category tiles.** Owns **category product counts (G3)**. `STYLE_REFERENCE.md`
+     §3.2 wants a count on every tile and §2.2-B1 says never render a category whose count is 0
+     (`Bouffant Cap` / `Gloves` are the likely zero-count tiles). Blocked on data access, not
+     design: `productService.countPublished()` exists and takes `categoryId`/`categoryIds` but
+     is **per-category** — 25 calls for one Home render. Needs a grouped variant (one
+     published+active query → `Record<categoryId, number>`), which is a **service addition** and
+     so was correctly out of scope for presentation-only PR-0.
+   - **PR-4 — mobile shell.** Bottom nav / sticky cart affordance (§2.1-A4) and the mobile
+     category strip → 3-up grid. Same routes, `useIsMobile` for chrome only — never a fork.
+   - **PR-5 — order again.** B2B repeat buying off cart + order history (§2.3 rejects wishlist
+     as the answer here).
+
+   **Unassigned, still open:** decide the `.container` cap (two competing rules ship — see
+   `docs/DESIGN_SYSTEM.md` §1.4) and whether sub-11px type and a project `--font-mono` token
+   enter `@theme`.
 
 1. **Update import UI** — price/moq as optional on Google Sheets + CSV screens; add status+tags to column list
 2. **Catalogue data entry** — bulk-enter products via Google Sheets template v3; target 1000 products
