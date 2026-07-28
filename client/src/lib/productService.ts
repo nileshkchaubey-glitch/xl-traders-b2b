@@ -8,6 +8,7 @@ import {
   ProductStatus,
 } from "./supabase";
 import { demoProducts, demoCategories } from "./demoData";
+import { realBrands } from "./brandUtils";
 
 // Demo mode is opt-in only (VITE_DEMO_MODE=true). The supabase client now
 // always has real credentials via built-in fallbacks, so we never fall into
@@ -585,6 +586,15 @@ export const productService = {
     return (data as unknown as Product[]) ?? [];
   },
 
+  // Distinct brands across the PUBLIC catalogue (published + active), for the
+  // storefront's brand facets. The 'Generic' null-brand placeholder is filtered
+  // here at the source via brandUtils (the single rule) — PR-0 wrapped four
+  // render sites but the Catalog sidebar consumed this raw and leaked it.
+  // Admin surfaces don't consume this method, so they still see stored values.
+  //
+  // Follow-up (storefront brand_id read, next PR): source this from
+  // brandsService.getAll() instead of deriving distinct strings from the
+  // legacy products.brand text column.
   async getBrands(): Promise<string[]> {
     if (isDemo) return [];
     try {
@@ -595,13 +605,13 @@ export const productService = {
         .eq("is_active", true)
         .not("brand", "is", null);
       if (error) throw error;
-      const brands = [
+      const brands = realBrands([
         ...new Set(
           (data as { brand: string | null }[])
             .map(p => p.brand)
             .filter((b): b is string => !!b)
         ),
-      ].sort();
+      ]).sort();
       return brands;
     } catch {
       return [];
