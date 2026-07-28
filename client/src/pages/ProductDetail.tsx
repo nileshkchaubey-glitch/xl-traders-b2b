@@ -26,6 +26,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { ImagePlaceholder } from "@/components/ImagePlaceholder";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry, cartLinePrice } from "@/lib/priceUtils";
+import { brandLabel } from "@/lib/brandUtils";
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
 const RECENTLY_VIEWED_KEY = "xl_recently_viewed";
@@ -467,7 +468,12 @@ export default function ProductDetail() {
             <div className="lg:sticky lg:top-24 self-start">
               <div>
                 <div className="text-body-sm font-semibold text-slate-500 mb-1">
-                  {[currentProd.brand, currentProd.sku && `SKU ${currentProd.sku}`]
+                  {[
+                    // 'Generic' is a null-brand placeholder, not a supplier —
+                    // suppressed here as everywhere else (STYLE_REFERENCE §4.4).
+                    brandLabel(currentProd.brand),
+                    currentProd.sku && `SKU ${currentProd.sku}`,
+                  ]
                     .filter(Boolean)
                     .join(" · ") || "XL Traders"}
                 </div>

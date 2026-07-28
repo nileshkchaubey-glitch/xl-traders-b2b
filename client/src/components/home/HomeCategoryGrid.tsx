@@ -50,12 +50,17 @@ const ICON_COLORS = [
   "text-slate-400",
 ];
 
-const CROP = [
-  "object-left-top",
-  "object-right-top",
-  "object-left-bottom",
-  "object-right-bottom",
-] as const;
+// Column count is driven by how many tiles a group actually has, so a row
+// always fills the container edge-to-edge instead of leaving dead space on the
+// right (docs/STYLE_REFERENCE.md §2.4 item 2). Static strings so Tailwind's
+// class scanner sees them. pickTop caps a group at 5.
+const GROUP_COLS: Record<number, string> = {
+  1: "md:grid-cols-1",
+  2: "md:grid-cols-2",
+  3: "md:grid-cols-3",
+  4: "md:grid-cols-4",
+  5: "md:grid-cols-5",
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -92,36 +97,37 @@ interface CardProps {
   idx: number;
 }
 
-function MosaicCard({ category, idx }: CardProps) {
+function CategoryCard({ category, idx }: CardProps) {
   const Icon = FALLBACK_ICONS[idx % FALLBACK_ICONS.length];
   const [gf, gt] = GRADIENT_PAIRS[idx % GRADIENT_PAIRS.length];
   const ic = ICON_COLORS[idx % ICON_COLORS.length];
 
   return (
-    <Link href={`/catalog?category=${category.slug}`}>
-      <article className="group rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-xl hover:border-red-200 transition-all duration-300 cursor-pointer">
-        {/* 2×2 mosaic */}
-        <div className="grid grid-cols-2 gap-0.5 bg-slate-100 p-0.5 rounded-t-2xl overflow-hidden">
-          {CROP.map((pos, qi) => (
-            <div
-              key={qi}
-              className={`aspect-square overflow-hidden bg-gradient-to-br ${gf} ${gt} relative flex items-center justify-center`}
-            >
-              {category.image_url && (
-                <img
-                  src={category.image_url}
-                  alt=""
-                  className={`absolute inset-0 w-full h-full object-cover scale-[2.2] ${pos} transition duration-500 group-hover:scale-[2.4]`}
-                  loading="lazy"
-                  onError={e => {
-                    (e.currentTarget as HTMLImageElement).style.display =
-                      "none";
-                  }}
-                />
-              )}
-              <Icon className={`relative z-10 w-5 h-5 ${ic} opacity-25`} />
-            </div>
-          ))}
+    <Link href={`/catalog?category=${category.slug}`} className="block h-full">
+      <article className="group h-full rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-xl hover:border-red-200 transition-all duration-300 cursor-pointer">
+        {/* Single image, never a composite (docs/STYLE_REFERENCE.md §3.2).
+            A category only ever carries one image_url, so the old 2×2 mosaic
+            rendered that same photo four times at 220% zoom — which sliced
+            packaging text into nonsense and could never show four distinct
+            images. The icon sits underneath as the fallback layer: the image is
+            absolutely positioned over it, so if it is absent or fails to load
+            the icon simply shows through. No blank grey box, no JS toggling
+            (§4.3 fallback chain). */}
+        <div
+          className={`aspect-[4/3] overflow-hidden bg-gradient-to-br ${gf} ${gt} relative flex items-center justify-center`}
+        >
+          <Icon className={`w-8 h-8 ${ic} opacity-40`} />
+          {category.image_url && (
+            <img
+              src={category.image_url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover transition duration-500 motion-safe:group-hover:scale-105"
+              loading="lazy"
+              onError={e => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          )}
         </div>
         <div className="p-3 bg-white">
           <h4 className="font-bold text-slate-900 text-sm leading-tight group-hover:text-red-600 transition line-clamp-2">
@@ -254,18 +260,25 @@ export default function HomeCategoryGrid() {
                     ))}
                   </div>
 
-                  {/* Desktop: horizontal row */}
-                  <div className="hidden md:flex gap-4 overflow-x-auto pb-1 scrollbar-hide">
+                  {/* Desktop: stretching grid. Was a flex row of fixed-width
+                      (w-44 xl:w-48) tiles, which left ~192px of dead space to
+                      the right of every row at 1440px and clipped the last tile
+                      around 1000px. 1fr columns matched to the tile count reach
+                      the container edge at any width (STYLE_REFERENCE §2.4 #2;
+                      the design-reference prototype uses repeat(N,1fr) too). */}
+                  <div
+                    className={`hidden md:grid gap-4 ${GROUP_COLS[shown.length] ?? "md:grid-cols-5"}`}
+                  >
                     {shown.map((cat, i) => (
                       <motion.div
                         key={cat.id}
-                        className="flex-shrink-0 w-44 xl:w-48"
+                        className="h-full"
                         initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 12 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ delay: prefersReducedMotion ? 0 : i * 0.05 }}
                       >
-                        <MosaicCard category={cat} idx={startIdx + i} />
+                        <CategoryCard category={cat} idx={startIdx + i} />
                       </motion.div>
                     ))}
                   </div>
@@ -296,12 +309,13 @@ export default function HomeCategoryGrid() {
           {cats.map((cat, i) => (
             <motion.div
               key={cat.id}
+              className="h-full"
               initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: prefersReducedMotion ? 0 : i * 0.04 }}
             >
-              <MosaicCard category={cat} idx={i} />
+              <CategoryCard category={cat} idx={i} />
             </motion.div>
           ))}
         </div>

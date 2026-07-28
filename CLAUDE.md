@@ -219,6 +219,40 @@ categories` → links to `/catalog`), sourced from the same public
     plus their two orphaned support files (`heroConfig.ts`, `useAnimatedCounter.ts`)
     deleted after grep-verifying zero importers; recover from git history if ever needed.
 
+  - **Storefront PR-0 — §2.4 anti-pattern cleanup (July 2026):** presentation-only pass fixing
+    the four defects `docs/STYLE_REFERENCE.md` §2.4 flagged in our own build. All four were
+    verified live before any code changed; none was scrapped. **Category tiles (`HomeCategoryGrid`)**
+    no longer composite a fake 2×2 mosaic — a category only ever carries one `image_url`, so the
+    mosaic rendered that same photo 4× at 220% zoom (measured live: 23 of 25 tiles, and
+    `maxUniqueSrcsAnyTile === 1`, i.e. it could *never* show four distinct images; packaging text
+    came out sliced into nonsense). Now one `aspect-[4/3] object-cover` image with the existing
+    lucide `FALLBACK_ICONS` layered *underneath* it, so a missing or failed image reveals the icon
+    with no JS toggling (STYLE_REFERENCE §4.3 fallback chain). **The desktop group row stretches:**
+    it was a flex row of fixed-width `w-44 xl:w-48` tiles left-aligned inside a wider container —
+    192px of dead space per row at 1440px, ~500px at 1920px, and *clipping* around 1000px. It is now
+    a `1fr` grid whose column count is derived from the tile count (`GROUP_COLS`, static class
+    strings; `pickTop` caps a group at 5), so the row reaches the container edge at any width and
+    any group size — verified 0px dead space at 1000 / 1440 / 1920. **`unit_of_measure` no longer
+    leaks into the brand line** (`ProductCard` rendered `Fortune Petpack · pcs`). **`Generic` is
+    suppressed everywhere** — it is a null-brand placeholder, not a supplier; the new
+    `lib/brandUtils.ts` (`brandLabel` / `realBrands`) is the single rule, applied on `ProductCard`,
+    `ProductDetail`, the Home brand chips and the marquee. Filtering happens at the render sites —
+    `productService.getBrands()` is untouched, so admin still sees the stored value.
+    Also in this pass: a **permanent spec line** (`N pcs/pack · MOQ n`) on `ProductCard` in **every**
+    auth state — pack/MOQ used to live inside the price block, so signed-out visitors got none of
+    it, which matters on a catalogue of near-identical black containers (STYLE_REFERENCE §3.1 #5,
+    §2.2-B2); and the **On-Enquiry price is now amber** per `docs/DESIGN_SYSTEM.md` §1.3 (was slate
+    italic). `isPriceOnEnquiry` remains the only price rule and no `₹0` path was touched.
+    `docs/STYLE_REFERENCE.md` is committed in this PR with four of its open items closed by
+    evidence: the §3.1 **stock badge is dropped** (no such field exists on `Product`), the per-piece
+    **divisor bug is data-only** (the code already guards `quantity_in_unit > 1`), the §5 token
+    proposals are reconciled against the real `@theme`, and the category-tile column count is
+    recorded as a deliberate deviation. Two findings logged but **not** fixed: Google-Drive-hosted
+    images fail on localhost yet load fine in production (90/90 vs 0/18 — never judge image work
+    from a local screenshot), and **two competing `.container` rules ship** (ours plus Tailwind's
+    own utility, whose caps win: 640/768/1024/1280/**1536**px, not the documented flat 1280) —
+    see `docs/DESIGN_SYSTEM.md` §1.4.
+
 ### Admin Panel (PIM)
 
 - Shopify-style dark sidebar; CATALOGUE / SALES / CONTENT & IMPORT / SYSTEM
@@ -767,6 +801,47 @@ sticky-right-many-cols,flex-cap-1920}.png`.
      "Upload own image" button; server-side "needs own image" filter ANDs with existing filters.
    - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
      shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.)
+0b. **Storefront rebuild — phase order (authoritative).** Work the storefront in exactly this
+   sequence; do not reorder or merge phases. Composition guidance for each lives in
+   [`docs/STYLE_REFERENCE.md`](docs/STYLE_REFERENCE.md).
+
+   ```
+   PR-0 bugs → A-1 asset audit → PR-1 trust/hero → PR-2 card
+     → PR-3 category tiles → PR-4 mobile shell → PR-5 order again
+   ```
+
+   - **PR-0 — §2.4 bug fixes.** ✅ **SHIPPED** (see Shipped Features). The four anti-patterns
+     live in our own build: fake 2×2 collage, non-stretching grid, `unit_of_measure` in the
+     brand line, `Generic` rendered as a brand.
+   - **A-1 — asset audit.** Comes *before* any further visual work. Category/product imagery
+     is Google-Drive-hosted and unmanaged; PR-0 measured **90/90 Drive images failing on
+     localhost while loading fine in production**, so no image-dependent design can be judged
+     locally today. Settles `STYLE_REFERENCE.md` §4.2 (bucket name, path convention, whether a
+     `product_images` table is in scope) — the SQL half is owner-run, never the agent.
+   - **PR-1 — trust / hero.** De-duplicate the trust content (§2.4 #5, **still open** — it
+     currently repeats across the trust row, marquee, stats block and GST/quality cards) and
+     the hero treatment, incl. §2.1-A6 (delivery promise as a first-class element).
+   - **PR-2 — card.** Owns `toCardModel` (`STYLE_REFERENCE.md` §4.1) **and the spec line.**
+     The spec line itself already shipped early in PR-0 (it was the replacement for the
+     `unit_of_measure` leak); PR-2 folds it, the On-Enquiry rule and the per-piece formula into
+     the one pure mapper, then completes §3.1 — image proportion, action overlapping the image,
+     and the mono / green-badge treatment.
+   - **PR-3 — category tiles.** Owns **category product counts (G3)**. `STYLE_REFERENCE.md`
+     §3.2 wants a count on every tile and §2.2-B1 says never render a category whose count is 0
+     (`Bouffant Cap` / `Gloves` are the likely zero-count tiles). Blocked on data access, not
+     design: `productService.countPublished()` exists and takes `categoryId`/`categoryIds` but
+     is **per-category** — 25 calls for one Home render. Needs a grouped variant (one
+     published+active query → `Record<categoryId, number>`), which is a **service addition** and
+     so was correctly out of scope for presentation-only PR-0.
+   - **PR-4 — mobile shell.** Bottom nav / sticky cart affordance (§2.1-A4) and the mobile
+     category strip → 3-up grid. Same routes, `useIsMobile` for chrome only — never a fork.
+   - **PR-5 — order again.** B2B repeat buying off cart + order history (§2.3 rejects wishlist
+     as the answer here).
+
+   **Unassigned, still open:** decide the `.container` cap (two competing rules ship — see
+   `docs/DESIGN_SYSTEM.md` §1.4) and whether sub-11px type and a project `--font-mono` token
+   enter `@theme`.
+
 1. **Update import UI** — price/moq as optional on Google Sheets + CSV screens; add status+tags to column list
 2. **Catalogue data entry** — bulk-enter products via Google Sheets template v3; target 1000 products
 3. **Batch AI extraction** — supplier list → AI returns ParsedProduct[] → review grid → bulk import (needs Edge Function first)
