@@ -156,6 +156,12 @@ truth for "is this a real brand?".
   the render site.
 - Same shape as `priceUtils`: one rule, one module, every render site funnels through it.
   See `STYLE_REFERENCE.md` §4.4.
+- **PIM P1 (July 2026): `products.brand_id` (FK → `brands.id`) is now the canonical brand
+  link; the text column is legacy.** During the transition every admin brand assign
+  dual-writes both columns in one update (`bulkSetBrand`, `saveProductForm`) — "No brand"
+  is `brand_id NULL` + `brand ''`. The storefront still reads the text column until PR-2;
+  the text column is dropped after that, in a separate owner-run migration. Canonical
+  filter definition: **unbranded == `brand_id IS NULL`.**
 
 ---
 
@@ -172,6 +178,7 @@ Service modules that exist today (`client/src/lib/`):
 | Module | Responsibility |
 | --- | --- |
 | `productService.ts` | Products CRUD, `getAllAdmin` (paginated, `.range()`), `getAdminMatchingIds`, bulk ops, plus exported `categoryService`, `productImageService`, `enquiryService`, `inquiriesService`, `mediaService`, `storageService` |
+| `brandsService.ts` | Brands CRUD (PIM P1): `getAll` (active, storefront/pickers), `getAllAdmin`, `getById`, `getProductCounts`, `create`/`update` (slug auto via `slugify`), `setActive` (soft delete — never hard delete). `isUniqueViolation` helper for inline 23505 handling |
 | `healthService.ts` | Reads `v_product_health` only (missing counts, ids, category rollup) |
 | `masterService.ts` | Product masters & variants |
 | `orderService.ts` | Orders / WhatsApp order message |
@@ -245,7 +252,8 @@ Toasts use **`sonner`**. Bottom sheets use the single **`drawer`** (vaul) primit
 | `useProductForm` + `lib/productForm.ts` (`saveProductForm`) | **Single source of truth for create/update.** Used by the route editor and `CatalogProductPanel` so save logic never forks |
 | `CatalogProductPanel` | Catalog Editor's field editor (on `useProductForm`; embeds `ProductMediaSection` for image assign) |
 | `CatalogTreeEditor` | **THE products surface** (Phase 2b) — group→category tree + shared `<DataTable>` with inline edit, bulk, keyboard nav |
-| `CategoryCombobox`, `AISmartPasteDialog`, `ProductMediaSection`, `MobileAdminShell`, `adminNav.tsx` | Reusable admin building blocks |
+| `CategoryCombobox`, `BrandCombobox`, `AISmartPasteDialog`, `ProductMediaSection`, `MobileAdminShell`, `adminNav.tsx` | Reusable admin building blocks. `BrandCombobox` (PIM P1) clones `CategoryCombobox`'s Popover+cmdk pattern; adds an explicit "No brand" entry and resolves inactive-brand values with an "(inactive)" suffix |
+| `AdminBrands` | Brands manager tab (`/admin` → Catalogue → Brands). Self-loading via `brandsService` only — zero direct Supabase calls. Create/edit dialog with inline 23505 duplicate error; active switch = soft delete |
 | `HealthDot` / `catalogHealth.ts` | Health color/label only (logic stays in the view) |
 | `SectionEyebrow` (`client/src/components/SectionEyebrow.tsx`) | Storefront-only: the small uppercase/tracked label above a section `<h2>` (`tone="light"` red-600 on white/slate-50, `tone="dark"` red-400 on a dark card). Standardizes a pattern that used to be re-typed per section — reuse it for any new section eyebrow rather than hand-rolling the classes again |
 | `HomeCatalogueShowcase` (`client/src/components/home/HomeCatalogueShowcase.tsx`) | Home-page catalogue taster: category chips + chip-filtered `ProductCard` grid on the same paginated `productService.getAll` call `/catalog` uses (pageSize 10). Replaced `HomeFeaturedProducts` (removed — its tabs were a client-side heuristic over an unpaginated full-catalogue fetch; recover from git if needed). Not a second catalogue: capped per view, always links into `/catalog` |

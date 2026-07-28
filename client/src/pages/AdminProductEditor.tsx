@@ -55,6 +55,11 @@ const EMPTY_FORM = {
   quantity_in_unit: "",
   discount_percent: "0",
   brand: "",
+  // Kept in sync with lib/productForm's shape (saveProductForm requires it).
+  // This route editor still edits brand as free TEXT — its brand_id simply
+  // round-trips whatever the product already has. The picker lives in
+  // CatalogProductPanel; migrating this editor to BrandCombobox is follow-up.
+  brand_id: "",
   is_active: true,
   is_featured: false,
   sku: "",
@@ -373,6 +378,7 @@ export default function AdminProductEditor() {
           quantity_in_unit: product.quantity_in_unit?.toString() || "",
           discount_percent: (product.discount_percent || 0).toString(),
           brand: product.brand || "",
+          brand_id: product.brand_id || "",
           is_active: product.is_active,
           is_featured: product.is_featured || false,
           sku: product.sku || "",
@@ -659,7 +665,15 @@ export default function AdminProductEditor() {
               </div>
               <Input
                 value={formData.brand}
-                onChange={event => updateForm("brand", event.target.value)}
+                onChange={event => {
+                  // Free-text edit breaks any existing brand link — clearing
+                  // brand_id here keeps the dual-written pair consistent
+                  // (a stale id would silently rebind the typed text to the
+                  // old brand on save). Re-link via the panel picker or bulk
+                  // "Set brand".
+                  updateForm("brand", event.target.value);
+                  updateForm("brand_id", "");
+                }}
                 placeholder="e.g. Oshine, Biopack"
                 disabled={isNA("brand")}
               />

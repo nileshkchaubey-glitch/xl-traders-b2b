@@ -256,6 +256,7 @@ function applyAdminScalarFilters(
     categoryId,
     categoryIds,
     status = "all",
+    unbranded,
   }: {
     search?: string;
     categoryId?: string;
@@ -263,6 +264,10 @@ function applyAdminScalarFilters(
     // one node spans every category in a group_name. ANDs after categoryId.
     categoryIds?: string[];
     status?: AdminStatusFilter;
+    // Canonical "unbranded" definition (PIM P1): brand_id IS NULL. The legacy
+    // brand TEXT column ('' or NULL) is deliberately NOT consulted — brand_id
+    // is the source of truth for assignment work.
+    unbranded?: boolean;
   }
 ): any {
   if (search?.trim()) {
@@ -279,6 +284,7 @@ function applyAdminScalarFilters(
   else if (status === "featured") query = query.eq("is_featured", true);
   else if (status === "draft") query = query.eq("status", "draft");
   else if (status === "published") query = query.eq("status", "published");
+  if (unbranded) query = query.is("brand_id", null);
   return query;
 }
 
@@ -472,6 +478,7 @@ export const productService = {
     categoryId?: string;
     categoryIds?: string[];
     status?: AdminStatusFilter;
+    unbranded?: boolean;
     sortField?: "name" | "price" | "created_at" | "updated_at";
     sortAscending?: boolean;
     ids?: string[];
@@ -483,6 +490,7 @@ export const productService = {
       categoryId,
       categoryIds,
       status = "all",
+      unbranded,
       sortField = "created_at",
       sortAscending = false,
       ids,
@@ -496,7 +504,7 @@ export const productService = {
         .from("products")
         .select("*", { count: "exact" })
         .order(sortField, { ascending: sortAscending }),
-      { search, categoryId, categoryIds, status }
+      { search, categoryId, categoryIds, status, unbranded }
     );
     if (ids) query = query.in("id", ids);
 
@@ -515,15 +523,23 @@ export const productService = {
     categoryId?: string;
     categoryIds?: string[];
     status?: AdminStatusFilter;
+    unbranded?: boolean;
     ids?: string[];
   }): Promise<string[]> {
-    const { search, categoryId, categoryIds, status = "all", ids } = params;
+    const {
+      search,
+      categoryId,
+      categoryIds,
+      status = "all",
+      unbranded,
+      ids,
+    } = params;
     if (ids && ids.length === 0) return [];
     if (categoryIds && categoryIds.length === 0) return [];
 
     let query = applyAdminScalarFilters(
       supabase.from("products").select("id"),
-      { search, categoryId, categoryIds, status }
+      { search, categoryId, categoryIds, status, unbranded }
     );
     if (ids) query = query.in("id", ids);
 
@@ -731,6 +747,32 @@ export const productService = {
       const { error } = await supabase
         .from("products")
         .update({ [field]: value })
+        .in("id", part);
+      if (error) throw error;
+    }
+    return ids.length;
+  },
+
+  // PIM P1 dual-write (expand → migrate → contract): brand assignment writes
+  // BOTH the canonical FK (brand_id) and the legacy TEXT column (brand) in the
+  // same UPDATE, so v_product_health, the storefront and getBrands() — which
+  // all still read the text column — stay consistent during the transition.
+  // The text column is dropped in a later PR.
+  //
+  // The caller owns brandText: assignment passes the brand's name (or '' for
+  // "No brand" — the column's sentinel, never a second one), while the bulk
+  // bar's Undo passes the exact prior text so legacy text-only rows (brand set,
+  // brand_id NULL — e.g. 'Generic') restore verbatim instead of being coerced.
+  async bulkSetBrand(
+    ids: string[],
+    brandId: string | null,
+    brandText: string
+  ): Promise<number> {
+    if (!ids.length) return 0;
+    for (const part of chunk(ids, BULK_CHUNK)) {
+      const { error } = await supabase
+        .from("products")
+        .update({ brand_id: brandId, brand: brandText })
         .in("id", part);
       if (error) throw error;
     }
