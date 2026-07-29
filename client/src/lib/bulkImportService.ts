@@ -2,6 +2,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { supabase } from "./supabase";
 import { isPriceOnEnquiry } from "./priceUtils";
+import { variantSortFromLabel } from "./masterService";
 
 export interface ImportRow {
   master_name?: string;
@@ -34,23 +35,25 @@ export interface ImportRow {
   tags?: string;
 }
 
-export type ProductStatus = 'draft' | 'published';
+export type ProductStatus = "draft" | "published";
 
 // Normalize a free-text status cell to a valid value, or undefined.
 // Trim + lowercase first so " Published " etc. are accepted.
 export function normalizeStatus(raw: unknown): ProductStatus | undefined {
-  const s = String(raw ?? '').trim().toLowerCase();
-  if (s === 'published') return 'published';
-  if (s === 'draft') return 'draft';
+  const s = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (s === "published") return "published";
+  if (s === "draft") return "draft";
   return undefined;
 }
 
 // Split a comma-separated na_fields cell into a trimmed, de-duplicated array.
 // Returns undefined when nothing usable is present (so updates skip the column).
 export function parseNaFields(raw: unknown): string[] | undefined {
-  const parts = String(raw ?? '')
-    .split(',')
-    .map((p) => p.trim())
+  const parts = String(raw ?? "")
+    .split(",")
+    .map(p => p.trim())
     .filter(Boolean);
   return parts.length ? Array.from(new Set(parts)) : undefined;
 }
@@ -187,8 +190,10 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
     group: row.group ? row.group.trim() : undefined,
     sku: row.sku ? row.sku.trim() : undefined,
     barcode: row.barcode ? row.barcode.trim() : undefined,
-    moq: row.moq !== undefined && row.moq !== null && String(row.moq).trim() !== ''
-      ? parseInt(row.moq) : null,
+    moq:
+      row.moq !== undefined && row.moq !== null && String(row.moq).trim() !== ""
+        ? parseInt(row.moq)
+        : null,
     price: rawPrice,
     mrp: row.mrp ? parseFloat(row.mrp) : undefined,
     unit: row.unit.trim(),
@@ -274,7 +279,9 @@ async function buildCategoryMap(rows: ImportRow[]): Promise<{
   map: Record<string, string>;
   unknowns: Array<{ category: string; rows: number[] }>;
 }> {
-  const uniqueCategories = Array.from(new Set(rows.map((r) => r.category.toLowerCase())));
+  const uniqueCategories = Array.from(
+    new Set(rows.map(r => r.category.toLowerCase()))
+  );
 
   const { data: dbCats } = await supabase
     .from("categories")
@@ -312,7 +319,10 @@ async function buildCategoryMap(rows: ImportRow[]): Promise<{
     }
   });
 
-  const unknowns = Array.from(unknownMap.entries()).map(([category, rows]) => ({ category, rows }));
+  const unknowns = Array.from(unknownMap.entries()).map(([category, rows]) => ({
+    category,
+    rows,
+  }));
   return { map, unknowns };
 }
 
@@ -361,9 +371,9 @@ export async function dryRunImport(rows: ImportRow[]): Promise<DryRunResult> {
     for (let i = 0; i < allSkus.length; i += CHUNK) {
       const chunk = allSkus.slice(i, i + CHUNK);
       const { data } = await supabase
-        .from('products')
-        .select('sku')
-        .in('sku', chunk);
+        .from("products")
+        .select("sku")
+        .in("sku", chunk);
       if (data) {
         for (const row of data) {
           if (row.sku) result.existingSkus.push(row.sku);
@@ -394,7 +404,8 @@ export async function bulkImportProducts(
   };
 
   // Pre-resolve all categories
-  const { map: categoryMap, unknowns: unknownCats } = await buildCategoryMap(rows);
+  const { map: categoryMap, unknowns: unknownCats } =
+    await buildCategoryMap(rows);
   for (const uc of unknownCats) {
     for (const rowNum of uc.rows) {
       result.errors.push({
@@ -405,8 +416,16 @@ export async function bulkImportProducts(
   }
 
   const seenSkus = new Set<string>();
-  const standalonePayloads: Array<{ _rowNum: number; payload: Record<string, any>; imageUrls: string[] }> = [];
-  const variantRows: Array<{ rowNum: number; row: ImportRow; categoryId: string }> = [];
+  const standalonePayloads: Array<{
+    _rowNum: number;
+    payload: Record<string, any>;
+    imageUrls: string[];
+  }> = [];
+  const variantRows: Array<{
+    rowNum: number;
+    row: ImportRow;
+    categoryId: string;
+  }> = [];
 
   // TODO(tags): row.tags is parsed and carried on ImportRow but intentionally NOT
   // written here. products.tags exists only via an untracked conditional migration
@@ -417,9 +436,13 @@ export async function bulkImportProducts(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNumber = i + 2;
-    const categoryId = categoryMap[row.category.toLowerCase()] || categoryMap['uncategorized'];
+    const categoryId =
+      categoryMap[row.category.toLowerCase()] || categoryMap["uncategorized"];
     if (!categoryId) {
-      result.errors.push({ row: rowNumber, error: 'Could not resolve category' });
+      result.errors.push({
+        row: rowNumber,
+        error: "Could not resolve category",
+      });
       continue;
     }
 
@@ -431,12 +454,18 @@ export async function bulkImportProducts(
     const sku = row.sku || generateSku();
     if (seenSkus.has(sku)) {
       result.skipped++;
-      result.errors.push({ row: rowNumber, error: `Duplicate SKU in file: ${sku}` });
+      result.errors.push({
+        row: rowNumber,
+        error: `Duplicate SKU in file: ${sku}`,
+      });
       continue;
     }
     seenSkus.add(sku);
 
-    const slug = row.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+    const slug = row.name
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^\w-]/g, "");
     const imageUrls = collectImageUrls(row);
 
     standalonePayloads.push({
@@ -471,13 +500,16 @@ export async function bulkImportProducts(
     const payloads = chunk.map(c => c.payload);
 
     const { data, error } = await supabase
-      .from('products')
-      .upsert(payloads, { onConflict: 'sku' })
-      .select('id, sku');
+      .from("products")
+      .upsert(payloads, { onConflict: "sku" })
+      .select("id, sku");
 
     if (error) {
       for (const c of chunk) {
-        result.errors.push({ row: c._rowNum, error: `Upsert failed: ${error.message}` });
+        result.errors.push({
+          row: c._rowNum,
+          error: `Upsert failed: ${error.message}`,
+        });
       }
     } else if (data) {
       // We can't perfectly distinguish add vs update from upsert response,
@@ -486,9 +518,9 @@ export async function bulkImportProducts(
       // Quick lookup: which SKUs existed before?
       const skusInChunk = payloads.map(p => p.sku);
       const { data: preExisting } = await supabase
-        .from('products')
-        .select('sku')
-        .in('sku', skusInChunk);
+        .from("products")
+        .select("sku")
+        .in("sku", skusInChunk);
       // This runs after upsert so all exist now — we already tracked in seenSkus
       // Just count by data length
       result.added += data.length;
@@ -504,7 +536,13 @@ export async function bulkImportProducts(
       }
     }
 
-    onProgress?.(Math.min(i + CHUNK_SIZE, standalonePayloads.length) + variantRows.length > 0 ? i + CHUNK_SIZE : i + chunk.length, rows.length);
+    onProgress?.(
+      Math.min(i + CHUNK_SIZE, standalonePayloads.length) + variantRows.length >
+        0
+        ? i + CHUNK_SIZE
+        : i + chunk.length,
+      rows.length
+    );
   }
 
   // Process variants row-by-row (master lookup needed)
@@ -577,6 +615,9 @@ export async function bulkImportProducts(
           {
             master_id: masterId,
             variant_label: variantLabel,
+            // Keeps imported variants in size order in the storefront selector,
+            // same derivation masterService.addVariant uses (PIM P2).
+            variant_sort: variantSortFromLabel(variantLabel),
             name,
             slug,
             category_id: categoryId,

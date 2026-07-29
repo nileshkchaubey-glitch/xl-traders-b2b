@@ -73,7 +73,7 @@ stored. This is what `ProductCard`, `ProductDetail` and `cartStore.getTotal()`
 The 11 `Hinged box` variants were entered per-piece and their prices conflict with
 their standalone duplicates. **Do not script or auto-merge that reconciliation** —
 those are pricing calls the owner makes by hand during the rebuild. This is a
-*judgment* rule, not data protection: the rest of `products` is expendable
+_judgment_ rule, not data protection: the rest of `products` is expendable
 (Critical Rule #13). Leave those rows alone rather than guessing at a price.
 
 **Exactly what is wrong with those 11 rows** (measured 29 Jul 2026, so the manual
@@ -102,13 +102,41 @@ id, name, slug (UNIQUE), group_name, group_order, display_order, is_active
 SENTINEL: slug='uncategorized', is_active=false — NEVER DELETE
 ```
 
-### Masters & Variants
+### Series (a.k.a. Masters) & Variants
+
+> **Glossary — `Series` = `product_masters` in code.** "Series" is the owner's and
+> the suppliers' word (the Paras catalogue ships 47 named series) and is what the
+> admin UI says. The table, the FK (`products.master_id`), the service
+> (`masterService.ts`) and every identifier keep the `master` name — there is no
+> second grouping entity, and there must never be one.
 
 ```
-product_masters: id, name, slug, category_id, brand, description, meta_title, meta_description, is_active
+product_masters: id, name, slug, category_id (nullable, ON DELETE SET NULL),
+                 brand, brand_id, description, meta_title, meta_description,
+                 is_active, sort_order
 product_master_images: master_id, image_url, display_order, is_primary
-master_id=NULL → standalone. master_id=<uuid> → variant.
+products: master_id=NULL → standalone. master_id=<uuid> → variant.
+          variant_label ("250 ml"), variant_sort (numeric prefix; selector order)
 ```
+
+**Read-through inheritance (PIM P2 — canonical rule).** A variant inherits
+`description`, `meta_title`, `meta_description`, `brand`+`brand_id` (as a pair)
+and `image_url` from its series **when its own value is blank**; its own value
+always wins. Nothing is copied into the variant row, so editing the series
+reaches every variant that has not overridden the field — one description covers
+eleven Hinged box sizes.
+
+- Resolution lives in **`lib/seriesInheritance.ts` and nowhere else** (same
+  discipline as `v_product_health` for missing-logic and `priceUtils` for price).
+- **Public read paths resolve** (`getAll`, `getById`, `getFeatured`, `search`,
+  `getVariantsByMasterId`). **Admin fetches stay RAW on purpose** — an editor
+  seeded with inherited text would write that text back onto the variant on the
+  next save, recreating the copy-on-create problem P2 removed.
+- `category_id` is the one field that cannot inherit: `products.category_id` is
+  **NOT NULL**, so `addVariant` still copies it from the series.
+- `slug` never inherits — product URLs must be unique.
+- `v_product_health` counts an inherited value as present, so a series-level
+  description lifts all its variants' scores.
 
 ### v_product_health (VIEW — single source of truth)
 
@@ -246,12 +274,12 @@ categories` → links to `/catalog`), sourced from the same public
     verified live before any code changed; none was scrapped. **Category tiles (`HomeCategoryGrid`)**
     no longer composite a fake 2×2 mosaic — a category only ever carries one `image_url`, so the
     mosaic rendered that same photo 4× at 220% zoom (measured live: 23 of 25 tiles, and
-    `maxUniqueSrcsAnyTile === 1`, i.e. it could *never* show four distinct images; packaging text
+    `maxUniqueSrcsAnyTile === 1`, i.e. it could _never_ show four distinct images; packaging text
     came out sliced into nonsense). Now one `aspect-[4/3] object-cover` image with the existing
-    lucide `FALLBACK_ICONS` layered *underneath* it, so a missing or failed image reveals the icon
+    lucide `FALLBACK_ICONS` layered _underneath_ it, so a missing or failed image reveals the icon
     with no JS toggling (STYLE_REFERENCE §4.3 fallback chain). **The desktop group row stretches:**
     it was a flex row of fixed-width `w-44 xl:w-48` tiles left-aligned inside a wider container —
-    192px of dead space per row at 1440px, ~500px at 1920px, and *clipping* around 1000px. It is now
+    192px of dead space per row at 1440px, ~500px at 1920px, and _clipping_ around 1000px. It is now
     a `1fr` grid whose column count is derived from the tile count (`GROUP_COLS`, static class
     strings; `pickTop` caps a group at 5), so the row reaches the container edge at any width and
     any group size — verified 0px dead space at 1000 / 1440 / 1920. **`unit_of_measure` no longer
@@ -810,6 +838,47 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   retained deliberately until after storefront PR-2 (separate owner-run drop). Logo upload
   deferred to P4 (`logo_url` is plain text for now).
 
+- **PIM P2 — Series (July 2026):** `product_masters` **evolved into** the series entity
+  rather than a new table being built beside it — it already carried name/slug/category/
+  brand/description/SEO, a shared image table, `products.master_id` and `variant_label`,
+  and the live Hinged box family (1 series, 11 variants, 2 shared images) already used
+  all of it. **UI vocabulary is now "Series"** (nav, headings, toasts, empty states);
+  every identifier stays `master` — see the glossary in the Series schema section.
+  **Read-through inheritance replaces copy-on-create.** The old model copied: `addVariant`
+  snapshotted the series' brand/description at insert (later series edits never reached
+  existing variants) and `setMasterPrimaryImage` ran an unconditional
+  `UPDATE products SET image_url = … WHERE master_id = …` that **overwrote every variant's
+  own photo**. Both are deleted. `lib/seriesInheritance.ts` is the single resolver
+  (`SERIES_SELECT` + `resolveSeries`), applied on public reads only — admin fetches stay
+  raw so an editor can't write inherited text back onto the variant. `v_product_health`
+  extended to match (`missing_image` already inherited from master images before P2; now
+  `missing_description`, `missing_brand` and the `meta_title` half of `missing_seo` do
+  too — `slug` deliberately does not). Measured on the live row set: one series
+  description/brand/image took the 11 variants from 3 missing dimensions each to 0,
+  average health **63 → 75**.
+  **Schema:** `product_masters.brand_id` (FK → brands, dual-written with the legacy text
+  column exactly as products are) + `sort_order`; `products.variant_sort` (numeric prefix
+  of the label, backfilled for all 11); `idx_products_master_id` (the FK was unindexed);
+  an `updated_at` trigger (the column never updated — no trigger existed); `category_id`
+  FK **CASCADE → SET NULL** so deleting a category orphans a series instead of destroying
+  it; and RLS `"Authenticated users can manage masters"` `USING (true)` replaced with
+  `is_admin()` on **both** `product_masters` and `product_master_images` — the same hole
+  PR #118 closed for products, where any signed-in customer could edit or delete.
+  **Two bugs found by testing the anonymous path, which signed-in testing cannot reveal:**
+  (1) PostgREST must read the FK column to resolve an embed, and `products.master_id` was
+  never granted to `anon` — so the new embed failed the _entire_ guest product query with
+  `42501` and the catch returned an empty storefront. `master_id`/`variant_label`/
+  `variant_sort` are now granted to `anon` and added to `GUEST_PRODUCT_COLS` (structural
+  columns, no price signal; the price gate is unchanged and re-verified denying `price`).
+  That grant also closes a pre-existing bug: guests never received `master_id`, so **the
+  variant selector had never rendered for logged-out visitors at all**. (2)
+  `getVariantsByMasterId` gated on `status='published'` but not `is_active`, so the
+  deactivated `HINGED-BOX-2250-ML` stayed selectable on the PDP while being absent from
+  `/catalog`; both halves of the publish gate are now applied. Variant ordering also moved
+  from `price` to `variant_sort` — ordering a size selector by price meant it reshuffled
+  whenever a price was edited and collapsed entirely for On-Enquiry (NULL) variants.
+  `MasterDialog`'s free-text brand input became `BrandCombobox` with the P1 dual-write.
+
 ### Health System
 
 - `v_product_health` PostgreSQL view — single source of truth
@@ -831,7 +900,7 @@ sticky-right-many-cols,flex-cap-1920}.png`.
 
 ## 🗺️ Roadmap (next, in order)
 
-0. **PIM — phase order (authoritative):** `P1 brands (DONE, #135) → P2 series (CURRENT) → P3 spec fields → P4 images`.
+0. **PIM — phase order (authoritative):** `P1 brands (DONE, #135) → P2 series (DONE) → P3 spec fields (CURRENT) → P4 images`.
    Work in exactly this sequence; do not reorder or merge phases.
    - **P1 — brands ✅ SHIPPED (#135).** First-class `public.brands` entity (table + RLS + seed +
      `products.brand_id` FK + backfill already applied by the owner via SQL Editor).
@@ -842,26 +911,28 @@ sticky-right-many-cols,flex-cap-1920}.png`.
      in the same update ("No brand" = `brand_id NULL` + `brand ''`); the text column is
      retained deliberately and dropped only after storefront PR-2, in a separate owner-run
      migration. Canonical rule: **unbranded == `brand_id IS NULL`.**
-   - **P2 — series.** (scoped later)
-   - **P3 — spec fields.** (scoped later)
+   - **P2 — series ✅ SHIPPED.** `product_masters` **evolved**, not replaced — it already
+     was the series entity (name/slug/category/brand/description/SEO + a shared image
+     table + `products.master_id` + `variant_label`), so a parallel `series` table would
+     have been admin-v2 in a different costume. Added `brand_id` (dual-write, P1 contract),
+     `sort_order`, `products.variant_sort`, the missing FK index and `updated_at` trigger;
+     `category_id` FK CASCADE → SET NULL; RLS `USING (true)` → `is_admin()` on both tables.
+     **The substance is read-through inheritance** (`lib/seriesInheritance.ts`) replacing
+     copy-on-create — see the Series section above for the canonical rule.
+   - **P3 — spec fields (CURRENT).** (scoped later)
    - **P4 — images** (formerly "Phase 2 — PIM Image Management & QC", planned, grounded in the
-     2026-06-25 Supabase audit; detail preserved verbatim below). No new tables.
-     - **Prereqs (you, via SQL Editor — not the agent):** standardize 4 canonical `group_name` values
-       (`Disposal & Food Packaging`, `Decoration`, `Cleaning`, `Packaging`); confirm `product-images`
-       bucket public-read.
-     - **A. SKU upload pipeline:** `autoResizeImage` gains a webp option; `isOwnImage(url)` host check;
-       `storageService.uploadBySku` → `products/{SKU}/{SKU}.webp` (+ `_NN` for gallery), `upsert:true`,
-       id-fallback when SKU null; `productImageService.assignOwnImage`.
-     - **B. Image QC grid mode:** new `ProductsQCGrid` reusing AdminProducts' data/filters/selection (no fork);
-       OWN / PLACEHOLDER / MISSING badge, group›category breadcrumb, draft/published toggle; `viewMode`
-       toggle swaps table↔grid; Replace-image reuses the existing `AdminImageGallery` dialog with an
-       "Upload own image" button; server-side "needs own image" filter ANDs with existing filters.
-     - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
-       shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.)
-     - Brand logo upload also lands here (P1 ships `logo_url` as plain text only).
-0b. **Storefront rebuild — phase order (authoritative).** Work the storefront in exactly this
-   sequence; do not reorder or merge phases. Composition guidance for each lives in
-   [`docs/STYLE_REFERENCE.md`](docs/STYLE_REFERENCE.md).
+     2026-06-25 Supabase audit; detail preserved verbatim below). No new tables. - **Prereqs (you, via SQL Editor — not the agent):** standardize 4 canonical `group_name` values
+     (`Disposal & Food Packaging`, `Decoration`, `Cleaning`, `Packaging`); confirm `product-images`
+     bucket public-read. - **A. SKU upload pipeline:** `autoResizeImage` gains a webp option; `isOwnImage(url)` host check;
+     `storageService.uploadBySku` → `products/{SKU}/{SKU}.webp` (+ `_NN` for gallery), `upsert:true`,
+     id-fallback when SKU null; `productImageService.assignOwnImage`. - **B. Image QC grid mode:** new `ProductsQCGrid` reusing AdminProducts' data/filters/selection (no fork);
+     OWN / PLACEHOLDER / MISSING badge, group›category breadcrumb, draft/published toggle; `viewMode`
+     toggle swaps table↔grid; Replace-image reuses the existing `AdminImageGallery` dialog with an
+     "Upload own image" button; server-side "needs own image" filter ANDs with existing filters. - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
+     shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.) - Brand logo upload also lands here (P1 ships `logo_url` as plain text only).
+     0b. **Storefront rebuild — phase order (authoritative).** Work the storefront in exactly this
+     sequence; do not reorder or merge phases. Composition guidance for each lives in
+     [`docs/STYLE_REFERENCE.md`](docs/STYLE_REFERENCE.md).
 
    ```
    PR-0 bugs → A-1 asset audit → PR-1 trust/hero → PR-2 card
@@ -871,7 +942,7 @@ sticky-right-many-cols,flex-cap-1920}.png`.
    - **PR-0 — §2.4 bug fixes.** ✅ **SHIPPED** (see Shipped Features). The four anti-patterns
      live in our own build: fake 2×2 collage, non-stretching grid, `unit_of_measure` in the
      brand line, `Generic` rendered as a brand.
-   - **A-1 — asset audit.** Comes *before* any further visual work. Category/product imagery
+   - **A-1 — asset audit.** Comes _before_ any further visual work. Category/product imagery
      is Google-Drive-hosted and unmanaged; PR-0 measured **90/90 Drive images failing on
      localhost while loading fine in production**, so no image-dependent design can be judged
      locally today. Settles `STYLE_REFERENCE.md` §4.2 (bucket name, path convention, whether a
@@ -924,6 +995,16 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   is run too. Fix prepared in [`docs/sql/pr1-rls-publish-gate.sql`](docs/sql/pr1-rls-publish-gate.sql) —
   **owner-run, not yet applied**. An explicit decision on the INSERT policy is needed
   before/alongside merge. Rollback + checklist alongside it in `docs/sql/`.
+- **Series inheritance: three known limitations** (PIM P2, all deliberate).
+  **(a)** `productService.search()` matches `description.ilike` on the variant's own
+  column, so a description that is only inherited is **not searchable**. Closing it needs
+  the search to reach through the embed (or a view), which is a query-shape change, not a
+  resolver change. **(b)** `category_id` cannot inherit — `products.category_id` is NOT
+  NULL, so `addVariant` still copies it from the series. Making it nullable would
+  undermine the `uncategorized` sentinel that exists precisely so every product has a
+  category. **(c)** Admin surfaces show raw values, so a variant inheriting a description
+  reads as empty in the Catalog Editor. That is correct (editing must show what is
+  stored), but there is not yet an "inherited from series" hint next to the blank field.
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
@@ -1007,7 +1088,7 @@ roadmap commitment yet.
     running them** (announce, not ask) and log them to
     [`docs/CHANGELOG_SQL.md`](docs/CHANGELOG_SQL.md).
     `ZZ-TEST-PRODUCT` still exists as a convenient scratch row (see "Test admin"), but it
-    is no longer the *only* legal target.
+    is no longer the _only_ legal target.
     **Carve-out — a judgment rule, not data protection:** the 11 `Hinged box` variants have
     prices that conflict with their standalone duplicates. Do **not** script or auto-merge
     that reconciliation — those are pricing calls the owner makes by hand during the
@@ -1021,7 +1102,7 @@ roadmap commitment yet.
 
 Full details, including every SQL statement run: [`docs/TEST_ADMIN.md`](docs/TEST_ADMIN.md).
 
-- **Account:** `dev-admin@xltraders.local` (auth id `8174be01-8b5e-4b41-89d5-923a630918f6`).
+- **Account:** `dev-admin@xltraders.local` (auth id `19e93cb6-668e-49ed-b4df-747aee0ecdb0`).
   Password is **never** in the repo — it lives in gitignored `.env.local` / the Supabase
   dashboard, and is referenced only as `TEST_ADMIN_PASSWORD`.
 - **How admin is determined:** `public.is_admin()` reads **one boolean**,

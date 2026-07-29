@@ -9,6 +9,12 @@ import {
 } from "./supabase";
 import { demoProducts, demoCategories } from "./demoData";
 import { realBrands } from "./brandUtils";
+import {
+  SERIES_SELECT,
+  resolveSeries,
+  resolveSeriesAll,
+  type ProductWithSeries,
+} from "./seriesInheritance";
 
 // Demo mode is opt-in only (VITE_DEMO_MODE=true). The supabase client now
 // always has real credentials via built-in fallbacks, so we never fall into
@@ -20,10 +26,18 @@ const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
 // stock_status, tags, min_order_qty are omitted here because they are from
 // untracked migrations and may not exist in all DB instances; they ARE granted
 // conditionally by the SQL via a DO $$ existence check.
+// master_id / variant_label / variant_sort were added for PIM P2 and granted to
+// anon in the same PR. They are structural, not commercial — no price signal —
+// and without master_id PostgREST cannot resolve the product_masters embed at
+// all, which failed the WHOLE guest query with 42501 (the FK column must be
+// readable, not just the embedded table). They also fix a pre-existing bug:
+// guests never received master_id, so the variant selector never rendered for
+// logged-out visitors.
 const GUEST_PRODUCT_COLS =
   "id,name,category_id,description,sku,unit_of_measure,quantity_in_unit," +
   "image_url,image_alt_text,image_description,specifications," +
-  "is_active,is_featured,status,display_order,brand,created_at,updated_at";
+  "is_active,is_featured,status,display_order,brand,created_at,updated_at," +
+  "master_id,variant_label,variant_sort";
 
 // SECURITY-SENSITIVE CACHE: productSelectCols() gates the price/mrp/discount
 // columns (guests must never see them). supabase.auth.getSession() does
@@ -47,6 +61,14 @@ async function productSelectCols(): Promise<string> {
     cachedHasSession = !!session;
   }
   return cachedHasSession ? "*" : GUEST_PRODUCT_COLS;
+}
+
+// Same, plus the embedded series used for PIM P2 read-through inheritance.
+// Public read paths use this; admin paths deliberately do not (see
+// seriesInheritance.ts — an editor seeded with inherited text would write it
+// back into the variant row on the next save).
+async function productSelectColsWithSeries(): Promise<string> {
+  return `${await productSelectCols()},${SERIES_SELECT}`;
 }
 
 // ============================================================================
@@ -414,7 +436,7 @@ export const productService = {
     }
 
     try {
-      const cols = await productSelectCols();
+      const cols = await productSelectColsWithSeries();
       // Public visibility = published AND active. Drafts never appear publicly.
       let query = applyPublicScalarFilters(
         supabase
@@ -435,7 +457,7 @@ export const productService = {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as Product[];
+      return resolveSeriesAll(data as unknown as ProductWithSeries[]);
     } catch (error) {
       console.error("Error fetching products:", error);
       return [];
@@ -626,13 +648,21 @@ export const productService = {
     }
 
     try {
-      const cols = await productSelectCols();
+      // `includeUnpublished` is the admin branch (route editor, command
+      // palette). It must stay RAW: seeding a form with inherited text would
+      // save that text back onto the variant. Only the public branch resolves.
+      const isAdminRead = !!opts?.includeUnpublished;
+      const cols = isAdminRead
+        ? await productSelectCols()
+        : await productSelectColsWithSeries();
       let query = supabase.from("products").select(cols).eq("id", id);
-      if (!opts?.includeUnpublished) query = query.eq("status", "published");
+      if (!isAdminRead) query = query.eq("status", "published");
       const { data, error } = await query.single();
 
       if (error) throw error;
-      return data as unknown as Product;
+      return isAdminRead
+        ? (data as unknown as Product)
+        : resolveSeries(data as unknown as ProductWithSeries);
     } catch (error) {
       console.error("Error fetching product:", error);
       return null;
@@ -651,7 +681,7 @@ export const productService = {
     }
 
     try {
-      const cols = await productSelectCols();
+      const cols = await productSelectColsWithSeries();
       const { data, error } = await supabase
         .from("products")
         .select(cols)
@@ -662,7 +692,7 @@ export const productService = {
         .limit(limit);
 
       if (error) throw error;
-      return data as unknown as Product[];
+      return resolveSeriesAll(data as unknown as ProductWithSeries[]);
     } catch (error) {
       console.error("Error fetching featured products:", error);
       return [];
@@ -682,7 +712,7 @@ export const productService = {
     }
 
     try {
-      const cols = await productSelectCols();
+      const cols = await productSelectColsWithSeries();
       const { data, error } = await supabase
         .from("products")
         .select(cols)
@@ -692,7 +722,7 @@ export const productService = {
         .limit(limit);
 
       if (error) throw error;
-      return data as unknown as Product[];
+      return resolveSeriesAll(data as unknown as ProductWithSeries[]);
     } catch (error) {
       console.error("Error searching products:", error);
       return [];

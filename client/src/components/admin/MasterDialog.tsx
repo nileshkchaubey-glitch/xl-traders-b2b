@@ -14,9 +14,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
+import BrandCombobox from "@/components/admin/BrandCombobox";
 import { masterService } from "@/lib/masterService";
+import { brandsService } from "@/lib/brandsService";
 import { generateDescription } from "@/lib/aiService";
-import { Category } from "@/lib/supabase";
+import { Brand, Category } from "@/lib/supabase";
 
 interface MasterDialogProps {
   open: boolean;
@@ -35,7 +37,11 @@ export default function MasterDialog({
   const [slug, setSlug] = useState("");
   const [isManualSlug, setIsManualSlug] = useState(false);
   const [categoryId, setCategoryId] = useState("");
+  // Brand is dual-written exactly as on products: brand_id is canonical, the
+  // legacy text column mirrors the chosen brand's name ("" = no brand).
+  const [brandId, setBrandId] = useState("");
   const [brand, setBrand] = useState("");
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [description, setDescription] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
@@ -51,6 +57,13 @@ export default function MasterDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Admin brand list (active + inactive) — BrandCombobox only offers active
+  // ones but must still resolve the name of an already-linked inactive brand.
+  useEffect(() => {
+    if (!open) return;
+    brandsService.getAllAdmin().then(setBrands);
+  }, [open]);
 
   // Auto-generate slug from name
   useEffect(() => {
@@ -125,7 +138,7 @@ export default function MasterDialog({
 
   const handleAIGenerate = async () => {
     if (!name.trim()) {
-      toast.error("Product Master Name is required for AI generation");
+      toast.error("Series name is required for AI generation");
       return;
     }
     setGenerating(true);
@@ -146,7 +159,7 @@ export default function MasterDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error("Product Master Name is required");
+      toast.error("Series name is required");
       return;
     }
     if (!categoryId) {
@@ -162,7 +175,8 @@ export default function MasterDialog({
         name: name.trim(),
         slug: finalSlug,
         category_id: categoryId,
-        brand: brand.trim() || null,
+        brand_id: brandId || null,
+        brand: brand.trim(),
         description: description.trim() || null,
         meta_title: metaTitle.trim() || null,
         meta_description: metaDescription.trim() || null,
@@ -181,7 +195,7 @@ export default function MasterDialog({
         );
       }
 
-      toast.success("Master created ✓");
+      toast.success("Series created ✓");
       onSuccess();
       onClose();
 
@@ -190,6 +204,7 @@ export default function MasterDialog({
       setSlug("");
       setIsManualSlug(false);
       setCategoryId("");
+      setBrandId("");
       setBrand("");
       setDescription("");
       setMetaTitle("");
@@ -200,7 +215,7 @@ export default function MasterDialog({
       setPrimaryIndex(0);
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Failed to create product master");
+      toast.error(err.message || "Failed to create series");
     } finally {
       setSubmitting(false);
     }
@@ -222,10 +237,12 @@ export default function MasterDialog({
           <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10 flex-shrink-0 sm:static sm:border-0 sm:p-6 pb-2">
             <div>
               <DialogTitle className="text-lg font-bold text-slate-900">
-                New Product Master
+                New series
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                Create a master shell to group different product sizes/variants.
+                Group the sizes of one product. Description, images, SEO and
+                brand set here are inherited by every variant that lacks its
+                own.
               </DialogDescription>
             </div>
             <button
@@ -246,7 +263,7 @@ export default function MasterDialog({
                   htmlFor="master-name"
                   className="text-xs font-semibold text-slate-700"
                 >
-                  Product Master Name *
+                  Series name *
                 </Label>
                 <Input
                   id="master-name"
@@ -305,13 +322,22 @@ export default function MasterDialog({
                 >
                   Brand
                 </Label>
-                <Input
-                  id="master-brand"
-                  value={brand}
-                  onChange={e => setBrand(e.target.value)}
-                  placeholder="e.g. XL Traders"
-                  disabled={submitting}
+                <BrandCombobox
+                  brands={brands}
+                  value={brandId}
+                  onChange={id => {
+                    // Same dual-write contract as CatalogProductPanel: the
+                    // legacy text column mirrors the picked brand's name, and
+                    // "No brand" clears it to '' rather than NULL.
+                    setBrandId(id);
+                    setBrand(
+                      id ? (brands.find(b => b.id === id)?.name ?? "") : ""
+                    );
+                  }}
                 />
+                <p className="text-[11px] text-slate-500">
+                  Variants with no brand of their own inherit this.
+                </p>
               </div>
             </div>
 
@@ -487,7 +513,7 @@ export default function MasterDialog({
                   Active Status
                 </Label>
                 <span className="text-[10px] text-slate-500">
-                  Enable or disable viewing this product master group.
+                  Enable or disable this series and its variant grouping.
                 </span>
               </div>
               <Switch
@@ -521,7 +547,7 @@ export default function MasterDialog({
                   Creating...
                 </>
               ) : (
-                "Create Master"
+                "Create series"
               )}
             </Button>
           </div>

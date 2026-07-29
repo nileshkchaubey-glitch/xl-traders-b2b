@@ -74,24 +74,42 @@ export interface Product {
   display_order: number;
   created_at: string;
   updated_at: string;
+  // PIM P2 — series membership. `master_id` points at the product_masters row
+  // ("series" in the UI and in the owner's vocabulary); a variant inherits the
+  // series' description/SEO/brand/images at read time via seriesInheritance.ts.
   master_id?: string | null;
   variant_label?: string | null;
+  // Explicit selector ordering. Derived from the numeric prefix of
+  // variant_label on insert; NULL falls back to sorting by the label itself.
+  variant_sort?: number | null;
   // Fields the operator has explicitly marked "not applicable" so they stop
   // counting as missing in v_product_health (e.g. 'brand','specifications',
   // 'image','description','moq'). No fake data is entered.
   na_fields?: string[] | null;
 }
 
+/**
+ * A **series** — the owner's and the suppliers' word for what the schema calls
+ * `product_masters` (CLAUDE.md glossary). Variants are `products` rows carrying
+ * its `master_id`; since PIM P2 they inherit its description / SEO / brand /
+ * images at read time (`seriesInheritance.ts`) rather than by copying.
+ */
 export interface ProductMaster {
   id: string;
   name: string;
   slug: string;
-  category_id: string;
+  // Nullable since P2: the FK is ON DELETE SET NULL, so deleting a category
+  // orphans the series rather than cascading it away.
+  category_id: string | null;
+  // Legacy free-text brand, dual-written with brand_id exactly as products are.
   brand?: string | null;
+  // Canonical brand link (FK → brands.id, ON DELETE SET NULL).
+  brand_id?: string | null;
   description?: string | null;
   meta_title?: string | null;
   meta_description?: string | null;
   is_active: boolean;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
