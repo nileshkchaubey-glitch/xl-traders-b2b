@@ -76,6 +76,25 @@ those are pricing calls the owner makes by hand during the rebuild. This is a
 *judgment* rule, not data protection: the rest of `products` is expendable
 (Critical Rule #13). Leave those rows alone rather than guessing at a price.
 
+**Exactly what is wrong with those 11 rows** (measured 29 Jul 2026, so the manual
+fix has a checklist and nobody re-derives it):
+
+- **`price` holds a per-piece rate, not a pack price.** `HINGED-BOX-750-ML` is
+  `5.80` against `quantity_in_unit = 900` — it renders as ₹5.80 for a 900-piece
+  pack. The standalone duplicate `XL0035` prices the same item at `4401.00`
+  (₹4.89/pc). Every size conflicts this way, so this is a **pricing decision**,
+  not a unit conversion — the two figures disagree on the rate itself.
+- **`moq` was filled with `quantity_in_unit`** instead of a selling-unit count:
+  MOQ 900 on a 900-piece pack means "minimum 900 packs". Should be `1`.
+- **Two rows break even that pattern**, and need individual attention:
+  `HINGED-BOX-500-ML` has the per-piece price but `moq = 1`;
+  `HINGED-BOX-2250-ML` has a **pack** price (`5760.00`) with `moq = 1` and is
+  `is_active = false` (published-but-deactivated — the reason Fortune Petpack
+  reads 11 total / 10 public).
+- The 12 `XL00xx` standalones (`XL0029`–`XL0040`, brand text `Generic`,
+  `brand_id NULL`) are correctly pack-priced with `moq = 1`. They cover one size
+  the variant set does not: **150 ml**.
+
 ### categories
 
 ```
