@@ -39,11 +39,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: "catalog-editor", label: "Products", icon: Package },
       { id: "categories", label: "Catalogues", icon: Grid3x3 },
       // PIM P1: brand entity manager. Sits with the other catalogue-level
-      // taxonomies (Categories, Masters) — a tab in THIS admin, never a
+      // taxonomies (Categories, Series) — a tab in THIS admin, never a
       // parallel one.
       { id: "brands", label: "Brands", icon: Tag },
       { id: "image-library", label: "Image Library", icon: Images },
-      { id: "masters", label: "Masters", icon: Layers },
+      { id: "masters", label: "Series", icon: Layers },
     ],
   },
   {
@@ -85,4 +85,8 @@ export const BREADCRUMB: Record<string, { parent: string; label: string }> = {
 
 // Sections promoted to the mobile bottom tab bar. Everything else lives under
 // the "More" tab. `masters` opens its own route (/admin/masters).
-export const MOBILE_PRIMARY_IDS = ["overview", "catalog-editor", "image-library"];
+export const MOBILE_PRIMARY_IDS = [
+  "overview",
+  "catalog-editor",
+  "image-library",
+];

@@ -60,7 +60,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "catalog-editor", label: "Products", icon: Package },
       { id: "categories", label: "Catalogues", icon: Grid3x3 },
       { id: "image-library", label: "Image Library", icon: Images },
-      { id: "masters", label: "Masters", icon: Layers },
+      { id: "masters", label: "Series", icon: Layers },
     ],
   },
   {
@@ -132,7 +132,7 @@ export default function AdminMasters() {
       setVariantsMap(map);
     } catch (err) {
       console.error("Error loading masters data:", err);
-      toast.error("Failed to load product masters");
+      toast.error("Failed to load series");
     } finally {
       setLoading(false);
     }
@@ -161,7 +161,7 @@ export default function AdminMasters() {
         is_active: !master.is_active,
       });
       toast.success(
-        `Master set to ${!master.is_active ? "Active" : "Inactive"} ✓`
+        `Series set to ${!master.is_active ? "Active" : "Inactive"} ✓`
       );
       refreshData();
     } catch (err) {
@@ -173,7 +173,7 @@ export default function AdminMasters() {
   const handleDeleteMaster = async (id: string) => {
     if (
       !(await confirm({
-        title: "Delete this product master?",
+        title: "Delete this series?",
         description: "Variants will be unlinked but NOT deleted.",
         destructive: true,
       }))
@@ -181,17 +181,22 @@ export default function AdminMasters() {
       return;
     try {
       await masterService.deleteMaster(id);
-      toast.success("Master deleted ✓");
+      toast.success("Series deleted ✓");
       if (expandedId === id) setExpandedId(null);
       refreshData();
     } catch (err) {
       console.error(err);
-      toast.error("Failed to delete master");
+      toast.error("Failed to delete series");
     }
   };
 
   const handleDeleteVariant = async (id: string) => {
-    if (!(await confirm({ title: "Delete this variant product?", destructive: true })))
+    if (
+      !(await confirm({
+        title: "Delete this variant product?",
+        destructive: true,
+      }))
+    )
       return;
     try {
       await masterService.deleteVariant(id);
@@ -346,9 +351,7 @@ export default function AdminMasters() {
             {/* Header section */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-bold text-slate-900">
-                  Product Masters
-                </h1>
+                <h1 className="text-2xl font-bold text-slate-900">Series</h1>
                 <span className="bg-slate-200 text-slate-700 text-xs font-bold px-2 py-0.5 rounded-full">
                   {masters.length}
                 </span>
@@ -358,32 +361,31 @@ export default function AdminMasters() {
                 className="bg-red-600 hover:bg-red-700 text-white font-bold gap-1.5 shadow"
               >
                 <Plus className="w-4 h-4" />
-                New Master
+                New series
               </Button>
             </div>
 
             {loading && masters.length === 0 ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
                 <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
-                <p className="text-slate-500 text-sm">
-                  Loading masters list...
-                </p>
+                <p className="text-slate-500 text-sm">Loading series...</p>
               </div>
             ) : masters.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center flex flex-col items-center justify-center">
                 <AlertCircle className="w-10 h-10 text-slate-300 mb-3" />
                 <h3 className="text-slate-800 font-bold text-base">
-                  No Product Masters found
+                  No series yet
                 </h3>
                 <p className="text-slate-500 text-xs mt-1 max-w-sm">
-                  Create a master catalog record first, then attach multiple
-                  size or packing variants to it.
+                  A series groups sizes of one product — create it once, then
+                  attach its variants. Description, images, SEO and brand set
+                  here are inherited by every variant that lacks its own.
                 </p>
                 <Button
                   onClick={() => setShowCreateDialog(true)}
                   className="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold"
                 >
-                  Create Your First Master
+                  Create your first series
                 </Button>
               </div>
             ) : (
@@ -562,7 +564,7 @@ export default function AdminMasters() {
                                       handleDeleteMaster(master.id)
                                     }
                                     className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
-                                    title="Delete Master"
+                                    title="Delete series"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </Button>

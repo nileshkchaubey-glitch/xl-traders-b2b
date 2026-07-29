@@ -30,7 +30,7 @@ interface MobileMasterSheetProps {
 }
 
 /**
- * Bottom sheet for the common master edits on mobile — toggle visibility, view
+ * Bottom sheet for the common series edits on mobile — toggle visibility, view
  * / add / delete variants, open a variant in the full editor, delete master.
  * No new logic: every action calls into AdminMasters' existing handlers.
  */
@@ -155,7 +155,7 @@ export default function MobileMasterSheet({
 
           <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
             <Package className="w-3.5 h-3.5" />
-            Deleting a master unlinks its variants but does not delete them.
+            Deleting a series unlinks its variants but does not delete them.
           </p>
         </div>
       </DrawerContent>

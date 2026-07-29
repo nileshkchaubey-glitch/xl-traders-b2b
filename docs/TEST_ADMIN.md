@@ -2,9 +2,11 @@
 
 Internal test-admin setup for local development against the live Supabase project.
 
-> **Read this first.** Dev and production are the **same database**. The 142-product
-> catalogue is real, hand-entered work. Destructive tests touch **`ZZ-TEST-PRODUCT` only**
-> (§4). There is no staging environment to fall back on.
+> **Read this first.** Dev and production are the **same database**, and there is no
+> staging environment to fall back on. Since 29 Jul 2026 the ~142 scraped `products` rows
+> are **expendable** (Critical Rule #13) — `ZZ-TEST-PRODUCT` is a convenience for keeping
+> noise out of the rebuild, not a fence. Announce destructive operations before running
+> them and log them to [`CHANGELOG_SQL.md`](CHANGELOG_SQL.md). See §4 for the carve-out.
 
 ---
 
@@ -31,22 +33,22 @@ $function$
 - Looks up that id in `user_profiles` and returns its `is_admin`.
 - **`COALESCE(..., FALSE)`** — if the user has **no `user_profiles` row at all**, the
   function returns `FALSE`. This is the trap: creating the auth user in the Supabase
-  dashboard is *not enough*. A profile row must exist with `is_admin = true`.
+  dashboard is _not enough_. A profile row must exist with `is_admin = true`.
 - `SECURITY DEFINER`, so it can read `user_profiles` regardless of that table's own RLS.
 
 This function is what the RLS policies call — e.g. `brands`' "Admins can manage brands"
 (`FOR ALL … USING (is_admin())`).
 
-### The client has a *second*, independent admin check
+### The client has a _second_, independent admin check
 
 `client/src/lib/authStore.ts` does **not** call `is_admin()`. It resolves admin status
 client-side:
 
 ```ts
 function resolveIsAdmin(user, profile): boolean {
-  if (profile?.is_admin === true) return true;        // ← DB flag wins
+  if (profile?.is_admin === true) return true; // ← DB flag wins
   const email = user?.email?.toLowerCase();
-  return !!email && ADMIN_EMAILS.has(email);          // ← VITE_ADMIN_EMAILS fallback
+  return !!email && ADMIN_EMAILS.has(email); // ← VITE_ADMIN_EMAILS fallback
 }
 ```
 
@@ -59,18 +61,19 @@ function resolveIsAdmin(user, profile): boolean {
    flag still gets `42501` on every write.
 2. `authStore.buildAuthState()` **auto-creates a missing profile row** on first sign-in,
    with `is_admin` set from the `ADMIN_EMAILS` allowlist. So if you sign in as a new admin
-   *before* inserting its profile row, the app will create one with **`is_admin = false`**
+   _before_ inserting its profile row, the app will create one with **`is_admin = false`**
    and you will have to fix it afterwards. **Insert the profile row first** (§2).
 
 ---
 
 ## 2. The account, and the SQL that was run
 
-| | |
-|---|---|
-| Email | `dev-admin@xltraders.local` |
-| Auth user id | `8174be01-8b5e-4b41-89d5-923a630918f6` |
-| Password | **Not stored in this repo.** Set in the Supabase dashboard; see §3 |
+|              |                                                                                                                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Email        | `dev-admin@xltraders.local`                                                                                                                                                                             |
+| Auth user id | `19e93cb6-668e-49ed-b4df-747aee0ecdb0`                                                                                                                                                                  |
+| ⚠️           | An earlier revision of this doc recorded `8174be01-…`. That account was deleted and recreated during the password rotation — the id above is the live one (verified against `auth.users`, 29 Jul 2026). |
+| Password     | **Not stored in this repo.** Set in the Supabase dashboard; see §3                                                                                                                                      |
 
 The auth user itself was created manually via the Supabase dashboard. It had **no
 `user_profiles` row**, so `is_admin()` returned `FALSE`. This is the statement that granted
@@ -78,7 +81,7 @@ admin — idempotent, and it touches only this one profile row:
 
 ```sql
 INSERT INTO public.user_profiles (id, email, contact_person, company_name, is_admin, is_active)
-VALUES ('8174be01-8b5e-4b41-89d5-923a630918f6', 'dev-admin@xltraders.local',
+VALUES ('19e93cb6-668e-49ed-b4df-747aee0ecdb0', 'dev-admin@xltraders.local',
         'Dev Admin (test account)', 'XL Traders — internal testing', TRUE, TRUE)
 ON CONFLICT (id) DO UPDATE SET is_admin = TRUE, is_active = TRUE
 RETURNING id, email, is_admin, is_active;
@@ -92,7 +95,7 @@ transaction and rolls back — it changes nothing:
 ```sql
 BEGIN;
 SELECT set_config('request.jwt.claims',
-  '{"sub":"8174be01-8b5e-4b41-89d5-923a630918f6","role":"authenticated"}', true);
+  '{"sub":"19e93cb6-668e-49ed-b4df-747aee0ecdb0","role":"authenticated"}', true);
 SET LOCAL ROLE authenticated;
 SELECT auth.uid() AS acting_as_uid, public.is_admin() AS is_admin_result;
 ROLLBACK;
@@ -100,7 +103,7 @@ ROLLBACK;
 
 Expected: `is_admin_result = true`.
 
-To revoke later: `UPDATE public.user_profiles SET is_admin = FALSE WHERE id = '8174be01-…';`
+To revoke later: `UPDATE public.user_profiles SET is_admin = FALSE WHERE id = '19e93cb6-…';`
 
 ---
 
@@ -113,10 +116,10 @@ To revoke later: `UPDATE public.user_profiles SET is_admin = FALSE WHERE id = '8
 
 **Credentials are not in the repo.** `.env.local` (gitignored, `.gitignore:12`) holds:
 
-| Variable | Purpose |
-|---|---|
-| `VITE_ADMIN_EMAILS` | Client-side allowlist; includes the test account as a belt-and-braces fallback. Not required — the DB flag already wins. |
-| `TEST_ADMIN_EMAIL` | Convenience reference. |
+| Variable              | Purpose                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_ADMIN_EMAILS`   | Client-side allowlist; includes the test account as a belt-and-braces fallback. Not required — the DB flag already wins.                          |
+| `TEST_ADMIN_EMAIL`    | Convenience reference.                                                                                                                            |
 | `TEST_ADMIN_PASSWORD` | **Intentionally empty.** Nothing in the app reads it today — sign-in is a form. Fill it yourself only if you later add an automated login script. |
 
 Never commit a password. `.env.local` is gitignored; keep it that way.
@@ -125,13 +128,13 @@ Never commit a password. `.env.local` is gitignored; keep it that way.
 
 ## 4. `ZZ-TEST-PRODUCT` — the only safe destructive target
 
-| | |
-|---|---|
-| SKU | `ZZ-TEST-PRODUCT` |
-| Product id | `27a7d798-7d73-419a-a4b9-4195ab67bdce` |
-| Category | `uncategorized` sentinel |
-| `status` | `draft` |
-| `is_active` | `false` |
+|             |                                        |
+| ----------- | -------------------------------------- |
+| SKU         | `ZZ-TEST-PRODUCT`                      |
+| Product id  | `27a7d798-7d73-419a-a4b9-4195ab67bdce` |
+| Category    | `uncategorized` sentinel               |
+| `status`    | `draft`                                |
+| `is_active` | `false`                                |
 
 Because the storefront gate is `status='published' AND is_active=true`, this row is
 **invisible to customers** — verified: 0 publicly visible.
@@ -148,7 +151,7 @@ RETURNING id, name, sku, status, is_active, brand, brand_id, category_id;
 ### Standing rule (revised 29 Jul 2026)
 
 `products` rows are **expendable** — the ~142 scraped rows are being fully rebuilt before
-launch, so `ZZ-TEST-PRODUCT` is a *convenience*, not a fence. Prefer it for throwaway tests
+launch, so `ZZ-TEST-PRODUCT` is a _convenience_, not a fence. Prefer it for throwaway tests
 because it keeps noise out of the rebuild, but testing against real rows is allowed.
 
 Two conditions, from `CLAUDE.md` Critical Rule #13:
@@ -175,39 +178,39 @@ a signed-in browser session.
 
 ### Verified at the DB / RLS layer
 
-| Check | Result |
-|---|---|
-| `is_admin()` for dev-admin | ✅ `true` |
-| Create + rename + deactivate a brand, as dev-admin under RLS | ✅ all three succeeded (rolled back) |
-| Duplicate brand name | ✅ `23505` on `brands_name_key` |
-| Non-admin authenticated user attempts a brand write | ✅ blocked, `42501` — RLS holds |
-| Assign brand → **both** `brand_id` and `brand` text written in one update | ✅ on `ZZ-TEST-PRODUCT` |
-| "No brand" → `brand_id = NULL` **and** `brand = ''` (empty string, not NULL) | ✅ |
-| `ZZ-TEST-PRODUCT` publicly visible | ✅ 0 — correctly hidden |
+| Check                                                                        | Result                               |
+| ---------------------------------------------------------------------------- | ------------------------------------ |
+| `is_admin()` for dev-admin                                                   | ✅ `true`                            |
+| Create + rename + deactivate a brand, as dev-admin under RLS                 | ✅ all three succeeded (rolled back) |
+| Duplicate brand name                                                         | ✅ `23505` on `brands_name_key`      |
+| Non-admin authenticated user attempts a brand write                          | ✅ blocked, `42501` — RLS holds      |
+| Assign brand → **both** `brand_id` and `brand` text written in one update    | ✅ on `ZZ-TEST-PRODUCT`              |
+| "No brand" → `brand_id = NULL` **and** `brand = ''` (empty string, not NULL) | ✅                                   |
+| `ZZ-TEST-PRODUCT` publicly visible                                           | ✅ 0 — correctly hidden              |
 
 ### Verified by reading the code
 
-| Check | Where |
-|---|---|
-| `23505` mapped to an inline field error, not a raw toast | `brandsService.ts:27` `PG_UNIQUE_VIOLATION`; `AdminBrands.tsx:151` `setDupError(true)`, `:318` `aria-invalid` |
-| Panel save dual-writes | `productForm.ts:106-107` — `brand_id` + `brand` in one payload |
-| Bulk assign dual-writes in a single statement | `productService.ts:776-790` `bulkSetBrand` → `.update({ brand_id, brand })` |
-| Inactive brand renders `Name (inactive)`, "No brand" option present | `BrandCombobox.tsx:55`, `:84-97` |
+| Check                                                               | Where                                                                                                         |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `23505` mapped to an inline field error, not a raw toast            | `brandsService.ts:27` `PG_UNIQUE_VIOLATION`; `AdminBrands.tsx:151` `setDupError(true)`, `:318` `aria-invalid` |
+| Panel save dual-writes                                              | `productForm.ts:106-107` — `brand_id` + `brand` in one payload                                                |
+| Bulk assign dual-writes in a single statement                       | `productService.ts:776-790` `bulkSetBrand` → `.update({ brand_id, brand })`                                   |
+| Inactive brand renders `Name (inactive)`, "No brand" option present | `BrandCombobox.tsx:55`, `:84-97`                                                                              |
 
 ### Verified through the live admin UI ✅
 
 Run 2026-07-29 signed in as `dev-admin@xltraders.local` (owner typed the password; Claude
 never handled it). All six passed.
 
-| Check | Result |
-|---|---|
-| Brand create → rename → deactivate via the Brands screen | ✅ slug auto-derived `zz-test-brand`, certifications parsed to 2, rename kept the slug, Active switch flipped to `aria-checked=false` |
-| Duplicate name → inline error, no crash | ✅ dialog stayed open, `aria-invalid="true"`, "A brand with this name or slug already exists." under the Name field, **no raw toast**, brand count unchanged |
-| Panel picker assignment | ✅ wrote **both** `brand_id` and `brand` text |
-| "No brand" via the picker | ✅ `brand_id NULL` + `brand ''` (empty string) |
-| Bulk Set brand → **Undo** | ✅ set to `Packworld`, Undo restored **both** columns to `Fortune Petpack` — the paired snapshot works |
-| `Paras (inactive)` in the picker | ✅ renders `Paras (inactive)`, not blank. Inactive brands are correctly **not offered** as options (only `No brand` + the two active brands) |
-| Brands tab from the mobile shell ("More") | ✅ reachable at 390px, responsive (Slug/Certifications columns drop), no horizontal overflow |
+| Check                                                    | Result                                                                                                                                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Brand create → rename → deactivate via the Brands screen | ✅ slug auto-derived `zz-test-brand`, certifications parsed to 2, rename kept the slug, Active switch flipped to `aria-checked=false`                        |
+| Duplicate name → inline error, no crash                  | ✅ dialog stayed open, `aria-invalid="true"`, "A brand with this name or slug already exists." under the Name field, **no raw toast**, brand count unchanged |
+| Panel picker assignment                                  | ✅ wrote **both** `brand_id` and `brand` text                                                                                                                |
+| "No brand" via the picker                                | ✅ `brand_id NULL` + `brand ''` (empty string)                                                                                                               |
+| Bulk Set brand → **Undo**                                | ✅ set to `Packworld`, Undo restored **both** columns to `Fortune Petpack` — the paired snapshot works                                                       |
+| `Paras (inactive)` in the picker                         | ✅ renders `Paras (inactive)`, not blank. Inactive brands are correctly **not offered** as options (only `No brand` + the two active brands)                 |
+| Brands tab from the mobile shell ("More")                | ✅ reachable at 390px, responsive (Slug/Certifications columns drop), no horizontal overflow                                                                 |
 
 Minor observation, not a defect: navigating to Brands from the mobile "More" menu renders
 the Brands screen correctly but leaves the previous tab's params in the URL
@@ -217,13 +220,13 @@ the Brands screen correctly but leaves the previous tab's params in the URL
 
 ## 6. Live counts (2026-07-29, after adding the test row)
 
-| Brand | Total | Publicly visible |
-|---|---|---|
-| Fortune Petpack | 11 | 10 |
-| Packworld | 18 | 18 |
-| Paras | 1 | 1 |
-| _no brand_ (`brand_id IS NULL`) | 113 | 110 |
-| **Total** | **143** | **139** |
+| Brand                           | Total   | Publicly visible |
+| ------------------------------- | ------- | ---------------- |
+| Fortune Petpack                 | 11      | 10               |
+| Packworld                       | 18      | 18               |
+| Paras                           | 1       | 1                |
+| _no brand_ (`brand_id IS NULL`) | 113     | 110              |
+| **Total**                       | **143** | **139**          |
 
 Reconciliation notes:
 
