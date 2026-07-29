@@ -194,17 +194,24 @@ a signed-in browser session.
 | Bulk assign dual-writes in a single statement | `productService.ts:776-790` `bulkSetBrand` → `.update({ brand_id, brand })` |
 | Inactive brand renders `Name (inactive)`, "No brand" option present | `BrandCombobox.tsx:55`, `:84-97` |
 
-### NOT verified — needs a signed-in browser session
+### Verified through the live admin UI ✅
 
-These need a real Supabase session, which requires entering the account password. Claude
-does not enter passwords or write them to disk, so these are handed over:
+Run 2026-07-29 signed in as `dev-admin@xltraders.local` (owner typed the password; Claude
+never handled it). All six passed.
 
-- Brand create / rename / deactivate **through the Brands admin UI**
-- Duplicate name → inline error renders correctly and does not crash
-- Panel picker assignment **through the UI**
-- Bulk "Set brand" → **Undo** restores previous values
-- Paras rendering as `Paras (inactive)` in the picker
-- Brands tab reachable from the mobile admin shell ("More")
+| Check | Result |
+|---|---|
+| Brand create → rename → deactivate via the Brands screen | ✅ slug auto-derived `zz-test-brand`, certifications parsed to 2, rename kept the slug, Active switch flipped to `aria-checked=false` |
+| Duplicate name → inline error, no crash | ✅ dialog stayed open, `aria-invalid="true"`, "A brand with this name or slug already exists." under the Name field, **no raw toast**, brand count unchanged |
+| Panel picker assignment | ✅ wrote **both** `brand_id` and `brand` text |
+| "No brand" via the picker | ✅ `brand_id NULL` + `brand ''` (empty string) |
+| Bulk Set brand → **Undo** | ✅ set to `Packworld`, Undo restored **both** columns to `Fortune Petpack` — the paired snapshot works |
+| `Paras (inactive)` in the picker | ✅ renders `Paras (inactive)`, not blank. Inactive brands are correctly **not offered** as options (only `No brand` + the two active brands) |
+| Brands tab from the mobile shell ("More") | ✅ reachable at 390px, responsive (Slug/Certifications columns drop), no horizontal overflow |
+
+Minor observation, not a defect: navigating to Brands from the mobile "More" menu renders
+the Brands screen correctly but leaves the previous tab's params in the URL
+(`?tab=catalog-editor&catCols=…`). Cosmetic only — deep-linking `?tab=brands` works.
 
 ---
 

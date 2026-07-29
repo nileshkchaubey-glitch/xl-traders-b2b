@@ -17,6 +17,37 @@ statements are appended *after* they run, not submitted for approval.
 
 ---
 
+## 2026-07-29 — PR #135 UI verification run (PR #137)
+
+All six browser-level checks run as `dev-admin@xltraders.local` against the live admin UI.
+Writes below were made **through the UI** except where marked; the SQL here is what the UI
+produced plus two setup/cleanup statements.
+
+**1. Point the scratch row at an inactive brand** (setup for the "(inactive)" render check).
+
+```sql
+UPDATE public.products p SET brand_id = b.id, brand = b.name
+FROM public.brands b WHERE b.name = 'Paras' AND p.sku = 'ZZ-TEST-PRODUCT'
+RETURNING p.sku, p.brand_id::text, p.brand;
+```
+
+**2. Cleanup — reset the scratch row and drop the throwaway brand.**
+Reason: `ZZ Test Brand` existed only to exercise create/rename/deactivate.
+
+```sql
+UPDATE public.products SET brand_id = NULL, brand = '', status='draft', is_active=FALSE
+WHERE sku = 'ZZ-TEST-PRODUCT';
+DELETE FROM public.brands WHERE slug = 'zz-test-brand';
+```
+→ brands back to 3; scratch row back to `brand_id NULL` / `brand ''` / draft / inactive.
+
+**Writes made through the UI** (listed for the trail; no hand-written SQL):
+create `ZZ Test Brand` → rename to `ZZ Test Brand Renamed` → deactivate → delete;
+panel picker assign `Fortune Petpack` then `No brand` on `ZZ-TEST-PRODUCT`;
+bulk Set brand → `Packworld`, then **Undo** (restored both columns to `Fortune Petpack`).
+
+---
+
 ## 2026-07-29 — Test-admin setup (PR #137)
 
 ### Mutating
