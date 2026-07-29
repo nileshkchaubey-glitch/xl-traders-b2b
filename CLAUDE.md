@@ -907,6 +907,12 @@ sticky-right-many-cols,flex-cap-1920}.png`.
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
 - **GST setting is stored-only** — `site_content.gst_enabled` / `gst_percentage` are editable in
   admin but NOT yet applied to any cart/checkout math (deliberate; checkout integration is a later phase)
+- **Deactivating a brand has no storefront effect.** `productService.getBrands()` derives the
+  `/catalog` brand facet from the legacy `products.brand` **text** column over published+active
+  products and never consults `brands.is_active` — so `Paras` (deactivated) still shows as a facet
+  because its one product `XL0001` is live. Closes when the storefront moves to `brand_id` /
+  `brandsService.getAll()` (next storefront PR). Until then, hide a brand by unpublishing or
+  deactivating its products. See [`docs/TEST_ADMIN.md`](docs/TEST_ADMIN.md) §7.
 - Import UI shows price as required (\*) — stale after nullable migration (fix in next PR)
 - **`enquiries` vs `inquiries` are NOT duplicate tables — do NOT merge them.**
   `enquiries` = real B2B leads (admin views via `enquiryService` / AdminEnquiries).
@@ -967,6 +973,33 @@ roadmap commitment yet.
 10. **Uncategorized sentinel** (slug='uncategorized') — NEVER delete.
 11. **`v_product_health`** — only source of missing logic; never duplicate in TS.
 12. **All new products default to `draft`** — must be explicitly published.
+13. **Destructive tests touch `ZZ-TEST-PRODUCT` ONLY** — never the 142 real catalogue rows.
+    Dev and production are the **same database**. See "Test admin" below.
+
+---
+
+## 🔑 Test Admin
+
+Full details, including every SQL statement run: [`docs/TEST_ADMIN.md`](docs/TEST_ADMIN.md).
+
+- **Account:** `dev-admin@xltraders.local` (auth id `8174be01-8b5e-4b41-89d5-923a630918f6`).
+  Password is **never** in the repo — it lives in gitignored `.env.local` / the Supabase
+  dashboard, and is referenced only as `TEST_ADMIN_PASSWORD`.
+- **How admin is determined:** `public.is_admin()` reads **one boolean**,
+  `user_profiles.is_admin`, for `auth.uid()`, defaulting to `FALSE` when the user has no
+  profile row. Creating the auth user is **not** enough — the profile row must exist.
+  RLS policies (e.g. `brands`' "Admins can manage brands") call this function; it is the
+  real authorization boundary.
+- **The client has a separate check.** `authStore.resolveIsAdmin` trusts
+  `profile.is_admin` first, then a `VITE_ADMIN_EMAILS` allowlist. It is **UX only** —
+  it decides which screens render, never what the database permits. Note
+  `buildAuthState` auto-creates a missing profile with `is_admin` from that allowlist,
+  so **insert the profile row before the account's first sign-in** or it lands as
+  non-admin.
+- **Safe test target:** `ZZ-TEST-PRODUCT` (id `27a7d798-7d73-419a-a4b9-4195ab67bdce`),
+  `status='draft'` + `is_active=false`, so the publish gate keeps it off the storefront.
+  Rule #13 above. Reset it with:
+  `UPDATE products SET brand_id=NULL, brand='', status='draft', is_active=FALSE WHERE sku='ZZ-TEST-PRODUCT';`
 
 ---
 
