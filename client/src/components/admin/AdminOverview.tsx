@@ -17,6 +17,7 @@ import {
   Tag,
   FileText,
   Globe,
+  Link2,
   ListChecks,
   Hash,
 } from "lucide-react";
@@ -56,6 +57,12 @@ const MISSING_CHIP_META: Record<
   "no-description": {
     icon: FileText,
     color: "text-amber-600 bg-amber-50 border-amber-200",
+  },
+  // Slug is mechanical (bulk-generated in AdminSEO); meta title is editorial.
+  // Kept visually distinct so the two aren't read as one "SEO" bucket again.
+  "no-slug": {
+    icon: Link2,
+    color: "text-slate-600 bg-slate-50 border-slate-200",
   },
   "no-seo": { icon: Globe, color: "text-blue-600 bg-blue-50 border-blue-200" },
 };

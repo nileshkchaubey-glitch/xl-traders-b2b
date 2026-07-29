@@ -18,6 +18,42 @@ statements are appended _after_ they run, not submitted for approval.
 
 ---
 
+## 2026-07-29 — P2 follow-up: split `missing_seo` (PR: `feat/pim-p2-inheritance-hint`)
+
+**1. `v_product_health` — split the SEO check.** ⚠️ `DROP VIEW` + recreate, announced
+first (the column set changes, and `CREATE OR REPLACE VIEW` can only append at the end).
+No data touched; no dependent objects exist.
+
+Reason: `missing_seo` was `slug blank OR meta_title blank`, which ANDs two unrelated
+things together — and since 139 of 143 rows have a blank slug, the flag was true no
+matter whether the editorial meta was written. The score understated permanently and
+real SEO gaps could not be told from structural ones.
+
+- `missing_slug` — per-product, **never inherits** (URLs must be unique), mechanically
+  derivable from the name (`AdminSEO` bulk-generates it).
+- `missing_seo` — editorial `meta_title`, **inheritable** from the series. Also gained
+  `na_fields` support, which it never had.
+- `missing_count` is now 0–9 and `health_score` divides by 9.
+
+```sql
+DROP VIEW public.v_product_health;
+CREATE VIEW public.v_product_health AS …
+  (p.slug IS NULL OR p.slug = '') AS missing_slug,
+  ((p.meta_title IS NULL OR p.meta_title = '')
+    AND NOT (p.master_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM product_masters m
+      WHERE m.id = p.master_id AND m.meta_title IS NOT NULL AND m.meta_title <> ''))
+    AND NOT ('seo' = ANY (COALESCE(p.na_fields,'{}'::text[])))) AS missing_seo
+…
+```
+
+→ Catalogue-wide the two now read **139 missing slug** vs **128 missing meta title** —
+previously one indistinguishable "missing SEO". The 11 series variants read
+`missing_slug 11 / missing_seo 0`: the series meta_title covers all of them, which the
+old flag could never show. Variant average `health_score` 75 → **78**.
+
+---
+
 ## 2026-07-29 — PIM P2 series (PR: `feat/pim-p2-series`)
 
 Schema approved by the owner before running. All statements below were executed.

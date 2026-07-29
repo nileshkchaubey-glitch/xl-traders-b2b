@@ -88,6 +88,7 @@ import {
   AdminStatusFilter,
   BulkEditableField,
 } from "@/lib/productService";
+import { masterService, type ProductMaster } from "@/lib/masterService";
 import { healthService, CategoryHealth } from "@/lib/healthService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry } from "@/lib/priceUtils";
@@ -550,6 +551,9 @@ export default function CatalogTreeEditor({
 
   // Table state
   const [products, setProducts] = useState<Product[]>([]);
+  // Display-only map of the series behind the current page's rows, keyed by
+  // master_id. Never merged into a product row — see loadProducts.
+  const [seriesMap, setSeriesMap] = useState<Record<string, ProductMaster>>({});
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -645,6 +649,20 @@ export default function CatalogTreeEditor({
       });
       setProducts(data);
       setTotalCount(count);
+      // Series behind the rows on this page, so the table can mark a field as
+      // inherited rather than missing. Admin rows stay RAW (see
+      // seriesInheritance.ts) — this map is display-only and is never merged
+      // into a product, so nothing can write a series value onto a variant.
+      try {
+        setSeriesMap(
+          await masterService.getSeriesMap(
+            data.map(p => p.master_id).filter((id): id is string => !!id)
+          )
+        );
+      } catch {
+        // A failed lookup only costs the marker; the table still works.
+        setSeriesMap({});
+      }
     } catch {
       toast.error("Failed to load products");
       setProducts([]);
@@ -1671,8 +1689,17 @@ export default function CatalogTreeEditor({
     isFocusedHere(id, field) && !editingHere(id, field)
       ? "ring-2 ring-red-400 ring-inset rounded-md"
       : "";
+  // The series description a variant would inherit, or null.
+  const inheritedDesc = (p: Product): string | null => {
+    const d = p.master_id ? seriesMap[p.master_id]?.description : null;
+    return d?.trim() ? d.trim() : null;
+  };
+  // A row is only "missing" a description when nothing — its own or its
+  // series' — supplies one. Without the second half the table showed a red
+  // "Add description" on every variant of a fully-described series.
   const descMissing = (p: Product) =>
-    !p.description?.trim() || p.description.trim().length < 15;
+    !inheritedDesc(p) &&
+    (!p.description?.trim() || p.description.trim().length < 15);
   const editorProps = {
     value: cellEdit?.value ?? "",
     onChange: (v: string) =>
@@ -1913,7 +1940,10 @@ export default function CatalogTreeEditor({
             </span>
           );
         return p.brand ? (
-          <span className="text-xs text-amber-700" title="Text only — no brand link">
+          <span
+            className="text-xs text-amber-700"
+            title="Text only — no brand link"
+          >
             {p.brand}
           </span>
         ) : (
@@ -2109,6 +2139,7 @@ export default function CatalogTreeEditor({
       cell: ({ row }) => {
         const p = row.original;
         const naDesc = p.na_fields?.includes("description");
+        const inherited = inheritedDesc(p);
         return editingHere(p.id, "description") ? (
           <InlineInput {...editorProps} placeholder="Short description" />
         ) : (
@@ -2120,6 +2151,13 @@ export default function CatalogTreeEditor({
             {p.description?.trim() ? (
               <span className="text-slate-600 text-xs line-clamp-2">
                 {p.description}
+              </span>
+            ) : inherited ? (
+              <span
+                className="text-slate-400 text-xs line-clamp-2 italic"
+                title={`Inherited from series ${seriesMap[p.master_id!]?.name}: ${inherited}`}
+              >
+                ↳ {inherited}
               </span>
             ) : (
               <span className="text-red-400 text-xs italic">

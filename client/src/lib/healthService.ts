@@ -8,6 +8,11 @@ export interface MissingCounts {
   image: number;
   specifications: number;
   description: number;
+  // Split in the P2 follow-up: `slug` is per-product, never inherits and is
+  // mechanically derivable (AdminSEO bulk-generates it). `seo` is the
+  // editorial meta_title, which DOES inherit from the series. ANDing them into
+  // one flag meant a blank slug permanently masked whether the meta was done.
+  slug: number;
   seo: number;
 }
 
@@ -21,6 +26,7 @@ export interface ProductHealthRow {
   missing_image: boolean;
   missing_specifications: boolean;
   missing_description: boolean;
+  missing_slug: boolean;
   missing_seo: boolean;
   health_score: number;
 }
@@ -46,7 +52,10 @@ async function fetchAllIds(
   buildPage: (
     from: number,
     to: number
-  ) => PromiseLike<{ data: { id: string }[] | null; error: { message: string } | null }>
+  ) => PromiseLike<{
+    data: { id: string }[] | null;
+    error: { message: string } | null;
+  }>
 ): Promise<string[]> {
   const ids: string[] = [];
   let from = 0;
@@ -74,6 +83,7 @@ export const healthService = {
         image: 0,
         specifications: 0,
         description: 0,
+        slug: 0,
         seo: 0,
       };
     }
@@ -81,7 +91,8 @@ export const healthService = {
       .from("v_product_health")
       .select(
         "missing_price,missing_category,missing_moq,missing_brand," +
-          "missing_image,missing_specifications,missing_description,missing_seo"
+          "missing_image,missing_specifications,missing_description," +
+          "missing_slug,missing_seo"
       );
     if (categoryIds?.length) q = q.in("category_id", categoryIds);
     const { data, error } = await q;
@@ -99,6 +110,7 @@ export const healthService = {
       image: rows.filter(r => r.missing_image).length,
       specifications: rows.filter(r => r.missing_specifications).length,
       description: rows.filter(r => r.missing_description).length,
+      slug: rows.filter(r => r.missing_slug).length,
       seo: rows.filter(r => r.missing_seo).length,
     };
   },
