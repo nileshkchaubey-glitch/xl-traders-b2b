@@ -145,13 +145,26 @@ ON CONFLICT (sku) DO UPDATE SET status = 'draft', is_active = FALSE
 RETURNING id, name, sku, status, is_active, brand, brand_id, category_id;
 ```
 
-### Standing rule
+### Standing rule (revised 29 Jul 2026)
 
-> **Destructive or mutating tests may only touch `ZZ-TEST-PRODUCT`.**
-> Never test against the 142 real catalogue rows. If a test genuinely requires a real row,
-> record which row, what changed, and restore the original value in the same session.
-> Reset it to clean state with:
-> `UPDATE public.products SET brand_id = NULL, brand = '', status='draft', is_active=FALSE WHERE sku='ZZ-TEST-PRODUCT';`
+`products` rows are **expendable** — the ~142 scraped rows are being fully rebuilt before
+launch, so `ZZ-TEST-PRODUCT` is a *convenience*, not a fence. Prefer it for throwaway tests
+because it keeps noise out of the rebuild, but testing against real rows is allowed.
+
+Two conditions, from `CLAUDE.md` Critical Rule #13:
+
+- **Announce destructive operations before running them** (announce, not ask), and log them
+  to [`CHANGELOG_SQL.md`](CHANGELOG_SQL.md).
+- **Carve-out:** the 11 `Hinged box` variants have prices conflicting with their standalone
+  duplicates. Do **not** script or auto-merge that reconciliation — the owner makes those
+  pricing calls by hand. A judgment rule, not data protection.
+
+Reset the scratch row with:
+
+```sql
+UPDATE public.products SET brand_id = NULL, brand = '', status='draft', is_active=FALSE
+WHERE sku='ZZ-TEST-PRODUCT';
+```
 
 ---
 

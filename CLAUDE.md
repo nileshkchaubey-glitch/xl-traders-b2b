@@ -70,8 +70,11 @@ rate. `quantity_in_unit` is descriptive — how many pieces are inside that pack
 ProductCard / ProductDetail is derived (`price ÷ quantity_in_unit`) and is never
 stored. This is what `ProductCard`, `ProductDetail` and `cartStore.getTotal()`
 (`price × quantity`) already assume, and what 131 of the 142 live products follow.
-The 11 `Hinged box` variants were entered per-piece and are being reconciled
-manually by the owner — **do not script, migrate, or bulk-edit that data.**
+The 11 `Hinged box` variants were entered per-piece and their prices conflict with
+their standalone duplicates. **Do not script or auto-merge that reconciliation** —
+those are pricing calls the owner makes by hand during the rebuild. This is a
+*judgment* rule, not data protection: the rest of `products` is expendable
+(Critical Rule #13). Leave those rows alone rather than guessing at a price.
 
 ### categories
 
@@ -809,9 +812,9 @@ sticky-right-many-cols,flex-cap-1920}.png`.
 
 ## 🗺️ Roadmap (next, in order)
 
-0. **PIM — phase order (authoritative):** `P1 brands (current) → P2 series → P3 spec fields → P4 images`.
+0. **PIM — phase order (authoritative):** `P1 brands (DONE, #135) → P2 series (CURRENT) → P3 spec fields → P4 images`.
    Work in exactly this sequence; do not reorder or merge phases.
-   - **P1 — brands (in progress).** First-class `public.brands` entity (table + RLS + seed +
+   - **P1 — brands ✅ SHIPPED (#135).** First-class `public.brands` entity (table + RLS + seed +
      `products.brand_id` FK + backfill already applied by the owner via SQL Editor).
      App side: `lib/brandsService.ts`, Brands manager tab in `/admin` (Catalogue group),
      `BrandCombobox` picker in `CatalogProductPanel`, bulk "Set brand", `brand_id IS NULL`
@@ -963,7 +966,12 @@ roadmap commitment yet.
    list to those grants so guests don't hit a 403; its cache invalidates on auth change.
    Null price not public. See Architecture Rule #3.
 2. **`pnpm-lock.yaml` must NOT exist** — Cloudflare build fails.
-3. **SQL migrations** — Supabase SQL Editor only. Never via agent.
+3. **SQL is agent-executable** (standing grant, 29 Jul 2026 — supersedes the old
+   "Supabase SQL Editor only, never via agent" rule). Agents run
+   SELECT/INSERT/UPDATE/DELETE/DDL/RLS directly. Two conditions: **announce destructive
+   operations in the reply before running them** (announce, not ask), and **append every
+   executed statement to [`docs/CHANGELOG_SQL.md`](docs/CHANGELOG_SQL.md)** with a one-line
+   reason. `CREATE POLICY IF NOT EXISTS` is still invalid Postgres — use `CREATE POLICY`.
 4. **`CREATE POLICY IF NOT EXISTS` invalid Postgres** — use `CREATE POLICY`.
 5. **Wouter `<Link>`** — never `<a href>` for internal nav.
 6. **Auth store** — skip TOKEN_REFRESHED, deduplicate SIGNED_IN by user ID.
@@ -973,8 +981,20 @@ roadmap commitment yet.
 10. **Uncategorized sentinel** (slug='uncategorized') — NEVER delete.
 11. **`v_product_health`** — only source of missing logic; never duplicate in TS.
 12. **All new products default to `draft`** — must be explicitly published.
-13. **Destructive tests touch `ZZ-TEST-PRODUCT` ONLY** — never the 142 real catalogue rows.
-    Dev and production are the **same database**. See "Test admin" below.
+13. **`products` rows are EXPENDABLE** (owner decision, 29 Jul 2026). The ~142 rows were
+    scraped and are being fully rebuilt to the owner's standards before launch. Delete,
+    rewrite, bulk-edit or truncate freely — nothing in `products` needs preserving.
+    Dev and production are the same database, so **announce destructive operations before
+    running them** (announce, not ask) and log them to
+    [`docs/CHANGELOG_SQL.md`](docs/CHANGELOG_SQL.md).
+    `ZZ-TEST-PRODUCT` still exists as a convenient scratch row (see "Test admin"), but it
+    is no longer the *only* legal target.
+    **Carve-out — a judgment rule, not data protection:** the 11 `Hinged box` variants have
+    prices that conflict with their standalone duplicates. Do **not** script or auto-merge
+    that reconciliation — those are pricing calls the owner makes by hand during the
+    rebuild. Leave those rows alone rather than guessing. Everything else is fair game.
+14. **Categories, brands and policies are cheap to recreate** — but the `uncategorized`
+    sentinel is still load-bearing (rule #10) because `products.category_id` is NOT NULL.
 
 ---
 
