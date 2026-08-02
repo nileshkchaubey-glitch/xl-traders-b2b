@@ -11,15 +11,15 @@
 
 Read this file **together with** `docs/DESIGN_SYSTEM.md`. They have different jobs:
 
-| File | Answers |
-|---|---|
-| `DESIGN_SYSTEM.md` | *What are the tokens?* Colors, type scale, spacing, radii. **Binding.** |
-| `STYLE_REFERENCE.md` | *How do we compose them?* Density, hierarchy, IA patterns. **Guidance.** |
+| File                 | Answers                                                                  |
+| -------------------- | ------------------------------------------------------------------------ |
+| `DESIGN_SYSTEM.md`   | _What are the tokens?_ Colors, type scale, spacing, radii. **Binding.**  |
+| `STYLE_REFERENCE.md` | _How do we compose them?_ Density, hierarchy, IA patterns. **Guidance.** |
 
 If the two ever disagree, **`DESIGN_SYSTEM.md` wins.** If this file suggests a value that is not
 already a token in `index.css` `@theme`, stop and ask — do not hardcode it.
 
-**This file describes patterns, not pixels.** We are extracting *structural principles* observed in
+**This file describes patterns, not pixels.** We are extracting _structural principles_ observed in
 reference apps. We are not reproducing any other company's visual identity — no copied logos,
 illustrations, color palettes, brand voice, or photography. XL Traders' own tokens (red `#DC2626`,
 green `#16A34A`, slate) stay unchanged.
@@ -34,34 +34,34 @@ PR-0 bugs → A-1 asset audit → PR-1 trust/hero → PR-2 card
   → PR-3 category tiles → PR-4 mobile shell → PR-5 order again
 ```
 
-| Phase | Owns | Sections |
-|---|---|---|
-| **PR-0** ✅ shipped | The four anti-patterns live in our own build | §2.4 #1–#4 |
-| **A-1** | Asset audit — bucket, path convention, `product_images` scope. Gates every later visual phase | §4.2 |
-| **PR-1** | Trust de-duplication + hero, incl. delivery promise | §2.4 #5, §2.1-A6 |
-| **PR-2** | **`toCardModel` + the spec line**, then the rest of the card spec | §4.1, §3.1 |
-| **PR-3** | Category tiles, incl. **product counts** | §3.2, §2.2-B1 |
-| **PR-4** | Mobile shell — sticky cart, mobile category grid | §2.1-A4, §5 |
-| **PR-5** | Order again | §2.3 |
+| Phase               | Owns                                                                                          | Sections         |
+| ------------------- | --------------------------------------------------------------------------------------------- | ---------------- |
+| **PR-0** ✅ shipped | The four anti-patterns live in our own build                                                  | §2.4 #1–#4       |
+| **A-1**             | Asset audit — bucket, path convention, `product_images` scope. Gates every later visual phase | §4.2             |
+| **PR-1**            | Trust de-duplication + hero, incl. delivery promise                                           | §2.4 #5, §2.1-A6 |
+| **PR-2**            | **`toCardModel` + the spec line**, then the rest of the card spec                             | §4.1, §3.1       |
+| **PR-3**            | Category tiles, incl. **product counts**                                                      | §3.2, §2.2-B1    |
+| **PR-4**            | Mobile shell — sticky cart, mobile category grid                                              | §2.1-A4, §5      |
+| **PR-5**            | Order again                                                                                   | §2.3             |
 
 ---
 
 ## 1. Reference set
 
-Apps studied, and what each was studied *for*:
+Apps studied, and what each was studied _for_:
 
-| App | Segment | Studied for |
-|---|---|---|
-| PACKZEN | Packaging B2B, mobile-first | Section rhythm, sticky cart, card action placement |
-| Hyperpure (Zomato) | Restaurant supply | Delivery-context bar, per-piece pricing, ADD-on-image |
-| AaharPack | Packaging B2B | MOQ display, price-range presentation |
-| Blinkit | Q-commerce | Delivery promise as hero, "Order Again" as nav tab |
-| chfmart | Restaurant supply | Department sectioning |
-| DeoDap | General B2B | Price-band browsing |
+| App                | Segment                     | Studied for                                           |
+| ------------------ | --------------------------- | ----------------------------------------------------- |
+| PACKZEN            | Packaging B2B, mobile-first | Section rhythm, sticky cart, card action placement    |
+| Hyperpure (Zomato) | Restaurant supply           | Delivery-context bar, per-piece pricing, ADD-on-image |
+| AaharPack          | Packaging B2B               | MOQ display, price-range presentation                 |
+| Blinkit            | Q-commerce                  | Delivery promise as hero, "Order Again" as nav tab    |
+| chfmart            | Restaurant supply           | Department sectioning                                 |
+| DeoDap             | General B2B                 | Price-band browsing                                   |
 
 **Scale caveat — read this before adopting anything.**
 PACKZEN and chfmart operate catalogues in the **thousands** of SKUs. XL Traders has **~140**.
-Density patterns that look rich at 5,000 SKUs look *abandoned* at 140. Every pattern below carries an
+Density patterns that look rich at 5,000 SKUs look _abandoned_ at 140. Every pattern below carries an
 explicit verdict for this reason.
 
 ---
@@ -94,13 +94,19 @@ cost; a pack price alone is not decision-grade.
 Blinkit makes it the largest text on the page. For same-day-in-Surat, this is the single strongest
 differentiator we have. It currently sits as a small ✓ tick below the hero — that is backwards.
 
+> **DONE (PR-1).** The promise leads the hero at `text-4xl → md:text-5xl → lg:text-display`,
+> above the category headline, which steps down to `text-lg/xl`. It is admin-editable
+> (`hero.promiseLead` / `promiseAccent` / `promiseTiers`) — the largest element on the site must
+> not be hardcoded copy. The three delivery tiers moved out of the Service Areas card and sit
+> under the promise, so the tiers are stated once.
+
 ### 2.2 ADAPT
 
 **B1 · Category grid → collapse to real groups**
 PACKZEN shows ~40 category tiles. At 140 SKUs that produces mostly-empty categories.
 **Adapted rule:** show top-level groups only (currently 5), each with a live product count.
 **Never render a category whose count is 0.**
-*Status: grouping is live (`HomeCategoryGrid`). The product count is **not** built yet — see §3.2.*
+_Status: grouping is live (`HomeCategoryGrid`). The product count is **not** built yet — see §3.2._
 
 **B2 · Image-forward cards → only where images are distinct**
 This is the biggest risk in the whole migration. PACKZEN's image-dominant cards work because their
@@ -109,7 +115,7 @@ twelve near-identical thumbnails in a row conveys nothing.
 **Adapted rule:** image gets ~55% of card height (not 70%), and the **spec line
 (`pcs/pack · MOQ`) is a permanent, non-truncating element** — for us it is the primary
 differentiator, not decoration.
-*Status: the spec line shipped in PR-0 and renders in every auth state.*
+_Status: the spec line shipped in PR-0 and renders in every auth state._
 
 **B3 · Horizontal rails → cap at 8, always end with a "View all" card**
 Infinite rails hide inventory. Cap and hand off to the category page.
@@ -120,16 +126,16 @@ DeoDap browses by absolute price ("Under ₹99"). Meaningless at wholesale pack 
 
 ### 2.3 REJECT
 
-| Pattern | Why rejected |
-|---|---|
-| Stacked promo banners (5+ per page) | No campaigns to run; reads as a 2015 marketplace |
-| Strikethrough MRP + "% OFF" badges | Wholesale buyers price-check instantly; fake anchors destroy credibility |
-| Star ratings on product cards | Zero product reviews exist. Empty stars are worse than none |
-| "Trending" / "Recommended" / "New arrivals" rails | No behavioural data — site is pre-launch. Fabricated signal |
-| Brand circle rail at top | We stock 3 brands, one of which is a data placeholder |
-| Wishlist as a nav tab | B2B repeat buying is served by cart + order history, not wishlist |
-| Scrolling trust marquee | Repeats the static trust row directly above it |
-| Recently Viewed | Meaningless across a 140-SKU catalogue |
+| Pattern                                           | Why rejected                                                                                       |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Stacked promo banners (5+ per page)               | No campaigns to run; reads as a 2015 marketplace                                                   |
+| Strikethrough MRP + "% OFF" badges                | Wholesale buyers price-check instantly; fake anchors destroy credibility                           |
+| Star ratings on product cards                     | Zero product reviews exist. Empty stars are worse than none                                        |
+| "Trending" / "Recommended" / "New arrivals" rails | No behavioural data — site is pre-launch. Fabricated signal                                        |
+| Brand circle rail at top                          | We stock 3 brands, one of which is a data placeholder                                              |
+| Wishlist as a nav tab                             | B2B repeat buying is served by cart + order history, not wishlist                                  |
+| Scrolling trust marquee                           | Repeats the static trust row directly above it. **Deleted in PR-1** along with the row it repeated |
+| Recently Viewed                                   | Meaningless across a 140-SKU catalogue                                                             |
 
 ### 2.4 Anti-patterns currently live in our own build
 
@@ -138,19 +144,24 @@ Fix these before layering anything new on top.
 1. ~~**Fake 2×2 collage.**~~ **FIXED (PR-0).** Category tiles composited 4 images; since a category
    only ever carries one `image_url`, that meant the same photo rendered four times at 220% zoom —
    verified live as **23 of 25 tiles**, with `maxUniqueSrcsAnyTile === 1`, i.e. the mosaic could
-   *never* show four distinct images. Now a single `aspect-[4/3] object-cover` image with the
+   _never_ show four distinct images. Now a single `aspect-[4/3] object-cover` image with the
    in-repo lucide icon as the fallback layer (§3.2, §4.3).
 2. ~~**Grid does not stretch.**~~ **FIXED (PR-0).** Desktop rows were a flex row of fixed-width
    (`w-44 xl:w-48`) tiles left-aligned in a wider container: measured **192px of dead space per row
-   at 1440px**, ~500px at 1920px, and *clipping* at ~1000px. Now a `1fr` grid whose column count is
+   at 1440px**, ~500px at 1920px, and _clipping_ at ~1000px. Now a `1fr` grid whose column count is
    driven by the tile count, so the row reaches the container edge at every width.
 3. ~~**`unit_of_measure` leaking into the brand line**~~ — cards rendered `Fortune Petpack · pcs`.
    **FIXED (PR-0).** The unit is not brand information; pack size moved to the spec line.
 4. ~~**`Generic` shown as a brand.**~~ **FIXED (PR-0).** It is a null-brand placeholder. Suppressed
    centrally by `brandLabel()` (§4.4) across product cards, product detail, the Home brand chips and
    the marquee.
-5. **Trust content repeated 4×** — trust row, marquee, stats block, GST/pricing/quality cards.
-   **STILL OPEN → PR-1 (trust/hero).** Not addressed in PR-0.
+5. ~~**Trust content repeated 4×**~~ — trust row, marquee, stats block, GST/pricing/quality cards.
+   **FIXED (PR-1).** Verified against live `main` before changing anything: `500+ businesses
+served` rendered 3× (strip, marquee, stats), the `4.8` rating and `10+ years` 2× each
+   (strip, stats), and `GST invoice on every order` 3× (hero bullets, marquee, trust points).
+   The slim trust strip under the hero and the scrolling marquee are **deleted**; the numbers
+   and the reasons are now stated once, in the "Why XL Traders" section. Measured after:
+   `GST invoice` 3→1, rating 2→1, marquee nodes 1→0.
 
 ---
 
@@ -178,13 +189,14 @@ Fix these before layering anything new on top.
 > On-Enquiry colour only; PR-2 completes the rest alongside `toCardModel` (§4.1).
 
 **Hard rules**
+
 - `price === null || price === 0` → render **"On enquiry"** in amber. **Never `₹0`.** Never a
   strikethrough. The action becomes `Enquire`, not `Add`.
 - Per-piece is **derived**, never stored: `price / quantity_in_unit`. Guard against `null` and `0`
   divisor — if `quantity_in_unit` is missing, omit the per-piece badge rather than printing `∞`.
 - `price` is the price of **one selling unit (pack/case)**. `quantity_in_unit` is descriptive.
   `moq` counts selling units. (Canonical rule, 25 Jul 2026.) Note this makes `pcs` in the spec line
-  **literal** — it counts pieces inside the pack and is *not* `unit_of_measure`.
+  **literal** — it counts pieces inside the pack and is _not_ `unit_of_measure`.
 
 ### 3.2 Category tile
 
@@ -221,15 +233,15 @@ into a view model:
 
 ```ts
 type ProductCardModel = {
-  id: string
-  name: string
-  brandLabel: string | null      // null when brand is absent or 'Generic'
-  packLabel: string              // "480 pcs/pack · MOQ 1"
-  priceState: 'priced' | 'enquiry'
-  priceLabel: string             // "₹5,760"  |  "On enquiry"
-  perPieceLabel: string | null   // "₹12.00/pc" | null
-  imageSrc: string               // resolved through the fallback chain
-}
+  id: string;
+  name: string;
+  brandLabel: string | null; // null when brand is absent or 'Generic'
+  packLabel: string; // "480 pcs/pack · MOQ 1"
+  priceState: "priced" | "enquiry";
+  priceLabel: string; // "₹5,760"  |  "On enquiry"
+  perPieceLabel: string | null; // "₹12.00/pc" | null
+  imageSrc: string; // resolved through the fallback chain
+};
 ```
 
 **Why a mapper and not inline logic:** the On-Enquiry rule and the per-piece formula must exist in
@@ -274,7 +286,7 @@ product image
     → in-repo category icon (inline SVG, ships with the bundle)
 ```
 
-`HomeCategoryGrid` implements the last tier with its `FALLBACK_ICONS` lucide set, layered *under*
+`HomeCategoryGrid` implements the last tier with its `FALLBACK_ICONS` lucide set, layered _under_
 the image so a failed load reveals it with no JS toggling.
 
 ### 4.4 Brand display
@@ -294,26 +306,26 @@ the image so a failed load reveals it with no JS toggling.
 ## 5. Responsive mapping
 
 **One route, one component tree.** Adapt with Tailwind breakpoints. Reserve `useIsMobile` for cases
-where the *chrome genuinely differs* — bottom nav vs. header nav, sticky cart bar vs. header pill.
+where the _chrome genuinely differs_ — bottom nav vs. header nav, sticky cart bar vs. header pill.
 Do **not** branch on `useIsMobile` for grid columns, spacing, or type size; those are breakpoints.
 
 **Token reconciliation (done — PR-0).** Measured against the real `@theme` block in
 `client/src/index.css`:
 
-| Proposed | Reality |
-|---|---|
-| Card name 12.5px | **No token.** Use `text-body-sm` (13px) |
-| 13px / 14px | ✅ `text-body-sm` / Tailwind `text-sm` |
+| Proposed                          | Reality                                                                                                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Card name 12.5px                  | **No token.** Use `text-body-sm` (13px)                                                                                                                                                     |
+| 13px / 14px                       | ✅ `text-body-sm` / Tailwind `text-sm`                                                                                                                                                      |
 | 9px, 9.5px, 10px (§3.1 mono meta) | **No token — deliberately unresolved.** Smallest real token is `--text-caption` (11px), which is what ships. Adding sub-11px sizes needs an `@theme` entry + a `DESIGN_SYSTEM.md` row first |
-| `mono` | `font-mono` works, but resolves to **Tailwind's default** mono stack — it is not a project token and is undocumented. Decide before adopting it widely |
-| Rail card width 158/172/200px | **No token.** Moot for category tiles — replaced by `1fr` grid columns |
+| `mono`                            | `font-mono` works, but resolves to **Tailwind's default** mono stack — it is not a project token and is undocumented. Decide before adopting it widely                                      |
+| Rail card width 158/172/200px     | **No token.** Moot for category tiles — replaced by `1fr` grid columns                                                                                                                      |
 
-| Surface | mobile | `sm` | `lg` | `xl` |
-|---|---|---|---|---|
-| Product grid | 2 | 3 (`md`) | 4 | 5 |
-| Category tiles (Home groups) | scroll strip | — | **driven by tile count (≤5)** | same |
-| Section gap | `gap-2.5` | `gap-3` | `gap-4` | `gap-4` |
-| Card padding | `p-2.5` | `p-3` | `p-4` | `p-4` |
+| Surface                      | mobile       | `sm`     | `lg`                          | `xl`    |
+| ---------------------------- | ------------ | -------- | ----------------------------- | ------- |
+| Product grid                 | 2            | 3 (`md`) | 4                             | 5       |
+| Category tiles (Home groups) | scroll strip | —        | **driven by tile count (≤5)** | same    |
+| Section gap                  | `gap-2.5`    | `gap-3`  | `gap-4`                       | `gap-4` |
+| Card padding                 | `p-2.5`      | `p-3`    | `p-4`                         | `p-4`   |
 
 > **Deviation, deliberate (PR-0):** the original proposal was 3 / 4 / 6 / 6 category tiles. `pickTop`
 > caps a group at 5, so a 6-column grid would leave a permanently empty cell — reintroducing the
@@ -331,8 +343,8 @@ Do **not** branch on `useIsMobile` for grid columns, spacing, or type size; thos
 > 768px wide, and above 1536px it expands to 1536px. Site-wide, so out of scope for a bug-fix PR —
 > but it is why the same row looked ~192px short at 1440px and ~500px short at 1920px.
 
-**Density intent.** Mobile is optimised for *scan depth* — the first real price should be visible
-within roughly one screen of scroll. Desktop is optimised for *comparison* — more columns, more
+**Density intent.** Mobile is optimised for _scan depth_ — the first real price should be visible
+within roughly one screen of scroll. Desktop is optimised for _comparison_ — more columns, more
 whitespace, spec lines fully legible side by side.
 
 ---
@@ -355,9 +367,9 @@ are made — do not invent them at implementation time.
       count 0"
 - [ ] **PR-4** · §5 — mobile category strip → 3-up grid; sticky cart affordance (§2.1-A4)
 - [ ] **PR-5** · §2.3 — order again, off cart + order history
-- [ ] *unassigned* · §5 — decide whether sub-11px type and a project `--font-mono` token enter
+- [ ] _unassigned_ · §5 — decide whether sub-11px type and a project `--font-mono` token enter
       `@theme`
-- [ ] *unassigned* · §5 — decide the `.container` cap (adopt Tailwind's 1536px, or pin our own) and
+- [ ] _unassigned_ · §5 — decide the `.container` cap (adopt Tailwind's 1536px, or pin our own) and
       fix the `DESIGN_SYSTEM.md` §1.4 claim to match
 - [x] ~~§3.1 stock state~~ — dropped; field does not exist
 - [x] ~~per-piece divisor~~ — data-only, code already guards it

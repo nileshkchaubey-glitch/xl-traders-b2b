@@ -20,12 +20,37 @@ const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
 // ── Value shapes ─────────────────────────────────────────────────────────────
 
 export interface HeroContent {
+  // The delivery promise — the largest element on the page since PR-1
+  // (STYLE_REFERENCE §2.1 A6: same-day-in-Surat is the strongest
+  // differentiator and used to sit as a small tick below the hero).
+  // Editable like everything else here: the biggest thing on the storefront
+  // must not be hardcoded copy.
+  promiseLead: string;
+  promiseAccent: string;
+  // Delivery tiers shown under the promise. Was hardcoded inside the Service
+  // Areas card before PR-1; moved here so the hero owns it and it is stated once.
+  promiseTiers: string[];
   titleLead: string;
   titleAccent: string;
   subline: string;
+  /**
+   * @deprecated Unused since storefront PR-1. `promiseTiers` took this row in
+   * the hero, and the bullets' content ("24h dispatch", "GST invoice on every
+   * order") repeated the trust points — part of the same 4× duplication
+   * (STYLE_REFERENCE §2.4 item 5). Kept so existing `site_content` rows stay
+   * readable; nothing renders it and the editor no longer offers it.
+   */
   bullets: string[];
 }
 
+/**
+ * @deprecated Unused since storefront PR-1. Its two facts — the Google rating
+ * and the businesses-served count — are the same ones `trust_stats` carries,
+ * and rendering both was half of the "trust content appears 4×" problem
+ * (STYLE_REFERENCE §2.4 item 5). The key is left in place so existing
+ * `site_content` rows stay readable; nothing renders it and the Site Content
+ * editor no longer offers it. Edit those facts in Trust stats instead.
+ */
 export interface TrustBadge {
   rating: string;
   businesses: string;
@@ -93,11 +118,22 @@ export type SiteContentKey = keyof SiteContentMap;
 // `site_content` table produces a byte-identical site.
 export const FALLBACKS: SiteContentMap = {
   hero: {
+    promiseLead: "Same-day delivery in",
+    promiseAccent: "Surat",
+    promiseTiers: [
+      "Same-day · Surat city",
+      "Next-day · South Gujarat",
+      "2–4 days · Pan-India",
+    ],
     titleLead: "Packaging Solutions For",
     titleAccent: "Growing Businesses",
     subline:
       "Wholesale food containers, paper cups, carry bags, corrugated boxes and restaurant supplies. Order in under a minute — delivered same-day in Surat.",
-    bullets: ["Bulk wholesale pricing", "24h dispatch", "GST invoice on every order"],
+    bullets: [
+      "Bulk wholesale pricing",
+      "24h dispatch",
+      "GST invoice on every order",
+    ],
   },
   trust_badge: {
     rating: "4.8 on Google",
@@ -105,7 +141,11 @@ export const FALLBACKS: SiteContentMap = {
   },
   trust_stats: [
     { value: "4.8★", label: "Google Rating", sub: "From local businesses" },
-    { value: "10+", label: "Years in Business", sub: "Wholesale since day one" },
+    {
+      value: "10+",
+      label: "Years in Business",
+      sub: "Wholesale since day one",
+    },
     { value: "500+", label: "Businesses Served", sub: "Restaurants to kirana" },
     { value: "24h", label: "Dispatch Promise", sub: "Same-day in Surat" },
   ],
@@ -210,6 +250,35 @@ async function fetchAll(): Promise<Partial<SiteContentMap>> {
   }
 }
 
+/**
+ * Merges a stored `site_content` value over its in-code fallback **per field**.
+ *
+ * The merge used to be `{ ...FALLBACKS, ...stored }`, which is shallow: a
+ * stored row REPLACED the whole object. That is fine until a new sub-field is
+ * added to an existing key — every row written before that moment is missing
+ * it, so the field arrives as `undefined` at the render site. PR-1 hit exactly
+ * this: the live `hero` row carries only the four sub-keys it was saved with,
+ * so `hero.promiseTiers.map()` would have thrown on production while looking
+ * perfect locally against the fallback.
+ *
+ * Objects merge one level deep, which is all these shapes need. Arrays are
+ * replaced wholesale on purpose — a stored list of 3 tiers must not have
+ * fallback entries 4+ bleeding back in from underneath it.
+ */
+function mergeOverFallback<T>(fallback: T, stored: unknown): T {
+  if (stored == null) return fallback;
+  if (
+    Array.isArray(stored) ||
+    Array.isArray(fallback) ||
+    typeof stored !== "object" ||
+    typeof fallback !== "object" ||
+    fallback == null
+  ) {
+    return stored as T;
+  }
+  return { ...(fallback as object), ...(stored as object) } as T;
+}
+
 function loadAll(): Promise<Partial<SiteContentMap>> {
   if (allCache) return Promise.resolve(allCache);
   if (!inflight) {
@@ -227,10 +296,11 @@ export const settingsService = {
    * Fetch one content key. Returns the stored value, or the in-code fallback
    * when the row is missing / the fetch fails. Never throws.
    */
-  async getContent<K extends SiteContentKey>(key: K): Promise<SiteContentMap[K]> {
+  async getContent<K extends SiteContentKey>(
+    key: K
+  ): Promise<SiteContentMap[K]> {
     const all = await loadAll();
-    const value = all[key];
-    return value == null ? FALLBACKS[key] : (value as SiteContentMap[K]);
+    return mergeOverFallback(FALLBACKS[key], all[key]);
   },
 
   /**
@@ -239,7 +309,15 @@ export const settingsService = {
    */
   async getAllContent(): Promise<SiteContentMap> {
     const all = await loadAll();
-    return { ...FALLBACKS, ...all };
+    // Per-field merge, not a shallow key-level spread — see mergeOverFallback.
+    const out = { ...FALLBACKS };
+    for (const key of Object.keys(FALLBACKS) as SiteContentKey[]) {
+      (out as Record<string, unknown>)[key] = mergeOverFallback(
+        FALLBACKS[key],
+        all[key]
+      );
+    }
+    return out;
   },
 
   /**
