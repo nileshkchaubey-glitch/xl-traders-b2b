@@ -9,9 +9,11 @@ export interface MissingCounts {
   specifications: number;
   description: number;
   // Split in the P2 follow-up: `slug` is per-product, never inherits and is
-  // mechanically derivable (AdminSEO bulk-generates it). `seo` is the
-  // editorial meta_title, which DOES inherit from the series. ANDing them into
-  // one flag meant a blank slug permanently masked whether the meta was done.
+  // mechanically derivable (AdminSEO bulk-generates it). `seo` is the editorial
+  // meta copy — title AND description, both of which DO inherit from the
+  // series. ANDing slug in meant a blank slug permanently masked whether the
+  // meta was done; scoring only the title meant a bulk title-generate could
+  // take the score to zero-missing while no product had a search snippet.
   slug: number;
   seo: number;
 }

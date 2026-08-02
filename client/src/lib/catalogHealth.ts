@@ -104,7 +104,7 @@ export const ATTENTION_LABELS: Record<MissingFilter, string> = {
   // the name) and never inherits; meta title is editorial and DOES inherit
   // from the series. One combined flag hid which of the two was actually open.
   "no-slug": "No URL slug",
-  "no-seo": "No meta title",
+  "no-seo": "No meta title/description",
 };
 
 // Maps a filter key to the healthService MissingCounts key (== the

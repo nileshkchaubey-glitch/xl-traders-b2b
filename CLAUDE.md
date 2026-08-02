@@ -157,12 +157,19 @@ true regardless of whether the meta was written, and the score understated forev
 - **`missing_slug`** — per-product, **never inherits** (URLs must be unique) and is
   mechanically derivable from the name; `AdminSEO` already bulk-generates it in one
   click. A structural gap, not editorial work.
-- **`missing_seo`** — the editorial `meta_title`, which **does** inherit from the series.
+- **`missing_seo`** — the editorial meta copy: **`meta_title` OR `meta_description`**,
+  both of which **do** inherit from the series. A page with a title and no snippet is
+  not done, so both halves count.
 
-Measured at the split: 139 missing slug vs **128 missing meta title** — the second is
-the real launch blocker and was previously invisible. `meta_description` is deliberately
-not scored (it was not in the original check either). `missing_seo` also gained
-`na_fields` support, which it never had.
+`missing_seo` also gained `na_fields` support, which it never had.
+
+**Why `meta_description` counts (owner decision, 29 Jul 2026).** The split initially
+scored `meta_title` only. Hours later `meta_title` was bulk-generated across 139 rows
+from `AdminSEO`, and the title-only definition would have reported **0 missing SEO** —
+a clean bill of health on a catalogue where **128 products had no search snippet at
+all**. `meta_description` is what renders as the Google result snippet; scoring only the
+title would have declared the launch blocker solved by a button press. Both halves are
+counted for exactly that reason.
 
 ### Sales & Ops
 

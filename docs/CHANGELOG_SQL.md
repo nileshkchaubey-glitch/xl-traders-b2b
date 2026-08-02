@@ -47,10 +47,33 @@ CREATE VIEW public.v_product_health AS …
 …
 ```
 
-→ Catalogue-wide the two now read **139 missing slug** vs **128 missing meta title** —
+→ Catalogue-wide the two now read **139 missing slug** vs **128 missing meta** —
 previously one indistinguishable "missing SEO". The 11 series variants read
-`missing_slug 11 / missing_seo 0`: the series meta_title covers all of them, which the
-old flag could never show. Variant average `health_score` 75 → **78**.
+`missing_slug 11 / missing_seo 0`: the series meta covers all of them, which the old
+flag could never show.
+
+**2. `missing_seo` now counts `meta_description` as well as `meta_title`** (owner
+decision). `CREATE OR REPLACE VIEW` — same column set, no drop needed.
+
+Reason: `meta_description` is the search snippet and it inherits from the series exactly
+as the title does. Scoring only the title understates the work by half.
+
+```sql
+-- missing_seo = (title blank after inheritance) OR (description blank after inheritance)
+--               AND NOT ('seo' = ANY(na_fields))
+```
+
+→ **This is not academic.** Between the split and this change, `meta_title` was
+bulk-generated across **139 rows** in one write (`2026-07-29 15:57`, the `AdminSEO` bulk
+action). Measured immediately afterwards:
+
+| Definition                         | Reports         |
+| ---------------------------------- | --------------- |
+| `meta_title` only                  | **0 missing**   |
+| `meta_title` OR `meta_description` | **128 missing** |
+
+The title-only score would have gone green while 128 products had no search snippet at
+all. Catalogue average `health_score` is **69** under the corrected definition.
 
 ---
 
