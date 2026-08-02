@@ -49,6 +49,8 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
+import SeriesInheritanceHint from "@/components/admin/SeriesInheritanceHint";
+import { useSeriesInheritance } from "@/hooks/useSeriesInheritance";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
 import { confirm } from "@/components/ui/confirm-dialog";
 import { productToForm } from "@/lib/productForm";
@@ -396,6 +398,16 @@ export default function CatalogWorkbench({
   );
   const active = activeIndex >= 0 ? products[activeIndex] : null;
   const busy = saving || committing;
+
+  // Series inheritance hint. Fetched separately from the product so the form
+  // keeps holding the RAW row — nothing here is ever written into the variant.
+  // This is what stops an operator working through 47 series from seeing a
+  // blank Description and filling it in 11 times.
+  const { series, valueFor } = useSeriesInheritance(active?.master_id);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const inheritedDescription = !formData.description.trim()
+    ? valueFor("description")
+    : null;
 
   // Read inside the Undo callback, which outlives the render that created it —
   // a ref, not the state value, so it sees the CURRENT selection rather than
@@ -1581,13 +1593,26 @@ export default function CatalogWorkbench({
         <div>
           <Label className="text-xs">Description</Label>
           <Textarea
+            ref={descriptionRef}
             value={formData.description}
             onChange={e => updateForm("description", e.target.value)}
             onKeyDown={e => onFieldKeyDown(e)}
             rows={5}
             className={`${FIELD_CLS} resize-y min-h-[132px] h-auto`}
-            placeholder="Short B2B description — material, size, use case…"
+            placeholder={
+              inheritedDescription
+                ? "Leave blank to use the series description"
+                : "Short B2B description — material, size, use case…"
+            }
           />
+          {inheritedDescription && series && (
+            <SeriesInheritanceHint
+              seriesName={series.name}
+              value={inheritedDescription}
+              onOverride={() => descriptionRef.current?.focus()}
+              className="mt-1.5"
+            />
+          )}
           <p className="text-caption text-slate-400 mt-1">
             Enter makes a new line here. Ctrl+Enter saves.
           </p>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { Loader2, ExternalLink, Sparkles, Plus, Trash2 } from "lucide-react";
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import SeriesInheritanceHint from "@/components/admin/SeriesInheritanceHint";
+import { useSeriesInheritance } from "@/hooks/useSeriesInheritance";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -121,6 +123,21 @@ export default function CatalogProductPanel({
   const [metaDescription, setMetaDescription] = useState("");
   const [specs, setSpecs] = useState<SpecRow[]>([]);
   const [aiOpen, setAiOpen] = useState(false);
+
+  // Series inheritance hints. This fetch is SEPARATE from the product on
+  // purpose — the form still holds the raw row, so nothing here is ever
+  // written into the variant. Override focuses the field and leaves it empty;
+  // prefilling it with the series text is precisely the copy-on-create
+  // behaviour PIM P2 removed.
+  const { series, valueFor } = useSeriesInheritance(product?.master_id);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const metaTitleRef = useRef<HTMLInputElement>(null);
+  const metaDescriptionRef = useRef<HTMLTextAreaElement>(null);
+  const inheritedDescription = !formData.description.trim()
+    ? valueFor("description")
+    : null;
+  const inheritedMetaTitle = valueFor("meta_title");
+  const inheritedMetaDescription = valueFor("meta_description");
 
   // Full admin brand list (active + inactive) for the Brand picker — inactive
   // brands are needed so a product pointing at one still resolves to its name.
@@ -598,12 +615,24 @@ export default function CatalogProductPanel({
             {/* Description */}
             <Section title="Description">
               <Textarea
+                ref={descriptionRef}
                 value={formData.description}
                 onChange={e => updateForm("description", e.target.value)}
                 rows={4}
-                placeholder="Short B2B description"
+                placeholder={
+                  inheritedDescription
+                    ? "Leave blank to use the series description"
+                    : "Short B2B description"
+                }
                 className="resize-none text-sm"
               />
+              {inheritedDescription && series && (
+                <SeriesInheritanceHint
+                  seriesName={series.name}
+                  value={inheritedDescription}
+                  onOverride={() => descriptionRef.current?.focus()}
+                />
+              )}
             </Section>
 
             {/* Specifications (JSONB key/value) */}
@@ -684,20 +713,38 @@ export default function CatalogProductPanel({
               <div className="space-y-1.5">
                 <Label className="text-xs">Meta title</Label>
                 <Input
+                  ref={metaTitleRef}
                   value={metaTitle}
                   onChange={e => setMetaTitle(e.target.value)}
                   placeholder={formData.name}
                   className="h-9"
                 />
+                {!metaTitle.trim() && inheritedMetaTitle && series && (
+                  <SeriesInheritanceHint
+                    seriesName={series.name}
+                    value={inheritedMetaTitle}
+                    onOverride={() => metaTitleRef.current?.focus()}
+                  />
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Meta description</Label>
                 <Textarea
+                  ref={metaDescriptionRef}
                   value={metaDescription}
                   onChange={e => setMetaDescription(e.target.value)}
                   rows={2}
                   className="resize-none"
                 />
+                {!metaDescription.trim() &&
+                  inheritedMetaDescription &&
+                  series && (
+                    <SeriesInheritanceHint
+                      seriesName={series.name}
+                      value={inheritedMetaDescription}
+                      onOverride={() => metaDescriptionRef.current?.focus()}
+                    />
+                  )}
               </div>
             </Section>
           </div>

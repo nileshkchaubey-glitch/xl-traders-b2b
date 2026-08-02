@@ -75,6 +75,7 @@ export type MissingFilter =
   | "no-image"
   | "no-specs"
   | "no-description"
+  | "no-slug"
   | "no-seo";
 
 export type AttentionFilter = MissingFilter | null;
@@ -87,6 +88,7 @@ export const MISSING_FILTERS: MissingFilter[] = [
   "no-image",
   "no-specs",
   "no-description",
+  "no-slug",
   "no-seo",
 ];
 
@@ -98,7 +100,11 @@ export const ATTENTION_LABELS: Record<MissingFilter, string> = {
   "no-image": "No image",
   "no-specs": "No specs",
   "no-description": "No description",
-  "no-seo": "No SEO",
+  // Split from "No SEO": a slug is mechanical (AdminSEO bulk-generates it from
+  // the name) and never inherits; meta title is editorial and DOES inherit
+  // from the series. One combined flag hid which of the two was actually open.
+  "no-slug": "No URL slug",
+  "no-seo": "No meta title",
 };
 
 // Maps a filter key to the healthService MissingCounts key (== the
@@ -111,6 +117,7 @@ export type MissingField =
   | "image"
   | "specifications"
   | "description"
+  | "slug"
   | "seo";
 
 export const ATTENTION_FIELD: Record<MissingFilter, MissingField> = {
@@ -121,6 +128,7 @@ export const ATTENTION_FIELD: Record<MissingFilter, MissingField> = {
   "no-image": "image",
   "no-specs": "specifications",
   "no-description": "description",
+  "no-slug": "slug",
   "no-seo": "seo",
 };
 

@@ -68,6 +68,39 @@ export const masterService = {
     return data as ProductMaster;
   },
 
+  // One series plus its images, for the admin inheritance hint. Separate from
+  // getMasterById (which omits images) so a hint never triggers a second round
+  // trip per field.
+  async getSeriesWithImages(id: string) {
+    const { data, error } = await supabase
+      .from("product_masters")
+      .select("*, product_master_images(*)")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as ProductMaster | null;
+  },
+
+  // Batch lookup for the admin table's inheritance markers: one request for
+  // every series on the visible page, keyed by id. Without this the Catalog
+  // Editor would show a red "Add description" on rows whose series already
+  // supplies one — the misreading that costs the whole leverage.
+  async getSeriesMap(ids: string[]): Promise<Record<string, ProductMaster>> {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (unique.length === 0) return {};
+
+    const { data, error } = await supabase
+      .from("product_masters")
+      .select("*, product_master_images(*)")
+      .in("id", unique);
+
+    if (error) throw error;
+    const out: Record<string, ProductMaster> = {};
+    for (const row of (data ?? []) as ProductMaster[]) out[row.id] = row;
+    return out;
+  },
+
   async findMasterByName(name: string) {
     const { data, error } = await supabase
       .from("product_masters")

@@ -143,10 +143,26 @@ eleven Hinged box sizes.
 ```
 id, name, master_id, category_id,
 missing_price, missing_category, missing_moq, missing_brand,
-missing_image, missing_specifications, missing_description, missing_seo,
-missing_count (0-8), health_score (0-100)
+missing_image, missing_specifications, missing_description,
+missing_slug, missing_seo,
+missing_count (0-9), health_score (0-100)
 Rule: na_fields entries excluded from missing checks.
 ```
+
+**Nine dimensions, not eight — the SEO split (P2 follow-up).** `missing_seo` used to
+be `slug blank OR meta_title blank`, which measured two unrelated things and let the
+first permanently mask the second: 139 of 143 rows have a blank slug, so the flag was
+true regardless of whether the meta was written, and the score understated forever.
+
+- **`missing_slug`** — per-product, **never inherits** (URLs must be unique) and is
+  mechanically derivable from the name; `AdminSEO` already bulk-generates it in one
+  click. A structural gap, not editorial work.
+- **`missing_seo`** — the editorial `meta_title`, which **does** inherit from the series.
+
+Measured at the split: 139 missing slug vs **128 missing meta title** — the second is
+the real launch blocker and was previously invisible. `meta_description` is deliberately
+not scored (it was not in the original check either). `missing_seo` also gained
+`na_fields` support, which it never had.
 
 ### Sales & Ops
 
@@ -277,9 +293,9 @@ categories` → links to `/catalog`), sourced from the same public
     `maxUniqueSrcsAnyTile === 1`, i.e. it could _never_ show four distinct images; packaging text
     came out sliced into nonsense). Now one `aspect-[4/3] object-cover` image with the existing
     lucide `FALLBACK_ICONS` layered _underneath_ it, so a missing or failed image reveals the icon
-    with no JS toggling (STYLE_REFERENCE §4.3 fallback chain). **The desktop group row stretches:**
+    with no JS toggling (STYLE*REFERENCE §4.3 fallback chain). **The desktop group row stretches:**
     it was a flex row of fixed-width `w-44 xl:w-48` tiles left-aligned inside a wider container —
-    192px of dead space per row at 1440px, ~500px at 1920px, and _clipping_ around 1000px. It is now
+    192px of dead space per row at 1440px, ~500px at 1920px, and \_clipping* around 1000px. It is now
     a `1fr` grid whose column count is derived from the tile count (`GROUP_COLS`, static class
     strings; `pickTop` caps a group at 5), so the row reaches the container edge at any width and
     any group size — verified 0px dead space at 1000 / 1440 / 1920. **`unit_of_measure` no longer
@@ -878,6 +894,28 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   from `price` to `variant_sort` — ordering a size selector by price meant it reshuffled
   whenever a price was edited and collapsed entirely for On-Enquiry (NULL) variants.
   `MasterDialog`'s free-text brand input became `BrandCombobox` with the P1 dual-write.
+- **PIM P2 follow-up — inheritance hint + SEO split (July 2026):** two corrections found
+  while preparing the 304-product / 47-series Paras content pass.
+  **Inheritance hint (load-bearing, not polish).** Admin fetches stay raw, so an
+  inheriting variant showed a blank Description behind a red "Add description" — an
+  operator would fill it in per variant and destroy the leverage read-through just
+  created. Now, beside any **empty** inheritable field, a read-only preview says which
+  series supplies the value and what it says, with an explicit
+  "Write a different value for this variant" action. **The fetch stays raw and the
+  override never prefills** — seeding the field with the series text is exactly the
+  copy-on-create behaviour P2 removed, so Override only focuses the (still empty) input.
+  `hooks/useSeriesInheritance.ts` loads the series separately from the product;
+  `SeriesInheritanceHint` renders it; wired into `CatalogProductPanel`
+  (description + meta title + meta description), the Workbench fields pane
+  (description), and the Catalog Editor table, whose description cell now shows a muted
+  `↳ <series text>` instead of the red prompt (`masterService.getSeriesMap` batches one
+  lookup per page). Empty-field placeholders read "Leave blank to use the series
+  description".
+  **SEO split** — see the `v_product_health` section: `missing_seo` became
+  `missing_slug` (structural, never inherits) + `missing_seo` (editorial meta*title,
+  inheritable), nine dimensions instead of eight. `MissingCounts`, `MissingFilter`,
+  `ATTENTION_LABELS` ("No URL slug" / "No meta title") and the Overview chips all gained
+  the key; `getIdsMissing` needed no change since it builds `missing*${field}`.
 
 ### Health System
 
@@ -995,16 +1033,23 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   is run too. Fix prepared in [`docs/sql/pr1-rls-publish-gate.sql`](docs/sql/pr1-rls-publish-gate.sql) —
   **owner-run, not yet applied**. An explicit decision on the INSERT policy is needed
   before/alongside merge. Rollback + checklist alongside it in `docs/sql/`.
-- **Series inheritance: three known limitations** (PIM P2, all deliberate).
+- **Series inheritance: known limitations** (PIM P2, all deliberate).
   **(a)** `productService.search()` matches `description.ilike` on the variant's own
   column, so a description that is only inherited is **not searchable**. Closing it needs
   the search to reach through the embed (or a view), which is a query-shape change, not a
   resolver change. **(b)** `category_id` cannot inherit — `products.category_id` is NOT
   NULL, so `addVariant` still copies it from the series. Making it nullable would
   undermine the `uncategorized` sentinel that exists precisely so every product has a
-  category. **(c)** Admin surfaces show raw values, so a variant inheriting a description
-  reads as empty in the Catalog Editor. That is correct (editing must show what is
-  stored), but there is not yet an "inherited from series" hint next to the blank field.
+  category. _(The "admin shows blank inheritable fields with no hint" item is closed —
+  see the inheritance hint in Shipped.)_
+- **Changing a series' category does NOT move its variants** (logged, not fixed).
+  `category_id` is the one field still copied rather than inherited (limitation (b)
+  above), so `addVariant` stamps the series' category onto the variant at insert and
+  nothing re-syncs it afterwards. Re-categorise a series and its existing variants stay
+  on the old category — they will keep appearing under it in `/catalog`, the tree and
+  every category filter. Irrelevant at 1 series; **real at 47**. Whatever fixes it has to
+  decide what happens to a variant whose category was deliberately overridden, which is
+  why it is not a one-liner.
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
