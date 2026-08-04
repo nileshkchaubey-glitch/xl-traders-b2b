@@ -11,14 +11,12 @@ import SectionEyebrow from "@/components/SectionEyebrow";
 import {
   MessageCircle,
   ArrowRight,
-  Star,
   Check,
   Lock,
   Plus,
   Minus,
   MapPin,
-  Building2,
-  Calendar,
+  Truck,
 } from "lucide-react";
 import { productService } from "@/lib/productService";
 import { useAuthStore } from "@/lib/authStore";
@@ -49,7 +47,6 @@ export default function Home() {
   // Editable content — initialised to the in-code fallback so the first paint is
   // identical to the pre-Phase-B site, then overridden from the DB if present.
   const [hero, setHero] = useState(FALLBACKS.hero);
-  const [trustBadge, setTrustBadge] = useState(FALLBACKS.trust_badge);
   const [trustStats, setTrustStats] = useState(FALLBACKS.trust_stats);
   const [trustPoints, setTrustPoints] = useState(FALLBACKS.trust_points);
   const [serviceAreas, setServiceAreas] = useState(FALLBACKS.service_areas);
@@ -59,9 +56,9 @@ export default function Home() {
   useEffect(() => {
     productService
       // realBrands drops the 'Generic' null-brand placeholder before it can
-      // render as a supplier we stock — in the brand chips below and in the
-      // marquee, which both read this one piece of state
-      // (docs/STYLE_REFERENCE.md §2.4 item 4, §4.4).
+      // render as a supplier we stock, in the "Brands We Stock" chips
+      // (docs/STYLE_REFERENCE.md §2.4 item 4, §4.4). The marquee was the other
+      // consumer of this state until PR-1 deleted it (§2.3 REJECT).
       .getBrands()
       .then(b => setBrands(realBrands(b).slice(0, 10)))
       .catch(() => {});
@@ -70,7 +67,6 @@ export default function Home() {
       .getAllContent()
       .then(c => {
         setHero(c.hero);
-        setTrustBadge(c.trust_badge);
         setTrustStats(c.trust_stats);
         setTrustPoints(c.trust_points);
         setServiceAreas(c.service_areas);
@@ -82,33 +78,43 @@ export default function Home() {
 
   const bulkQuoteHref = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent("Hi XL Traders, I need a bulk / custom order quote.")}`;
 
-  // Slim trust strip below the hero — condensed from the same admin-managed
-  // trust_badge/trust_stats content as the full Trust section further down
-  // (Site Content → Trust); no separate admin control needed.
-  const yearsStat = trustStats.find(s => /year/i.test(s.label));
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900">
       <Header />
 
       <main className="flex-1 pb-20 md:pb-0">
-        {/* ── HERO — Concept C: quiet wash, no blob glows, tiles are the focal
-            point (docs/STOREFRONT_DESIGN_PROPOSALS.md §2C) ── */}
+        {/* ── HERO — PR-1. The delivery promise is the largest element on the
+            page (STYLE_REFERENCE §2.1 A6); it used to be a small ✓ tick in the
+            bullet row below. Mobile-first: promise → identity → subline → CTAs
+            → tiers, one column that becomes two at lg. ── */}
         <section className="relative overflow-hidden border-b border-slate-100 bg-[radial-gradient(1000px_500px_at_20%_0%,#fef2f2_0%,#ffffff_55%)]">
-          <div className="relative container py-14 md:py-20 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-12 items-center">
+          <div className="relative container py-8 md:py-14 lg:py-16 grid lg:grid-cols-[1.15fr_1fr] gap-8 lg:gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 22 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease: "easeOut" }}
             >
-              <h1 className="text-4xl lg:text-display font-extrabold tracking-tight mb-4">
-                {hero.titleLead}{" "}
-                <span className="text-red-600">{hero.titleAccent}</span>
+              {/* One <h1>: the promise leads visually, the category line keeps
+                  the heading meaningful to a first-time visitor and to search. */}
+              <h1 className="mb-3">
+                <span className="flex items-center gap-2 text-caption font-bold uppercase tracking-[0.12em] text-emerald-700 mb-2">
+                  <Truck size={14} strokeWidth={2.5} />
+                  Surat · wholesale packaging
+                </span>
+                <span className="block text-4xl md:text-5xl lg:text-display font-extrabold tracking-tight leading-[1.05]">
+                  {hero.promiseLead}{" "}
+                  <span className="text-red-600">{hero.promiseAccent}</span>
+                </span>
+                <span className="block text-lg md:text-xl font-bold tracking-tight text-slate-500 mt-2">
+                  {hero.titleLead} {hero.titleAccent}
+                </span>
               </h1>
-              <p className="text-base text-slate-600 max-w-md mb-6">
+
+              <p className="text-body-md md:text-base text-slate-600 max-w-md mb-5">
                 {hero.subline}
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 mb-7">
+
+              <div className="flex flex-col sm:flex-row gap-2.5 mb-5">
                 <Link
                   href="/catalog"
                   className="inline-flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3.5 rounded-xl text-body-md font-bold hover:bg-red-700 transition shadow-[0_6px_20px_rgba(220,38,38,0.28)]"
@@ -126,18 +132,31 @@ export default function Home() {
                   Get Quote on WhatsApp
                 </a>
               </div>
-              <div className="flex flex-wrap gap-x-5 gap-y-2 text-body-sm font-medium text-slate-700">
-                {hero.bullets.map(t => (
-                  <span key={t} className="flex items-center gap-1.5">
-                    <Check size={14} className="text-emerald-600" strokeWidth={3} />
+
+              {/* Delivery tiers — the substance behind the promise. Stated here
+                  and nowhere else; the Service Areas card used to repeat it. */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {hero.promiseTiers.map(t => (
+                  <span
+                    key={t}
+                    className="flex items-center gap-1.5 text-body-sm font-semibold text-slate-700"
+                  >
+                    <Check
+                      size={14}
+                      className="text-emerald-600 flex-shrink-0"
+                      strokeWidth={3}
+                    />
                     {t}
                   </span>
                 ))}
               </div>
             </motion.div>
 
-            {/* Hero motion tiles — auto-rotating product imagery */}
+            {/* Hero motion tiles — auto-rotating product imagery. Hidden below
+                lg: on a 390px screen this pushed the first product a whole
+                extra screen down, and the promise is the point of the hero. */}
             <motion.div
+              className="hidden lg:block"
               initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.55, delay: 0.15, ease: "easeOut" }}
@@ -147,75 +166,9 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── TRUST STRIP — slim, below the hero ── */}
-        <section className="bg-white border-b border-slate-100">
-          <div className="container py-2.5 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-body-sm font-semibold text-slate-600">
-            <span className="flex items-center gap-1.5">
-              <Star size={13} className="fill-amber-500 text-amber-500" />
-              {trustBadge.rating}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Building2 size={13} className="text-red-600" />
-              {trustBadge.businesses}
-            </span>
-            {yearsStat && (
-              <span className="flex items-center gap-1.5">
-                <Calendar size={13} className="text-red-600" />
-                {yearsStat.value} {yearsStat.label}
-              </span>
-            )}
-          </div>
-        </section>
-
-        {/* ── MARQUEE STRIP — brands when we have enough, value props otherwise ── */}
-        <section className="bg-white border-b border-slate-100 py-3.5 overflow-hidden">
-          <div
-            className="relative"
-            style={{
-              maskImage:
-                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
-              WebkitMaskImage:
-                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
-            }}
-          >
-            <div className="xl-marquee flex w-max items-center gap-10">
-              {(() => {
-                const entries =
-                  brands.length >= 4
-                    ? brands.map(b => ({
-                        label: b,
-                        href: `/catalog?brand=${encodeURIComponent(b)}`,
-                      }))
-                    : [
-                        "Same-day delivery in Surat",
-                        "GST invoice on every order",
-                        "500+ businesses served",
-                        "Bulk slab pricing",
-                        "24h dispatch pan-India",
-                        "Food-grade materials",
-                        ...brands.map(b => b),
-                      ].map(label => ({ label, href: "/catalog" }));
-                return [...entries, ...entries].map((e, i) => (
-                  <Link
-                    key={`${e.label}-${i}`}
-                    href={e.href}
-                    className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-caption font-bold tracking-wide text-slate-500 hover:border-red-300 hover:text-red-600 transition whitespace-nowrap uppercase"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-300 flex-shrink-0" />
-                    {e.label}
-                  </Link>
-                ));
-              })()}
-            </div>
-          </div>
-        </section>
-
         {/* ── SIGN-IN HOOK ── */}
         {!isAuthenticated && (
-          <motion.section
-            {...fadeUp}
-            className="container pt-7 w-full"
-          >
+          <motion.section {...fadeUp} className="container pt-7 w-full">
             <div className="bg-slate-900 rounded-2xl px-5 py-5 md:px-6 flex flex-col md:flex-row md:items-center gap-4">
               <div className="w-10 h-10 bg-red-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Lock size={19} className="text-red-400" />
@@ -239,17 +192,20 @@ export default function Home() {
           </motion.section>
         )}
 
+        {/* ── CATALOGUE SHOWCASE — chip-filtered product taster.
+            Moved ABOVE the category grid in PR-1. STYLE_REFERENCE §5 sets the
+            mobile density intent as "the first real price visible within
+            roughly one screen of scroll"; measured at 390px, the category grid
+            is 1092px on its own and pushed the first product card to 2.63
+            screens. Real products now come first and the grid follows.
+            (The grid's own layout is untouched — that is PR-3.) ── */}
+        <HomeCatalogueShowcase whatsappNumber={whatsappNumber} />
+
         {/* ── CATEGORIES (existing data-wired grid) ── */}
         <HomeCategoryGrid />
 
-        {/* ── CATALOGUE SHOWCASE — chip-filtered product taster ── */}
-        <HomeCatalogueShowcase whatsappNumber={whatsappNumber} />
-
         {/* ── BULK BANNER ── */}
-        <motion.section
-          {...fadeUp}
-          className="container py-6 w-full"
-        >
+        <motion.section {...fadeUp} className="container py-6 w-full">
           <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl px-6 py-8 md:px-9 flex flex-col md:flex-row md:items-center gap-6">
             <div className="flex-1">
               <SectionEyebrow tone="dark" className="mb-2">
@@ -272,25 +228,23 @@ export default function Home() {
           </div>
         </motion.section>
 
-        {/* ── TRUST ── */}
-        <motion.section
-          {...fadeUp}
-          className="container py-12 md:py-16 w-full"
-        >
+        {/* ── TRUST — the ONE place trust content appears (STYLE_REFERENCE
+            §2.4 item 5). It used to be four: this section, a strip under the
+            hero, a scrolling marquee (§2.3 REJECT — it repeated the strip
+            directly above it) and these cards. The strip and marquee are
+            deleted; the numbers and the reasons are stated once, here. ── */}
+        <motion.section {...fadeUp} className="container py-12 md:py-16 w-full">
           <div className="text-center mb-6">
-            <SectionEyebrow className="mb-1">
-              Why XL Traders
-            </SectionEyebrow>
+            <SectionEyebrow className="mb-1">Why XL Traders</SectionEyebrow>
             <h2 className="text-2xl font-extrabold tracking-tight">
               Built For Repeat Wholesale Buying
             </h2>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-3.5">
+          {/* Numbers read as one band rather than four separate cards — they
+              are a single credibility statement, not four facts to compare. */}
+          <div className="bg-white border border-slate-200 rounded-2xl grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-slate-100 mb-3.5 overflow-hidden">
             {trustStats.map(s => (
-              <div
-                key={s.label}
-                className="bg-white border border-slate-200 rounded-2xl p-5 text-center"
-              >
+              <div key={s.label} className="p-5 text-center">
                 <div className="text-2xl font-extrabold text-red-600 tracking-tight">
                   {s.value}
                 </div>
@@ -331,11 +285,8 @@ export default function Home() {
               <MapPin size={16} className="text-red-600" />
               Service Areas
             </div>
-            <div className="text-body-sm text-slate-600 mb-3">
-              <strong className="text-emerald-700">Same-day:</strong> Surat
-              city · <strong>Next-day:</strong> South Gujarat ·{" "}
-              <strong>2–4 days:</strong> Pan-India
-            </div>
+            {/* The delivery tiers that used to sit here now lead the hero
+                (§2.1 A6). This card answers "where", not "how fast". */}
             <div className="flex flex-wrap gap-2">
               {serviceAreas.map(a => (
                 <span

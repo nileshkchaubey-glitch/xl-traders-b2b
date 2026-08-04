@@ -73,7 +73,7 @@ stored. This is what `ProductCard`, `ProductDetail` and `cartStore.getTotal()`
 The 11 `Hinged box` variants were entered per-piece and their prices conflict with
 their standalone duplicates. **Do not script or auto-merge that reconciliation** —
 those are pricing calls the owner makes by hand during the rebuild. This is a
-*judgment* rule, not data protection: the rest of `products` is expendable
+_judgment_ rule, not data protection: the rest of `products` is expendable
 (Critical Rule #13). Leave those rows alone rather than guessing at a price.
 
 ### categories
@@ -227,12 +227,12 @@ categories` → links to `/catalog`), sourced from the same public
     verified live before any code changed; none was scrapped. **Category tiles (`HomeCategoryGrid`)**
     no longer composite a fake 2×2 mosaic — a category only ever carries one `image_url`, so the
     mosaic rendered that same photo 4× at 220% zoom (measured live: 23 of 25 tiles, and
-    `maxUniqueSrcsAnyTile === 1`, i.e. it could *never* show four distinct images; packaging text
+    `maxUniqueSrcsAnyTile === 1`, i.e. it could _never_ show four distinct images; packaging text
     came out sliced into nonsense). Now one `aspect-[4/3] object-cover` image with the existing
-    lucide `FALLBACK_ICONS` layered *underneath* it, so a missing or failed image reveals the icon
+    lucide `FALLBACK_ICONS` layered _underneath_ it, so a missing or failed image reveals the icon
     with no JS toggling (STYLE_REFERENCE §4.3 fallback chain). **The desktop group row stretches:**
     it was a flex row of fixed-width `w-44 xl:w-48` tiles left-aligned inside a wider container —
-    192px of dead space per row at 1440px, ~500px at 1920px, and *clipping* around 1000px. It is now
+    192px of dead space per row at 1440px, ~500px at 1920px, and _clipping_ around 1000px. It is now
     a `1fr` grid whose column count is derived from the tile count (`GROUP_COLS`, static class
     strings; `pickTop` caps a group at 5), so the row reaches the container edge at any width and
     any group size — verified 0px dead space at 1000 / 1440 / 1920. **`unit_of_measure` no longer
@@ -255,6 +255,43 @@ categories` → links to `/catalog`), sourced from the same public
     from a local screenshot), and **two competing `.container` rules ship** (ours plus Tailwind's
     own utility, whose caps win: 640/768/1024/1280/**1536**px, not the documented flat 1280) —
     see `docs/DESIGN_SYSTEM.md` §1.4.
+
+  - **Storefront PR-1 — trust / hero (July 2026):** the §2.4 item-5 duplication is closed and
+    the delivery promise is now the page's dominant element. **Verified against live `main`
+    first:** `500+ businesses served` rendered **3×** (trust strip, marquee, stats block), the
+    `4.8` rating and `10+ years` **2×** each, and `GST invoice on every order` **3×**. The slim
+    **trust strip** under the hero and the **scrolling marquee** are **deleted** — §2.3 rejects
+    the marquee precisely because it repeated the static row directly above it — leaving the
+    "Why XL Traders" section as the single place trust content appears; its four stat cards
+    became one divided band, since they are one credibility statement rather than four facts to
+    compare. Measured after: `GST invoice` 3→1, rating 2→1, marquee nodes 1→0.
+    **Hero:** the promise leads at `text-4xl → md:text-5xl → lg:text-display` with the category
+    headline stepped down to `text-lg/xl` beneath it, both inside one `<h1>` so the heading stays
+    meaningful to a first-time visitor and to search. The three delivery tiers moved out of the
+    Service Areas card (which now answers "where", not "how fast") to sit under the promise.
+    **The promise is admin-editable** (`hero.promiseLead` / `promiseAccent` / `promiseTiers`) —
+    the largest element on the site must not be hardcoded copy.
+    **Mobile-first, one component tree** (§5): Tailwind breakpoints only, no `useIsMobile`
+    branch. `HeroMotionTiles` is `hidden lg:block` — at 390px it cost a full extra screen before
+    the first product. The **catalogue showcase moved above the category grid**: measured at
+    390px the grid is 1092px on its own and pushed the first product card to **2.63 screens**;
+    products now appear at **1.34** screens and the first real price at **1.34** (§5 density
+    intent). The grid's own layout is untouched — that is PR-3.
+    **Two admin fields were retired rather than left orphaned:** `trust_badge` (its rating and
+    businesses-served facts are the same ones `trust_stats` carries — rendering both _was_ half
+    the duplication) and `hero.bullets` (the delivery tiers took that row, and its content
+    repeated the trust points). Both keys remain in `settingsService` marked `@deprecated` so
+    existing `site_content` rows stay readable; neither renders and the Site Content editor no
+    longer offers them.
+    **Bug found and fixed in passing:** `settingsService.getAllContent` merged stored content
+    over the fallbacks with a shallow `{ ...FALLBACKS, ...all }`, so a stored row **replaced**
+    the whole object. Adding a sub-field to an existing key therefore made it `undefined` for
+    every row saved before that moment — the live `hero` row carries only its original four
+    sub-keys, so `hero.promiseTiers.map()` would have thrown **on production** while rendering
+    perfectly against the local fallback. Now merged per field (`mergeOverFallback`); arrays are
+    still replaced wholesale so a stored 3-item list can't have fallback entries bleeding in
+    underneath it.
+    Screenshots: `docs/screenshots/pr1-home-{signedout,signedin}-{390,1440}.png`.
 
 ### Admin Panel (PIM)
 
@@ -826,23 +863,18 @@ sticky-right-many-cols,flex-cap-1920}.png`.
    - **P2 — series.** (scoped later)
    - **P3 — spec fields.** (scoped later)
    - **P4 — images** (formerly "Phase 2 — PIM Image Management & QC", planned, grounded in the
-     2026-06-25 Supabase audit; detail preserved verbatim below). No new tables.
-     - **Prereqs (you, via SQL Editor — not the agent):** standardize 4 canonical `group_name` values
-       (`Disposal & Food Packaging`, `Decoration`, `Cleaning`, `Packaging`); confirm `product-images`
-       bucket public-read.
-     - **A. SKU upload pipeline:** `autoResizeImage` gains a webp option; `isOwnImage(url)` host check;
-       `storageService.uploadBySku` → `products/{SKU}/{SKU}.webp` (+ `_NN` for gallery), `upsert:true`,
-       id-fallback when SKU null; `productImageService.assignOwnImage`.
-     - **B. Image QC grid mode:** new `ProductsQCGrid` reusing AdminProducts' data/filters/selection (no fork);
-       OWN / PLACEHOLDER / MISSING badge, group›category breadcrumb, draft/published toggle; `viewMode`
-       toggle swaps table↔grid; Replace-image reuses the existing `AdminImageGallery` dialog with an
-       "Upload own image" button; server-side "needs own image" filter ANDs with existing filters.
-     - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
-       shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.)
-     - Brand logo upload also lands here (P1 ships `logo_url` as plain text only).
-0b. **Storefront rebuild — phase order (authoritative).** Work the storefront in exactly this
-   sequence; do not reorder or merge phases. Composition guidance for each lives in
-   [`docs/STYLE_REFERENCE.md`](docs/STYLE_REFERENCE.md).
+     2026-06-25 Supabase audit; detail preserved verbatim below). No new tables. - **Prereqs (you, via SQL Editor — not the agent):** standardize 4 canonical `group_name` values
+     (`Disposal & Food Packaging`, `Decoration`, `Cleaning`, `Packaging`); confirm `product-images`
+     bucket public-read. - **A. SKU upload pipeline:** `autoResizeImage` gains a webp option; `isOwnImage(url)` host check;
+     `storageService.uploadBySku` → `products/{SKU}/{SKU}.webp` (+ `_NN` for gallery), `upsert:true`,
+     id-fallback when SKU null; `productImageService.assignOwnImage`. - **B. Image QC grid mode:** new `ProductsQCGrid` reusing AdminProducts' data/filters/selection (no fork);
+     OWN / PLACEHOLDER / MISSING badge, group›category breadcrumb, draft/published toggle; `viewMode`
+     toggle swaps table↔grid; Replace-image reuses the existing `AdminImageGallery` dialog with an
+     "Upload own image" button; server-side "needs own image" filter ANDs with existing filters. - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
+     shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.) - Brand logo upload also lands here (P1 ships `logo_url` as plain text only).
+     0b. **Storefront rebuild — phase order (authoritative).** Work the storefront in exactly this
+     sequence; do not reorder or merge phases. Composition guidance for each lives in
+     [`docs/STYLE_REFERENCE.md`](docs/STYLE_REFERENCE.md).
 
    ```
    PR-0 bugs → A-1 asset audit → PR-1 trust/hero → PR-2 card
@@ -852,14 +884,14 @@ sticky-right-many-cols,flex-cap-1920}.png`.
    - **PR-0 — §2.4 bug fixes.** ✅ **SHIPPED** (see Shipped Features). The four anti-patterns
      live in our own build: fake 2×2 collage, non-stretching grid, `unit_of_measure` in the
      brand line, `Generic` rendered as a brand.
-   - **A-1 — asset audit.** Comes *before* any further visual work. Category/product imagery
+   - **A-1 — asset audit.** Comes _before_ any further visual work. Category/product imagery
      is Google-Drive-hosted and unmanaged; PR-0 measured **90/90 Drive images failing on
      localhost while loading fine in production**, so no image-dependent design can be judged
      locally today. Settles `STYLE_REFERENCE.md` §4.2 (bucket name, path convention, whether a
      `product_images` table is in scope) — the SQL half is owner-run, never the agent.
-   - **PR-1 — trust / hero.** De-duplicate the trust content (§2.4 #5, **still open** — it
-     currently repeats across the trust row, marquee, stats block and GST/quality cards) and
-     the hero treatment, incl. §2.1-A6 (delivery promise as a first-class element).
+   - **PR-1 — trust / hero.** ✅ **SHIPPED** (see Shipped Features). Trust content collapsed
+     from four appearances to one (the strip and the scrolling marquee are deleted), and the
+     delivery promise rebuilt as the largest element on the page (§2.1-A6).
    - **PR-2 — card.** Owns `toCardModel` (`STYLE_REFERENCE.md` §4.1) **and the spec line.**
      The spec line itself already shipped early in PR-0 (it was the replacement for the
      `unit_of_measure` leak); PR-2 folds it, the On-Enquiry rule and the per-piece formula into
@@ -988,7 +1020,7 @@ roadmap commitment yet.
     running them** (announce, not ask) and log them to
     [`docs/CHANGELOG_SQL.md`](docs/CHANGELOG_SQL.md).
     `ZZ-TEST-PRODUCT` still exists as a convenient scratch row (see "Test admin"), but it
-    is no longer the *only* legal target.
+    is no longer the _only_ legal target.
     **Carve-out — a judgment rule, not data protection:** the 11 `Hinged box` variants have
     prices that conflict with their standalone duplicates. Do **not** script or auto-merge
     that reconciliation — those are pricing calls the owner makes by hand during the

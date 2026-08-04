@@ -74,8 +74,7 @@ function ObjectList<T>({
   onChange: (next: T[]) => void;
   addLabel: string;
 }) {
-  const blank = () =>
-    fields.reduce((o, f) => ({ ...o, [f.key]: "" }), {}) as T;
+  const blank = () => fields.reduce((o, f) => ({ ...o, [f.key]: "" }), {}) as T;
   const setField = (i: number, key: keyof T, value: string) => {
     const next = [...items];
     next[i] = { ...items[i], [key]: value } as T;
@@ -277,11 +276,42 @@ export default function AdminSiteContent() {
       {/* ── HERO ── */}
       <GroupHeading>Hero</GroupHeading>
       <SectionCard
-        title="Hero headline & intro"
-        description="The big headline, sub-text and checkmark bullets at the top of the home page."
+        title="Hero headline & delivery promise"
+        description="The delivery promise is the largest text on the site — it leads the hero, above the headline."
         onSave={() => save("hero", "Hero")}
         saving={saving === "hero"}
       >
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Delivery promise (start)">
+            <Input
+              value={content.hero.promiseLead}
+              onChange={e =>
+                patch("hero", { ...content.hero, promiseLead: e.target.value })
+              }
+            />
+          </Field>
+          <Field label="Delivery promise (accent, shown red)">
+            <Input
+              value={content.hero.promiseAccent}
+              onChange={e =>
+                patch("hero", {
+                  ...content.hero,
+                  promiseAccent: e.target.value,
+                })
+              }
+            />
+          </Field>
+        </div>
+        <Field label="Delivery tiers">
+          <StringList
+            items={content.hero.promiseTiers}
+            onChange={promiseTiers =>
+              patch("hero", { ...content.hero, promiseTiers })
+            }
+            placeholder="e.g. Next-day · South Gujarat"
+            addLabel="Add tier"
+          />
+        </Field>
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="Headline (start)">
             <Input
@@ -309,50 +339,10 @@ export default function AdminSiteContent() {
             }
           />
         </Field>
-        <Field label="Checkmark bullets">
-          <StringList
-            items={content.hero.bullets}
-            onChange={bullets => patch("hero", { ...content.hero, bullets })}
-            placeholder="e.g. 24h dispatch"
-            addLabel="Add bullet"
-          />
-        </Field>
       </SectionCard>
 
       {/* ── TRUST ── */}
       <GroupHeading>Trust</GroupHeading>
-      <SectionCard
-        title="Rating badge"
-        description="The small pill above the headline."
-        onSave={() => save("trust_badge", "Rating badge")}
-        saving={saving === "trust_badge"}
-      >
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Field label="Rating text">
-            <Input
-              value={content.trust_badge.rating}
-              onChange={e =>
-                patch("trust_badge", {
-                  ...content.trust_badge,
-                  rating: e.target.value,
-                })
-              }
-            />
-          </Field>
-          <Field label="Businesses text">
-            <Input
-              value={content.trust_badge.businesses}
-              onChange={e =>
-                patch("trust_badge", {
-                  ...content.trust_badge,
-                  businesses: e.target.value,
-                })
-              }
-            />
-          </Field>
-        </div>
-      </SectionCard>
-
       <SectionCard
         title="Trust stats"
         description='The four stat tiles ("Built For Repeat Wholesale Buying").'
@@ -537,7 +527,10 @@ export default function AdminSiteContent() {
             value={content.footer.description}
             rows={2}
             onChange={e =>
-              patch("footer", { ...content.footer, description: e.target.value })
+              patch("footer", {
+                ...content.footer,
+                description: e.target.value,
+              })
             }
           />
         </Field>
@@ -584,7 +577,9 @@ export default function AdminSiteContent() {
             checked={content.gst_enabled}
             onCheckedChange={v => patch("gst_enabled", v)}
           />
-          <Label className="text-sm text-slate-700">Enable GST on invoices</Label>
+          <Label className="text-sm text-slate-700">
+            Enable GST on invoices
+          </Label>
         </div>
         <Field label="GST percentage">
           <Input
@@ -593,9 +588,7 @@ export default function AdminSiteContent() {
             max={100}
             className="max-w-[160px]"
             value={String(content.gst_percentage)}
-            onChange={e =>
-              patch("gst_percentage", Number(e.target.value) || 0)
-            }
+            onChange={e => patch("gst_percentage", Number(e.target.value) || 0)}
           />
         </Field>
       </SectionCard>
