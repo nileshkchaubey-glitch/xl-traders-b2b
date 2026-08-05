@@ -37,7 +37,11 @@ export default function HomeDailySuggestion() {
   };
 
   return (
-    <section className="py-8 bg-slate-900">
+    // data-dev-only lets scripts/shoot-storefront.mjs hide this precisely.
+    // It renders under import.meta.env.DEV only and never ships, but the
+    // screenshots are taken against the dev server, where it would otherwise
+    // appear in the middle of every Home capture.
+    <section data-dev-only className="py-8 bg-slate-900">
       <div className="max-w-3xl mx-auto px-4">
         <div className="relative bg-slate-800 border border-slate-700 rounded-2xl p-5 md:p-6">
           <button

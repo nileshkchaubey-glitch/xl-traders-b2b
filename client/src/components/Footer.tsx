@@ -1,145 +1,45 @@
-import { useEffect, useState } from "react";
-import { Link } from "wouter";
-import { categoryService } from "@/lib/productService";
-import { settingsService, FALLBACKS } from "@/lib/settingsService";
+import { MessageCircle } from "lucide-react";
 
-interface FooterLink {
-  label: string;
-  href: string;
-}
-
-// Shown only if the DB has no grouped categories yet (keeps the footer populated).
-const FALLBACK_CATEGORY_LINKS: FooterLink[] = [
-  { label: "Food Packaging", href: "/catalog?group=Disposal%20%26%20Food%20Packaging" },
-  { label: "Cleaning Supplies", href: "/catalog?group=Cleaning" },
-  { label: "Decoration & Party", href: "/catalog?group=Decoration" },
-  { label: "Packaging", href: "/catalog?group=Packaging" },
-];
-
+/**
+ * The storefront footer (docs/DESIGN_SYSTEM.md §3.7).
+ *
+ * Deliberately almost empty: a logo and one WhatsApp affordance, separated
+ * from the page by a single hairline. The address, GSTIN and legal links that
+ * used to live in a four-column dark footer now sit at the bottom of the
+ * Account screen and in About — a buyer looking for the GSTIN is doing
+ * paperwork, and paperwork lives in the account, not under the product grid.
+ *
+ * The four-column category/company/ordering link farm is gone with it. On this
+ * site categories are the first section of the homepage, so repeating them
+ * under the fold was the same duplication the trust surfaces had.
+ */
 export default function Footer() {
-  const email = import.meta.env.VITE_EMAIL || "xltraders990@gmail.com";
-  const phone1 = import.meta.env.VITE_PHONE_1 || "9773239442";
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
-  const currentYear = new Date().getFullYear();
-
-  const [footer, setFooter] = useState(FALLBACKS.footer);
-  const [categoryLinks, setCategoryLinks] = useState<FooterLink[]>(
-    FALLBACK_CATEGORY_LINKS
-  );
-
-  useEffect(() => {
-    settingsService.getContent("footer").then(setFooter).catch(() => {});
-
-    // Category quick-links come from the real category groups, not hardcoded.
-    categoryService
-      .getCategoriesGroupedByGroup()
-      .then(groups => {
-        if (groups.length > 0) {
-          setCategoryLinks(
-            groups.map(g => ({
-              label: g.group_name,
-              href: `/catalog?group=${encodeURIComponent(g.group_name)}`,
-            }))
-          );
-        }
-      })
-      .catch(() => {});
-  }, []);
+  const displayNumber = import.meta.env.VITE_PHONE_1 || "9773239442";
+  // "9773239442" → "97732 39442", the way it is written on the van.
+  const pretty = displayNumber
+    .replace(/^(?:\+?91)/, "")
+    .replace(/(\d{5})(\d{5})/, "$1 $2");
 
   return (
-    <footer className="bg-slate-900 text-slate-400 mt-auto">
-      <div className="container py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] gap-8">
-        {/* Brand */}
-        <div>
-          <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white font-extrabold text-body-md">
-              XL
-            </div>
-            <span className="font-extrabold text-body-md tracking-[0.08em] text-white">
-              TRADERS
-            </span>
-          </div>
-          <p className="text-body-sm leading-relaxed mb-3.5">
-            {footer.description}
-          </p>
-          <div className="text-body-sm leading-loose">
-            {footer.address}
-            <br />
-            <a href={`tel:${phone1}`} className="hover:text-white transition">
-              +91 {phone1}
-            </a>{" "}
-            ·{" "}
-            <a href={`mailto:${email}`} className="hover:text-white transition">
-              {email}
-            </a>
-          </div>
-        </div>
-
-        {/* Categories */}
-        <div>
-          <div className="text-xs font-bold tracking-widest uppercase text-white mb-3">
-            Categories
-          </div>
-          <div className="flex flex-col gap-2 text-body-sm">
-            {categoryLinks.map(l => (
-              <Link
-                key={l.label}
-                href={l.href}
-                className="hover:text-white transition"
-              >
-                {l.label}
-              </Link>
-            ))}
-            <Link href="/catalog" className="hover:text-white transition">
-              All categories →
-            </Link>
-          </div>
-        </div>
-
-        {/* Company */}
-        <div>
-          <div className="text-xs font-bold tracking-widest uppercase text-white mb-3">
-            Company
-          </div>
-          <div className="flex flex-col gap-2 text-body-sm">
-            <Link href="/" className="hover:text-white transition">
-              Why XL Traders
-            </Link>
-            <Link href="/catalog" className="hover:text-white transition">
-              Product Catalogue
-            </Link>
-            <a
-              href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent("Hi XL Traders, I need a bulk / custom order quote.")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white transition"
-            >
-              Bulk &amp; Custom Orders
-            </a>
-            <Link href="/auth" className="hover:text-white transition">
-              Sign In
-            </Link>
-          </div>
-        </div>
-
-        {/* Ordering */}
-        <div>
-          <div className="text-xs font-bold tracking-widest uppercase text-white mb-3">
-            Ordering
-          </div>
-          <div className="flex flex-col gap-2 text-body-sm">
-            {footer.ordering.map(line => (
-              <span key={line}>{line}</span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-slate-800">
-        <div className="container py-4 text-xs flex flex-col sm:flex-row gap-1 sm:justify-between">
-          <span>© {currentYear} XL Traders. All rights reserved.</span>
-          <span>{footer.tagline}</span>
-        </div>
+    <footer className="mt-auto border-t border-rule bg-white">
+      <div className="shell py-[18px] md:py-6 flex items-center justify-between gap-3">
+        <img
+          src="/images/brand/xl-traders-logo.png"
+          alt="XL Traders"
+          className="h-[26px] md:h-[30px] w-auto block flex-none"
+        />
+        <a
+          href={`https://wa.me/${whatsappNumber}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-none flex items-center gap-2 border border-rule text-wa rounded-full px-3.5 md:px-4 py-2.5 hover:border-wa transition-colors duration-150"
+        >
+          <MessageCircle size={16} className="flex-none" />
+          <span className="text-body-sm font-semibold whitespace-nowrap">
+            WhatsApp {pretty}
+          </span>
+        </a>
       </div>
     </footer>
   );

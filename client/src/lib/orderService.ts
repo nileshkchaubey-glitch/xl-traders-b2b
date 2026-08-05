@@ -80,6 +80,36 @@ export const orderService = {
     return (data as Order[]) ?? [];
   },
 
+  /**
+   * Orders belonging to one customer, for the Account screen's "Recent orders".
+   *
+   * Matched on PHONE, because `orders` has no `user_id` column — the table was
+   * built for a WhatsApp-first flow where the phone number was the identity.
+   * getAll() above returns EVERY order and is an admin call; rendering it on a
+   * customer-facing screen would show each buyer everyone else's orders, so
+   * this scoped method exists specifically to make that mistake unavailable.
+   *
+   * KNOWN LIMITATION, flagged in the PR: the scoping is a WHERE clause, not a
+   * security boundary. RLS on `orders` does not restrict SELECT per user, so a
+   * determined signed-in user could still query another phone number directly.
+   * The fix is an `orders.user_id` column plus an owner-scoped RLS policy —
+   * SQL is prepared in docs/sql/pr2-account-orders.sql, owner-run, NOT applied.
+   * Until it is, this returns nothing for a profile with no phone rather than
+   * falling back to an unscoped query.
+   */
+  async getForPhone(phone?: string | null): Promise<Order[]> {
+    const p = phone?.trim();
+    if (!p) return [];
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("phone", p)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    return (data as Order[]) ?? [];
+  },
+
   async getItems(orderId: string): Promise<OrderItem[]> {
     const { data, error } = await supabase
       .from("order_items")

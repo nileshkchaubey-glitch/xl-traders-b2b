@@ -118,7 +118,8 @@ export function ConfirmDialogHost() {
                 : undefined
             }
           >
-            {options.confirmLabel ?? (options.destructive ? "Delete" : "Continue")}
+            {options.confirmLabel ??
+              (options.destructive ? "Delete" : "Continue")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

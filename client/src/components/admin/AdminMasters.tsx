@@ -191,7 +191,12 @@ export default function AdminMasters() {
   };
 
   const handleDeleteVariant = async (id: string) => {
-    if (!(await confirm({ title: "Delete this variant product?", destructive: true })))
+    if (
+      !(await confirm({
+        title: "Delete this variant product?",
+        destructive: true,
+      }))
+    )
       return;
     try {
       await masterService.deleteVariant(id);

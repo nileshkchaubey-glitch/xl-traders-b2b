@@ -117,7 +117,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
           if (event === "SIGNED_IN") {
             const currentUser = get().user;
-            if (currentUser && session?.user && session.user.id === currentUser.id) {
+            if (
+              currentUser &&
+              session?.user &&
+              session.user.id === currentUser.id
+            ) {
               // supabase-js re-emits SIGNED_IN on every tab refocus when a
               // session already exists. Same user — skip isLoading to prevent
               // the full-screen spinner from appearing on every refocus.

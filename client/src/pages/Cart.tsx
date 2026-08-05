@@ -2,21 +2,23 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import {
-  Minus,
-  Plus,
-  ShoppingCart,
-  MessageCircle,
-  Loader2,
-} from "lucide-react";
+import { MessageCircle, Loader2 } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { orderService } from "@/lib/orderService";
-import { normalizeImageUrl } from "@/lib/imageUtils";
 import { useMinOrder } from "@/hooks/useMinOrder";
+import { formatRupees } from "@/lib/priceUtils";
 import { toast } from "sonner";
 
 const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
 
+/**
+ * The order review screen (docs/DESIGN_SYSTEM.md §3.9).
+ *
+ * Same rate-card vocabulary: line items separated by hairlines rather than
+ * boxed in cards, every figure in mono with tabular numerals, the total on the
+ * 2px ink rule. On-enquiry lines never contribute a rupee figure and never
+ * render ₹0 — they carry an amber marker and are quoted on WhatsApp.
+ */
 export default function Cart() {
   const [, setLocation] = useLocation();
   const {
@@ -46,7 +48,7 @@ export default function Cart() {
 
   const handlePlaceOrder = async () => {
     if (items.length === 0) {
-      toast.error("Your cart is empty");
+      toast.error("Your order is empty");
       return;
     }
     if (anyMoqWarn) {
@@ -59,7 +61,7 @@ export default function Cart() {
     }
     if (belowMinOrder) {
       toast.error(
-        `Add ₹${minOrderRemaining.toLocaleString()} more to meet the minimum order value`
+        `Add ${formatRupees(minOrderRemaining)} more to meet the minimum order value`
       );
       return;
     }
@@ -93,253 +95,242 @@ export default function Cart() {
     }
   };
 
+  const fieldClass =
+    "w-full h-11 px-3.5 border border-rule bg-white text-body-sm text-ink outline-none focus:border-ink transition-colors duration-150 placeholder:text-ink-faint";
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900">
+    <div className="min-h-screen bg-white flex flex-col text-ink">
       <Header />
 
-      <main className="flex-1 pb-24 md:pb-0">
-        <div className="container py-6 w-full">
-          <h1 className="text-2xl font-extrabold tracking-tight mb-5">
-            Your Cart{" "}
+      <main className="flex-1 pb-28 md:pb-12">
+        <div className="shell pt-6 md:pt-8">
+          <div className="flex items-baseline justify-between gap-4 border-b-2 border-ink pb-4">
+            <h1 className="font-display text-display md:text-display-lg font-bold tracking-[-0.03em]">
+              Your order
+            </h1>
             {count > 0 && (
-              <span className="text-sm font-semibold text-slate-500">
-                · {items.length} items, {count} units
+              <span className="font-mono text-micro md:text-body-sm font-medium text-ink-faint whitespace-nowrap tabular-nums">
+                {items.length} item{items.length === 1 ? "" : "s"} ·{" "}
+                {count.toLocaleString("en-IN")} packs
               </span>
             )}
-          </h1>
+          </div>
 
           {items.length === 0 ? (
-            /* Empty state */
-            <div className="bg-white border border-dashed border-slate-300 rounded-2xl px-6 py-14 text-center">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShoppingCart size={26} className="text-slate-400" />
-              </div>
-              <div className="text-base font-bold mb-1.5">
-                Your cart is empty
-              </div>
-              <div className="text-[13.5px] text-slate-500 mb-5">
-                Browse the catalogue and add products — MOQ is pre-filled for
-                you.
-              </div>
+            <div className="py-14 text-center">
+              <p className="text-body-md font-semibold">Your order is empty</p>
+              <p className="text-body-sm text-ink-muted mt-1.5 mb-5">
+                Browse the catalogue and add packs — MOQ is pre-filled for you.
+              </p>
               <Link
                 href="/catalog"
-                className="inline-flex bg-red-600 text-white px-5 py-3 rounded-xl text-[13.5px] font-bold hover:bg-red-700 transition"
+                className="inline-flex bg-ink text-white px-5 py-3 text-body-sm font-semibold hover:bg-red-600 transition-colors duration-150"
               >
-                Browse Products
+                Browse the rate card
               </Link>
             </div>
           ) : (
-            <div className="grid lg:grid-cols-[1fr_360px] gap-6 items-start">
-              {/* Lines */}
-              <div className="flex flex-col gap-3">
+            <div className="grid lg:grid-cols-[1fr_360px] lg:gap-x-[56px] items-start">
+              {/* ── Lines ── */}
+              <div>
                 {items.map(item => {
                   const warn = item.quantity < item.moq;
                   return (
                     <div
                       key={item.productId}
-                      className={`bg-white border rounded-2xl p-4 flex gap-3.5 items-center ${
-                        warn ? "border-red-200" : "border-slate-200"
-                      }`}
+                      className="border-b border-rule py-4 flex gap-4 items-start"
                     >
-                      <Link
-                        href={`/product/${item.productId}`}
-                        className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                      >
-                        {item.imageUrl ? (
-                          <img
-                            src={normalizeImageUrl(item.imageUrl, 150) ?? ""}
-                            alt={item.name}
-                            className="w-full h-full object-contain p-1"
-                          />
-                        ) : (
-                          <ShoppingCart size={20} className="text-slate-300" />
-                        )}
-                      </Link>
-
                       <div className="flex-1 min-w-0">
                         <Link
                           href={`/product/${item.productId}`}
-                          className="text-sm font-bold hover:text-red-600 transition line-clamp-2"
+                          className="text-body-sm md:text-body-md font-medium text-ink hover:text-red-600 transition-colors duration-150"
                         >
                           {item.name}
                         </Link>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          {item.priceOnEnquiry
-                            ? "Price on enquiry"
-                            : `₹${item.price.toLocaleString()} / ${item.unit}`}
+
+                        <div className="mt-2 border-t-2 border-ink flex">
+                          <span
+                            className={`font-mono text-caption font-semibold px-2 py-[5px] text-white whitespace-nowrap tabular-nums ${
+                              item.priceOnEnquiry ? "bg-amber-600" : "bg-ink"
+                            }`}
+                          >
+                            {item.priceOnEnquiry
+                              ? "On enquiry"
+                              : `${formatRupees(item.price)}/pack`}
+                          </span>
                         </div>
+
                         {warn && (
-                          <div className="inline-flex items-center gap-1.5 mt-1.5 bg-red-50 border border-red-200 text-red-700 text-[11.5px] font-bold px-2.5 py-1 rounded-lg">
-                            Below MOQ — minimum {item.moq}.
+                          <p className="font-mono text-caption font-medium text-red-600 mt-2.5">
+                            Below MOQ — minimum {item.moq}.{" "}
                             <button
                               onClick={() =>
                                 updateQuantity(item.productId, item.moq)
                               }
-                              className="underline font-extrabold"
+                              className="underline font-semibold"
                             >
                               Fix to {item.moq}
                             </button>
-                          </div>
+                          </p>
                         )}
-                        <div className="mt-1.5">
+
+                        <button
+                          onClick={() => removeItem(item.productId)}
+                          className="text-micro font-medium text-ink-faint hover:text-red-600 transition-colors duration-150 mt-2.5"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="flex-none flex flex-col items-end gap-2.5">
+                        <div className="flex items-stretch h-10 border-2 border-ink">
                           <button
-                            onClick={() => removeItem(item.productId)}
-                            className="text-xs font-semibold text-slate-500 hover:text-red-600 transition"
+                            onClick={() =>
+                              updateQuantity(item.productId, item.quantity - 1)
+                            }
+                            aria-label={`Decrease quantity of ${item.name}`}
+                            className="w-9 flex items-center justify-center font-mono text-body-sm font-semibold hover:bg-sunken transition-colors duration-150"
                           >
-                            Remove
+                            −
+                          </button>
+                          <input
+                            value={item.quantity}
+                            onChange={e => {
+                              const v = parseInt(e.target.value, 10);
+                              if (!isNaN(v)) updateQuantity(item.productId, v);
+                            }}
+                            aria-label={`Quantity of ${item.name} in packs`}
+                            inputMode="numeric"
+                            className="w-11 text-center font-mono text-body-sm font-bold outline-none tabular-nums"
+                          />
+                          <button
+                            onClick={() =>
+                              updateQuantity(item.productId, item.quantity + 1)
+                            }
+                            aria-label={`Increase quantity of ${item.name}`}
+                            className="w-9 flex items-center justify-center font-mono text-body-sm font-semibold hover:bg-sunken transition-colors duration-150"
+                          >
+                            +
                           </button>
                         </div>
-                      </div>
-
-                      {/* Stepper */}
-                      <div className="flex items-center border-[1.5px] border-slate-300 rounded-xl overflow-hidden h-11 flex-shrink-0">
-                        <button
-                          onClick={() =>
-                            updateQuantity(item.productId, item.quantity - 1)
-                          }
-                          className="w-10 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
-                          aria-label="Decrease"
-                        >
-                          <Minus size={15} />
-                        </button>
-                        <input
-                          value={item.quantity}
-                          onChange={e => {
-                            const v = parseInt(e.target.value, 10);
-                            if (!isNaN(v)) updateQuantity(item.productId, v);
-                          }}
-                          className="w-12 text-center text-sm font-bold tabular-nums outline-none"
-                          inputMode="numeric"
-                        />
-                        <button
-                          onClick={() =>
-                            updateQuantity(item.productId, item.quantity + 1)
-                          }
-                          className="w-10 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
-                          aria-label="Increase"
-                        >
-                          <Plus size={15} />
-                        </button>
-                      </div>
-
-                      <div className="w-24 text-right text-[15px] font-extrabold tabular-nums hidden sm:block">
-                        {item.priceOnEnquiry
-                          ? "—"
-                          : `₹${(item.price * item.quantity).toLocaleString()}`}
+                        <span className="font-mono text-body-sm md:text-body-md font-bold text-ink tabular-nums">
+                          {item.priceOnEnquiry
+                            ? "—"
+                            : formatRupees(item.price * item.quantity)}
+                        </span>
                       </div>
                     </div>
                   );
                 })}
 
-                {/* Order notes */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                  <div className="text-[13px] font-bold mb-2">
-                    Order notes{" "}
-                    <span className="font-medium text-slate-400">
-                      (optional)
-                    </span>
-                  </div>
+                <div className="mt-6">
+                  <label
+                    htmlFor="order-notes"
+                    className="font-mono text-meta font-medium uppercase tracking-[0.16em] text-ink-faint"
+                  >
+                    Order notes (optional)
+                  </label>
                   <textarea
+                    id="order-notes"
                     value={notes}
                     onChange={e => setNotes(e.target.value)}
                     placeholder="e.g. Need extra-strong boxes; deliver after 4pm"
-                    className="w-full min-h-16 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] outline-none focus:border-red-600 resize-y"
+                    className="w-full min-h-20 mt-2.5 border border-rule px-3.5 py-2.5 text-body-sm outline-none focus:border-ink transition-colors duration-150 resize-y placeholder:text-ink-faint"
                   />
                 </div>
               </div>
 
-              {/* Summary */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 lg:sticky lg:top-24">
-                <div className="text-[15px] font-extrabold mb-3.5">
-                  Order Summary
+              {/* ── Summary ── */}
+              <div className="mt-8 lg:mt-0 lg:sticky lg:top-6 self-start">
+                <div className="border-t-2 border-ink pt-4">
+                  <div className="flex justify-between text-body-sm text-ink-muted py-1.5">
+                    <span>
+                      Subtotal ({count.toLocaleString("en-IN")} packs)
+                    </span>
+                    <span className="font-mono font-semibold text-ink tabular-nums">
+                      {allEnquiry ? "On enquiry" : formatRupees(total)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-body-sm text-ink-muted py-1.5">
+                    <span>Delivery</span>
+                    <span className="font-semibold text-wa">Free in Surat</span>
+                  </div>
+                  <div className="border-t border-rule mt-2.5 pt-3 flex justify-between items-baseline">
+                    <span className="text-body-md font-semibold">Total</span>
+                    <span className="font-mono text-price font-bold text-ink tracking-[-0.025em] tabular-nums">
+                      {allEnquiry ? "On enquiry" : formatRupees(total)}
+                    </span>
+                  </div>
+                  <p className="text-caption text-ink-faint mt-2">
+                    GST &amp; final pricing confirmed on WhatsApp.
+                  </p>
                 </div>
-                <div className="flex justify-between text-[13.5px] text-slate-600 py-1.5">
-                  <span>Subtotal ({count} units)</span>
-                  <span className="font-bold text-slate-900 tabular-nums">
-                    {allEnquiry ? "On enquiry" : `₹${total.toLocaleString()}`}
-                  </span>
-                </div>
-                <div className="flex justify-between text-[13.5px] text-slate-600 py-1.5">
-                  <span>Delivery</span>
-                  <span className="font-bold text-emerald-700">
-                    FREE (Surat)
-                  </span>
-                </div>
-                <div className="border-t border-slate-200 mt-2.5 pt-2.5 flex justify-between text-base font-extrabold mb-3">
-                  <span>Total</span>
-                  <span className="text-red-600 tabular-nums">
-                    {allEnquiry ? "On enquiry" : `₹${total.toLocaleString()}`}
-                  </span>
-                </div>
-                <p className="text-[11.5px] text-slate-400 -mt-1 mb-3">
-                  GST &amp; final pricing confirmed on WhatsApp.
-                </p>
 
                 {anyMoqWarn && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-2.5 rounded-lg mb-3">
+                  <p className="font-mono text-caption font-medium text-red-600 mt-4">
                     Some items are below MOQ — fix them to proceed.
-                  </div>
+                  </p>
                 )}
-
                 {belowMinOrder && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-2.5 rounded-lg mb-3">
-                    Add ₹{minOrderRemaining.toLocaleString()} more to meet the
-                    minimum order value of ₹{minOrder.value.toLocaleString()}.
-                  </div>
+                  <p className="font-mono text-caption font-medium text-red-600 mt-4 tabular-nums">
+                    Add {formatRupees(minOrderRemaining)} more to meet the
+                    minimum order value of {formatRupees(minOrder.value)}.
+                  </p>
                 )}
 
-                {/* Customer details */}
-                <div className="space-y-2 mb-3.5">
+                <div className="flex flex-col gap-2.5 mt-5">
                   <input
-                    placeholder="Your name *"
+                    placeholder="Your name"
+                    aria-label="Your name"
                     value={customer.name}
                     onChange={e =>
                       setCustomer({ ...customer, name: e.target.value })
                     }
-                    className="w-full h-11 border border-slate-300 rounded-xl px-3.5 text-[13.5px] outline-none focus:border-red-600"
+                    className={fieldClass}
                   />
                   <input
                     type="tel"
-                    placeholder="Phone (WhatsApp) *"
+                    placeholder="Phone (WhatsApp)"
+                    aria-label="Phone number for WhatsApp"
                     value={customer.phone}
                     onChange={e =>
                       setCustomer({ ...customer, phone: e.target.value })
                     }
-                    className="w-full h-11 border border-slate-300 rounded-xl px-3.5 text-[13.5px] outline-none focus:border-red-600"
+                    className={fieldClass}
                   />
                 </div>
 
                 <button
                   onClick={handlePlaceOrder}
                   disabled={placing || anyMoqWarn || checkoutBlocked}
-                  className={`w-full h-[50px] rounded-xl text-[15px] font-bold text-white transition flex items-center justify-center gap-2 ${
+                  className={`w-full h-[50px] mt-3 text-body-md font-semibold text-white flex items-center justify-center gap-2 transition-colors duration-150 ${
                     anyMoqWarn || checkoutBlocked
-                      ? "bg-slate-300 cursor-not-allowed"
-                      : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_18px_rgba(5,150,105,0.25)]"
+                      ? "bg-ink-faint cursor-not-allowed"
+                      : "bg-wa hover:bg-emerald-700"
                   }`}
                 >
                   {placing ? (
                     <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Placing Order…
+                      <Loader2 size={17} className="animate-spin" />
+                      Placing order…
                     </>
                   ) : (
                     <>
-                      <MessageCircle size={18} />
-                      Place Order via WhatsApp
+                      <MessageCircle size={17} />
+                      Place order via WhatsApp
                     </>
                   )}
                 </button>
-                <p className="text-xs text-slate-400 text-center mt-2.5">
+                <p className="text-caption text-ink-faint text-center mt-2.5">
                   Order is saved + confirmed on WhatsApp · GST invoice included
                 </p>
                 <button
                   onClick={() => {
-                    if (confirm("Clear cart?")) clearCart();
+                    if (confirm("Clear this order?")) clearCart();
                   }}
-                  className="w-full text-xs text-slate-400 hover:text-red-500 transition mt-2"
+                  className="w-full text-caption text-ink-faint hover:text-red-600 transition-colors duration-150 mt-2.5"
                 >
-                  Clear cart
+                  Clear order
                 </button>
               </div>
             </div>

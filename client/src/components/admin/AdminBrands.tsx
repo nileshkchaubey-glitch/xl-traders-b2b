@@ -291,7 +291,10 @@ export default function AdminBrands() {
       )}
 
       {/* Create / edit dialog */}
-      <Dialog open={editing !== null} onOpenChange={o => !o && setEditing(null)}>
+      <Dialog
+        open={editing !== null}
+        onOpenChange={o => !o && setEditing(null)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>

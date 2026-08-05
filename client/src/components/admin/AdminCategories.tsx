@@ -553,106 +553,107 @@ export default function AdminCategories({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          <div className="text-center py-8 text-slate-500">Loading...</div>
-        ) : categories.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">No categories</div>
-        ) : (
-          categories.map((category, index) => (
-            <div
-              key={category.id}
-              draggable
-              onDragStart={() => handleDragStart(category.id)}
-              onDragOver={handleDragOver}
-              onDrop={() => handleDrop(category.id)}
-              className={`bg-white rounded-xl border border-slate-200 shadow-sm p-4 cursor-move transition-all hover:shadow-md ${draggedId === category.id ? "opacity-40 scale-95" : ""}`}
-            >
-              <div className="flex items-start gap-3">
-                <GripVertical className="w-4 h-4 text-slate-300 mt-1 flex-shrink-0" />
-                <div className="flex flex-col gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => moveCategory(category.id, index, "up")}
-                    disabled={index === 0 || loading}
-                    className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => moveCategory(category.id, index, "down")}
-                    disabled={index === categories.length - 1 || loading}
-                    className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2.5">
-                    {category.image_url ? (
-                      <img
-                        src={category.image_url}
-                        alt={category.name}
-                        className="w-10 h-10 object-cover rounded-lg flex-shrink-0 border border-slate-100"
-                        onError={e => {
-                          (e.currentTarget as HTMLImageElement).style.display =
-                            "none";
-                        }}
-                      />
-                    ) : category.icon_emoji ? (
-                      <span className="text-2xl w-10 h-10 flex items-center justify-center bg-slate-50 rounded-lg border border-slate-100">
-                        {category.icon_emoji}
-                      </span>
-                    ) : (
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg border border-slate-100 flex items-center justify-center">
-                        <span className="text-slate-400 text-xs font-bold">
-                          {category.name[0]?.toUpperCase()}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-slate-900 truncate text-sm">
-                        {category.name}
-                      </h3>
-                      <p className="text-[11px] text-slate-400 font-mono">
-                        {category.slug}
-                      </p>
-                    </div>
+          {loading ? (
+            <div className="text-center py-8 text-slate-500">Loading...</div>
+          ) : categories.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">No categories</div>
+          ) : (
+            categories.map((category, index) => (
+              <div
+                key={category.id}
+                draggable
+                onDragStart={() => handleDragStart(category.id)}
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(category.id)}
+                className={`bg-white rounded-xl border border-slate-200 shadow-sm p-4 cursor-move transition-all hover:shadow-md ${draggedId === category.id ? "opacity-40 scale-95" : ""}`}
+              >
+                <div className="flex items-start gap-3">
+                  <GripVertical className="w-4 h-4 text-slate-300 mt-1 flex-shrink-0" />
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => moveCategory(category.id, index, "up")}
+                      disabled={index === 0 || loading}
+                      className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => moveCategory(category.id, index, "down")}
+                      disabled={index === categories.length - 1 || loading}
+                      className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
                   </div>
-                  {category.group_name && (
-                    <span className="inline-block mt-2 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                      {category.group_name}
-                    </span>
-                  )}
-                  {category.description && (
-                    <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">
-                      {category.description}
-                    </p>
-                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5">
+                      {category.image_url ? (
+                        <img
+                          src={category.image_url}
+                          alt={category.name}
+                          className="w-10 h-10 object-cover rounded-lg flex-shrink-0 border border-slate-100"
+                          onError={e => {
+                            (
+                              e.currentTarget as HTMLImageElement
+                            ).style.display = "none";
+                          }}
+                        />
+                      ) : category.icon_emoji ? (
+                        <span className="text-2xl w-10 h-10 flex items-center justify-center bg-slate-50 rounded-lg border border-slate-100">
+                          {category.icon_emoji}
+                        </span>
+                      ) : (
+                        <div className="w-10 h-10 bg-slate-100 rounded-lg border border-slate-100 flex items-center justify-center">
+                          <span className="text-slate-400 text-xs font-bold">
+                            {category.name[0]?.toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-slate-900 truncate text-sm">
+                          {category.name}
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-mono">
+                          {category.slug}
+                        </p>
+                      </div>
+                    </div>
+                    {category.group_name && (
+                      <span className="inline-block mt-2 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                        {category.group_name}
+                      </span>
+                    )}
+                    {category.description && (
+                      <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 mt-4 pt-3 border-t border-slate-100">
+                  <button
+                    onClick={() => handleEdit(category)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 text-xs font-medium transition-colors border border-slate-200"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(category.id)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 text-xs font-medium transition-colors border border-transparent hover:border-red-100"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
+                  </button>
                 </div>
               </div>
-
-              <div className="flex gap-1.5 mt-4 pt-3 border-t border-slate-100">
-                <button
-                  onClick={() => handleEdit(category)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 text-xs font-medium transition-colors border border-slate-200"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(category.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 text-xs font-medium transition-colors border border-transparent hover:border-red-100"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
         </div>
       )}
 

@@ -335,12 +335,10 @@ async function main() {
       }
       const buf = fs.readFileSync(args.file);
       const key = `products/${Date.now()}-${(args.as || path.basename(args.file)).replace(/\s+/g, "-")}`;
-      const { error } = await db.storage
-        .from(BUCKET)
-        .upload(key, buf, {
-          contentType: args.type || "image/jpeg",
-          upsert: true,
-        });
+      const { error } = await db.storage.from(BUCKET).upload(key, buf, {
+        contentType: args.type || "image/jpeg",
+        upsert: true,
+      });
       if (error) throw error;
       console.log(db.storage.from(BUCKET).getPublicUrl(key).data.publicUrl);
       break;

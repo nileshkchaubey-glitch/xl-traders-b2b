@@ -9,6 +9,7 @@
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
     "check:price": "node scripts/check-price-entry.ts",
+    "check:card": "node scripts/check-card-model.ts",
     "format": "prettier --write ."
   },
   "dependencies": {

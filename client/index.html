@@ -16,11 +16,23 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 
-    <!-- Google Fonts -->
+    <!-- Type system — Direction B "Rate Card" (docs/DESIGN_SYSTEM.md §1.1).
+         Archivo = display, IBM Plex Sans = body/UI, IBM Plex Mono = every
+         figure. Three families is real weight on mobile, so the axes are
+         pinned to exactly the weights the design uses and nothing more:
+           Archivo      700          section headings only
+           Plex Sans    400/500/600  body, product names, buttons
+           Plex Mono    400/500/600/700  prices, pack specs, SKUs, labels
+         Served by Google Fonts in ONE stylesheet request. Google splits each
+         family by unicode-range, so a Latin visitor downloads only the Latin
+         subsets — and when Gujarati copy is added later the Devanagari/
+         Gujarati subsets start serving themselves with no build change, which
+         is the reason IBM Plex was chosen. Self-hosting would remove the
+         third-party round-trip; deferred, see DESIGN_SYSTEM.md §1.1. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@700&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
   </head>

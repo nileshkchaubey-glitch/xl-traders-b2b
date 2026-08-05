@@ -84,9 +84,7 @@ export default function MobileImageLibrary({
         {/* Rear camera (falls back to a file picker where unavailable) */}
         <label
           className={`flex-1 flex items-center justify-center gap-2 h-12 rounded-xl text-white text-[14px] font-bold transition ${
-            uploading
-              ? "bg-red-400"
-              : "bg-red-600 active:bg-red-700 shadow-red"
+            uploading ? "bg-red-400" : "bg-red-600 active:bg-red-700 shadow-red"
           }`}
         >
           {uploading ? (
@@ -181,7 +179,9 @@ export default function MobileImageLibrary({
       ) : filteredImages.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 bg-white border-2 border-dashed border-slate-200 rounded-xl text-center">
           <ImageIcon className="w-10 h-10 text-slate-300 mb-2" />
-          <p className="font-semibold text-slate-700 text-sm">No images found</p>
+          <p className="font-semibold text-slate-700 text-sm">
+            No images found
+          </p>
           <p className="text-xs text-slate-400 mt-0.5">
             Use Take Photo or Upload to add images.
           </p>

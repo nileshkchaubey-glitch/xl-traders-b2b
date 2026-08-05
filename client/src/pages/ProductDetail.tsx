@@ -1,19 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation, Link } from "wouter";
-import {
-  MessageCircle,
-  Share2,
-  Minus,
-  Plus,
-  ShoppingCart,
-  Truck,
-  ShieldCheck,
-  Check,
-} from "lucide-react";
+import { MessageCircle, Share2 } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ProductImageSlot from "@/components/ProductImageSlot";
+import { useCategoryImages } from "@/hooks/useCategoryImages";
 import {
   productService,
   productImageService,
@@ -23,9 +16,9 @@ import {
 import { masterService } from "@/lib/masterService";
 import { Product, ProductImage } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
-import { ImagePlaceholder } from "@/components/ImagePlaceholder";
 import { normalizeImageUrl } from "@/lib/imageUtils";
-import { isPriceOnEnquiry, cartLinePrice } from "@/lib/priceUtils";
+import { cartLinePrice, formatRupees } from "@/lib/priceUtils";
+import { toCardModel } from "@/lib/cardModel";
 import { brandLabel } from "@/lib/brandUtils";
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
@@ -36,8 +29,10 @@ function saveToRecentlyViewed(id: string) {
   try {
     const stored = localStorage.getItem(RECENTLY_VIEWED_KEY);
     const ids: string[] = stored ? JSON.parse(stored) : [];
-    const updated = [id, ...ids.filter(i => i !== id)].slice(0, MAX_RECENT);
-    localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
+    localStorage.setItem(
+      RECENTLY_VIEWED_KEY,
+      JSON.stringify([id, ...ids.filter(i => i !== id)].slice(0, MAX_RECENT))
+    );
   } catch {
     /* storage unavailable */
   }
@@ -52,7 +47,10 @@ function getRecentlyViewedIds(): string[] {
   }
 }
 
-// ─── Mini product card (similar / recently viewed) ─────────────────────────
+/**
+ * A compact rate-card item for the "Similar" / "Recently viewed" rows. Same
+ * vocabulary as the grid item — figure, name, rate rule — at row scale.
+ */
 function MiniProductCard({
   product,
   isAuthenticated,
@@ -60,50 +58,38 @@ function MiniProductCard({
   product: Product;
   isAuthenticated: boolean;
 }) {
-  const [imgError, setImgError] = useState(false);
+  const m = toCardModel(product, isAuthenticated);
   return (
-    <Link href={`/product/${product.id}`}>
-      <div className="group flex flex-col bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-md hover:border-red-200 transition w-36 sm:w-auto flex-shrink-0">
-        <div className="h-28 overflow-hidden bg-slate-100">
-          {product.image_url && !imgError ? (
-            <img
-              src={normalizeImageUrl(product.image_url)}
-              alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-              loading="lazy"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <ImagePlaceholder className="w-full h-full" showText={false} />
-          )}
-        </div>
-        <div className="p-2 flex flex-col flex-1">
-          <p className="text-xs font-semibold text-slate-900 line-clamp-2 leading-tight flex-1 mb-2">
-            {product.name}
-          </p>
-          {isAuthenticated && (
-            <p className="text-sm font-bold mb-1.5">
-              {!isPriceOnEnquiry(product.price) ? (
-                <span className="text-red-600">
-                  ₹{product.price!.toLocaleString()}
-                </span>
-              ) : (
-                <span className="text-slate-500 italic text-xs">
-                  Price on enquiry
-                </span>
-              )}
-            </p>
-          )}
-          <span className="block w-full text-center text-xs font-semibold py-1 bg-slate-100 text-slate-700 rounded group-hover:bg-red-600 group-hover:text-white transition">
-            View
+    <Link
+      href={`/product/${product.id}`}
+      className="group flex-none w-[150px] sm:w-auto"
+    >
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-[22px] leading-[0.9] font-bold text-ink tracking-[-0.04em] tabular-nums">
+          {m.size ?? "—"}
+        </span>
+        {m.sizeUnit && (
+          <span className="font-mono text-meta font-medium uppercase tracking-[0.14em] text-ink-faint">
+            {m.sizeUnit}
           </span>
-        </div>
+        )}
+      </div>
+      <div className="text-body-sm font-medium text-ink mt-2 group-hover:text-red-600 transition-colors duration-150">
+        {m.name}
+      </div>
+      <div className="mt-2 border-t-2 border-ink flex">
+        <span
+          className={`font-mono text-caption font-semibold px-2 py-[5px] whitespace-nowrap text-white tabular-nums ${
+            m.price.onEnquiry ? "bg-amber-600" : "bg-ink"
+          }`}
+        >
+          {m.price.onEnquiry ? "On enquiry" : m.rateTab}
+        </span>
       </div>
     </Link>
   );
 }
 
-// ─── Horizontal scroll product row ─────────────────────────────────────────
 function ProductRow({
   title,
   products,
@@ -115,16 +101,11 @@ function ProductRow({
 }) {
   if (!products.length) return null;
   return (
-    <section className="mt-10">
-      <h2 className="text-lg font-bold text-slate-900 mb-4">{title}</h2>
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-hide sm:hidden">
-        {products.map(p => (
-          <div key={p.id} className="snap-start">
-            <MiniProductCard product={p} isAuthenticated={isAuthenticated} />
-          </div>
-        ))}
-      </div>
-      <div className="hidden sm:grid grid-cols-3 lg:grid-cols-4 gap-4">
+    <section className="mt-11 md:mt-14">
+      <h2 className="font-display text-display-sm md:text-display font-bold text-ink tracking-[-0.025em] border-t-2 border-ink pt-4">
+        {title}
+      </h2>
+      <div className="mt-5 flex gap-[18px] overflow-x-auto scrollbar-hide sm:grid sm:grid-cols-4 sm:gap-[30px] sm:overflow-visible">
         {products.map(p => (
           <MiniProductCard
             key={p.id}
@@ -137,7 +118,6 @@ function ProductRow({
   );
 }
 
-// ─── Main component ─────────────────────────────────────────────────────────
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -145,18 +125,16 @@ export default function ProductDetail() {
   const [images, setImages] = useState<ProductImage[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
   const { isAuthenticated, user, profile } = useAuthStore();
+  const categoryImages = useCategoryImages();
 
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
-  const phone1 = import.meta.env.VITE_PHONE_1 || "9773239442";
 
   const [variants, setVariants] = useState<Product[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<Product | null>(null);
 
-  // Buy panel state (prototype): quantity stepper + delivery pincode check
   const [qty, setQty] = useState(1);
   const [pincode, setPincode] = useState("");
   const [pinResult, setPinResult] = useState<string | null>(null);
@@ -181,14 +159,11 @@ export default function ProductDetail() {
               created_at: img.created_at,
             }))
           );
-
-          const vData = await masterService.getVariantsByMasterId(
-            prod.master_id
+          setVariants(
+            await masterService.getVariantsByMasterId(prod.master_id)
           );
-          setVariants(vData);
         } else {
-          const imgs = await productImageService.getByProductId(id);
-          setImages(imgs);
+          setImages(await productImageService.getByProductId(id));
           setVariants([]);
         }
 
@@ -234,6 +209,7 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (!currentProd) return;
+    const m = toCardModel(currentProd, isAuthenticated);
     const moq = currentProd.moq ?? 1;
     const finalQty = Math.max(qty, moq);
     const existing = cartItems.find(i => i.productId === currentProd.id);
@@ -242,8 +218,9 @@ export default function ProductDetail() {
         productId: currentProd.id,
         sku: currentProd.sku ?? currentProd.id,
         name: currentProd.name,
-        price: cartLinePrice(currentProd.price),
-        priceOnEnquiry: isPriceOnEnquiry(currentProd.price) ? true : undefined,
+        // Transact in the figure this viewer was actually shown.
+        price: cartLinePrice(m.price.packPrice),
+        priceOnEnquiry: m.price.onEnquiry ? true : undefined,
         unit: currentProd.unit_of_measure ?? "pcs",
         imageUrl: currentProd.image_url ?? undefined,
         moq,
@@ -253,11 +230,8 @@ export default function ProductDetail() {
       currentProd.id,
       existing ? existing.quantity + finalQty : finalQty
     );
-    if (qty < moq) {
-      toast.warning(`Minimum ${moq} — quantity bumped to MOQ`);
-    } else {
-      toast.success(`Added ${finalQty} to cart`);
-    }
+    if (qty < moq) toast.warning(`Minimum ${moq} — quantity bumped to MOQ`);
+    else toast.success(`Added ${finalQty} to order`);
   };
 
   const handleCheckPin = () => {
@@ -275,19 +249,17 @@ export default function ProductDetail() {
 
   const handleEnquire = () => {
     if (!currentProd) return;
-    const priceStr = !isPriceOnEnquiry(currentProd.price)
-      ? `\nPrice: ₹${currentProd.price}`
-      : "\nPrice: On enquiry";
-    // Omit the quantity line entirely when pack size is missing — never print
-    // "null". When only the unit is missing, fall back to "pcs" (same fallback
-    // the cart line uses) so the message never reads "Quantity: 100 null".
-    const quantityStr =
+    const m = toCardModel(currentProd, isAuthenticated);
+    const priceStr = m.price.onEnquiry
+      ? "\nPrice: On enquiry"
+      : `\nPrice: ${formatRupees(m.price.packPrice as number)} (${m.price.tag}) per pack`;
+    // Omit the pack line entirely when pack size is missing — never print
+    // "null". When only the unit is missing, fall back to "pcs".
+    const packStr =
       currentProd.quantity_in_unit != null
-        ? `\nQuantity: ${currentProd.quantity_in_unit} ${currentProd.unit_of_measure ?? "pcs"}`
+        ? `\nPack: ${currentProd.quantity_in_unit} ${currentProd.unit_of_measure ?? "pcs"}`
         : "";
-    const message = isAuthenticated
-      ? `Hi, I'm interested in: ${currentProd.name}${priceStr}${quantityStr}\n\nPlease provide more details and availability.`
-      : `Hi, I'm interested in: ${currentProd.name}${quantityStr}\n\nCould you please share the price and availability?`;
+    const message = `Hi, I'm interested in: ${currentProd.name}${priceStr}${packStr}\n\nPlease share availability and your best rate.`;
 
     // Open WhatsApp immediately (must stay in synchronous click-handler
     // context so browsers don't treat it as a popup).
@@ -313,7 +285,7 @@ export default function ProductDetail() {
       })
       .catch(() => {});
 
-    if (isAuthenticated && user && currentProd) {
+    if (isAuthenticated && user) {
       enquiryService
         .create({
           user_id: user.id,
@@ -326,7 +298,7 @@ export default function ProductDetail() {
           customer_email: profile?.email || user.email || "",
           customer_phone: profile?.phone || "",
           customer_company: profile?.company_name,
-          quantity_requested: 1,
+          quantity_requested: qty,
           enquiry_source: "whatsapp",
           status: "new",
         })
@@ -344,19 +316,12 @@ export default function ProductDetail() {
     }
   };
 
-  const handleImageError = (imageId: string) => {
-    setImageErrors(prev => new Set(prev).add(imageId));
-  };
-
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
+      <div className="min-h-screen bg-white flex flex-col text-ink">
         <Header />
         <main className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-slate-500 text-sm">Loading product...</p>
-          </div>
+          <div className="w-7 h-7 border-2 border-rule border-t-red-600 rounded-full animate-spin" />
         </main>
         <Footer />
       </div>
@@ -365,20 +330,19 @@ export default function ProductDetail() {
 
   // currentProd is null exactly when product is (it's `selectedVariant ||
   // product`, and selectedVariant is set from product on load), so guarding on
-  // it is equivalent to guarding on product — and it narrows currentProd to a
-  // non-null Product for the entire render below.
+  // it narrows currentProd to a non-null Product for the entire render below.
   if (!currentProd) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
+      <div className="min-h-screen bg-white flex flex-col text-ink">
         <Header />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center shell">
           <div className="text-center">
-            <p className="text-slate-500 text-lg mb-4">Product not found</p>
+            <p className="text-body-md font-semibold mb-3">Product not found</p>
             <button
               onClick={() => setLocation("/catalog")}
-              className="text-red-600 font-semibold hover:text-red-700"
+              className="text-body-sm font-semibold text-red-600"
             >
-              Back to Catalog
+              Back to catalogue →
             </button>
           </div>
         </main>
@@ -387,432 +351,328 @@ export default function ProductDetail() {
     );
   }
 
-  const displayImages = images.length > 0 ? images : [];
-  const mainImage = normalizeImageUrl(
-    displayImages.length > 0
-      ? displayImages[selectedImageIndex]?.image_url
-      : currentProd?.image_url || ""
+  const model = toCardModel(currentProd, isAuthenticated);
+  const { price } = model;
+  const brand = brandLabel(currentProd.brand);
+  const galleryUrl =
+    images.length > 0
+      ? normalizeImageUrl(images[selectedImageIndex]?.image_url, 900)
+      : null;
+
+  const specs = Object.entries(currentProd.specifications ?? {}).filter(
+    ([, v]) => v != null && String(v).trim() !== ""
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col text-ink">
       <Header />
 
-      <main className="flex-1 pb-40 md:pb-0">
-        <div className="container py-6">
-          {/* Breadcrumb */}
-          <div className="text-body-sm text-slate-500 mb-4">
-            <Link href="/" className="hover:text-red-600 transition">
+      <main className="flex-1 pb-28 md:pb-24">
+        <div className="shell pt-6 md:pt-8">
+          <nav className="font-mono text-caption text-ink-faint">
+            <Link
+              href="/"
+              className="hover:text-ink transition-colors duration-150"
+            >
               Home
             </Link>
             <span className="mx-1.5">/</span>
-            <Link href="/catalog" className="hover:text-red-600 transition">
+            <Link
+              href="/catalog"
+              className="hover:text-ink transition-colors duration-150"
+            >
               Catalogue
             </Link>
             <span className="mx-1.5">/</span>
-            <span className="text-slate-900 font-semibold">
-              {currentProd.name}
-            </span>
-          </div>
+            <span className="text-ink">{model.name}</span>
+          </nav>
 
-          {/* Product grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-9">
-            {/* Images */}
+          <div className="mt-4 grid lg:grid-cols-[1fr_400px] lg:gap-x-[56px]">
+            {/* ── Media ── */}
             <div>
-              <div className="bg-white border border-slate-200 rounded-lg overflow-hidden mb-4 aspect-square flex items-center justify-center">
-                {mainImage && !imageErrors.has(`main-${selectedImageIndex}`) ? (
-                  <img
-                    src={mainImage}
-                    alt={currentProd?.image_alt_text || currentProd?.name}
-                    className="w-full h-full object-contain p-4"
-                    onError={() =>
-                      handleImageError(`main-${selectedImageIndex}`)
-                    }
-                  />
+              <div className="border-t-2 border-ink pt-4">
+                {galleryUrl ? (
+                  <div className="w-full aspect-[3/2] bg-sunken overflow-hidden">
+                    <img
+                      src={galleryUrl}
+                      alt={currentProd.image_alt_text || currentProd.name}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
                 ) : (
-                  <ImagePlaceholder className="w-full h-full" showText={true} />
+                  // No gallery rows — fall through the same three-tier chain the
+                  // grid uses, so the PDP and the card agree about this product.
+                  <ProductImageSlot
+                    product={currentProd}
+                    categoryImageUrl={categoryImages[currentProd.category_id]}
+                    size={model.size}
+                    sizeUnit={model.sizeUnit}
+                    sizeIsPackCount={model.sizeIsPackCount}
+                  />
                 )}
               </div>
-              {displayImages.length > 1 && (
-                <div className="flex gap-3 overflow-x-auto">
-                  {displayImages.map((img, idx) => (
+
+              {images.length > 1 && (
+                <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide">
+                  {images.map((img, i) => (
                     <button
                       key={img.id}
-                      onClick={() => setSelectedImageIndex(idx)}
-                      className={`flex-shrink-0 w-20 h-20 rounded border-2 overflow-hidden transition ${
-                        selectedImageIndex === idx
-                          ? "border-red-600"
-                          : "border-slate-200 hover:border-slate-300"
+                      onClick={() => setSelectedImageIndex(i)}
+                      aria-label={`View image ${i + 1}`}
+                      className={`w-16 h-16 flex-none bg-sunken overflow-hidden border-2 transition-colors duration-150 ${
+                        i === selectedImageIndex
+                          ? "border-ink"
+                          : "border-transparent"
                       }`}
                     >
-                      {!imageErrors.has(img.id) ? (
-                        <img
-                          src={normalizeImageUrl(img.image_url)}
-                          alt={img.alt_text || `Product image ${idx + 1}`}
-                          className="w-full h-full object-contain p-1 bg-white"
-                          onError={() => handleImageError(img.id)}
-                        />
-                      ) : (
-                        <ImagePlaceholder
-                          className="w-20 h-20"
-                          showText={false}
-                        />
-                      )}
+                      <img
+                        src={normalizeImageUrl(img.image_url, 160) ?? ""}
+                        alt={img.alt_text || ""}
+                        className="w-full h-full object-cover"
+                      />
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Product Details */}
-            <div className="lg:sticky lg:top-24 self-start">
-              <div>
-                <div className="text-body-sm font-semibold text-slate-500 mb-1">
-                  {[
-                    // 'Generic' is a null-brand placeholder, not a supplier —
-                    // suppressed here as everywhere else (STYLE_REFERENCE §4.4).
-                    brandLabel(currentProd.brand),
-                    currentProd.sku && `SKU ${currentProd.sku}`,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "XL Traders"}
-                </div>
-                <h1 className="text-2xl font-extrabold tracking-tight leading-tight text-slate-900 mb-4">
-                  {currentProd.name}
+            {/* ── Buy panel ── */}
+            <div className="mt-7 lg:mt-0 lg:sticky lg:top-6 self-start">
+              <div className="border-t-2 border-ink pt-4">
+                {brand && (
+                  <div className="font-mono text-meta font-medium uppercase tracking-[0.14em] text-ink-faint mb-2">
+                    {brand}
+                  </div>
+                )}
+                <h1 className="font-display text-display-sm md:text-display font-bold tracking-[-0.025em]">
+                  {model.name}
                 </h1>
 
-                {/* Variant Selector */}
-                {variants.length > 1 && (
-                  <div className="mb-6 pb-6 border-b border-slate-200">
-                    <p className="text-slate-600 text-xs font-bold uppercase tracking-wider mb-2.5">
-                      Available Sizes / Options:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {variants.map(v => {
-                        const isSelected = currentProd.id === v.id;
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedVariant(v);
-                              window.history.replaceState(
-                                null,
-                                "",
-                                `/product/${v.id}`
-                              );
-                            }}
-                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                              isSelected
-                                ? "bg-red-600 text-white border border-red-600"
-                                : "border border-slate-200 text-slate-700 hover:border-red-400 bg-white hover:bg-red-50/10"
-                            }`}
-                          >
-                            {v.variant_label || v.name}
-                            {isSelected && (
-                              <span className="ml-1 text-caption">✓</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Price card */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
-                  {isAuthenticated ? (
-                    !isPriceOnEnquiry(currentProd.price) ? (
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-2xl font-extrabold text-red-600 tabular-nums">
-                          ₹{currentProd.price!.toLocaleString()}
-                        </span>
-                        {currentProd.quantity_in_unit ? (
-                          <span className="text-body-sm text-slate-500">
-                            / pack of {currentProd.quantity_in_unit}{" "}
-                            {currentProd.unit_of_measure ?? "pcs"}
-                          </span>
-                        ) : (
-                          currentProd.unit_of_measure && (
-                            <span className="text-body-sm text-slate-500">
-                              / {currentProd.unit_of_measure}
-                            </span>
-                          )
-                        )}
-                        {currentProd.quantity_in_unit &&
-                          currentProd.quantity_in_unit > 1 && (
-                            <span className="text-body-sm font-semibold text-slate-600 ml-auto">
-                              ₹
-                              {(
-                                Math.round(
-                                  (currentProd.price! /
-                                    currentProd.quantity_in_unit) *
-                                    100
-                                ) / 100
-                              ).toLocaleString()}
-                              /pc
-                            </span>
-                          )}
-                      </div>
-                    ) : (
-                      <div className="text-lg font-bold text-slate-600 italic">
-                        Price on enquiry
-                      </div>
-                    )
-                  ) : (
-                    <div>
-                      <div className="text-lg font-bold text-slate-700">
-                        Wholesale price hidden
-                      </div>
-                      <button
-                        onClick={() => setLocation("/auth")}
-                        className="text-body-sm font-semibold text-red-600 underline mt-0.5"
-                      >
-                        Sign in to see your exact wholesale price
-                      </button>
-                    </div>
-                  )}
+                <div className="font-mono text-caption md:text-micro font-medium uppercase tracking-[0.06em] text-ink-faint mt-3 tabular-nums">
+                  {[
+                    currentProd.quantity_in_unit
+                      ? `${currentProd.quantity_in_unit.toLocaleString("en-IN")} ${currentProd.unit_of_measure ?? "pcs"}/pack`
+                      : null,
+                    model.size && !model.sizeIsPackCount
+                      ? `${model.size} ${model.sizeUnit ?? ""}`.trim()
+                      : null,
+                    currentProd.sku,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </div>
+              </div>
 
-                {/* Quantity + Add to Cart (authenticated users — null-price
-                    items enter as enquiry lines) */}
-                {isAuthenticated && (
-                  <div className="mb-4">
-                    <div className="flex gap-3 items-end flex-wrap mb-1.5">
-                      <div>
-                        <div className="text-body-sm font-bold mb-2">
-                          Quantity{" "}
-                          {currentProd.unit_of_measure && (
-                            <span className="font-medium text-slate-500">
-                              ({currentProd.unit_of_measure})
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center border-[1.5px] border-slate-300 rounded-xl overflow-hidden h-[46px] w-40">
-                          <button
-                            onClick={() => setQty(q => Math.max(1, q - 1))}
-                            className="w-11 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
-                            aria-label="Decrease"
-                          >
-                            <Minus size={16} />
-                          </button>
-                          <input
-                            value={qty}
-                            onChange={e => {
-                              const v = parseInt(e.target.value, 10);
-                              if (!isNaN(v)) setQty(Math.max(1, v));
-                            }}
-                            className="flex-1 w-12 text-center text-body-md font-bold tabular-nums outline-none"
-                            inputMode="numeric"
-                          />
-                          <button
-                            onClick={() => setQty(q => q + 1)}
-                            className="w-11 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
-                            aria-label="Increase"
-                          >
-                            <Plus size={16} />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex gap-1.5 pb-0.5">
-                        {[5, 10, 25].map(n => (
-                          <button
-                            key={n}
-                            onClick={() => setQty(q => q + n)}
-                            className="px-3.5 py-3 border border-slate-200 bg-white rounded-lg text-body-sm font-bold text-slate-600 hover:border-red-600 hover:text-red-600 transition"
-                          >
-                            +{n}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {currentProd.moq != null && currentProd.moq > 1 && (
-                      <div
-                        className={`text-xs font-semibold mb-3.5 ${
-                          qty < currentProd.moq
-                            ? "text-red-700"
-                            : "text-emerald-700"
+              {/* Variant selector */}
+              {variants.length > 1 && (
+                <div className="mt-5">
+                  <div className="font-mono text-meta font-medium uppercase tracking-[0.16em] text-ink-faint mb-2.5">
+                    Size
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {variants.map(v => (
+                      <button
+                        key={v.id}
+                        onClick={() => {
+                          setSelectedVariant(v);
+                          window.history.replaceState(
+                            null,
+                            "",
+                            `/product/${v.id}`
+                          );
+                        }}
+                        className={`h-9 px-3.5 text-body-sm font-medium border transition-colors duration-150 ${
+                          v.id === currentProd.id
+                            ? "bg-ink text-white border-ink"
+                            : "bg-white text-ink-muted border-rule hover:border-ink"
                         }`}
                       >
-                        {qty < currentProd.moq
-                          ? `Below MOQ — minimum ${currentProd.moq}`
-                          : `✓ MOQ ${currentProd.moq} met`}
-                      </div>
-                    )}
-                    <div className="flex gap-2.5 mt-2">
-                      <button
-                        onClick={handleAddToCart}
-                        className="flex-1 flex items-center justify-center gap-2 h-[50px] bg-red-600 text-white rounded-xl text-body-md font-bold hover:bg-red-700 transition shadow-[0_6px_18px_rgba(220,38,38,0.28)]"
-                      >
-                        <ShoppingCart size={17} />
-                        Add to Cart
-                        {!isPriceOnEnquiry(currentProd.price) &&
-                          ` · ₹${(currentProd.price! * qty).toLocaleString()}`}
+                        {v.variant_label || v.name}
                       </button>
-                      <button
-                        onClick={handleEnquire}
-                        title="Enquire on WhatsApp"
-                        className="w-[50px] h-[50px] bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition flex items-center justify-center flex-shrink-0"
-                      >
-                        <MessageCircle size={20} />
-                      </button>
-                    </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Anonymous: enquiry is the primary action */}
-                {!isAuthenticated && (
+              {/* ── The rate rule, at PDP scale ── */}
+              <div className="mt-6 border-t-2 border-ink flex">
+                <span
+                  className={`font-mono text-body-sm font-semibold px-[9px] py-1.5 whitespace-nowrap text-white tabular-nums ${
+                    price.onEnquiry ? "bg-amber-600" : "bg-ink"
+                  }`}
+                >
+                  {price.onEnquiry ? "On enquiry" : model.rateTab}
+                </span>
+              </div>
+
+              {price.onEnquiry ? (
+                <p className="text-body-sm text-ink-muted mt-3.5 max-w-sm">
+                  Rate depends on quantity — ask on WhatsApp and we'll quote for
+                  your volume.
+                </p>
+              ) : (
+                <>
+                  <div className="font-mono text-price-lg font-bold text-ink mt-3.5 tracking-[-0.025em] tabular-nums">
+                    {formatRupees(price.packPrice as number)}
+                  </div>
+                  <div className="text-caption font-medium uppercase tracking-[0.1em] text-ink-faint mt-1.5">
+                    {price.tag} · per pack
+                  </div>
+                </>
+              )}
+
+              {/* Quantity */}
+              <div className="mt-6">
+                <div className="font-mono text-meta font-medium uppercase tracking-[0.16em] text-ink-faint mb-2.5">
+                  Packs
+                </div>
+                <div className="flex items-stretch h-[46px] border-2 border-ink w-[150px]">
+                  <button
+                    onClick={() => setQty(q => Math.max(1, q - 1))}
+                    aria-label="Decrease quantity"
+                    className="w-12 flex items-center justify-center font-mono text-body-md font-semibold hover:bg-sunken transition-colors duration-150"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={qty}
+                    onChange={e => {
+                      const n = parseInt(e.target.value.replace(/\D/g, ""), 10);
+                      setQty(Number.isFinite(n) && n > 0 ? n : 1);
+                    }}
+                    aria-label="Quantity in packs"
+                    className="flex-1 min-w-0 text-center font-mono text-body-md font-bold outline-none tabular-nums"
+                  />
+                  <button
+                    onClick={() => setQty(q => q + 1)}
+                    aria-label="Increase quantity"
+                    className="w-12 flex items-center justify-center font-mono text-body-md font-semibold hover:bg-sunken transition-colors duration-150"
+                  >
+                    +
+                  </button>
+                </div>
+                {currentProd.moq && currentProd.moq > 1 && (
+                  <p className="font-mono text-caption text-ink-faint mt-2 tabular-nums">
+                    Minimum order {currentProd.moq} packs
+                  </p>
+                )}
+                {!price.onEnquiry && (
+                  <p className="font-mono text-body-sm font-medium text-ink mt-2.5 tabular-nums">
+                    {formatRupees((price.packPrice as number) * qty)} total
+                  </p>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="mt-5 flex flex-col gap-2.5">
+                <button
+                  onClick={handleAddToCart}
+                  className="w-full h-[46px] bg-ink text-white text-body-md font-semibold hover:bg-red-600 transition-colors duration-150"
+                >
+                  Add to order
+                </button>
+                <div className="flex gap-2.5">
                   <button
                     onClick={handleEnquire}
-                    className="w-full flex items-center justify-center gap-2 h-[50px] bg-emerald-600 text-white rounded-xl text-body-md font-bold hover:bg-emerald-700 transition mb-4"
+                    className="flex-1 h-[46px] flex items-center justify-center gap-2 border border-rule text-wa text-body-sm font-semibold hover:border-wa transition-colors duration-150"
                   >
-                    <MessageCircle size={18} />
-                    Enquire on WhatsApp
+                    <MessageCircle size={16} />
+                    WhatsApp
                   </button>
-                )}
-
-                {/* Delivery pincode check */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-4">
-                  <div className="flex items-center gap-2 mb-2.5 text-body-sm font-bold">
-                    <Truck size={15} className="text-emerald-600" />
-                    Check delivery
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      value={pincode}
-                      onChange={e =>
-                        setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                      }
-                      placeholder="Enter pincode"
-                      inputMode="numeric"
-                      className="flex-1 h-10 border border-slate-300 rounded-lg px-3 text-body-sm outline-none focus:border-red-600 bg-white"
-                    />
-                    <button
-                      onClick={handleCheckPin}
-                      className="h-10 px-4 bg-slate-900 text-white rounded-lg text-body-sm font-bold hover:bg-slate-800 transition"
-                    >
-                      Check
-                    </button>
-                  </div>
-                  {pinResult && (
-                    <div className="flex items-center gap-1.5 text-body-sm font-semibold text-emerald-700 mt-2">
-                      <Check size={13} strokeWidth={3} />
-                      {pinResult}
-                    </div>
-                  )}
-                </div>
-
-                {/* Trust row + secondary actions */}
-                <div className="flex items-center gap-4 text-xs text-slate-600 font-medium flex-wrap">
-                  <span className="flex items-center gap-1.5">
-                    <ShieldCheck size={13} className="text-slate-500" />
-                    GST invoice
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Truck size={13} className="text-slate-500" />
-                    24h dispatch
-                  </span>
-                  <a
-                    href={`tel:${phone1}`}
-                    className="flex items-center gap-1.5 hover:text-red-600 transition"
-                  >
-                    📞 Call us
-                  </a>
                   <button
                     onClick={handleShare}
-                    className="flex items-center gap-1.5 hover:text-red-600 transition"
+                    aria-label="Share this product"
+                    className="w-[46px] h-[46px] flex items-center justify-center border border-rule text-ink-faint hover:border-ink hover:text-ink transition-colors duration-150"
                   >
-                    <Share2 size={13} />
-                    Share
+                    <Share2 size={16} />
                   </button>
                 </div>
+              </div>
 
-                {/* Specifications */}
-                {currentProd.specifications &&
-                  Object.keys(currentProd.specifications).length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-5">
-                      <h3 className="font-extrabold text-slate-900 mb-3">
-                        Specifications
-                      </h3>
-                      <div>
-                        {Object.entries(currentProd.specifications).map(
-                          ([key, value]) => (
-                            <div
-                              key={key}
-                              className="grid grid-cols-[150px_1fr] gap-3 py-2 border-b border-slate-100 last:border-0 text-body-sm"
-                            >
-                              <span className="text-slate-500 font-medium capitalize">
-                                {key}
-                              </span>
-                              <span className="font-semibold text-slate-900">
-                                {String(value)}
-                              </span>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                {/* Description */}
-                {currentProd.description && (
-                  <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-4">
-                    <h3 className="font-extrabold text-slate-900 mb-2.5">
-                      Description
-                    </h3>
-                    <p className="text-body-sm text-slate-600 leading-relaxed">
-                      {currentProd.description}
-                    </p>
-                  </div>
+              {/* Delivery check */}
+              <div className="mt-7 border-t border-rule pt-4">
+                <div className="font-mono text-meta font-medium uppercase tracking-[0.16em] text-ink-faint mb-2.5">
+                  Delivery
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={pincode}
+                    onChange={e =>
+                      setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    onKeyDown={e => e.key === "Enter" && handleCheckPin()}
+                    placeholder="Pincode"
+                    aria-label="Delivery pincode"
+                    className="flex-1 min-w-0 h-10 px-3 border border-rule font-mono text-body-sm outline-none focus:border-ink transition-colors duration-150 tabular-nums"
+                  />
+                  <button
+                    onClick={handleCheckPin}
+                    className="flex-none px-4 h-10 border border-ink text-body-sm font-semibold hover:bg-ink hover:text-white transition-colors duration-150"
+                  >
+                    Check
+                  </button>
+                </div>
+                {pinResult && (
+                  <p className="text-body-sm text-ink-muted mt-2.5">
+                    {pinResult}
+                  </p>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Similar Products */}
+          {/* ── Specifications + description ── */}
+          {(specs.length > 0 || currentProd.description) && (
+            <section className="mt-11 md:mt-14 grid md:grid-cols-2 md:gap-x-[56px]">
+              {specs.length > 0 && (
+                <div>
+                  <h2 className="font-display text-display-sm font-bold border-t-2 border-ink pt-4 tracking-[-0.025em]">
+                    Specifications
+                  </h2>
+                  <dl className="mt-3">
+                    {specs.map(([k, v]) => (
+                      <div
+                        key={k}
+                        className="flex justify-between gap-4 border-b border-rule-soft py-2.5"
+                      >
+                        <dt className="text-body-sm text-ink-faint">{k}</dt>
+                        <dd className="font-mono text-body-sm text-ink text-right tabular-nums">
+                          {String(v)}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
+              {currentProd.description && (
+                <div className={specs.length > 0 ? "mt-9 md:mt-0" : ""}>
+                  <h2 className="font-display text-display-sm font-bold border-t-2 border-ink pt-4 tracking-[-0.025em]">
+                    Description
+                  </h2>
+                  <p className="mt-3 text-body-sm text-ink-muted leading-relaxed whitespace-pre-line">
+                    {currentProd.description}
+                  </p>
+                </div>
+              )}
+            </section>
+          )}
+
           <ProductRow
-            title="Similar Products"
+            title="Similar products"
             products={similarProducts}
             isAuthenticated={isAuthenticated}
           />
-
-          {/* Recently Viewed */}
           <ProductRow
-            title="Recently Viewed"
+            title="Recently viewed"
             products={recentlyViewed}
             isAuthenticated={isAuthenticated}
           />
         </div>
       </main>
-
-      {/* Sticky mobile action bar — sits above the bottom nav (prototype) */}
-      <div className="md:hidden fixed bottom-16 inset-x-0 z-30 bg-white border-t border-slate-200 px-4 py-2.5 flex gap-2.5 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
-        <button
-          onClick={handleEnquire}
-          title="Enquire on WhatsApp"
-          className="w-[52px] h-[52px] bg-emerald-600 text-white rounded-xl flex items-center justify-center flex-shrink-0"
-        >
-          <MessageCircle size={21} />
-        </button>
-        {isAuthenticated ? (
-          <button
-            onClick={handleAddToCart}
-            className="flex-1 h-[52px] bg-red-600 text-white rounded-xl text-body-md font-extrabold shadow-[0_6px_16px_rgba(220,38,38,0.28)] flex items-center justify-center gap-2"
-          >
-            <ShoppingCart size={17} />
-            Add to Cart
-            {!isPriceOnEnquiry(currentProd.price) &&
-              ` · ₹${(currentProd.price! * qty).toLocaleString()}`}
-          </button>
-        ) : (
-          <button
-            onClick={() => setLocation("/auth")}
-            className="flex-1 h-[52px] bg-slate-900 text-white rounded-xl text-sm font-bold flex items-center justify-center"
-          >
-            Sign in for wholesale price
-          </button>
-        )}
-      </div>
 
       <Footer />
     </div>

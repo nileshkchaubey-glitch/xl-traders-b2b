@@ -1,17 +1,26 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
-import { Mail, Lock, Building2, Eye, EyeOff } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Eye, EyeOff } from "lucide-react";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { useAuthStore } from "@/lib/authStore";
 
+/**
+ * Sign in / create a business account (docs/DESIGN_SYSTEM.md §4.1).
+ *
+ * NOTE ON THE DESIGN BOARD: it shows a "+91 / Mobile number → Send OTP" flow.
+ * Phone OTP is an authentication-mechanism change — it needs Supabase's phone
+ * provider, an SMS gateway, and a migration path for existing email accounts —
+ * so it is out of scope for a storefront redesign and is flagged in the PR for
+ * an explicit decision. This screen keeps the existing email + password
+ * credentials and adopts the design's ink block, type and rules, so switching
+ * to OTP later replaces the fields inside a shell that already looks right.
+ */
 export default function Auth() {
   const [, setLocation] = useLocation();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -34,218 +43,151 @@ export default function Auth() {
     try {
       if (isSignUp) {
         if (!formData.company.trim()) {
-          setError("Company name is required");
+          setError("Business name is required");
           setIsLoading(false);
           return;
         }
-
         const { error } = await signUp(
           formData.email,
           formData.password,
           formData.company
         );
-
-        if (error) {
-          setError(error.message || "Sign up failed");
-        } else {
-          setLocation("/");
-        }
+        if (error) setError(error.message || "Sign up failed");
+        else setLocation("/account");
       } else {
         const { error } = await signIn(formData.email, formData.password);
-
         if (error) {
           setError(error.message || "Sign in failed");
         } else {
           const admin = useAuthStore.getState().isAdmin;
-          setLocation(admin ? "/admin" : "/");
+          setLocation(admin ? "/admin" : "/account");
         }
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const fieldClass =
+    "w-full h-12 px-3.5 border border-rule bg-white text-body-md text-ink outline-none focus:border-ink transition-colors duration-150 placeholder:text-ink-faint";
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col text-ink">
       <Header />
 
-      <main className="flex-1 flex items-center justify-center py-12 px-4">
-        <div className="w-full max-w-md">
-          {/* Card */}
-          <div className="bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-8 text-center">
-              <h1 className="text-2xl font-bold mb-2">
-                {isSignUp ? "Create Account" : "Sign In"}
-              </h1>
-              <p className="text-slate-300 text-sm">
-                {isSignUp
-                  ? "Join XL Traders to view prices and manage orders"
-                  : "Access your account to view prices"}
-              </p>
-            </div>
+      <main className="flex-1 pb-28 md:pb-24">
+        <div className="shell max-w-md">
+          <div className="border-b-2 border-ink pt-5 pb-4">
+            <h1 className="font-display text-display-sm font-bold tracking-[-0.025em]">
+              {isSignUp ? "Create a business account" : "Sign in"}
+            </h1>
+          </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="p-8 space-y-4">
-              {/* Error Message */}
+          <section className="bg-ink px-[18px] md:px-7 py-6 md:py-7 mt-6">
+            <h2 className="font-display text-[30px] leading-[1.1] font-bold text-white tracking-[-0.03em] text-pretty">
+              Your wholesale rates
+            </h2>
+            <p className="text-body text-ink-inverse mt-2.5 leading-relaxed">
+              Public pages show MRP. Signed in, every pack shows the rate you
+              actually pay.
+            </p>
+
+            <form
+              onSubmit={handleSubmit}
+              className="mt-5 flex flex-col gap-2.5"
+            >
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                <p className="bg-amber-600 text-white text-body-sm font-medium px-3 py-2.5">
                   {error}
-                </div>
+                </p>
               )}
 
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-900 mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    placeholder="you@company.com"
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
-                  />
-                </div>
-              </div>
-
-              {/* Company (Sign Up Only) */}
               {isSignUp && (
-                <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-2">
-                    Company Name
-                  </label>
-                  <div className="relative">
-                    <Building2
-                      size={18}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      type="text"
-                      name="company"
-                      value={formData.company}
-                      onChange={handleChange}
-                      required={isSignUp}
-                      placeholder="Your Company Ltd."
-                      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
-                    />
-                  </div>
-                </div>
+                <input
+                  type="text"
+                  name="company"
+                  value={formData.company}
+                  onChange={handleChange}
+                  required
+                  placeholder="Business name"
+                  aria-label="Business name"
+                  className={fieldClass}
+                />
               )}
 
-              {/* Password */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-900 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    required
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                autoComplete="email"
+                placeholder="Email address"
+                aria-label="Email address"
+                className={fieldClass}
+              />
+
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
+                  placeholder="Password"
+                  aria-label="Password"
+                  className={`${fieldClass} pr-11`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint"
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
               </div>
 
-              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-bold py-2 px-4 rounded-lg transition mt-6"
+                className="w-full h-12 bg-red-600 text-white text-body-md font-semibold hover:bg-red-700 transition-colors duration-150 disabled:opacity-60"
               >
                 {isLoading
-                  ? "Loading..."
+                  ? "Working…"
                   : isSignUp
-                    ? "Create Account"
-                    : "Sign In"}
+                    ? "Create account"
+                    : "Sign in"}
               </button>
-
-              {/* Toggle */}
-              <div className="text-center text-sm text-slate-600 mt-4">
-                {isSignUp ? (
-                  <>
-                    Already have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsSignUp(false);
-                        setError(null);
-                      }}
-                      className="text-red-600 font-semibold hover:text-red-700"
-                    >
-                      Sign In
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    Don't have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsSignUp(true);
-                        setError(null);
-                      }}
-                      className="text-red-600 font-semibold hover:text-red-700"
-                    >
-                      Sign Up
-                    </button>
-                  </>
-                )}
-              </div>
             </form>
 
-            {/* Info Box */}
-            <div className="bg-slate-50 border-t border-slate-200 p-6 text-sm text-slate-600">
-              <p className="font-semibold text-slate-900 mb-2">Why sign in?</p>
-              <ul className="space-y-1">
-                <li>✓ View wholesale prices</li>
-                <li>✓ Track your enquiries</li>
-                <li>✓ Manage your account</li>
-                <li>✓ Receive order updates</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Guest Option */}
-          <div className="text-center mt-6">
-            <p className="text-slate-600 text-sm mb-3">
-              Want to browse without signing in?
+            <p className="text-body-sm text-ink-inverse mt-3.5">
+              {isSignUp ? "Already have an account?" : "New buyer?"}{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(v => !v);
+                  setError(null);
+                }}
+                className="text-white font-semibold"
+              >
+                {isSignUp ? "Sign in" : "Create a business account"}
+              </button>
             </p>
-            <a
-              href="/catalog"
-              className="text-red-600 font-semibold hover:text-red-700"
-            >
-              Continue as Guest
-            </a>
-          </div>
+          </section>
+
+          <p className="text-body-sm text-ink-muted mt-6">
+            Browsing without an account is fine —{" "}
+            <Link href="/catalog" className="text-red-600 font-semibold">
+              see the catalogue
+            </Link>
+            .
+          </p>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

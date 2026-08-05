@@ -1,20 +1,23 @@
 import { Link, useLocation } from "wouter";
-import { Home, LayoutGrid, ShoppingCart, MessageCircle } from "lucide-react";
+import { Home, LayoutGrid, ShoppingCart, User } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 
-const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
-
 /**
- * Mobile-only chrome from the mobile prototype: a fixed bottom tab bar.
- * Rendered by Header so every storefront page gets it. The floating cart
- * summary (count/total/View Cart + min-order progress) lives in CartBar,
- * rendered alongside this by Header. Pages add `pb-24 md:pb-0` so content
- * never hides behind the bar(s).
+ * Bottom tab bar — the one piece of chrome that genuinely differs on mobile,
+ * so it is the one piece that stays a separate component (docs/DESIGN_SYSTEM.md
+ * §3.5). Everything else on the storefront is one tree with `md:` breakpoints.
+ *
+ * Four tabs: Home · Categories · Cart · Account. The fourth used to be a
+ * WhatsApp shortcut; the locked design gives that slot to Account, and
+ * WhatsApp keeps its own place in the page footer and on the Account screen.
+ *
+ * Pages reserve room for this with `pb-28 md:pb-0` — it and CartBar are fixed.
  */
 export default function MobileNav() {
   const [location] = useLocation();
-  const items = useCartStore(s => s.items);
-  const cartCount = items.reduce((s, i) => s + i.quantity, 0);
+  const cartCount = useCartStore(s =>
+    s.items.reduce((n, i) => n + i.quantity, 0)
+  );
 
   const tabs = [
     { href: "/", label: "Home", icon: Home, active: location === "/" },
@@ -31,39 +34,34 @@ export default function MobileNav() {
       active: location === "/cart",
       badge: cartCount,
     },
+    {
+      href: "/account",
+      label: "Account",
+      icon: User,
+      active: location.startsWith("/account") || location === "/auth",
+    },
   ];
 
   return (
-    <>
-      {/* Bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 flex pb-[max(4px,env(safe-area-inset-bottom))]">
-        {tabs.map(t => (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={`flex-1 min-h-[60px] flex flex-col items-center justify-center gap-1 relative ${
-              t.active ? "text-red-600" : "text-slate-500"
-            }`}
-          >
-            <t.icon size={21} />
-            <span className="text-[10px] font-bold">{t.label}</span>
-            {t.badge != null && t.badge > 0 && (
-              <span className="absolute top-1.5 right-[calc(50%-22px)] bg-red-600 text-white text-[9px] font-extrabold min-w-4 h-4 rounded-full flex items-center justify-center px-1">
-                {t.badge > 99 ? "99+" : t.badge}
-              </span>
-            )}
-          </Link>
-        ))}
-        <a
-          href={`https://wa.me/${WA_NUMBER}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 min-h-[60px] flex flex-col items-center justify-center gap-1 text-emerald-600"
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-rule flex pb-[env(safe-area-inset-bottom)]">
+      {tabs.map(t => (
+        <Link
+          key={t.href}
+          href={t.href}
+          aria-current={t.active ? "page" : undefined}
+          className={`flex-1 min-h-[56px] flex flex-col items-center justify-center gap-[3px] pt-[9px] pb-3.5 relative ${
+            t.active ? "text-red-600" : "text-ink-faint"
+          }`}
         >
-          <MessageCircle size={21} />
-          <span className="text-[10px] font-bold">WhatsApp</span>
-        </a>
-      </nav>
-    </>
+          <t.icon size={20} />
+          <span className="text-meta font-semibold">{t.label}</span>
+          {t.badge != null && t.badge > 0 && (
+            <span className="absolute top-1 right-[calc(50%-22px)] bg-red-600 text-white font-mono text-[9px] font-bold min-w-4 h-4 flex items-center justify-center px-1 tabular-nums">
+              {t.badge > 99 ? "99+" : t.badge}
+            </span>
+          )}
+        </Link>
+      ))}
+    </nav>
   );
 }

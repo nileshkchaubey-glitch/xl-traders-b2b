@@ -110,9 +110,13 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
     setStep("importing");
     setProgress(0);
     try {
-      const result = await bulkImportProducts(parsedRows, 'csv', (done, total) => {
-        setProgress(Math.round((done / total) * 100));
-      });
+      const result = await bulkImportProducts(
+        parsedRows,
+        "csv",
+        (done, total) => {
+          setProgress(Math.round((done / total) * 100));
+        }
+      );
       setImportResult(result);
       setStep("complete");
       toast.success(result.summary);
@@ -403,26 +407,53 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
             <Card className="p-4 space-y-3 border-blue-200 bg-blue-50">
               <p className="font-semibold text-blue-900">Dry-Run Results</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                <div><span className="text-blue-600 font-bold">{dryRunResult.totalRows}</span> total rows</div>
-                <div><span className="text-green-600 font-bold">{dryRunResult.withSku}</span> with SKU</div>
-                <div><span className="text-yellow-600 font-bold">{dryRunResult.withoutSku}</span> auto-SKU</div>
-                <div><span className="text-blue-600 font-bold">{dryRunResult.existingSkus.length}</span> will update</div>
+                <div>
+                  <span className="text-blue-600 font-bold">
+                    {dryRunResult.totalRows}
+                  </span>{" "}
+                  total rows
+                </div>
+                <div>
+                  <span className="text-green-600 font-bold">
+                    {dryRunResult.withSku}
+                  </span>{" "}
+                  with SKU
+                </div>
+                <div>
+                  <span className="text-yellow-600 font-bold">
+                    {dryRunResult.withoutSku}
+                  </span>{" "}
+                  auto-SKU
+                </div>
+                <div>
+                  <span className="text-blue-600 font-bold">
+                    {dryRunResult.existingSkus.length}
+                  </span>{" "}
+                  will update
+                </div>
               </div>
               {dryRunResult.duplicateSkus.length > 0 && (
                 <div className="text-sm text-red-700">
-                  <strong>Duplicate SKUs in file:</strong>{' '}
-                  {dryRunResult.duplicateSkus.map(d => `${d.sku} (rows ${d.rows.join(',')})`).join('; ')}
+                  <strong>Duplicate SKUs in file:</strong>{" "}
+                  {dryRunResult.duplicateSkus
+                    .map(d => `${d.sku} (rows ${d.rows.join(",")})`)
+                    .join("; ")}
                 </div>
               )}
               {dryRunResult.unknownCategories.length > 0 && (
                 <div className="text-sm text-yellow-700">
-                  <strong>Unknown categories (→ Uncategorized):</strong>{' '}
-                  {dryRunResult.unknownCategories.map(u => `"${u.category}" (${u.rows.length} rows)`).join(', ')}
+                  <strong>Unknown categories (→ Uncategorized):</strong>{" "}
+                  {dryRunResult.unknownCategories
+                    .map(u => `"${u.category}" (${u.rows.length} rows)`)
+                    .join(", ")}
                 </div>
               )}
-              {dryRunResult.ready && dryRunResult.duplicateSkus.length === 0 && (
-                <p className="text-green-700 font-semibold text-sm">All checks passed — ready to import.</p>
-              )}
+              {dryRunResult.ready &&
+                dryRunResult.duplicateSkus.length === 0 && (
+                  <p className="text-green-700 font-semibold text-sm">
+                    All checks passed — ready to import.
+                  </p>
+                )}
             </Card>
           )}
 

@@ -27,7 +27,9 @@ export function useMinOrder(): MinOrderSettings {
       settingsService.getContent("min_order_enabled"),
       settingsService.getContent("min_order_value"),
     ])
-      .then(([enabled, value]) => setSettings({ enabled, value, loading: false }))
+      .then(([enabled, value]) =>
+        setSettings({ enabled, value, loading: false })
+      )
       .catch(() => setSettings(s => ({ ...s, loading: false })));
   }, []);
 

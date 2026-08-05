@@ -61,7 +61,8 @@ const SAMPLE_ROWS = [
     brand: "",
     sku: "",
     barcode: "",
-    description: "Hinged clamshell box — fill price later, blank = Price on enquiry.",
+    description:
+      "Hinged clamshell box — fill price later, blank = Price on enquiry.",
     image_url_1: "",
     image_url_2: "",
     image_url_3: "",
@@ -85,7 +86,8 @@ const SAMPLE_ROWS = [
     brand: "",
     sku: "",
     barcode: "",
-    description: 'Standalone product, price unknown — leave price blank for "Price on enquiry".',
+    description:
+      'Standalone product, price unknown — leave price blank for "Price on enquiry".',
     image_url_1: "",
     image_url_2: "",
     image_url_3: "",
@@ -125,7 +127,12 @@ const SAMPLE_ROWS = [
 // ── Instructions sheet data ─────────────────────────────────────────────────
 const INSTRUCTIONS_ROWS = [
   ["Column", "Required?", "Valid Values / Format", "Example"],
-  ["name", "YES ✱", "Any text. Keep concise but descriptive.", "Hinged Box 250ml"],
+  [
+    "name",
+    "YES ✱",
+    "Any text. Keep concise but descriptive.",
+    "Hinged Box 250ml",
+  ],
   [
     "category",
     "No",

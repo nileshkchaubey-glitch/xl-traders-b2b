@@ -15,15 +15,37 @@ import { realBrands } from "./brandUtils";
 // demo mode by accident on a deployment that lacks VITE_SUPABASE_URL.
 const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
 
+/**
+ * MRP is PUBLIC in the Rate Card design — signed-out visitors see MRP, signed-in
+ * visitors see wholesale (docs/DESIGN_SYSTEM.md §2.1). That requires a SELECT
+ * grant on `products.mrp` for the `anon` role, which the database does NOT have
+ * today: anon currently holds INSERT/UPDATE/REFERENCES on mrp but no SELECT.
+ *
+ * Asking for a column the role can't read makes PostgREST fail the WHOLE query,
+ * so requesting `mrp` before the grant exists would blank the storefront for
+ * every signed-out visitor — not degrade it. Hence the flag.
+ *
+ *   1. Owner runs docs/sql/pr2-mrp-public-read.sql (GRANT + mrp_source column).
+ *   2. Flip this to `true`.
+ *
+ * Until then signed-out visitors resolve to "On enquiry", which is honest —
+ * we genuinely have no public price to show them (see displayPrice()).
+ * Price security is enforced by the grants, not by this constant: `price`
+ * stays ungranted to anon either way (Architecture Rule #3).
+ */
+export const MRP_PUBLIC_READ = false;
+
 // Columns granted to anon role — must exactly match sql/04-price-column-security.sql.
-// price, mrp, and discount_percent are intentionally excluded.
+// price and discount_percent are intentionally excluded; mrp joins the list
+// only once the grant above is in place.
 // stock_status, tags, min_order_qty are omitted here because they are from
 // untracked migrations and may not exist in all DB instances; they ARE granted
 // conditionally by the SQL via a DO $$ existence check.
 const GUEST_PRODUCT_COLS =
   "id,name,category_id,description,sku,unit_of_measure,quantity_in_unit," +
   "image_url,image_alt_text,image_description,specifications," +
-  "is_active,is_featured,status,display_order,brand,created_at,updated_at";
+  "is_active,is_featured,status,display_order,brand,created_at,updated_at" +
+  (MRP_PUBLIC_READ ? ",mrp,mrp_source" : "");
 
 // SECURITY-SENSITIVE CACHE: productSelectCols() gates the price/mrp/discount
 // columns (guests must never see them). supabase.auth.getSession() does

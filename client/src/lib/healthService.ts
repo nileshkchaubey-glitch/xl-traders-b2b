@@ -46,7 +46,10 @@ async function fetchAllIds(
   buildPage: (
     from: number,
     to: number
-  ) => PromiseLike<{ data: { id: string }[] | null; error: { message: string } | null }>
+  ) => PromiseLike<{
+    data: { id: string }[] | null;
+    error: { message: string } | null;
+  }>
 ): Promise<string[]> {
   const ids: string[] = [];
   let from = 0;

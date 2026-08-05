@@ -49,7 +49,13 @@ export interface Product {
   status?: ProductStatus;
   description?: string;
   price?: number;
+  // MRP — the price a signed-OUT visitor sees (docs/DESIGN_SYSTEM.md §2.1).
+  // Arrives undefined for anon until the SELECT grant in
+  // docs/sql/pr2-mrp-public-read.sql is applied; displayPrice() is null-safe.
   mrp?: number;
+  // Provenance of `mrp` — 'printed' | 'supplier' | 'derived' | 'estimated'.
+  // Created by the same SQL file; read-only on the storefront for now.
+  mrp_source?: string | null;
   unit_of_measure: string;
   quantity_in_unit?: number;
   sku?: string;

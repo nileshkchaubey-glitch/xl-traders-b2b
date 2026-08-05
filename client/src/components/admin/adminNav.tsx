@@ -85,4 +85,8 @@ export const BREADCRUMB: Record<string, { parent: string; label: string }> = {
 
 // Sections promoted to the mobile bottom tab bar. Everything else lives under
 // the "More" tab. `masters` opens its own route (/admin/masters).
-export const MOBILE_PRIMARY_IDS = ["overview", "catalog-editor", "image-library"];
+export const MOBILE_PRIMARY_IDS = [
+  "overview",
+  "catalog-editor",
+  "image-library",
+];

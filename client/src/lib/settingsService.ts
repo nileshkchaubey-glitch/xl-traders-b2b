@@ -93,6 +93,23 @@ export interface FooterContent {
   ordering: string[];
 }
 
+/**
+ * The legal furniture, rendered ONLY at the bottom of the Account screen
+ * (docs/DESIGN_SYSTEM.md §4) — the homepage carries no address, GSTIN or
+ * legal links.
+ *
+ * `gstin` defaults to EMPTY and the line is omitted when it is: the design
+ * board showed a placeholder ("24XXXXXXXXXXXZX") and shipping that would put
+ * a fabricated tax number on a B2B invoice-facing screen. The owner enters the
+ * real one in Site Content.
+ */
+export interface LegalContent {
+  entity: string;
+  address: string;
+  gstin: string;
+  version: string;
+}
+
 // Registry of every content key → its value type. Adding a key here (plus a
 // FALLBACKS entry) is all that's needed to make new content editable.
 export interface SiteContentMap {
@@ -105,6 +122,7 @@ export interface SiteContentMap {
   bulk_banner: BulkBanner;
   announcement: AnnouncementContent;
   footer: FooterContent;
+  legal: LegalContent;
   gst_enabled: boolean;
   gst_percentage: number;
   min_order_enabled: boolean;
@@ -201,7 +219,11 @@ export const FALLBACKS: SiteContentMap = {
   },
   announcement: {
     gstLine: "GST Registered Wholesaler",
-    deliveryLine: "Same-day delivery in Surat · 24h dispatch pan-India",
+    // The one delivery line on the storefront, under the search field.
+    // Three tiers, stated as fact — the locked design gives this no headline
+    // treatment, no countdown and no repetition anywhere else.
+    deliveryLine:
+      "Same-day Surat · Next-day South Gujarat · 2–4 days Pan-India",
     hours: "Mon–Sat 9AM–9PM",
     mobilePill: "Same-day Surat",
   },
@@ -216,6 +238,14 @@ export const FALLBACKS: SiteContentMap = {
       "GST invoice on every order",
       "Order & confirm on WhatsApp",
     ],
+  },
+  legal: {
+    entity: "XL Traders",
+    address: "Ring Road, Surat 395002",
+    // Intentionally blank — the Account screen omits the GSTIN line entirely
+    // rather than render the design board's placeholder as if it were real.
+    gstin: "",
+    version: "v1.0",
   },
   gst_enabled: false,
   gst_percentage: 0,

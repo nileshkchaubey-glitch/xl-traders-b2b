@@ -1,51 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* ── Storefront motion (hero tiles, brand marquee) ── */
-@keyframes xl-kenburns {
-  0% {
-    transform: scale(1) translate(0, 0);
-  }
-  100% {
-    transform: scale(1.12) translate(-1.5%, -1.5%);
-  }
-}
-
-@keyframes xl-marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    /* Content is duplicated once, so -50% loops seamlessly */
-    transform: translateX(-50%);
-  }
-}
-
-.xl-kenburns {
-  animation: xl-kenburns 7s ease-out both;
-}
-
-.xl-marquee {
-  /* 34s: slow enough to read each entry at typical reading speed */
-  animation: xl-marquee 34s linear infinite;
-}
-
-.xl-marquee:hover {
-  animation-play-state: paused;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .xl-kenburns,
-  .xl-marquee {
-    animation: none;
-  }
-  /* Hero tile images swap without a fade. Their hover *scale* is guarded at
-     the call site with Tailwind's motion-safe: variant (HeroMotionTiles), so
-     under reduced motion the image neither fades nor scales. */
-  .xl-hero-crossfade {
-    transition: none;
-  }
-}
+/* The hero's Ken Burns / crossfade and the brand marquee keyframes lived here.
+   The locked Rate Card design has no hero and no marquee, so HeroMotionTiles
+   and the marquee were deleted and these rules went with them. The storefront
+   now animates nothing beyond 150ms colour transitions on hover/focus, which
+   need no keyframes and are already reduced-motion-safe. */
 
 /* ============================================================
    Design tokens — ported from docs/design-system/colors_and_type.css
@@ -54,11 +14,34 @@
    scale, whatsapp colors and the full type scale come in a later pass.
    ============================================================ */
 @theme {
-  /* Inter everywhere — applied to <body> in the base layer below.
-     Preloaded in index.html but was previously never applied. */
+  /* ── Type families — Direction B "Rate Card" (docs/DESIGN_SYSTEM.md §1.1).
+     Replaces Inter, which is no longer loaded or referenced anywhere.
+     --font-sans is the global body face, so this also re-faces the admin
+     shell; that is deliberate (one type system, and "no Inter anywhere"),
+     and changes no admin layout or logic.
+     IBM Plex was chosen partly because it ships Devanagari and Gujarati —
+     a second language later is a family swap, not a redesign. */
+  --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
   --font-sans:
-    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ── Rate Card surface palette (docs/DESIGN_SYSTEM.md §1.3).
+     The storefront is built from rules and whitespace on white, so it needs
+     an ink/rule/surface ramp rather than the slate-* scale the old rounded-
+     card design leaned on. Brand red (red-600) and On-Enquiry amber
+     (amber-600) are unchanged and keep using Tailwind's own scale. */
+  --color-ink: #1b1e1e; /* near-black — text, 2px rules, tabs */
+  --color-ink-muted: #5c6263; /* secondary body */
+  --color-ink-faint: #767c7d; /* meta, labels, placeholders */
+  --color-ink-inverse: #c3c8c8; /* body text ON an ink background */
+  --color-rule: #dfe2e2; /* 1px hairline — the default divider */
+  --color-rule-soft: #eef0f0; /* 1px list-row divider, quieter still */
+  --color-sunken: #f1f3f3; /* image slot / thumbnail backing */
+  --color-quiet: #f7f8f8; /* faint section wash */
+  --color-wa: #059669; /* WhatsApp green (= emerald-600, unchanged) */
 
   /* Admin shell surfaces — existing values, now named tokens
      (replaces bg-[#f4f6f9] / bg-[#1a1d27] across the admin screens). */
@@ -70,20 +53,48 @@
   --shadow-red: 0 10px 15px -3px rgb(220 38 38 / 0.25);
   --shadow-emerald: 0 10px 15px -3px rgb(5 150 105 / 0.3);
 
-  /* Storefront type scale (docs/STOREFRONT_DESIGN_PROPOSALS.md §4). Named
-     sizes for the four jobs Tailwind's default scale doesn't already cover
-     cleanly — everything else keeps using text-xs/sm/base/lg/xl/2xl/4xl.
-     `--text-*--line-height` is the only companion Tailwind v4 recognizes on
-     this namespace; font-weight stays a separate utility at each call site
-     (font-bold/extrabold), matching how Tailwind's own scale works. */
-  --text-caption: 0.6875rem; /* 11px — smallest meta/label text */
+  /* ── Type scale (docs/DESIGN_SYSTEM.md §1.2).
+     Role-named, because the same role changes size across the 390/1440
+     breakpoints and the call site should say WHAT it is, not how big.
+     The design board carried 25 distinct pixel sizes — a canvas artifact,
+     not a system — so this rounds them to the 14 steps below while keeping
+     every hierarchy step the design actually depends on.
+     `--text-*--line-height` is the only companion Tailwind v4 recognizes
+     here; weight stays a separate utility at each call site. */
+
+  /* Body / UI — IBM Plex Sans */
+  --text-meta: 0.625rem; /* 10px — uppercase tracked labels only */
+  --text-meta--line-height: 1;
+  --text-caption: 0.6875rem; /* 11px — mono meta lines, legal */
   --text-caption--line-height: 1.35;
-  --text-body-sm: 0.8125rem; /* 13px — secondary body/UI text */
+  --text-micro: 0.75rem; /* 12px — the legibility floor at 390px */
+  --text-micro--line-height: 1.5;
+  --text-body-sm: 0.8125rem; /* 13px — product name (mobile), sub-rows */
   --text-body-sm--line-height: 1.45;
-  --text-body-md: 0.9375rem; /* 15px — emphasized inline text, CTAs */
+  --text-body-md: 0.9375rem; /* 15px — product name (desktop), buttons */
   --text-body-md--line-height: 1.4;
-  --text-display: 2.875rem; /* 46px — hero-scale headline */
-  --text-display--line-height: 1.08;
+
+  /* Figures — IBM Plex Mono, always with tabular-nums */
+  --text-price: 1.4375rem; /* 23px — pack price (mobile) */
+  --text-price--line-height: 1;
+  --text-price-lg: 1.875rem; /* 30px — pack price (desktop) */
+  --text-price-lg--line-height: 1;
+  --text-figure: 2.125rem; /* 34px — pack size over watermark (mobile) */
+  --text-figure--line-height: 0.85;
+  --text-figure-lg: 2.875rem; /* 46px — pack size over watermark (desktop) */
+  --text-figure-lg--line-height: 0.85;
+  --text-figure-sm: 1.5rem; /* 24px — pack size under a photo (mobile) */
+  --text-figure-sm--line-height: 0.9;
+  --text-figure-md: 2.0625rem; /* 33px — pack size under a photo (desktop) */
+  --text-figure-md--line-height: 0.9;
+
+  /* Display — Archivo 700 */
+  --text-display-sm: 1.5rem; /* 24px — sub-heading (Recent orders) */
+  --text-display-sm--line-height: 1;
+  --text-display: 1.625rem; /* 26px — section heading (mobile) */
+  --text-display--line-height: 1;
+  --text-display-lg: 2.5rem; /* 40px — section heading (desktop) */
+  --text-display-lg--line-height: 1;
 }
 
 /* Section vertical-spacing rhythm (docs/DESIGN_SYSTEM.md §1.4). Tailwind's
@@ -229,6 +240,40 @@
 }
 
 @layer components {
+  /**
+   * .shell — the storefront's horizontal frame (docs/DESIGN_SYSTEM.md §1.4).
+   *
+   * Deliberately NOT named `.container`: Tailwind ships its own `.container`
+   * utility, so the project's custom `.container` below has always had a
+   * second rule competing with it and Tailwind's breakpoint caps win (the
+   * open issue recorded in DESIGN_SYSTEM.md §1.4). `.shell` has no such
+   * collision, so the width it declares is the width that renders.
+   *
+   * Padding matches the design board exactly: 18px at 390, 56px at 1440.
+   */
+  .shell {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 1440px;
+    padding-left: 1.125rem; /* 18px — the 390 board */
+    padding-right: 1.125rem;
+  }
+
+  @media (min-width: 768px) {
+    .shell {
+      padding-left: 2rem; /* 32px */
+      padding-right: 2rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .shell {
+      padding-left: 3.5rem; /* 56px — the 1440 board */
+      padding-right: 3.5rem;
+    }
+  }
+
   /**
    * Custom container utility that centers content and adds responsive padding.
    *

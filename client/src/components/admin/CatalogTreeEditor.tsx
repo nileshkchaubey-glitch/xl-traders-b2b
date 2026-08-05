@@ -1913,7 +1913,10 @@ export default function CatalogTreeEditor({
             </span>
           );
         return p.brand ? (
-          <span className="text-xs text-amber-700" title="Text only — no brand link">
+          <span
+            className="text-xs text-amber-700"
+            title="Text only — no brand link"
+          >
             {p.brand}
           </span>
         ) : (

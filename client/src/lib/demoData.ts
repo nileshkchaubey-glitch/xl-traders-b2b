@@ -77,6 +77,7 @@ export const demoProducts: Product[] = [
     description:
       "Premium 5-ply corrugated boxes with excellent strength and durability",
     price: 45,
+    mrp: 50,
     unit_of_measure: "Box",
     quantity_in_unit: 100,
     sku: "CCB-5PLY-12108",
@@ -95,6 +96,7 @@ export const demoProducts: Product[] = [
     category_id: "2",
     description: "Food-grade clear plastic containers with secure lids",
     price: 12,
+    mrp: 13,
     unit_of_measure: "Piece",
     quantity_in_unit: 500,
     sku: "PC-CLR-500ML",
@@ -114,6 +116,7 @@ export const demoProducts: Product[] = [
     description:
       "Eco-friendly kraft paper bags, perfect for retail and food packaging",
     price: 8,
+    mrp: 9,
     unit_of_measure: "Piece",
     quantity_in_unit: 1000,
     sku: "PB-KRAFT-MED",
@@ -132,6 +135,7 @@ export const demoProducts: Product[] = [
     category_id: "4",
     description: "Protective foam sheets for cushioning and insulation",
     price: 25,
+    mrp: 28,
     unit_of_measure: "Sheet",
     quantity_in_unit: 50,
     sku: "FS-FOAM-1IN",
@@ -151,6 +155,7 @@ export const demoProducts: Product[] = [
     description:
       "Protective bubble wrap with air-filled bubbles for maximum protection",
     price: 35,
+    mrp: 39,
     unit_of_measure: "Roll",
     quantity_in_unit: 100,
     sku: "BW-ROLL-12IN",
@@ -169,6 +174,7 @@ export const demoProducts: Product[] = [
     category_id: "6",
     description: "Strong adhesive brown packing tape for secure sealing",
     price: 5,
+    mrp: 6,
     unit_of_measure: "Roll",
     quantity_in_unit: 36,
     sku: "PT-BROWN-2IN",

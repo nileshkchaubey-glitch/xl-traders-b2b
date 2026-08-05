@@ -1,36 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import {
-  Search,
-  Menu,
-  X,
-  LogOut,
-  LogIn,
-  ShoppingCart,
-  ChevronDown,
-  Package,
-  Phone,
-  MessageCircle,
-  Truck,
-  ShieldCheck,
-  Clock,
-  User,
-} from "lucide-react";
+import { Search, MessageCircle, X } from "lucide-react";
 import { useAuthStore } from "@/lib/authStore";
-import { useCartStore } from "@/stores/cartStore";
 import MobileNav from "@/components/MobileNav";
 import CartBar from "@/components/cart/CartBar";
 import InstallPrompt from "@/components/InstallPrompt";
-import {
-  categoryService,
-  productService,
-  CategoryGroup,
-} from "@/lib/productService";
+import { productService } from "@/lib/productService";
 import { Product } from "@/lib/supabase";
-import { normalizeImageUrl } from "@/lib/imageUtils";
-import { isPriceOnEnquiry } from "@/lib/priceUtils";
+import { toCardModel } from "@/lib/cardModel";
+import { formatRupees } from "@/lib/priceUtils";
 import { settingsService, FALLBACKS } from "@/lib/settingsService";
-import SectionEyebrow from "@/components/SectionEyebrow";
 
 const RECENTS_KEY = "xl-recent-searches";
 const POPULAR_SEARCHES = [
@@ -60,32 +39,45 @@ function saveRecent(term: string) {
   return next;
 }
 
-export default function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+interface HeaderProps {
+  /**
+   * Total published SKUs, shown in the search placeholder ("Search 143
+   * products"). Passed in by the page that already counted them so the header
+   * doesn't fire a second query; omitted elsewhere and the placeholder falls
+   * back to generic copy.
+   */
+  productCount?: number;
+}
+
+/**
+ * The storefront header (docs/DESIGN_SYSTEM.md §3.4).
+ *
+ * There is no hero on this site, so this IS the top of the page: logo, search,
+ * and one small factual delivery line. The old dark utility bar, the Categories
+ * mega-menu, the Call/WhatsApp/Cart button cluster and the hamburger are all
+ * gone — categories are the first section of the page itself, and the bottom
+ * nav owns navigation on mobile.
+ *
+ * Search is an underlined field (2px ink rule), not a filled pill: the same
+ * rule vocabulary the rate card uses.
+ */
+export default function Header({ productCount }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [catOpen, setCatOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
   const [recents, setRecents] = useState<string[]>([]);
-  const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
   const [announcement, setAnnouncement] = useState(FALLBACKS.announcement);
-  const { isAuthenticated, isAdmin, user, signOut } = useAuthStore();
-  const cartCount = useCartStore(s => s.getItemCount());
+  const { isAuthenticated, profile, user } = useAuthStore();
   const [, setLocation] = useLocation();
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined
   );
 
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
-  const phone1 = import.meta.env.VITE_PHONE_1 || "9773239442";
 
   useEffect(() => {
     setRecents(loadRecents());
-    categoryService
-      .getCategoriesGroupedByGroup()
-      .then(setCategoryGroups)
-      .catch(() => {});
     settingsService
       .getContent("announcement")
       .then(setAnnouncement)
@@ -104,8 +96,7 @@ export default function Header() {
     setSearching(true);
     searchDebounce.current = setTimeout(async () => {
       try {
-        const results = await productService.search(q, 5);
-        setSuggestions(results);
+        setSuggestions(await productService.search(q, 5));
       } catch {
         setSuggestions([]);
       } finally {
@@ -115,98 +106,91 @@ export default function Header() {
     return () => clearTimeout(searchDebounce.current);
   }, [searchQuery]);
 
-  const closeOverlays = () => {
-    setSearchOpen(false);
-    setCatOpen(false);
-  };
-
   const goSearch = (term: string) => {
     const q = term.trim();
     if (!q) return;
     setRecents(saveRecent(q));
-    closeOverlays();
+    setSearchOpen(false);
     setSearchQuery("");
     setLocation(`/catalog?search=${encodeURIComponent(q)}`);
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    goSearch(searchQuery);
-  };
+  // The account label is the only personal thing in the header — a name when
+  // we have one, otherwise the plain invitation. Never a "sign in to see
+  // prices" nag; that pattern is out of the design entirely.
+  const accountLabel = isAuthenticated
+    ? profile?.contact_person?.split(" ")[0] ||
+      profile?.company_name ||
+      user?.email?.split("@")[0] ||
+      "Account"
+    : "Sign in";
 
-  const handleSignOut = async () => {
-    await signOut();
-    setLocation("/");
-  };
-
-  const overlayOpen = searchOpen || catOpen;
-
-  // Shared between the desktop dropdown and the mobile panel.
   const searchPanelBody = searchQuery.trim() ? (
     suggestions.length > 0 ? (
-      <div className="flex flex-col gap-0.5">
-        {suggestions.map(p => (
-          <Link
-            key={p.id}
-            href={`/product/${p.id}`}
-            onClick={() => {
-              setRecents(saveRecent(p.name));
-              closeOverlays();
-              setSearchQuery("");
-            }}
-            className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-slate-50 transition"
-          >
-            <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {p.image_url ? (
-                <img
-                  src={normalizeImageUrl(p.image_url, 100) ?? ""}
-                  alt=""
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <Package size={16} className="text-slate-400" />
+      <div className="flex flex-col">
+        {suggestions.map(p => {
+          const m = toCardModel(p, isAuthenticated);
+          return (
+            <Link
+              key={p.id}
+              href={`/product/${p.id}`}
+              onClick={() => {
+                setRecents(saveRecent(p.name));
+                setSearchOpen(false);
+                setSearchQuery("");
+              }}
+              className="flex items-center gap-3 py-2.5 border-b border-rule-soft hover:bg-quiet transition-colors duration-150"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="text-body-sm font-medium text-ink truncate">
+                  {m.name}
+                </div>
+                <div className="font-mono text-caption text-ink-faint truncate tabular-nums">
+                  {[
+                    m.size
+                      ? `${m.size}${m.sizeUnit ? ` ${m.sizeUnit}` : ""}`
+                      : null,
+                    p.quantity_in_unit
+                      ? `${p.quantity_in_unit.toLocaleString("en-IN")}/pack`
+                      : null,
+                    p.sku,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+              </div>
+              {!m.price.onEnquiry && (
+                <span className="font-mono text-body-sm font-semibold text-ink flex-none tabular-nums">
+                  {formatRupees(m.price.packPrice as number)}
+                </span>
               )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-body-sm font-semibold text-slate-900 truncate">
-                {p.name}
-              </div>
-              <div className="text-caption text-slate-500 truncate">
-                {[p.brand, p.moq ? `MOQ ${p.moq}` : null]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-            </div>
-            {isAuthenticated && !isPriceOnEnquiry(p.price) && (
-              <div className="text-body-sm font-bold text-red-600">
-                ₹{p.price!.toLocaleString()}
-              </div>
-            )}
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
         <button
           onClick={() => goSearch(searchQuery)}
-          className="text-left px-2.5 py-2 text-body-sm font-semibold text-red-600 hover:underline"
+          className="text-left pt-3 text-body-sm font-semibold text-red-600"
         >
           See all results for "{searchQuery.trim()}" →
         </button>
       </div>
     ) : searching ? (
-      <div className="py-4 text-center text-sm text-slate-400">Searching…</div>
+      <div className="py-4 font-mono text-caption text-ink-faint">
+        Searching…
+      </div>
     ) : (
-      <div className="py-3.5 px-2.5 text-center">
-        <div className="text-body-sm font-semibold text-slate-900 mb-1">
+      <div className="py-3">
+        <div className="text-body-sm font-semibold text-ink mb-1">
           No matches for "{searchQuery.trim()}"
         </div>
-        <div className="text-body-sm text-slate-500 mb-3">
-          We probably stock it — ask us directly and we'll add it to your
-          order.
+        <div className="text-micro text-ink-muted mb-3">
+          We probably stock it — ask us directly and we'll add it to your order.
         </div>
         <a
           href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi XL Traders, do you stock "${searchQuery.trim()}"?`)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-body-sm font-semibold hover:bg-emerald-700 transition"
+          className="inline-flex items-center gap-2 bg-wa text-white px-4 py-2 text-body-sm font-semibold"
         >
           <MessageCircle size={14} />
           Ask on WhatsApp
@@ -217,32 +201,31 @@ export default function Header() {
     <div>
       {recents.length > 0 && (
         <>
-          <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2">
-            Recent searches
+          <div className="font-mono text-meta font-medium uppercase tracking-[0.16em] text-ink-faint mb-2">
+            Recent
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
             {recents.map(r => (
               <button
                 key={r}
                 onClick={() => goSearch(r)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-body-sm font-medium text-slate-700 hover:border-red-600 hover:text-red-600 transition"
+                className="px-3 py-1.5 border border-rule text-body-sm text-ink hover:border-ink transition-colors duration-150"
               >
-                <Clock size={12} />
                 {r}
               </button>
             ))}
           </div>
         </>
       )}
-      <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2">
-        Popular right now
+      <div className="font-mono text-meta font-medium uppercase tracking-[0.16em] text-ink-faint mb-2">
+        Popular
       </div>
       <div className="flex flex-wrap gap-2">
         {POPULAR_SEARCHES.map(t => (
           <button
             key={t}
             onClick={() => goSearch(t)}
-            className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-full text-body-sm font-semibold text-red-700 hover:bg-red-100 transition"
+            className="px-3 py-1.5 border border-rule text-body-sm text-ink hover:border-ink transition-colors duration-150"
           >
             {t}
           </button>
@@ -253,351 +236,120 @@ export default function Header() {
 
   return (
     <>
-      {/* PWA install banner — dismissible, shown at most once (see InstallPrompt) */}
       <InstallPrompt />
 
-      {/* Utility bar */}
-      <div className="bg-slate-900 text-slate-300 text-xs hidden md:block">
-        <div className="container py-1.5 flex items-center gap-5">
-          <span className="flex items-center gap-1.5">
-            <ShieldCheck size={13} className="text-emerald-400" />
-            {announcement.gstLine}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Truck size={13} />
-            {announcement.deliveryLine}
-          </span>
-          <span className="flex items-center gap-1.5 ml-auto">
-            <Clock size={13} />
-            {announcement.hours}
-          </span>
-          <a
-            href={`tel:${phone1}`}
-            className="flex items-center gap-1.5 hover:text-white transition"
-          >
-            <Phone size={13} />
-            +91 {phone1.replace(/^91/, "")}
-          </a>
-        </div>
-      </div>
-
-      {/* Main header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="container py-3 flex items-center gap-3 lg:gap-5">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="w-9 h-9 md:w-10 md:h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-extrabold text-lg tracking-tight">
-              XL
-            </div>
-            <div className="leading-tight">
-              <div className="font-extrabold text-slate-900 text-base tracking-[0.08em]">
-                TRADERS
-              </div>
-              <div className="text-caption text-slate-500 tracking-wide hidden sm:block">
-                Wholesale Packaging · Surat
-              </div>
-            </div>
-          </Link>
-
-          {/* Categories mega-menu (desktop) */}
-          <div className="relative hidden lg:block">
-            <button
-              onClick={() => {
-                setCatOpen(!catOpen);
-                setSearchOpen(false);
-              }}
-              className={`flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 transition ${
-                catOpen ? "bg-slate-100" : "bg-white hover:bg-slate-50"
-              }`}
-            >
-              <Package size={16} />
-              Categories
-              <ChevronDown size={14} />
-            </button>
-            {catOpen && categoryGroups.length > 0 && (
-              <div className="absolute top-[52px] left-0 w-[720px] bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 grid grid-cols-3 gap-6 z-50">
-                {categoryGroups.slice(0, 6).map(group => (
-                  <div key={group.group_name}>
-                    <SectionEyebrow className="mb-2.5">
-                      {group.group_name}
-                    </SectionEyebrow>
-                    <div className="flex flex-col gap-0.5">
-                      {group.categories.slice(0, 8).map(cat => (
-                        <Link
-                          key={cat.id}
-                          href={`/catalog?category=${cat.slug}`}
-                          onClick={closeOverlays}
-                          className="px-2.5 py-1.5 -mx-2.5 rounded-lg text-body-sm font-medium text-slate-700 hover:bg-red-50 hover:text-red-600 transition"
-                        >
-                          {cat.name}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                <Link
-                  href="/catalog"
-                  onClick={closeOverlays}
-                  className="col-span-3 text-center text-sm font-semibold text-red-600 pt-2 border-t border-slate-100 hover:underline"
-                >
-                  View all categories →
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Search */}
-          <div className="flex-1 relative hidden md:block">
-            <form onSubmit={handleSearch}>
-              <div
-                className={`flex items-center gap-2 bg-slate-100 border-[1.5px] rounded-xl pl-3.5 pr-2 h-11 transition ${
-                  searchOpen ? "border-red-600 bg-white" : "border-transparent"
-                }`}
-              >
-                <Search size={17} className="text-slate-500 flex-shrink-0" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => {
-                    setSearchQuery(e.target.value);
-                    setSearchOpen(true);
-                  }}
-                  onFocus={() => {
-                    setSearchOpen(true);
-                    setCatOpen(false);
-                  }}
-                  placeholder='Search products — try "500ml container" or a SKU'
-                  className="flex-1 bg-transparent outline-none text-sm text-slate-900 h-full"
-                />
-              </div>
-            </form>
-
-            {searchOpen && (
-              <div className="absolute top-[52px] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-50">
-                {searchPanelBody}
-              </div>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-1.5 md:gap-2 ml-auto md:ml-0 min-w-0">
-            <a
-              href={`tel:${phone1}`}
-              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition motion-reduce:transition-none"
-            >
-              <Phone size={16} />
-              Call
-            </a>
-
-            <a
-              href={`https://wa.me/${whatsappNumber}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-body-sm font-semibold hover:bg-emerald-100 transition motion-reduce:transition-none"
-            >
-              <MessageCircle size={16} />
-              WhatsApp
-            </a>
-
-            {isAuthenticated ? (
-              <div className="hidden md:flex items-center gap-2">
-                {isAdmin && (
-                  <Link
-                    href="/admin"
-                    className="h-11 px-3.5 flex items-center bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition"
-                  >
-                    Admin
-                  </Link>
-                )}
-                <button
-                  onClick={handleSignOut}
-                  title={user?.email || "Sign out"}
-                  className="flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition"
-                >
-                  <LogOut size={16} />
-                  Sign Out
-                </button>
-              </div>
-            ) : (
-              <Link
-                href="/auth"
-                className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition"
-              >
-                <User size={16} />
-                Sign In
-              </Link>
-            )}
-
-            {/* Same-day delivery — icon-only on mobile so it sits alongside the
-                new Call/WhatsApp icons without crowding or truncating (full text
-                still on the desktop utility bar). */}
-            <span
-              className="md:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex-shrink-0"
-              title={announcement.mobilePill}
-            >
-              <Truck size={14} aria-hidden="true" />
-              <span className="sr-only">{announcement.mobilePill}</span>
-            </span>
-
-            {/* Compact Call + WhatsApp icons — mobile header only. Lives in the
-                top bar so it never competes with the fixed-bottom CartBar. */}
-            <a
-              href={`tel:${phone1}`}
-              aria-label="Call us"
-              className="md:hidden flex items-center justify-center w-8 h-8 bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition motion-reduce:transition-none flex-shrink-0"
-            >
-              <Phone size={14} />
-            </a>
-            <a
-              href={`https://wa.me/${whatsappNumber}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Chat on WhatsApp"
-              className="md:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 rounded-full hover:bg-emerald-100 transition motion-reduce:transition-none flex-shrink-0"
-            >
-              <MessageCircle size={14} />
-            </a>
-
-            <Link
-              href="/cart"
-              className="relative hidden md:flex items-center gap-2 h-11 px-4 bg-red-600 text-white rounded-xl text-body-sm font-bold hover:bg-red-700 transition shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
-            >
-              <ShoppingCart size={17} />
-              <span>Cart</span>
-              {cartCount > 0 && (
-                <span className="bg-white text-red-600 text-caption font-extrabold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5">
-                  {cartCount > 99 ? "99+" : cartCount}
-                </span>
-              )}
+      <header className="bg-white">
+        <div className="shell pt-4 md:pt-5">
+          {/* Logo + account. On desktop the search joins this same row. */}
+          <div className="flex items-center gap-4 lg:gap-8">
+            <Link href="/" className="flex-none" aria-label="XL Traders — home">
+              <img
+                src="/images/brand/xl-traders-logo.png"
+                alt="XL Traders"
+                className="h-7 md:h-[34px] w-auto block"
+              />
             </Link>
 
-            {/* Mobile menu toggle */}
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 hover:bg-slate-100 rounded-lg transition"
-              aria-label="Menu"
+            {/* Desktop search — inline. Mobile gets its own row below so the
+                field keeps full width at 390. */}
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                goSearch(searchQuery);
+              }}
+              className="hidden md:flex flex-1 items-center gap-2.5 border-b-2 border-ink py-2.5 px-0.5"
             >
-              {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile search — shares the live-suggestion panel with desktop */}
-        <div className="md:hidden relative">
-          <form onSubmit={handleSearch} className="px-4 pb-3">
-            <div
-              className={`flex items-center gap-2 bg-slate-100 border-[1.5px] rounded-xl px-3.5 h-11 transition ${
-                searchOpen ? "border-red-600 bg-white" : "border-transparent"
-              }`}
-            >
-              <Search size={16} className="text-slate-500" />
+              <Search size={18} className="text-ink-faint flex-none" />
               <input
-                type="text"
-                placeholder="Search products, brands, sizes…"
+                type="search"
                 value={searchQuery}
                 onChange={e => {
                   setSearchQuery(e.target.value);
                   setSearchOpen(true);
                 }}
                 onFocus={() => setSearchOpen(true)}
-                className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+                placeholder={
+                  productCount
+                    ? `Search ${productCount} products`
+                    : "Search products"
+                }
+                className="flex-1 bg-transparent outline-none text-body-md text-ink placeholder:text-ink-faint"
               />
-            </div>
-          </form>
-          {searchOpen && (
-            <div className="absolute top-full left-0 right-0 bg-white border-b border-slate-200 shadow-2xl px-4 py-3.5 z-50">
-              {searchPanelBody}
+            </form>
+
+            <Link
+              href="/account"
+              className="flex-none font-mono text-caption md:text-body-sm font-medium text-ink-muted hover:text-ink whitespace-nowrap transition-colors duration-150"
+            >
+              {accountLabel}
+            </Link>
+          </div>
+
+          {/* Mobile search row */}
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              goSearch(searchQuery);
+            }}
+            className="md:hidden flex items-center gap-2.5 border-b-2 border-ink py-2.5 px-0.5 mt-4"
+          >
+            <Search size={17} className="text-ink-faint flex-none" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={e => {
+                setSearchQuery(e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              placeholder={
+                productCount
+                  ? `Search ${productCount} products`
+                  : "Search products"
+              }
+              className="flex-1 min-w-0 bg-transparent outline-none text-body-md text-ink placeholder:text-ink-faint"
+            />
+            {searchOpen && (
               <button
-                onClick={closeOverlays}
-                className="mt-3.5 w-full h-10 bg-slate-100 rounded-lg text-body-sm font-semibold text-slate-500"
+                type="button"
+                onClick={() => {
+                  setSearchOpen(false);
+                  setSearchQuery("");
+                }}
+                aria-label="Close search"
+                className="flex-none text-ink-faint"
               >
-                Close
+                <X size={17} />
               </button>
-            </div>
-          )}
+            )}
+          </form>
+
+          {/* The delivery promise — one small factual line, not a headline.
+              No countdown, no stat counters. */}
+          <p className="font-mono text-caption md:text-micro font-medium text-ink-faint mt-2.5 md:mt-3.5">
+            {announcement.deliveryLine}
+          </p>
         </div>
 
-        {/* Mobile menu */}
-        {isMenuOpen && (
-          <div className="md:hidden border-t border-slate-200 bg-slate-50">
-            <div className="px-4 py-4 space-y-1">
-              <Link
-                href="/catalog"
-                onClick={() => setIsMenuOpen(false)}
-                className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-              >
-                Product Catalogue
-              </Link>
-              <Link
-                href="/cart"
-                onClick={() => setIsMenuOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-              >
-                <ShoppingCart size={16} />
-                Cart
-                {cartCount > 0 && (
-                  <span className="bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
-                    {cartCount}
-                  </span>
-                )}
-              </Link>
-              <a
-                href={`tel:${phone1}`}
-                className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-              >
-                📞 Call: {phone1}
-              </a>
-              <a
-                href={`https://wa.me/${whatsappNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-              >
-                💬 WhatsApp
-              </a>
-              {isAuthenticated ? (
-                <>
-                  {isAdmin && (
-                    <Link
-                      href="/admin"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-                    >
-                      Admin Panel
-                    </Link>
-                  )}
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-                  >
-                    <LogOut size={16} className="inline mr-2" />
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <Link
-                  href="/auth"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-                >
-                  <LogIn size={16} className="inline mr-2" />
-                  Sign In
-                </Link>
-              )}
+        {searchOpen && (
+          <div className="relative z-50">
+            <div className="absolute inset-x-0 top-1 bg-white border-y border-rule shadow-[0_12px_24px_rgba(27,30,30,0.08)]">
+              <div className="shell py-4">{searchPanelBody}</div>
             </div>
           </div>
         )}
       </header>
 
-      {/* Click-away backdrop for menus */}
-      {overlayOpen && (
-        <div className="fixed inset-0 z-30" onClick={closeOverlays} />
+      {/* Click-away for the search panel */}
+      {searchOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setSearchOpen(false)}
+          aria-hidden
+        />
       )}
 
-      {/* Mobile bottom nav */}
       <MobileNav />
-
-      {/* Floating cart bar — mobile (above bottom nav) + desktop (bottom-right) */}
       <CartBar />
     </>
   );

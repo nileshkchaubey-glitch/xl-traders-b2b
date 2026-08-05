@@ -12,6 +12,7 @@ import Catalog from "./pages/Catalog";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Auth from "./pages/Auth";
+import Account from "./pages/Account";
 
 // Admin panel is heavy (charts, xlsx/CSV import, image tools) and is only ever
 // opened by the owner. Code-split it so public catalog visitors never download
@@ -39,6 +40,9 @@ function Router() {
       <Route path={"/product/:id"} component={ProductDetail} />
       <Route path={"/cart"} component={Cart} />
       <Route path={"/auth"} component={Auth} />
+      {/* Account renders both states itself (signed out shows the sign-in
+          block), so it is deliberately NOT behind a route guard. */}
+      <Route path={"/account"} component={Account} />
       <Route path={"/admin/products/new"}>
         <Suspense fallback={<AdminFallback />}>
           <AdminProductEditor />

@@ -230,9 +230,9 @@ categories` → links to `/catalog`), sourced from the same public
     `maxUniqueSrcsAnyTile === 1`, i.e. it could _never_ show four distinct images; packaging text
     came out sliced into nonsense). Now one `aspect-[4/3] object-cover` image with the existing
     lucide `FALLBACK_ICONS` layered _underneath_ it, so a missing or failed image reveals the icon
-    with no JS toggling (STYLE_REFERENCE §4.3 fallback chain). **The desktop group row stretches:**
+    with no JS toggling (STYLE*REFERENCE §4.3 fallback chain). **The desktop group row stretches:**
     it was a flex row of fixed-width `w-44 xl:w-48` tiles left-aligned inside a wider container —
-    192px of dead space per row at 1440px, ~500px at 1920px, and _clipping_ around 1000px. It is now
+    192px of dead space per row at 1440px, ~500px at 1920px, and \_clipping* around 1000px. It is now
     a `1fr` grid whose column count is derived from the tile count (`GROUP_COLS`, static class
     strings; `pickTop` caps a group at 5), so the row reaches the container edge at any width and
     any group size — verified 0px dead space at 1000 / 1440 / 1920. **`unit_of_measure` no longer
@@ -292,6 +292,68 @@ categories` → links to `/catalog`), sourced from the same public
     still replaced wholesale so a stored 3-item list can't have fallback entries bleeding in
     underneath it.
     Screenshots: `docs/screenshots/pr1-home-{signedout,signedin}-{390,1440}.png`.
+
+  - **Storefront redesign — Direction B "Rate Card" (August 2026). SUPERSEDES the
+    desktop/mobile prototype reskin and PR-1's hero.** The owner locked a full design
+    (homepage, account screens, fallback-chain reference, 1440 board); where it and the
+    older storefront docs disagreed, the file won and the docs were updated to match.
+    **Type — Inter is gone sitewide:** Archivo (display) / IBM Plex Sans (body, and the
+    global `--font-sans`, so admin is re-faced too) / IBM Plex Mono for **every figure**,
+    always with `tabular-nums`. Chosen partly because Plex ships Devanagari and Gujarati,
+    so a second language later is a family swap rather than a redesign. One Google Fonts
+    request, weights pinned to the eight faces actually used; self-hosting deferred and
+    flagged (`docs/DESIGN_SYSTEM.md` §1.1b).
+    **No hero.** Structure is `logo + search → categories → the rate card`. The delivery
+    promise is one small mono line under the search field ("Same-day Surat · Next-day
+    South Gujarat · 2–4 days Pan-India") — no countdown, no stat counters, no headline.
+    Deleted with it: `HeroMotionTiles`, `HomeCatalogueShowcase`, `SectionEyebrow`, the
+    trust stats/points band, the FAQ accordion, the bulk banner, the service-areas and
+    brands cards, the sign-in hook, the dark utility bar, the Categories mega-menu, the
+    four-column footer, and the hero keyframes in `index.css` (all grep-verified for
+    importers first; recover from git history if ever needed).
+    **De-carded:** rules and whitespace, not rounded cards — no `rounded-*`, `shadow-*` or
+    hover lift on any storefront component, and no `slate-*` (a new ink/rule/surface ramp
+    replaces it). The one piece of structure is the **rate rule**: a 2px ink rule under the
+    product name with the per-piece rate hanging off it as a solid tab (amber "On enquiry"
+    when there is no rate), repeated on the grid item, PDP, cart lines and order rows.
+    **Pricing — signed out sees MRP, signed in sees wholesale.** No strikethrough, no
+    "% OFF", no savings badge, no "sign in to see prices" prompt anywhere. One accessor,
+    `displayPrice()`, called only by the new pure mapper `toCardModel()` (`lib/cardModel.ts`),
+    so pack price and per-piece rate always travel together and cannot be assembled
+    separately at a call site. `isPriceOnEnquiry()` remains the single gate and is applied
+    to whichever column is in play. Regression-tested by `npm run check:card`
+    (`scripts/check-card-model.ts`, 16 cases, Node type-stripping — no test runner, no new
+    dependency), which asserts among other things that a signed-out viewer never receives
+    the wholesale figure.
+    **`toCardModel` also cleans names**, by deletion only: it strips the redundant pack
+    parenthetical ("( 1000 pcs )") **before** parsing a size — otherwise "5X7 SILVER POUCH
+    ( 10 KG )" reads its pack WEIGHT as the product size — and lifts the size token out only
+    at the start or end of a name and only when two words survive, or "8x8x3 WHITE"
+    collapses to "WHITE". Case is deliberately untouched.
+    **Three-tier image fallback** (`ProductImageSlot`): product photo → category default
+    (desaturated, labelled) → **XL monogram watermark at 9% behind the pack size at display
+    scale**. Tier 3 is the design, not a degraded state — the size figure is the loudest
+    thing in the slot so twelve cards read as twelve products, not twelve logos. The tier
+    resolves at RUNTIME via `onError`, so a dead Google-Drive link falls through instead of
+    showing a broken image (127 of 143 products point at Drive).
+    **New `/account` route** rendering both states in one tree: signed out gets the ink
+    sign-in block plus the rows an account unlocks (bulk quote stays open to guests);
+    signed in gets the business, its orders and its GSTIN. **The homepage footer carries no
+    address, GSTIN or legal links** — those live at the bottom of Account, from a new
+    editable `legal` content key whose `gstin` defaults to EMPTY and whose line is omitted
+    when blank, rather than shipping the design board's placeholder as a real tax number.
+    **`.shell`** replaces `.container` on the storefront (max-width 1440, padding
+    18/32/56px to match the boards) — a new class name rather than a fifth attempt to fix
+    the documented two-competing-`.container`-rules collision, which is now an admin-only
+    question.
+    Verified at 390 and 1440, signed out and signed in: `npm run check` clean, `npm run
+build` green, 0 horizontal overflow on Home/catalog/account/cart/auth at both widths,
+    and the twelve-card watermark state captured by forcing the real `onError` path.
+    Screenshots `docs/screenshots/rc-*.png`, regenerated by
+    `node scripts/shoot-storefront.mjs`.
+    **Owner-run SQL, written but NOT applied** — `docs/sql/pr2-mrp-public-read.sql` (the
+    `anon` SELECT grant on `mrp` + a new `mrp_source` column) and
+    `docs/sql/pr2-account-orders.sql` (`orders.user_id` + owner-scoped RLS).
 
 ### Admin Panel (PIM)
 
@@ -872,9 +934,30 @@ sticky-right-many-cols,flex-cap-1920}.png`.
      toggle swaps table↔grid; Replace-image reuses the existing `AdminImageGallery` dialog with an
      "Upload own image" button; server-side "needs own image" filter ANDs with existing filters. - **Rollout:** division-by-division via the existing category filter; verify-before-live uses the
      shipped draft/publish bulk actions. ("No gallery" filter deferred to a follow-up.) - Brand logo upload also lands here (P1 ships `logo_url` as plain text only).
-     0b. **Storefront rebuild — phase order (authoritative).** Work the storefront in exactly this
-     sequence; do not reorder or merge phases. Composition guidance for each lives in
-     [`docs/STYLE_REFERENCE.md`](docs/STYLE_REFERENCE.md).
+     0b. **Storefront rebuild — SUPERSEDED (August 2026).** The phased PR-0…PR-5 plan below
+     was written against the old prototype reskin. The owner has since **locked a full
+     design — Direction B, "Rate Card"** — and it has shipped in one pass (see Shipped
+     Features). The locked design file is the spec; where it and
+     [`docs/STYLE_REFERENCE.md`](docs/STYLE_REFERENCE.md) or
+     `docs/STOREFRONT_DESIGN_PROPOSALS.md` disagree, **the design file wins** and those docs
+     are the ones to correct. The current storefront contract lives in
+     [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) §1.1b–1.6c.
+
+     Kept from the old plan, still open and now re-scoped:
+     - **A-1 asset audit** — still the real blocker. 127 of 143 products point at
+       unmanaged Google Drive URLs. The three-tier fallback means a dead link degrades
+       gracefully instead of breaking, so this is no longer urgent — but the catalogue
+       cannot look like a catalogue until real photography exists. **Owner-run.**
+     - **Category product counts (was PR-3's G3)** — `countPublished()` is per-category, so
+       a count on every tile would be N calls per Home render. Needs a grouped variant
+       (one published+active query → `Record<categoryId, number>`). Also gates "never render
+       a category whose count is 0".
+     - **PR-5 order again** — B2B repeat buying. The Account screen now has the surface for
+       it (order rows + a Reorder button), but Reorder currently links to `/catalog`; making
+       it actually refill the cart needs `order_items` read access per customer, which is
+       the same RLS work as `docs/sql/pr2-account-orders.sql`.
+
+     <details><summary>Historical: the superseded PR-0…PR-5 phase plan</summary>
 
    ```
    PR-0 bugs → A-1 asset audit → PR-1 trust/hero → PR-2 card
@@ -913,6 +996,13 @@ sticky-right-many-cols,flex-cap-1920}.png`.
    `docs/DESIGN_SYSTEM.md` §1.4) and whether sub-11px type and a project `--font-mono` token
    enter `@theme`.
 
+     </details>
+
+   > Resolved by the Rate Card pass: `--font-mono` **is** now a project token (IBM Plex
+   > Mono), sub-11px type **is** in `@theme` as `--text-meta` (10px, uppercase tracked
+   > labels only), and the `.container` collision is sidestepped on the storefront by the
+   > new `.shell` class — leaving `.container`'s cap as an admin-only question.
+
 1. **Update import UI** — price/moq as optional on Google Sheets + CSV screens; add status+tags to column list
 2. **Catalogue data entry** — bulk-enter products via Google Sheets template v3; target 1000 products
 3. **Batch AI extraction** — supplier list → AI returns ParsedProduct[] → review grid → bulk import (needs Edge Function first)
@@ -937,6 +1027,35 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   is run too. Fix prepared in [`docs/sql/pr1-rls-publish-gate.sql`](docs/sql/pr1-rls-publish-gate.sql) —
   **owner-run, not yet applied**. An explicit decision on the INSERT policy is needed
   before/alongside merge. Rollback + checklist alongside it in `docs/sql/`.
+- **Signed-out visitors see "On enquiry" on every product until the MRP SQL is run.**
+  The locked design's rule is signed out → MRP, but the `anon` role has no SELECT grant on
+  `products.mrp`, so the column arrives undefined and `isPriceOnEnquiry` correctly refuses
+  to invent a figure. Asking for an ungranted column makes PostgREST fail the WHOLE query,
+  so the request is gated behind `MRP_PUBLIC_READ` (`productService.ts`, default `false`).
+  Sequence: run [`docs/sql/pr2-mrp-public-read.sql`](docs/sql/pr2-mrp-public-read.sql) →
+  flip the constant to `true` → redeploy. **Even then, only 6 of 143 products carry a
+  usable MRP** — the other 137 stay on enquiry until the data is entered, and must NOT be
+  bulk-derived from `price` with a fixed margin (that would publish a fabricated MRP).
+- **`orders` has no `user_id`, so the Account screen scopes order history by phone.**
+  That is a WHERE clause, not a security boundary: RLS on `orders` does not restrict SELECT
+  per user, so a signed-in visitor could query another phone number through PostgREST.
+  `orderService.getForPhone()` exists specifically so the customer-facing screen cannot
+  accidentally call the admin-wide `getAll()`. Fix prepared, owner-run, not applied:
+  [`docs/sql/pr2-account-orders.sql`](docs/sql/pr2-account-orders.sql). Note the app does
+  not yet WRITE `user_id` on new orders — do that before enabling the SELECT policy.
+- **Account sign-in is still email + password, not the phone OTP the design board shows.**
+  Switching is an authentication-mechanism change (Supabase phone provider, an SMS gateway,
+  and a migration path for existing email accounts), so it was left out of a storefront
+  redesign and needs an explicit decision. The screen already wears the design's shell, so
+  the change is field-level when it happens.
+- **Product names are still messy catalogue data.** `toCardModel` cleans them by deletion
+  (pack parentheticals, leading/trailing size tokens) but deliberately does not re-case
+  them, so ALL-CAPS rows like "3 COMPARTMENT MEAL TRAY MINI" render as-is. Re-casing is data
+  editing; the catalogue is being rebuilt by hand anyway (Critical Rule #13).
+- **The test admin's auth id in `CLAUDE.md` / `docs/TEST_ADMIN.md` is wrong.** Documented as
+  `8174be01-8b5e-4b41-89d5-923a630918f6`; the live row is
+  `19e93cb6-668e-49ed-b4df-747aee0ecdb0` (`dev-admin@xltraders.local`, `is_admin = true`).
+  Also `SUPABASE_SECRET_KEY` in `.env` is still the `paste-your-…` placeholder.
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`

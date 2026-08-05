@@ -77,7 +77,9 @@ export default function MobileAdminShell({
           </button>
         ) : (
           <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-black text-sm leading-none">XL</span>
+            <span className="text-white font-black text-sm leading-none">
+              XL
+            </span>
           </div>
         )}
         <h1 className="flex-1 min-w-0 truncate font-semibold text-slate-900 text-[15px]">
@@ -127,7 +129,10 @@ export default function MobileAdminShell({
               aria-current={active ? "page" : undefined}
             >
               <t.icon
-                className={cn("w-5 h-5", active ? "text-red-600" : "text-slate-400")}
+                className={cn(
+                  "w-5 h-5",
+                  active ? "text-red-600" : "text-slate-400"
+                )}
               />
               <span
                 className={cn(

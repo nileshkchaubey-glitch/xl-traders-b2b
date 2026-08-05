@@ -20,7 +20,5 @@ export function brandLabel(brand?: string | null): string | null {
 
 // List form, for the surfaces that render a set of brands.
 export function realBrands(brands: string[]): string[] {
-  return brands
-    .map(brandLabel)
-    .filter((b): b is string => b !== null);
+  return brands.map(brandLabel).filter((b): b is string => b !== null);
 }

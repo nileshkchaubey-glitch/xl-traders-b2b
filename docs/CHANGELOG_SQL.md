@@ -144,3 +144,46 @@ ROLLBACK;
   **112**; the 113 figure includes `ZZ-TEST-PRODUCT`.
 - `HINGED-BOX-2250-ML` is `published` but `is_active=false` — why Fortune Petpack shows
   11 total / 10 public.
+
+---
+
+## 2026-08-05 — Storefront redesign (Direction B "Rate Card")
+
+Run by the agent under the standing SQL grant (CLAUDE.md Critical Rule #3).
+Non-destructive: one content field, no schema and no product rows touched.
+
+```sql
+-- Why: the locked design specifies exactly one delivery line, stating three
+-- tiers, under the search field. A stored site_content row was overriding the
+-- in-code fallback with the older two-tier copy, so the live site would have
+-- contradicted the design regardless of the code change.
+UPDATE site_content
+SET value = jsonb_set(
+      value,
+      '{deliveryLine}',
+      '"Same-day Surat · Next-day South Gujarat · 2–4 days Pan-India"'::jsonb
+    )
+WHERE key = 'announcement';
+-- → 1 row. Verified: value->>'deliveryLine' now reads the three-tier line.
+```
+
+### Read-only findings from the same session (no statements run)
+
+- **`products.mrp` exists** (numeric, nullable) — an earlier brief assumed it did
+  not. `mrp_source` does **not** exist.
+- **`anon` has no SELECT grant on `mrp`** (only INSERT/UPDATE/REFERENCES), so the
+  design's "signed out → MRP" rule cannot render until the grant is added.
+  Prepared, owner-run, NOT applied: `docs/sql/pr2-mrp-public-read.sql`.
+- **Only 6 of 143 products carry a usable MRP** (`mrp IS NOT NULL AND mrp > 0`),
+  so even after the grant the remaining 137 stay on "On enquiry" for signed-out
+  visitors until the data is entered.
+- **142 of 143 products have a non-empty `image_url`** (127 Google Drive, 15
+  Supabase Storage) — the design's "141 of 143 land on the watermark" describes
+  the owner's intent to purge scraped imagery, not the current data. The code
+  makes no assumption either way: it uses a photo when one loads and falls
+  through on error.
+- **`orders` has no `user_id` column**, so a customer-facing order list can only
+  be scoped by phone. Prepared, owner-run, NOT applied:
+  `docs/sql/pr2-account-orders.sql`.
+- The test admin's auth id is `19e93cb6-668e-49ed-b4df-747aee0ecdb0`, which does
+  **not** match the `8174be01-…` recorded in CLAUDE.md / docs/TEST_ADMIN.md.
