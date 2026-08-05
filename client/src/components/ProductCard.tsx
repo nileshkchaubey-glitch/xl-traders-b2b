@@ -104,8 +104,14 @@ export default function ProductCard({
           lands its button on the same line without a fixed card height. */}
       <div className="flex-1">
         {price.onEnquiry ? (
-          <p className="text-micro md:text-body-sm text-ink-muted mt-3">
-            Rate depends on quantity — ask on WhatsApp.
+          // ONE short line, not the design board's sentence. At 390 the grid is
+          // two columns, so a two-line paragraph repeated on every card put the
+          // words "ask on WhatsApp." side by side at the same y on every row —
+          // which read as a duplicated-text bug and ate most of the card. The
+          // amber tab above already says "On enquiry"; this only needs to say
+          // where the answer comes from.
+          <p className="font-mono text-caption md:text-micro text-ink-faint mt-3">
+            Quantity-based
           </p>
         ) : (
           <>

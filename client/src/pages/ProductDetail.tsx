@@ -19,6 +19,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { cartLinePrice, formatRupees } from "@/lib/priceUtils";
 import { toCardModel } from "@/lib/cardModel";
+import { sortVariantsBySize } from "@/lib/seriesModel";
 import { brandLabel } from "@/lib/brandUtils";
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
@@ -159,8 +160,12 @@ export default function ProductDetail() {
               created_at: img.created_at,
             }))
           );
+          // Smallest size first — the DB can only order by display_order or
+          // price, neither of which is size (lib/seriesModel.ts).
           setVariants(
-            await masterService.getVariantsByMasterId(prod.master_id)
+            sortVariantsBySize(
+              await masterService.getVariantsByMasterId(prod.master_id)
+            )
           );
         } else {
           setImages(await productImageService.getByProductId(id));

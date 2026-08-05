@@ -5,8 +5,15 @@ import Footer from "@/components/Footer";
 import HomeCategoryGrid from "@/components/home/HomeCategoryGrid";
 import HomeDailySuggestion from "@/components/home/HomeDailySuggestion";
 import ProductCard from "@/components/ProductCard";
+import SeriesCard from "@/components/SeriesCard";
 import { productService } from "@/lib/productService";
-import { Product } from "@/lib/supabase";
+import { masterService } from "@/lib/masterService";
+import { useAuthStore } from "@/lib/authStore";
+import {
+  collapseSeries,
+  takeEntries,
+  type ListingEntry,
+} from "@/lib/seriesModel";
 import { useCategoryImages } from "@/hooks/useCategoryImages";
 
 /**
@@ -23,15 +30,26 @@ import { useCategoryImages } from "@/hooks/useCategoryImages";
  * page can do is show them prices.
  *
  * The rate card is a taster of the real catalogue, fed by the same paginated
- * `productService.getAll` call /catalog uses — 12 products, which is also the
+ * `productService.getAll` call /catalog uses — 12 entries, which is also the
  * count that decides whether the watermark fallback works at 390px.
+ *
+ * Entries, not products: variants of one series collapse into a single card
+ * (lib/seriesModel.ts). The "Hinged box" series alone has ten live variants,
+ * which used to fill this entire first screen with the same name and the same
+ * photo ten times over.
  */
 
 const RATE_CARD_SIZE = 12;
 
+// Collapsing only ever reduces the count, so to end up with 12 entries we have
+// to ask for more than 12 products. 48 covers a series far larger than any that
+// exists (the biggest today is 11) without fetching the whole catalogue.
+const FETCH_SIZE = 48;
+
 export default function Home() {
   const isDev = import.meta.env.DEV;
-  const [products, setProducts] = useState<Product[]>([]);
+  const { isAuthenticated } = useAuthStore();
+  const [entries, setEntries] = useState<ListingEntry[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const categoryImages = useCategoryImages();
@@ -39,9 +57,19 @@ export default function Home() {
   useEffect(() => {
     let alive = true;
 
-    productService
-      .getAll({ page: 1, pageSize: RATE_CARD_SIZE, sort: "newest" })
-      .then(p => alive && setProducts(p))
+    Promise.all([
+      productService.getAll({ page: 1, pageSize: FETCH_SIZE, sort: "newest" }),
+      masterService.getPublicMasters(),
+    ])
+      .then(([products, masters]) => {
+        if (!alive) return;
+        setEntries(
+          takeEntries(
+            collapseSeries(products, masters, isAuthenticated),
+            RATE_CARD_SIZE
+          )
+        );
+      })
       .catch(() => {})
       .finally(() => alive && setLoading(false));
 
@@ -53,7 +81,7 @@ export default function Home() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col text-ink">
@@ -90,15 +118,25 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          ) : products.length > 0 ? (
+          ) : entries.length > 0 ? (
             <div className="mt-4 md:mt-5 grid grid-cols-2 lg:grid-cols-4 gap-x-[18px] gap-y-[26px] lg:gap-x-[30px] lg:gap-y-10">
-              {products.map(p => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  categoryImageUrl={categoryImages[p.category_id]}
-                />
-              ))}
+              {entries.map(entry =>
+                entry.kind === "series" ? (
+                  <SeriesCard
+                    key={entry.id}
+                    entry={entry}
+                    categoryImageUrl={
+                      categoryImages[entry.leadVariant.category_id]
+                    }
+                  />
+                ) : (
+                  <ProductCard
+                    key={entry.id}
+                    product={entry.product}
+                    categoryImageUrl={categoryImages[entry.product.category_id]}
+                  />
+                )
+              )}
             </div>
           ) : (
             <p className="mt-5 text-body-sm text-ink-muted">

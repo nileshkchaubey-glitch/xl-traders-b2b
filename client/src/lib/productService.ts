@@ -44,7 +44,14 @@ export const MRP_PUBLIC_READ = false;
 const GUEST_PRODUCT_COLS =
   "id,name,category_id,description,sku,unit_of_measure,quantity_in_unit," +
   "image_url,image_alt_text,image_description,specifications," +
-  "is_active,is_featured,status,display_order,brand,created_at,updated_at" +
+  "is_active,is_featured,status,display_order,brand,created_at,updated_at," +
+  // master_id + variant_label are what let the storefront collapse a series
+  // into one card (lib/seriesModel.ts). Both are ALREADY granted to anon;
+  // omitting them here meant a signed-out visitor received `master_id:
+  // undefined` on every row, so nothing ever grouped and the "Hinged box"
+  // series rendered as ten identical cards. A missing column in this list is
+  // invisible — it does not error, it just silently blanks a feature.
+  "master_id,variant_label" +
   (MRP_PUBLIC_READ ? ",mrp,mrp_source" : "");
 
 // SECURITY-SENSITIVE CACHE: productSelectCols() gates the price/mrp/discount
@@ -57,6 +64,19 @@ let cachedHasSession: boolean | null = null;
 
 export function invalidateSessionCache() {
   cachedHasSession = null;
+}
+
+/**
+ * The SELECT list any PUBLIC products query must use.
+ *
+ * Exported because `masterService.getVariantsByMasterId` needs it too: it used
+ * `select("*")`, which the `anon` role is outright denied on this table
+ * (`permission denied for table products`), so the PDP's variant picker
+ * returned nothing for every signed-out visitor. Any new public read of
+ * `products` must go through this rather than `*`.
+ */
+export async function publicProductCols(): Promise<string> {
+  return productSelectCols();
 }
 
 // Returns the right SELECT columns based on whether the caller has a session.
@@ -112,6 +132,46 @@ export const categoryService = {
 
     if (error) throw error;
     return (data as Category[]) ?? [];
+  },
+
+  /**
+   * PUBLIC product count per category id — published + active only.
+   *
+   * Distinct from getProductCounts() below, which counts EVERY row including
+   * drafts and is an admin call. The storefront needs the public number so it
+   * can refuse to render a department or category that would open onto an
+   * empty page (22 of 38 categories currently have zero live products).
+   *
+   * One query returning only `category_id`, aggregated in the browser — the
+   * alternative is one countPublished() call per category, which is N requests
+   * per page render. Cheap at catalogue scale; revisit past a few thousand rows.
+   */
+  async getPublicCounts(): Promise<Record<string, number>> {
+    if (isDemo) {
+      const counts: Record<string, number> = {};
+      for (const p of demoProducts)
+        counts[p.category_id] = (counts[p.category_id] ?? 0) + 1;
+      return counts;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("category_id")
+        .eq("status", "published")
+        .eq("is_active", true);
+
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      for (const row of (data ?? []) as { category_id: string | null }[]) {
+        if (row.category_id)
+          counts[row.category_id] = (counts[row.category_id] ?? 0) + 1;
+      }
+      return counts;
+    } catch (error) {
+      console.error("Error counting public products by category:", error);
+      return {};
+    }
   },
 
   // Product count per category id (client-side aggregation — id-only rows,

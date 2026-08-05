@@ -10,7 +10,8 @@
     "check": "tsc --noEmit",
     "check:price": "node scripts/check-price-entry.ts",
     "check:card": "node scripts/check-card-model.ts",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check:series": "node scripts/check-series-model.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

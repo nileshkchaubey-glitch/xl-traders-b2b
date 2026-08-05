@@ -4,6 +4,7 @@ import type { Product } from "./supabase";
 // extensionless specifiers. Vite and `tsc` both accept it
 // (allowImportingTsExtensions is on) — same arrangement as priceEntryMode.ts.
 import { displayPrice, rateTabLabel, type DisplayPrice } from "./priceUtils.ts";
+import { displayName } from "./displayName.ts";
 
 /**
  * toCardModel — the single pure mapper from a `Product` row to everything the
@@ -140,9 +141,11 @@ function stripPackCount(name: string): string {
  *   - only if at least two words survive. "8x8x3 WHITE" would otherwise
  *     collapse to "WHITE", which names nothing.
  *
- * Case is deliberately NOT touched. Many rows are ALL CAPS, but re-casing is
- * data editing, not presentation, and the catalogue is being rebuilt by hand
- * anyway (CLAUDE.md Critical Rule #13).
+ * Casing is handled separately by `displayName()`, which title-cases a name
+ * only when it is ENTIRELY upper-case — so "3 COMPARTMENT MEAL TRAY MINI" stops
+ * shouting next to "Round Container", while a name the owner deliberately
+ * mixed-cased is left exactly as authored. Presentation only; the stored value
+ * is untouched.
  */
 function stripSizeToken(name: string, matched: string): string {
   const tok = escapeRe(matched);
@@ -189,9 +192,11 @@ export function toCardModel(
   return {
     // Every step only ever removes, and each has its own guard; if nothing
     // survived, fall back to the row's own name rather than render a blank.
-    name:
+    // displayName() runs last, so it cases whatever actually survived.
+    name: displayName(
       (match ? stripSizeToken(cleanName, match.matched) : cleanName) ||
-      product.name,
+        product.name
+    ),
     size,
     sizeUnit,
     sizeIsPackCount,

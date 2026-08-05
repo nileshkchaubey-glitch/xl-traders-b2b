@@ -52,7 +52,7 @@ const cases: Case[] = [
     // "10 KG" as the product's size instead of the 5×7 sheet dimension.
     name: "5X7 SILVER POUCH ( 10 KG )",
     quantity_in_unit: 10,
-    expect: { name: "SILVER POUCH", size: "5×7", sizeUnit: null },
+    expect: { name: "Silver Pouch", size: "5×7", sizeUnit: null },
   },
   {
     // Stripping the leading dimension would leave the single word "WHITE".
@@ -70,7 +70,7 @@ const cases: Case[] = [
   {
     name: "3 COMPARTMENT MEAL TRAY MINI ( 900pcs )",
     quantity_in_unit: 900,
-    expect: { name: "MEAL TRAY MINI", size: "3", sizeUnit: "cmp" },
+    expect: { name: "Meal Tray Mini", size: "3", sizeUnit: "cmp" },
   },
   {
     name: "8 Inch Pizza Box (Pack of 100pcs)",
@@ -89,10 +89,29 @@ const cases: Case[] = [
     name: "PACKWORLD 150ML RIPPLE GLASS (2000pcs)",
     quantity_in_unit: 2000,
     expect: {
-      name: "PACKWORLD 150ML RIPPLE GLASS",
+      name: "Packworld 150ml Ripple Glass",
       size: "150",
       sizeUnit: "ml",
     },
+  },
+
+  // ── Casing: only SHOUTING is corrected (lib/displayName.ts) ───────────────
+  {
+    // An all-caps name is title-cased so it stops shouting next to its
+    // neighbours in the grid.
+    name: "BURGER BOX",
+    expect: { name: "Burger Box" },
+  },
+  {
+    // A name the owner deliberately mixed-cased is left EXACTLY as authored —
+    // the rule must not "tidy" data it was not asked to touch.
+    name: "Paper Ice Cream Wati",
+    expect: { name: "Paper Ice Cream Wati" },
+  },
+  {
+    // Separators survive, and unit tokens keep their conventional casing.
+    name: "CAP & GLOVES",
+    expect: { name: "Cap & Gloves" },
   },
 
   // ── Pack-count fallback ───────────────────────────────────────────────────

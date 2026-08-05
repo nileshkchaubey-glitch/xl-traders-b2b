@@ -1,4 +1,5 @@
 import { supabase, Product, Category } from "./supabase";
+import { publicProductCols } from "./productService";
 
 export interface ProductMaster {
   id: string;
@@ -98,21 +99,62 @@ export const masterService = {
     return true;
   },
 
-  // Public storefront call — only published variants are returned so a draft
-  // variant never shows in the product page variant selector.
+  /**
+   * Public storefront call — only published AND active variants, so neither a
+   * draft nor a deactivated size shows in the PDP's variant selector.
+   *
+   * The SELECT list comes from `publicProductCols()` and must NOT be `*`: the
+   * `anon` role has no table-wide SELECT on `products` (price/mrp are gated by
+   * column grants — Architecture Rule #3), so `select("*")` returned
+   * "permission denied for table products" and this silently resolved to [] for
+   * every signed-out visitor. The variant picker was dead on the public site.
+   *
+   * Ordered by price only when the caller can read price; guests fall back to
+   * display_order, since asking to sort by an ungranted column fails the query
+   * the same way selecting one does.
+   */
   async getVariantsByMasterId(masterId: string) {
-    const { data, error } = await supabase
+    const cols = await publicProductCols();
+    const canReadPrice = cols === "*";
+
+    let query = supabase
       .from("products")
-      .select("*")
+      .select(cols)
       .eq("master_id", masterId)
       .eq("status", "published")
-      .order("price", { ascending: true });
+      .eq("is_active", true);
+
+    query = canReadPrice
+      ? query.order("price", { ascending: true })
+      : query.order("display_order", { ascending: true });
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching variants:", error);
       return [];
     }
-    return data as Product[];
+    return data as unknown as Product[];
+  },
+
+  /**
+   * Every active series, id + name only — enough for the storefront listing to
+   * collapse variants into one entry (lib/seriesModel.ts). Deliberately lighter
+   * than getMasters(), which joins categories and images for the admin matrix.
+   */
+  async getPublicMasters(): Promise<{ id: string; name: string }[]> {
+    if (isDemo) return [];
+
+    const { data, error } = await supabase
+      .from("product_masters")
+      .select("id,name")
+      .eq("is_active", true);
+
+    if (error) {
+      console.error("Error fetching masters:", error);
+      return [];
+    }
+    return (data as { id: string; name: string }[]) ?? [];
   },
 
   // Admin call — every variant of a master regardless of status (draft +

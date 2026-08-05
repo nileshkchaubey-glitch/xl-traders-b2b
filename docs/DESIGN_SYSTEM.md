@@ -145,6 +145,39 @@ the grid item, the PDP buy panel, the mini cards in "Similar products", each car
 each order row on the Account screen. **Products with no rate carry an amber tab on the
 same rule** — never a missing tab, and never `₹0`.
 
+### 1.3b-2 Series (one card per master, not per variant)
+
+`product_masters` models a SERIES — one product sold in several sizes, each size
+its own `products` row carrying `master_id` + `variant_label`.
+
+**The listing renders one card per series, never one per variant.**
+`collapseSeries()` (`lib/seriesModel.ts`) is the single place that decides,
+`SeriesCard` renders it, and `scripts/check-series-model.ts` pins the behaviour.
+
+A series card swaps three slots, keeping the rest of the item identical:
+
+| Slot      | Product             | Series                             |
+| --------- | ------------------- | ---------------------------------- |
+| figure    | one size (`500 ml`) | the size RANGE (`100–2000 ml`)     |
+| rate rule | the rate            | the cheapest rate, prefixed `from` |
+| action    | `Add`               | `Choose size` → PDP variant picker |
+
+Why it matters: the "Hinged box" series has ten live variants, which filled the
+entire first screen with ten cards carrying the same name, the same photo and
+the same price state. The size range and the variant count are what actually
+distinguish a series; the name alone distinguishes nothing.
+
+Two gotchas that cost real debugging time, both now covered by tests:
+
+- **`master_id` and `variant_label` must be in `GUEST_PRODUCT_COLS`.** They are
+  granted to `anon`, but omitting a column from that SELECT list does not
+  error — it silently arrives `undefined`, so nothing groups and the feature
+  quietly does not exist for signed-out visitors.
+- **Never `select("*")` on `products` in a public query.** The `anon` role has
+  no table-wide SELECT (price/mrp are column-gated), so `*` fails the whole
+  query. This is why the PDP's variant picker returned nothing for guests.
+  Use `publicProductCols()`.
+
 ### 1.3c De-carded
 
 The storefront is built from **rules and whitespace**, not rounded cards. Storefront

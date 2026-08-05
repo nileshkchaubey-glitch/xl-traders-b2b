@@ -3,115 +3,137 @@ import { Link } from "wouter";
 import {
   Box,
   Coffee,
-  Gift,
-  Layers,
   type LucideIcon,
-  Package,
   Package2,
-  Printer,
-  ShoppingBag,
-  Sparkles,
-  Utensils,
-  Wind,
+  PartyPopper,
+  Shapes,
+  SprayCan,
 } from "lucide-react";
 import { categoryService } from "@/lib/productService";
-import { Category } from "@/lib/supabase";
+import { displayName } from "@/lib/displayName";
 
 /**
- * "Shop by category" — the first section of the page, since there is no hero
+ * "Shop by department" — the first section of the page, since there is no hero
  * (docs/DESIGN_SYSTEM.md §3.3).
  *
- * A tile is a hairline rule, an icon and a name. That is the whole tile.
+ * Renders DEPARTMENTS (`categories.group_name`), not categories. It previously
+ * rendered categories, which put "Round Container", "Rectangle Container",
+ * "Rice Bowl" and "Premium Container" on the homepage as four separate
+ * top-level choices — four ways of saying "containers" — while the department
+ * they all belong to was never shown. Departments are the level a buyer
+ * actually navigates by, and there are five of them rather than thirty-eight.
  *
- * No image: a category carries at most ONE image_url, and the previous design
- * composited it into a fake 2×2 mosaic that rendered the same photo four times
- * at 220% zoom. Rather than fix the mosaic, the locked design drops category
- * imagery from this section entirely — the icons identify an aisle faster than
- * a zoomed crop of a black container does, and they cannot break.
+ * (`group_name` is a text column repeated on every category row, which is why
+ * this groups client-side. A real hierarchy table is proposed separately.)
  *
- * (Category images are NOT unused: they are tier 2 of the product image
- * fallback chain — see ProductImageSlot.)
+ * A tile is a hairline rule, an icon, a name and a live product count. No
+ * image: a category carries at most one, and the old design composited it into
+ * a fake 2×2 mosaic that showed the same photo four times.
+ * (Category images ARE still used — as tier 2 of the product image fallback.)
  */
 
-// Keyword → icon, so "Cups & Glasses" gets a cup rather than whatever the
-// rotation happened to land on. First match wins; unmatched categories fall
-// back to a stable per-index icon so the set never looks random on reload.
-const ICON_KEYWORDS: [RegExp, LucideIcon][] = [
-  [/cup|glass|mug|beverage/i, Coffee],
-  [/tray|box|carton|corrugat/i, Box],
-  [/container|jar|bowl|wati/i, Package2],
-  [/foil|wrap|film|cling|roll/i, Layers],
-  [/tissue|napkin|glove|cap|hygien/i, Wind],
-  [/party|decor|balloon|gift/i, Gift],
-  [/clean|detergent|soap|wash/i, Sparkles],
-  [/bag|pouch|carry|kirana/i, ShoppingBag],
-  [/cutler|spoon|fork|plate|catering/i, Utensils],
-  [/paper|print|label/i, Printer],
+// One icon per department. This is a small, closed list — unlike the previous
+// keyword matcher, which collapsed "Round Container", "Rice Bowl" and
+// "Premium Container" all onto the same box glyph because they genuinely all
+// match /container|bowl/. Departments are distinct by construction, so their
+// icons can be too.
+const DEPARTMENT_ICONS: [RegExp, LucideIcon][] = [
+  [/container/i, Package2],
+  [/tableware|takeaway|cup|glass/i, Coffee],
+  [/packaging|presentation|box|wrap|foil/i, Box],
+  [/hygiene|clean|facility|care/i, SprayCan],
+  [/decor|party|balloon/i, PartyPopper],
 ];
 
-const FALLBACK_ICONS: LucideIcon[] = [
-  Package2,
-  Box,
-  Package,
-  Layers,
-  ShoppingBag,
-  Coffee,
-];
-
-function iconFor(name: string, index: number): LucideIcon {
-  for (const [pattern, Icon] of ICON_KEYWORDS) {
+function iconFor(name: string): LucideIcon {
+  for (const [pattern, Icon] of DEPARTMENT_ICONS) {
     if (pattern.test(name)) return Icon;
   }
-  return FALLBACK_ICONS[index % FALLBACK_ICONS.length];
+  return Shapes;
 }
 
-// The homepage section is a taster, not the index — /catalog is the index.
-// 6 tiles on mobile keeps the rate card within reach of the first scroll;
-// desktop shows 12 because a 6-up row of 6 leaves an empty second row.
-const MOBILE_TILES = 6;
-const DESKTOP_TILES = 12;
+interface Department {
+  name: string;
+  order: number;
+  liveProducts: number;
+}
 
 export default function HomeCategoryGrid() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   useEffect(() => {
-    // getAll() already filters to is_active and sorts by display_order, which
-    // is the owner's own ordering — the honest signal for "which first".
-    categoryService
-      .getAll()
-      .then(c => setCategories(c.slice(0, DESKTOP_TILES)))
+    let alive = true;
+
+    Promise.all([categoryService.getAll(), categoryService.getPublicCounts()])
+      .then(([cats, counts]) => {
+        if (!alive) return;
+
+        const byName = new Map<string, Department>();
+        for (const c of cats) {
+          const key = c.group_name?.trim();
+          // A category with no group can't be placed under a department. It is
+          // skipped rather than invented into an "Other" bucket — that is the
+          // data gap the hierarchy proposal exists to close.
+          if (!key) continue;
+          const dept =
+            byName.get(key) ??
+            byName
+              .set(key, {
+                name: key,
+                order: c.group_order ?? 999,
+                liveProducts: 0,
+              })
+              .get(key)!;
+          dept.liveProducts += counts[c.id] ?? 0;
+          dept.order = Math.min(dept.order, c.group_order ?? 999);
+        }
+
+        setDepartments(
+          [...byName.values()]
+            // Never render a department that opens onto an empty page.
+            // "Decoration & Party" has 34 categories and 1 live product;
+            // most of its categories have none at all.
+            .filter(d => d.liveProducts > 0)
+            .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+        );
+      })
       .catch(() => {});
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  if (categories.length === 0) return null;
+  if (departments.length === 0) return null;
 
   return (
     <section className="shell pt-7 md:pt-11">
       <h2 className="font-display text-display md:text-display-lg font-bold text-ink tracking-[-0.03em]">
-        Shop by category
+        Shop by department
       </h2>
 
-      <div className="mt-5 md:mt-[18px] grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-[18px] gap-y-[22px] lg:gap-x-[22px] lg:gap-y-7">
-        {categories.map((cat, i) => {
-          const Icon = iconFor(cat.name, i);
+      <div className="mt-5 md:mt-[18px] grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-[18px] gap-y-[22px] lg:gap-x-[22px] lg:gap-y-7">
+        {departments.map(dept => {
+          const Icon = iconFor(dept.name);
           return (
             <Link
-              key={cat.id}
-              href={`/catalog?category=${cat.slug}`}
-              className={`group flex flex-col gap-3 lg:gap-[15px] border-t border-rule pt-3.5 lg:pt-4 ${
-                // Tiles past the 6th exist only from md up — at 390 they would
-                // push the first product price another screen down.
-                i >= MOBILE_TILES ? "hidden md:flex" : ""
-              }`}
+              key={dept.name}
+              href={`/catalog?group=${encodeURIComponent(dept.name)}`}
+              className="group flex flex-col gap-3 lg:gap-[15px] border-t border-rule pt-3.5 lg:pt-4"
             >
               <Icon
                 size={20}
                 className="text-red-600 flex-none lg:w-6 lg:h-6"
                 strokeWidth={1.75}
               />
-              <span className="text-body-sm lg:text-base font-medium text-ink group-hover:text-red-600 transition-colors duration-150">
-                {cat.name}
-              </span>
+              <div>
+                <span className="block text-body-sm lg:text-base font-medium text-ink group-hover:text-red-600 transition-colors duration-150">
+                  {displayName(dept.name)}
+                </span>
+                <span className="block font-mono text-meta text-ink-faint mt-1 tabular-nums">
+                  {dept.liveProducts}
+                </span>
+              </div>
             </Link>
           );
         })}

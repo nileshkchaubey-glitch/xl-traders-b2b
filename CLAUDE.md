@@ -1052,6 +1052,21 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   (pack parentheticals, leading/trailing size tokens) but deliberately does not re-case
   them, so ALL-CAPS rows like "3 COMPARTMENT MEAL TRAY MINI" render as-is. Re-casing is data
   editing; the catalogue is being rebuilt by hand anyway (Critical Rule #13).
+- **The homepage shows DEPARTMENTS (`categories.group_name`), not categories.** That
+  level is a repeated TEXT column, so it is grouped client-side on every render, its
+  ordering is reconciled with `Math.min`, and it can be forked by a typo. It also cannot
+  hold an image, icon or SEO field, and there is no third level. Proposal (adjacency-list
+  `parent_id` + `level`, with migration path and open questions):
+  [`docs/sql/PROPOSAL-category-hierarchy.md`](docs/sql/PROPOSAL-category-hierarchy.md).
+  One category (`Paper Ice Cream Wati`, 2 live products) has no `group_name` at all and is
+  therefore unreachable from department navigation.
+- **22 of 38 categories have zero live products**, and `Decoration & Party` has 15
+  categories for 1 live product. The homepage hides any department whose live count is 0;
+  the underlying data still needs a clear-out.
+- **`139 SKUs` is correct, not a miscount.** The 4 rows between 143 and 139 are the publish
+  gate working: `XL0104 BURGER BOX` and `XL0105 SANDWICH BOX` are `draft`,
+  `HINGED-BOX-2250-ML` is `published` but `is_active = false`, and `ZZ-TEST-PRODUCT` is the
+  deliberate scratch row. Publishing the first three is an owner decision, not a bug fix.
 - **The test admin's auth id in `CLAUDE.md` / `docs/TEST_ADMIN.md` is wrong.** Documented as
   `8174be01-8b5e-4b41-89d5-923a630918f6`; the live row is
   `19e93cb6-668e-49ed-b4df-747aee0ecdb0` (`dev-admin@xltraders.local`, `is_admin = true`).

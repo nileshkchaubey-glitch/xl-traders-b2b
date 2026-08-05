@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import {
   ChevronDown,
@@ -10,7 +10,12 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
+import SeriesCard from "@/components/SeriesCard";
 import { useCategoryImages } from "@/hooks/useCategoryImages";
+import { masterService } from "@/lib/masterService";
+import { useAuthStore } from "@/lib/authStore";
+import { collapseSeries } from "@/lib/seriesModel";
+import { displayName } from "@/lib/displayName";
 import {
   categoryService,
   productService,
@@ -49,6 +54,7 @@ export default function Catalog() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [masters, setMasters] = useState<{ id: string; name: string }[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [brands, setBrands] = useState<string[]>([]);
@@ -57,6 +63,7 @@ export default function Catalog() {
   const [sortBy, setSortBy] = useState<PublicProductSort>("newest");
   const [sheetOpen, setSheetOpen] = useState(false);
   const categoryImages = useCategoryImages();
+  const { isAuthenticated } = useAuthStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     params.get("category") || null
@@ -72,14 +79,16 @@ export default function Catalog() {
   useEffect(() => {
     const loadMeta = async () => {
       try {
-        const [cats, brnds, groups] = await Promise.all([
+        const [cats, brnds, groups, mstrs] = await Promise.all([
           categoryService.getAll(),
           productService.getBrands(),
           categoryService.getCategoriesGroupedByGroup(),
+          masterService.getPublicMasters(),
         ]);
         setCategories(cats);
         setBrands(brnds);
         setCategoryGroups(groups);
+        setMasters(mstrs);
       } catch (error) {
         console.error("Error loading categories/brands:", error);
       }
@@ -198,11 +207,12 @@ export default function Catalog() {
   const isNothingSelected =
     !selectedCategory && !selectedGroup && !selectedBrand && !searchQuery;
 
-  const activeFilterLabel =
+  const activeFilterLabel = displayName(
     selectedGroup ||
-    categories.find(c => c.slug === selectedCategory)?.name ||
-    selectedBrand ||
-    (searchQuery ? `“${searchQuery}”` : null);
+      categories.find(c => c.slug === selectedCategory)?.name ||
+      selectedBrand ||
+      (searchQuery ? `“${searchQuery}”` : "")
+  );
 
   // One chip style, used by the sheet and the mobile group rail alike.
   const chip = (active: boolean) =>
@@ -212,15 +222,31 @@ export default function Catalog() {
         : "bg-white text-ink-muted border-rule hover:border-ink"
     }`;
 
+  // Derived from the FULL accumulated product list, not per page: a series
+  // whose variants straddle a "Load more" boundary then gains variants in
+  // place instead of appearing as a second card further down the grid.
+  const entries = useMemo(
+    () => collapseSeries(products, masters, isAuthenticated),
+    [products, masters, isAuthenticated]
+  );
+
   const productGrid = (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-[18px] gap-y-[26px] lg:gap-x-[30px] lg:gap-y-10">
-      {products.map(product => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          categoryImageUrl={categoryImages[product.category_id]}
-        />
-      ))}
+      {entries.map(entry =>
+        entry.kind === "series" ? (
+          <SeriesCard
+            key={entry.id}
+            entry={entry}
+            categoryImageUrl={categoryImages[entry.leadVariant.category_id]}
+          />
+        ) : (
+          <ProductCard
+            key={entry.id}
+            product={entry.product}
+            categoryImageUrl={categoryImages[entry.product.category_id]}
+          />
+        )
+      )}
     </div>
   );
 
@@ -274,7 +300,10 @@ export default function Catalog() {
 
                 {categoryGroups.length > 0
                   ? categoryGroups.map(group => (
-                      <div key={group.group_name} className="mt-3.5">
+                      <div
+                        key={displayName(group.group_name)}
+                        className="mt-3.5"
+                      >
                         <button
                           onClick={() => handleGroupChange(group.group_name)}
                           className={`w-full text-left font-mono text-meta font-medium uppercase tracking-[0.14em] pb-1.5 transition-colors duration-150 ${
@@ -283,7 +312,7 @@ export default function Catalog() {
                               : "text-ink-faint hover:text-ink"
                           }`}
                         >
-                          {group.group_name}
+                          {displayName(group.group_name)}
                         </button>
                         {group.categories.map(cat => (
                           <button
@@ -295,7 +324,7 @@ export default function Catalog() {
                                 : "text-ink-muted hover:text-ink"
                             }`}
                           >
-                            {cat.name}
+                            {displayName(cat.name)}
                           </button>
                         ))}
                       </div>
@@ -310,7 +339,7 @@ export default function Catalog() {
                             : "text-ink-muted hover:text-ink"
                         }`}
                       >
-                        {cat.name}
+                        {displayName(cat.name)}
                       </button>
                     ))}
               </div>
@@ -323,7 +352,7 @@ export default function Catalog() {
                   <div className="mt-3 flex flex-col">
                     {brands.map(brand => (
                       <button
-                        key={brand}
+                        key={displayName(brand)}
                         onClick={() =>
                           handleBrandChange(
                             selectedBrand === brand ? null : brand
@@ -335,7 +364,7 @@ export default function Catalog() {
                             : "text-ink-muted hover:text-ink"
                         }`}
                       >
-                        {brand}
+                        {displayName(brand)}
                       </button>
                     ))}
                   </div>
@@ -386,11 +415,11 @@ export default function Catalog() {
                 </button>
                 {categoryGroups.map(group => (
                   <button
-                    key={group.group_name}
+                    key={displayName(group.group_name)}
                     onClick={() => handleGroupChange(group.group_name)}
                     className={`${chip(selectedGroup === group.group_name)} whitespace-nowrap`}
                   >
-                    {group.group_name}
+                    {displayName(group.group_name)}
                   </button>
                 ))}
               </div>
@@ -524,7 +553,7 @@ export default function Catalog() {
                     }
                     className={chip(selectedCategory === cat.slug)}
                   >
-                    {cat.name}
+                    {displayName(cat.name)}
                   </button>
                 ))}
               </div>
@@ -537,7 +566,7 @@ export default function Catalog() {
                   <div className="flex flex-wrap gap-2">
                     {brands.map(brand => (
                       <button
-                        key={brand}
+                        key={displayName(brand)}
                         onClick={() =>
                           handleBrandChange(
                             selectedBrand === brand ? null : brand
@@ -545,7 +574,7 @@ export default function Catalog() {
                         }
                         className={chip(selectedBrand === brand)}
                       >
-                        {brand}
+                        {displayName(brand)}
                       </button>
                     ))}
                   </div>
