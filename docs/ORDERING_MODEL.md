@@ -1,7 +1,18 @@
 # PCS-Based Ordering Model — Design Spec
 
-**Status: PROPOSAL. Nothing in this document is implemented.**
-No component behaviour changed, no SQL executed, no cart logic touched.
+**Status: PARTIALLY IMPLEMENTED (updated 15 Aug 2026).**
+
+- **§1 schema — DONE.** `order_unit`, `order_step` and their CHECKs, plus the §7.2
+  `price_per_piece` generated column and index, were executed on 15 Aug 2026 as
+  Storefront V3 Phase 2. See [`docs/sql/v3-phase2-schema.sql`](sql/v3-phase2-schema.sql)
+  and its verification output. Additive only; nothing backfilled.
+- **§2–§10 application code — NOT YET BUILT.** `orderingModel.ts`, the cart reshape and
+  every UI surface remain unimplemented. Note the brief for that work names the exports
+  `resolveOrderSpec` / `pcsFromPacks` / `packsFromPcs` / `snapPcsToStep` / `lineTotal` /
+  `formatOrderQty`; where those differ from the names sketched in §2.1 below, **the brief's
+  names win**.
+- **§7.4 is no longer an open question — the bug is CONFIRMED.** See the note in that
+  section.
 
 **Date:** 11 Aug 2026
 **Companion file:** [`docs/sql/PROPOSAL-ordering-model.sql`](sql/PROPOSAL-ordering-model.sql) (owner-run, not executed)
@@ -810,9 +821,18 @@ since `getAll` chooses columns via `productSelectCols()` (`:417`) but applies th
 sort unconditionally (`:427`), while `Catalog.tsx` offers the price-sort options to
 everyone (`:268`, `:650`).
 
-If that reads as written, a signed-out visitor choosing "Price: Low to High" gets a
-failed query. **This is unverified against the live database** — verifying it means
-running SQL, which this task forbids — so it is recorded as a finding, not a claim.
+**CONFIRMED against the live database on 15 Aug 2026.** Executed as the `anon`
+role:
+
+```
+anon ORDER BY price          -> FAILED: permission denied for table products
+anon ORDER BY display_order  -> SUCCEEDED
+```
+
+So a signed-out visitor choosing "Price: Low to High" on `/catalog` gets a failed query
+and an empty catalogue **today**, independently of this model. `Catalog.tsx` offers the
+price sorts with no auth gate in three places (`:268`, `:474`, `:650`). The fix — guest
+price sorts fall back to `display_order` — belongs in the ordering PR.
 A verification query for it is included in the SQL proposal, and the fix (guest price
 sorts fall back to `display_order`) belongs in the implementation PR, since §7.3
 requires touching `applyPublicSort` anyway.

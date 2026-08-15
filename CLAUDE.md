@@ -60,7 +60,33 @@ meta_title, meta_description,
 master_id (nullable FK → product_masters), variant_label,
 status TEXT NOT NULL DEFAULT 'draft' CHECK IN ('draft','published'),
 na_fields TEXT[] DEFAULT '{}',
-specifications JSONB (nullable — not yet populated)
+specifications JSONB (nullable — not yet populated),
+order_unit TEXT NOT NULL DEFAULT 'pack' CHECK IN ('pack','pcs'),
+order_step INTEGER (nullable — NULL = one pack, inherits quantity_in_unit),
+price_per_piece NUMERIC GENERATED ALWAYS AS (price / quantity_in_unit) STORED
+                        -- 🔴 NEVER granted to anon; sorting only
+```
+
+**Ordering columns (V3 Phase 2, 15 Aug 2026).** `order_unit` is how the CUSTOMER
+counts — it does **not** change what is stored or priced. Money is **always**
+`packs × price`. `order_step` is pieces per stepper click and must be a whole
+multiple of `quantity_in_unit`; NULL means one pack. All conversion lives in
+`client/src/lib/orderingModel.ts` and nowhere else. See
+[`docs/ORDERING_MODEL.md`](docs/ORDERING_MODEL.md).
+
+### Other V3 Phase 2 objects (15 Aug 2026)
+
+```
+v_category_live_counts  VIEW  (category_id, live_products) — published AND active.
+                              The ONE storefront category-count rule; a category
+                              absent from it has 0 live products and must not render.
+promo_banners           TABLE image_url, headline, rate_line (FREE TEXT — never a
+                              computed price), link_target, position, is_active
+                              (default FALSE), sort_order, starts_at, ends_at
+orders.user_id          uuid  → auth.users, nullable (NULL = guest checkout)
+site_content 'site_theme'     {"theme":"default|diwali|holi|monsoon|independence"}
+storage buckets               category-images, banner-images (public read,
+                              is_admin() writes)
 ```
 
 **Unit of sale — canonical rule (owner decision, 25 Jul 2026):**
@@ -847,6 +873,32 @@ sticky-right-many-cols,flex-cap-1920}.png`.
 
 ---
 
+### Storefront V3 — Phase 2 data foundation (15 Aug 2026)
+
+Schema/security only; no UI change. Full audit + phase plan in
+[`docs/STOREFRONT_V3_PLAN.md`](docs/STOREFRONT_V3_PLAN.md); migration in
+[`docs/sql/v3-phase2-schema.sql`](docs/sql/v3-phase2-schema.sql) with real
+verification output in [`docs/sql/v3-phase2-verification.md`](docs/sql/v3-phase2-verification.md).
+Additive only — nothing dropped, nothing backfilled, all 143 product rows reached
+`order_unit='pack'` through the column DEFAULT, so the 11 Hinged box rows are untouched.
+Adds `order_unit`/`order_step` (+CHECKs), `price_per_piece` (generated, **never granted
+to anon** — proved by an `anon` probe, not just a grant listing), `moq` granted to anon
+so the card can show an MOQ chip to guests, `v_category_live_counts`, `promo_banners`,
+the `category-images` + `banner-images` buckets (category upload had been throwing since
+it was written — the bucket never existed), the `site_theme` setting, and `orders.user_id`.
+**Known limitation recorded, not fixed:** per-piece sorting ranks the 11 per-piece-entered
+Hinged box rows first (sub-paisa rates) until the owner reprices them.
+
+### Storefront V3 — dead code removed (15 Aug 2026)
+
+`CartDrawer` (299), `AddToCartButton` (155), `HomeDailySuggestion` (105) and
+`lib/dailySuggestions.ts` (226) deleted — 785 lines with no live consumer, verified by a
+resolved import graph rather than substring greps. No behaviour and effectively no bundle
+change (they were already tree-shaken); the gain is clarity, plus 2 of the 9 MOQ call
+sites the ordering work must thread through.
+
+---
+
 ## 🗺️ Roadmap (next, in order)
 
 0. **PIM — phase order (authoritative):** `P1 brands (DONE, #135) → P2 series (CURRENT) → P3 spec fields → P4 images`.
@@ -926,17 +978,30 @@ sticky-right-many-cols,flex-cap-1920}.png`.
 
 ## 🔴 Known Issues
 
-- **Publish gate is TypeScript-only until the PR-1 SQL is applied.** RLS on `products`
-  checks `is_active` only, so drafts are readable through PostgREST by anyone with the
-  anon key; `status='published'` is enforced solely in `productService.ts` call sites.
-  Same for writes — `auth_update_products`/`auth_delete_products` are `USING (true)`, so
-  any signed-in customer can edit or delete any product. `auth_insert_products` is also
-  `WITH CHECK (true)`, allowing any authenticated user to insert products; the SQL file's
-  removal of this policy (statement [6]) is explicitly marked optional/skippable, so INSERT
-  authorization can remain open even after update/delete are hardened unless that statement
-  is run too. Fix prepared in [`docs/sql/pr1-rls-publish-gate.sql`](docs/sql/pr1-rls-publish-gate.sql) —
-  **owner-run, not yet applied**. An explicit decision on the INSERT policy is needed
-  before/alongside merge. Rollback + checklist alongside it in `docs/sql/`.
+- ~~**Publish gate is TypeScript-only until the PR-1 SQL is applied.**~~ **RESOLVED —
+  this entry was stale and is corrected here (verified against the live DB,
+  15 Aug 2026).** `products` RLS now enforces the publish gate itself:
+  `anon_read_published_products` USING `(is_active AND status='published')` and
+  `auth_read_published_products` USING `(… OR is_admin())`. **Writes are admin-only** —
+  the `auth_update_products` / `auth_delete_products` / `auth_insert_products` policies
+  this entry warned about **do not exist**; the single write path is
+  `Admins can manage products` USING `is_admin()`. The work prepared in
+  [`docs/sql/pr1-rls-publish-gate.sql`](docs/sql/pr1-rls-publish-gate.sql) has been applied
+  or superseded, and the INSERT-policy decision it called for is moot.
+  Evidence: [`docs/STOREFRONT_V3_PLAN.md`](docs/STOREFRONT_V3_PLAN.md) §13.1-B/-C.
+  Same correction applies to `product_masters` / `product_master_images`, which already
+  carry `is_admin()` manage policies (§13.1-D) — do not "fix" them again.
+- ⛔ **`sql/02-public-read-policies.sql` must never be re-run.** Its policy is
+  `USING (is_active = true)` with no status check, and RLS policies are OR-ed — running it
+  would re-expose every **draft** product to anonymous users and silently defeat the gate
+  above. The file is annotated in place; see `docs/STOREFRONT_V3_PLAN.md` §13.1-G.
+- **Three authorization holes remain open** (verified live, 15 Aug 2026), owner-authorised
+  for a dedicated PR: `orders`/`order_items` `SELECT` USING `auth.role()='authenticated'`
+  lets **any signed-in customer read every order** (name, phone, totals); `inquiries` lets
+  any authenticated user read/update/**delete** all rows; and `site_content` `auth write`
+  lets any signed-in customer **rewrite the storefront's copy**. The `product-images`
+  storage policies grant all four verbs to `authenticated` too. See
+  `docs/STOREFRONT_V3_PLAN.md` §13.1-F.
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`

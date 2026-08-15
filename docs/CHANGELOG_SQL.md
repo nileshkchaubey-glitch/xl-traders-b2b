@@ -17,6 +17,83 @@ statements are appended *after* they run, not submitted for approval.
 
 ---
 
+## 2026-08-15 — Storefront V3 Phase 2: data foundation
+
+Full file: [`docs/sql/v3-phase2-schema.sql`](sql/v3-phase2-schema.sql) ·
+Verification output: [`docs/sql/v3-phase2-verification.md`](sql/v3-phase2-verification.md)
+
+**Additive only.** No DROP, TRUNCATE, DELETE, UPDATE or ALTER…DROP; no existing
+policy replaced. All 143 product rows reached `order_unit='pack'` via the column
+DEFAULT — nothing was backfilled, so the 11 Hinged box rows (CLAUDE.md carve-out)
+are untouched.
+
+**[A]+[B] ordering columns + grants.** Reason: PCS-based ordering needs a
+customer-facing counting unit and step; `moq` granted to `anon` per Gate 1 Q1-a
+so the card can show an MOQ chip to signed-out visitors (a quantity, not a price).
+
+```sql
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS order_unit TEXT NOT NULL DEFAULT 'pack';
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS order_step INTEGER;
+ALTER TABLE public.products ADD CONSTRAINT products_order_unit_check    CHECK (order_unit IN ('pack','pcs'));
+ALTER TABLE public.products ADD CONSTRAINT products_order_step_positive CHECK (order_step IS NULL OR order_step > 0);
+GRANT SELECT (order_unit, order_step) ON public.products TO anon;
+GRANT SELECT (moq)                    ON public.products TO anon;
+GRANT SELECT                          ON public.products TO authenticated;
+```
+
+**[C] price_per_piece generated column + partial index.** Reason: PostgREST can
+only `ORDER BY` a column, not an expression, so per-piece sorting needs a stored
+column. **Deliberately NOT granted to `anon`** — it is derived from `price`, and
+`anon` can read `quantity_in_unit`, so a grant would reconstruct the wholesale
+price exactly.
+
+```sql
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price_per_piece NUMERIC
+  GENERATED ALWAYS AS (CASE WHEN price IS NULL OR price <= 0 THEN NULL
+                            WHEN quantity_in_unit IS NULL OR quantity_in_unit <= 0 THEN price::numeric
+                            ELSE price::numeric / quantity_in_unit END) STORED;
+CREATE INDEX IF NOT EXISTS products_price_per_piece_idx ON public.products (price_per_piece)
+  WHERE is_active AND status = 'published';
+```
+
+**[D] v_category_live_counts.** Reason: one place defines a storefront category
+count (published AND active), replacing a client-side aggregation that fetched
+every `category_id` and ignored the publish gate.
+
+```sql
+CREATE OR REPLACE VIEW public.v_category_live_counts AS
+  SELECT category_id, COUNT(*)::int AS live_products FROM public.products
+  WHERE status='published' AND is_active GROUP BY category_id;
+GRANT SELECT ON public.v_category_live_counts TO anon, authenticated;
+```
+
+**[E] promo_banners** (+ position/window CHECKs, partial index, RLS:
+`public_read_live_banners` for anon/authenticated, `admins_manage_banners` for
+`is_admin()`). Reason: owner-controlled banners; `is_active` defaults FALSE so a
+new banner is never live by accident.
+
+**[F] storage buckets `category-images` + `banner-images`** (public read; INSERT/
+UPDATE/DELETE scoped to `is_admin()`). Reason: `AdminCategories.tsx:53` has been
+uploading to a `category-images` bucket that never existed — every category image
+upload was throwing.
+
+**[G] `site_content` seed** `('site_theme','{"theme":"default"}')`, ON CONFLICT DO
+NOTHING. Reason: one festival-theme setting; never overwrite an owner choice.
+
+**[H] `orders.user_id`** uuid → `auth.users(id)` ON DELETE SET NULL, partial
+index, plus `users_read_own_orders`. Reason: Gate 1 Q2-a — reorder had no data
+model. ⚠️ **The new policy restricts nothing yet**: RLS policies are OR-ed and
+`Authenticated users can read orders` USING `auth.role()='authenticated'` still
+grants every signed-in user read access to every order. That closes only when the
+broad policy is replaced, in the dedicated authorization PR.
+
+**Read-only, recorded because later work depends on it:** `product_masters` and
+`product_master_images` already carry `is_admin()` manage policies — the
+`ALL … USING(true)` hole described in the task brief does not exist on this
+database. **No statement was run against them.**
+
+---
+
 ## 2026-07-29 — PR #135 UI verification run (PR #137)
 
 All six browser-level checks run as `dev-admin@xltraders.local` against the live admin UI.
