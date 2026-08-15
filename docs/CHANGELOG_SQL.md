@@ -17,6 +17,83 @@ statements are appended *after* they run, not submitted for approval.
 
 ---
 
+## 2026-08-15 — RLS authorization fix (three holes closed)
+
+Full file: [`docs/sql/v3-rls-authorization.sql`](sql/v3-rls-authorization.sql) ·
+Behavioural proof: [`docs/sql/v3-rls-authorization-verification.md`](sql/v3-rls-authorization-verification.md)
+
+⚠️ **This run REPLACED existing policies** — normally forbidden, owner-authorised
+for this change only (Gate 1, Q3-a). Each DROP is paired with its CREATE in the
+same transaction, so no table was ever left unprotected.
+
+**Holes closed, each demonstrated live before the fix** (demonstration ran inside
+`BEGIN … ROLLBACK`; nothing persisted): a non-admin signed-in customer could read
+every order, rewrite `site_content`, and DELETE all 12 `inquiries` rows.
+
+**[A] site_content** — reason: any signed-in customer could rewrite storefront
+copy, and V3 Phase 2 put the site theme in this table. Public read preserved.
+
+```sql
+DROP POLICY IF EXISTS "auth write" ON public.site_content;
+CREATE POLICY admins_manage_site_content ON public.site_content
+  FOR ALL USING (is_admin()) WITH CHECK (is_admin());
+```
+
+**[B] orders / order_items** — reason: SELECT/UPDATE/DELETE were all
+`USING (auth.role() = 'authenticated')`, exposing every customer's name, phone and
+totals to every other signed-in customer.
+
+```sql
+ALTER TABLE public.orders ALTER COLUMN user_id SET DEFAULT auth.uid();
+
+DROP POLICY IF EXISTS "Authenticated users can read orders"      ON public.orders;
+DROP POLICY IF EXISTS "Authenticated users can update orders"    ON public.orders;
+DROP POLICY IF EXISTS "Authenticated users can delete orders"    ON public.orders;
+DROP POLICY IF EXISTS "Anyone can place orders"                  ON public.orders;
+DROP POLICY IF EXISTS "Authenticated users can read order items" ON public.order_items;
+
+CREATE POLICY place_orders ON public.orders FOR INSERT TO anon, authenticated
+  WITH CHECK (user_id IS NULL OR user_id = auth.uid());
+CREATE POLICY admins_manage_orders ON public.orders
+  FOR ALL USING (is_admin()) WITH CHECK (is_admin());
+CREATE POLICY users_read_own_order_items ON public.order_items FOR SELECT TO authenticated
+  USING (is_admin() OR EXISTS (SELECT 1 FROM public.orders o
+                               WHERE o.id = order_items.order_id AND o.user_id = auth.uid()));
+CREATE POLICY admins_manage_order_items ON public.order_items
+  FOR ALL USING (is_admin()) WITH CHECK (is_admin());
+```
+
+The `user_id` DEFAULT is not incidental: without it, scoping SELECT to
+`user_id = auth.uid()` would have **broken checkout for every signed-in
+customer**, because `placeOrder()` uses `INSERT … RETURNING` and the client never
+set the column. `users_read_own_orders` (created in Phase 2, inert until now)
+becomes load-bearing here.
+
+**[C] inquiries** — reason: the `admin_`-prefixed policies were `USING (true)` TO
+`authenticated` despite their names, so any signed-in customer could read, alter
+and delete the whole WhatsApp-click log. `public_insert_inquiry` kept — guests
+write it.
+
+```sql
+DROP POLICY IF EXISTS admin_read_inquiries   ON public.inquiries;
+DROP POLICY IF EXISTS admin_update_inquiries ON public.inquiries;
+DROP POLICY IF EXISTS admin_delete_inquiries ON public.inquiries;
+CREATE POLICY admins_manage_inquiries ON public.inquiries
+  FOR ALL USING (is_admin()) WITH CHECK (is_admin());
+```
+
+**Run inside `BEGIN … ROLLBACK` and therefore left no trace** — the before/after
+probes, including seeded orders for two different users, a checkout simulation and
+a spoof attempt. Confirmed after: orders 2, order_items 2, inquiries 12,
+`site_theme` `{"theme": "default"}`, 0 probe rows.
+
+**Read-only findings recorded, not acted on:** guest checkout is already broken
+(`INSERT … RETURNING` needs a SELECT policy anon lacks — plain INSERT succeeds);
+`product-images` storage policies still grant all four verbs to any authenticated
+user; `enquiries` (the leads table) was checked and is already correctly scoped.
+
+---
+
 ## 2026-08-15 — Storefront V3 Phase 2: data foundation
 
 Full file: [`docs/sql/v3-phase2-schema.sql`](sql/v3-phase2-schema.sql) ·
