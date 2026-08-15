@@ -10,6 +10,10 @@ import {
   initialPacks,
   lineTotal,
   formatOrderQty,
+  packChipLabel,
+  moqChipLabel,
+  perPiecePrice,
+  formatPerPiecePrice,
   type OrderSpec,
 } from "./orderingModel";
 
@@ -304,6 +308,57 @@ describe("formatOrderQty", () => {
     const label = formatOrderQty(asPacks(2), spec);
     expect(label.primary).toBe("6,000 pcs");
     expect(label.secondary).toBe("2 boxes × 3,000 pcs");
+  });
+});
+
+// ── Card labels ─────────────────────────────────────────────────────────────
+describe("packChipLabel", () => {
+  it("names the selling unit and its size", () => {
+    expect(packChipLabel(resolveOrderSpec(row({ unit_of_measure: "box", quantity_in_unit: 900 })))).toBe("Box of 900");
+    expect(packChipLabel(resolveOrderSpec(row({ unit_of_measure: "roll", quantity_in_unit: 72 })))).toBe("Roll of 72");
+  });
+
+  it("falls back to 'Pack' when unit_of_measure names the pieces", () => {
+    expect(packChipLabel(resolveOrderSpec(row({ unit_of_measure: "pcs", quantity_in_unit: 1500 })))).toBe("Pack of 1,500");
+  });
+
+  it("renders nothing when the pack size says nothing", () => {
+    for (const qiu of [null, 0, 1]) {
+      expect(packChipLabel(resolveOrderSpec(row({ quantity_in_unit: qiu as number })))).toBeNull();
+    }
+  });
+});
+
+describe("moqChipLabel", () => {
+  it("counts in the unit the customer is counting in", () => {
+    expect(moqChipLabel(resolveOrderSpec(row({ order_unit: "pcs", quantity_in_unit: 3000, moq: 1 })))).toBe("MOQ 3,000 pcs");
+    expect(moqChipLabel(resolveOrderSpec(row({ order_unit: "pack", unit_of_measure: "box", moq: 2 })))).toBe("MOQ 2 boxes");
+    expect(moqChipLabel(resolveOrderSpec(row({ order_unit: "pack", unit_of_measure: "box", moq: 1 })))).toBe("MOQ 1 box");
+  });
+});
+
+describe("perPiecePrice", () => {
+  it("divides the pack price by the pack size", () => {
+    const spec = resolveOrderSpec(row({ quantity_in_unit: 480 }));
+    expect(perPiecePrice(4897, spec)).toBeCloseTo(10.2021, 4);
+  });
+
+  it("returns null when there is no usable pack size — never a bogus rate", () => {
+    for (const qiu of [null, 0, 1]) {
+      expect(perPiecePrice(100, resolveOrderSpec(row({ quantity_in_unit: qiu as number })))).toBeNull();
+    }
+  });
+
+  it("returns null for an absent or on-enquiry price", () => {
+    const spec = resolveOrderSpec(row({ quantity_in_unit: 480 }));
+    for (const p of [null, undefined, 0, -5, NaN]) {
+      expect(perPiecePrice(p as number, spec)).toBeNull();
+    }
+  });
+
+  it("keeps sub-paisa rates visible rather than rounding them to zero", () => {
+    const spec = resolveOrderSpec(row({ quantity_in_unit: 3000 }));
+    expect(formatPerPiecePrice(perPiecePrice(2.1, spec)!)).toBe("0.0007");
   });
 });
 
