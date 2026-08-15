@@ -891,7 +891,14 @@ source` — **there is no `user_id`**, and no order-history UI exists anywhere i
 nothing to keep. It needs an additive `orders.user_id uuid REFERENCES auth.users`
 plus a user-scoped RLS policy. **§14, Q2.**
 
-**F. Three real authorization holes remain** (none in the brief's Phase 2 scope):
+**F. ~~Three real authorization holes remain~~ — CLOSED 15 Aug 2026** in the
+dedicated PR (Gate 1, Q3-a). Each was demonstrated live before the fix and
+re-probed after; see
+[`docs/sql/v3-rls-authorization-verification.md`](sql/v3-rls-authorization-verification.md).
+`site_content`, `orders`/`order_items` and `inquiries` are now `is_admin()`-scoped,
+with a user-scoped read for a customer's own orders. **Still open:** the
+`product-images` storage policies (all four verbs to any authenticated user) —
+not among the three authorised, awaiting a go-ahead. Original text:
 - `orders` / `order_items`: `SELECT` USING `auth.role() = 'authenticated'` —
   **any signed-in customer can read every other customer's orders**: name, phone,
   totals. This gets worse the moment reorder ships.

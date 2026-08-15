@@ -995,13 +995,24 @@ sites the ordering work must thread through.
   `USING (is_active = true)` with no status check, and RLS policies are OR-ed — running it
   would re-expose every **draft** product to anonymous users and silently defeat the gate
   above. The file is annotated in place; see `docs/STOREFRONT_V3_PLAN.md` §13.1-G.
-- **Three authorization holes remain open** (verified live, 15 Aug 2026), owner-authorised
-  for a dedicated PR: `orders`/`order_items` `SELECT` USING `auth.role()='authenticated'`
-  lets **any signed-in customer read every order** (name, phone, totals); `inquiries` lets
-  any authenticated user read/update/**delete** all rows; and `site_content` `auth write`
-  lets any signed-in customer **rewrite the storefront's copy**. The `product-images`
-  storage policies grant all four verbs to `authenticated` too. See
-  `docs/STOREFRONT_V3_PLAN.md` §13.1-F.
+- ~~**Three authorization holes remain open**~~ **CLOSED 15 Aug 2026.** `site_content`,
+  `orders`/`order_items` and `inquiries` are now `is_admin()`-scoped, plus
+  `users_read_own_orders` / `users_read_own_order_items` for a customer's own data and
+  `place_orders` which refuses attributing an order to another user. Proven behaviourally
+  (a non-admin role reads its own order and is blocked from another's) in
+  [`docs/sql/v3-rls-authorization-verification.md`](docs/sql/v3-rls-authorization-verification.md).
+  `orders.user_id` now DEFAULTs to `auth.uid()` — required, or `INSERT … RETURNING` in
+  `placeOrder()` would have broken checkout for every signed-in customer.
+- 🔴 **Storage `product-images` policies are still open** — `auth_read/upload/update/
+  delete_product_images` grant all four verbs to **any authenticated user** (bucket check
+  only, no `is_admin()`). The `category-images` and `banner-images` buckets added in V3
+  Phase 2 ARE admin-scoped, so this is the odd one out. One line per verb to fix.
+- 🔴 **Guest checkout is broken** (pre-existing, found 15 Aug 2026). `orderService.placeOrder`
+  uses `.insert(...).select("id").single()` — an `INSERT … RETURNING`, which needs a SELECT
+  policy admitting the new row; `anon` has none, so it fails with *"new row violates
+  row-level security policy"*. A plain INSERT succeeds, so the fix is client-side (drop the
+  `.select()` for anonymous checkout) or server-side order creation — **not** widening
+  anon's reads, which would re-open a disclosure hole.
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
 - `specifications` JSONB column unused — start populating
 - `business_settings` `.single()` throws on 0 rows — fix to `.maybeSingle()`
