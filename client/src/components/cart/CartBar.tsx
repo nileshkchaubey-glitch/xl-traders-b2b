@@ -6,7 +6,7 @@ import { useMinOrder } from "@/hooks/useMinOrder";
 /**
  * Persistent floating cart bar — shown storefront-wide whenever the cart has
  * 1+ items. Mobile: full-width bar docked above the bottom tab nav. Desktop:
- * bottom-right bar. Reads the same Zustand cart store as CartDrawer/Cart.tsx;
+ * bottom-right bar. Reads the same Zustand cart store as Cart.tsx;
  * total already excludes on-enquiry lines (cartLinePrice zeroes them at
  * add-time), so it's never shown as ₹0.
  */

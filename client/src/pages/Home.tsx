@@ -6,7 +6,6 @@ import Footer from "@/components/Footer";
 import HeroMotionTiles from "@/components/home/HeroMotionTiles";
 import HomeCategoryGrid from "@/components/home/HomeCategoryGrid";
 import HomeCatalogueShowcase from "@/components/home/HomeCatalogueShowcase";
-import HomeDailySuggestion from "@/components/home/HomeDailySuggestion";
 import SectionEyebrow from "@/components/SectionEyebrow";
 import {
   MessageCircle,
@@ -37,7 +36,6 @@ function getFadeUp(reduced: boolean) {
 
 export default function Home() {
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
-  const isDev = import.meta.env.DEV;
   const { isAuthenticated } = useAuthStore();
   const prefersReducedMotion = useReducedMotion();
   const fadeUp = getFadeUp(!!prefersReducedMotion);
@@ -370,9 +368,6 @@ export default function Home() {
             </div>
           </div>
         </motion.section>
-
-        {/* Daily improvement suggestions — dev mode only */}
-        {isDev && <HomeDailySuggestion />}
       </main>
 
       <Footer />
