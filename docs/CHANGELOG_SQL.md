@@ -17,6 +17,61 @@ statements are appended *after* they run, not submitted for approval.
 
 ---
 
+## 2026-08-15 — Unbacked customer-facing claims removed (§12.3 dispositions)
+
+Reason: the storefront advertised **slab pricing that V3 explicitly does not
+implement**, an unverifiable rating and customer count, and a dispatch promise
+that contradicted the owner-confirmed one. Owner approved the §12.3 dispositions
+in `docs/STOREFRONT_V3_PLAN.md`.
+
+⚠️ **Why SQL was needed at all.** `settingsService` merges a stored
+`site_content` row OVER its in-code fallback, so editing `FALLBACKS` alone
+changes nothing on a site whose rows already exist — and every one of these
+claims was **live in the database**, not just in code. The code change without
+this UPDATE would have been cosmetic.
+
+Rows updated: `trust_stats`, `trust_points`, `bulk_banner`, `faqs`,
+`announcement`, `footer`, `hero`, `trust_badge`. One row inserted: `dispatch`.
+
+**Previous values, for reversal:**
+
+```
+trust_stats   [{"value":"4.8*","label":"Google Rating","sub":"From local businesses"},
+               {"value":"10+","label":"Years in Business","sub":"Wholesale since day one"},
+               {"value":"500+","label":"Businesses Served","sub":"Restaurants to kirana"},
+               {"value":"24h","label":"Dispatch Promise","sub":"Same-day in Surat"}]
+trust_points  [..., {"glyph":"R","title":"Transparent wholesale pricing",
+                     "body":"Sign in to see exact prices; bulk orders unlock better rates."},
+                    {"glyph":"v","title":"Quality-checked supply",
+                     "body":"Food-grade materials from verified manufacturers."}]
+bulk_banner   body: "Get a dedicated quote with slab pricing, custom printing and
+                     scheduled deliveries. Response within 2 business hours."
+faqs[1].a     "Yes - same-day in Surat city, next-day across South Gujarat, and
+               2-4 days pan-India via surface transport."
+faqs[2].a     "Yes, for bulk orders. Use the Bulk Quote button and we respond
+               within 2 business hours with slab pricing."
+announcement  deliveryLine: "Same-day Surat / Next-day South Gujarat / 2-4 days Pan-India"
+footer        tagline: "You Order, We Deliver - wholesale in under 60 seconds."
+              ordering: ["Same-day delivery in Surat","24h dispatch pan-India",
+                         "Order & confirm on WhatsApp"]
+hero          subline: "... Order in under a minute - delivered same-day in Surat."
+              promiseTiers: ["Same-day / Surat city","Next-day / South Gujarat",
+                             "2-4 days / Pan-India"]
+trust_badge   {"rating":"4.8 on Google","businesses":"500+ businesses served"}
+```
+
+New `dispatch` key holds the single owner-confirmed per-product line
+(`Surat - same day / Outside Surat - 2-3 days`), stated once and rendered per
+product rather than as a global banner claim. **No freight line anywhere** - that
+rule is unsettled, and an omitted line beats a wrong threshold.
+
+**Verified after:** all 14 `site_content` rows scanned against a claim regex
+(slab pricing / 500+ / 4.8 / 10+ / 24h dispatch / next-day / 2-4 days / business
+hours / verified manufacturer / free delivery / under a minute / exact price) -
+**every row clean**.
+
+---
+
 ## 2026-08-15 — RLS authorization fix (three holes closed)
 
 Full file: [`docs/sql/v3-rls-authorization.sql`](sql/v3-rls-authorization.sql) ·

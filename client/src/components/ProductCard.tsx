@@ -205,7 +205,7 @@ export default function ProductCard({
         className="text-caption font-semibold text-red-600 underline"
         onClick={e => e.stopPropagation()}
       >
-        Sign in for exact price
+        Sign in for rates
       </Link>
     </>
   );

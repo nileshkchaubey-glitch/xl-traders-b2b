@@ -59,7 +59,10 @@ export function metaDescriptionFor(
 ): string {
   const base = description?.trim()
     ? description.trim().slice(0, 140)
-    : `Buy ${name}${categoryName ? " (" + categoryName + ")" : ""} wholesale at XL Traders, Surat. Bulk rates, free delivery.`;
+    // "free delivery" was here and reached SEARCH RESULTS, not just the page.
+    // There is no freight rule settled, so no freight claim is made at all
+    // (docs/STOREFRONT_V3_PLAN.md §12 C1).
+    : `Buy ${name}${categoryName ? " (" + categoryName + ")" : ""} wholesale at XL Traders, Surat. Bulk rates for businesses.`;
   return base.slice(0, 155);
 }
 

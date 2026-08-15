@@ -173,10 +173,10 @@ export default function Home() {
               </div>
               <div className="flex-1">
                 <div className="text-white text-body-md font-bold">
-                  Unlock exact wholesale prices in 10 seconds
+                  Sign in for your wholesale rates
                 </div>
                 <div className="text-slate-400 text-body-sm">
-                  Sign in to see exact prices and order with one tap on
+                  See per-piece rates on every product and order on
                   WhatsApp.
                 </div>
               </div>
