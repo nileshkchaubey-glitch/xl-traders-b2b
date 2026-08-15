@@ -95,6 +95,36 @@ export function pluralNoun(noun: string, n: number): string {
   return /(?:s|x|z|ch|sh)$/i.test(noun) ? `${noun}es` : `${noun}s`;
 }
 
+/**
+ * Rebuild an OrderSpec from a CART LINE's stored snapshot.
+ *
+ * This exists so spec construction happens in exactly ONE module. The cart
+ * store previously rebuilt the spec itself and passed `unit_of_measure`
+ * straight through as the noun — which skipped `sellingUnitNoun` and rendered
+ * "5 pcses" and "MOQ 2 pcses" in the cart while the card, going through
+ * `resolveOrderSpec`, correctly said "pack". Same product, two nouns.
+ */
+export function specFromSnapshot(snap: {
+  orderUnit: OrderUnit;
+  packSize: number;
+  orderStep: number;
+  moq: number;
+  unit: string;
+}): OrderSpec {
+  const packSize = snap.packSize > 0 ? snap.packSize : 1;
+  const step = snap.orderStep > 0 ? snap.orderStep : packSize;
+  const minPacks = snap.moq >= 1 ? Math.floor(snap.moq) : 1;
+  return {
+    unit: snap.orderUnit,
+    packSize,
+    step,
+    minPacks,
+    minPcs: Math.ceil((minPacks * packSize) / step) * step,
+    // The SAME derivation resolveOrderSpec uses — not the raw column.
+    noun: sellingUnitNoun(snap.unit),
+  };
+}
+
 type OrderingFields = Pick<
   Product,
   "order_unit" | "order_step" | "quantity_in_unit" | "moq" | "unit_of_measure"

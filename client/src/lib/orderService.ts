@@ -1,12 +1,18 @@
 import { supabase, Order, OrderItem, OrderStatus } from "./supabase";
-import { CartItem, CustomerInfo, specOfCartItem } from "@/stores/cartStore";
-import { lineTotal, pcsFromPacks, pluralNoun } from "./orderingModel";
+import { CartItem, CustomerInfo, cartTotals } from "@/stores/cartStore";
+import { lineTotal } from "./orderingModel";
+// Re-exported so existing callers keep importing it from orderService; the
+// implementation lives in orderMessage.ts, which is free of Supabase and
+// therefore unit-testable.
+export { buildWhatsAppMessage } from "./orderMessage";
 
 export const orderService = {
   async placeOrder(items: CartItem[], customer: CustomerInfo): Promise<string> {
-    // Money is packs × price, and lineTotal is the only thing that multiplies.
-    const total = items.reduce((s, i) => s + lineTotal(i.packs, i.price), 0);
-    const itemCount = items.reduce((s, i) => s + i.packs, 0);
+    // Same cartTotals the cart page and the WhatsApp message use, so the saved
+    // order can never disagree with either.
+    const t = cartTotals(items);
+    const total = t.total;
+    const itemCount = t.packs;
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -43,45 +49,6 @@ export const orderService = {
     if (itemsError) throw itemsError;
 
     return orderId;
-  },
-
-  buildWhatsAppMessage(items: CartItem[], customer: CustomerInfo): string {
-    // This message is a manual-fulfilment document, so a pcs line carries BOTH
-    // the piece count (what the customer asked for) and the pack count (what
-    // gets picked off the shelf) rather than choosing between them.
-    // A pack line is byte-identical to what shipped before (ORDERING_MODEL §8.5).
-    const lines = items.map(i => {
-      const spec = specOfCartItem(i);
-      const qty =
-        spec.unit === "pcs"
-          ? `${pcsFromPacks(i.packs, spec).toLocaleString()} pcs (${i.packs} ${pluralNoun(spec.noun, i.packs)} × ${spec.packSize.toLocaleString()})`
-          : `${i.packs}`;
-      return i.priceOnEnquiry
-        ? `${qty} x ${i.name} — price on enquiry`
-        : `${qty} x ${i.name} — ₹${lineTotal(i.packs, i.price).toLocaleString()}`;
-    });
-    const total = items.reduce(
-      (s, i) => s + (i.priceOnEnquiry ? 0 : lineTotal(i.packs, i.price)),
-      0
-    );
-    const itemCount = items.reduce((s, i) => s + i.packs, 0);
-    // When every line is price-on-enquiry there is no meaningful rupee total —
-    // show "Price on enquiry" instead of a misleading ₹0.
-    const allEnquiry = items.length > 0 && items.every(i => i.priceOnEnquiry);
-    const totalLine = allEnquiry
-      ? "Total: Price on enquiry"
-      : `Total: ₹${total.toLocaleString()}`;
-
-    return [
-      "🛒 New Order from XL Traders",
-      `Customer: ${customer.name}`,
-      `Phone: ${customer.phone}`,
-      "──────────",
-      ...lines,
-      "──────────",
-      totalLine,
-      `Items: ${itemCount}`,
-    ].join("\n");
   },
 
   async getAll(): Promise<Order[]> {
