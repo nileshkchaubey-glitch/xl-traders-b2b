@@ -1,3 +1,4 @@
+import { publicProductQueryShape } from "./productService";
 import { supabase, Product, Category } from "./supabase";
 
 export interface ProductMaster {
@@ -100,19 +101,35 @@ export const masterService = {
 
   // Public storefront call — only published variants are returned so a draft
   // variant never shows in the product page variant selector.
+  // Public variant list for the PDP selector.
+  //
+  // Goes through publicProductQueryShape because BOTH halves of the previous
+  // implementation — `.select("*")` and `.order("price")` — are refused for
+  // `anon`, which has no grant on the price columns. Postgres rejects an ORDER
+  // BY on an unreadable column exactly as it rejects a WHERE, so this threw
+  // "permission denied for table products", was swallowed by the catch, and
+  // returned [] — leaving every SIGNED-OUT visitor with no variant selector at
+  // all. Verified live before and after.
   async getVariantsByMasterId(masterId: string) {
-    const { data, error } = await supabase
+    const { cols, canSortByPrice } = await publicProductQueryShape();
+    let query = supabase
       .from("products")
-      .select("*")
+      .select(cols)
       .eq("master_id", masterId)
       .eq("status", "published")
-      .order("price", { ascending: true });
+      .eq("is_active", true);
+
+    query = canSortByPrice
+      ? query.order("price", { ascending: true, nullsFirst: false })
+      : query.order("variant_label", { ascending: true });
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching variants:", error);
       return [];
     }
-    return data as Product[];
+    return (data as unknown as Product[]) ?? [];
   },
 
   // Admin call — every variant of a master regardless of status (draft +

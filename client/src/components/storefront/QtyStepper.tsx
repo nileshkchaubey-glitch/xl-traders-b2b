@@ -14,6 +14,13 @@ interface QtyStepperProps {
   /** Receives the new PACK count. Zero means "remove this line". */
   onChange: (packs: Packs) => void;
   className?: string;
+  /**
+   * "sm" is the card footprint (h-9 w-[124px]) and must stay byte-identical to
+   * the Add button it replaces. "lg" is the PDP buy panel. Same behaviour, same
+   * conversion rules — only the metrics differ, which is why this is a prop and
+   * not a second stepper.
+   */
+  size?: "sm" | "lg";
 }
 
 /**
@@ -35,7 +42,9 @@ export default function QtyStepper({
   spec,
   onChange,
   className = "",
+  size = "sm",
 }: QtyStepperProps) {
+  const lg = size === "lg";
   const inPcs = spec.unit === "pcs";
   const shown = inPcs ? pcsFromPacks(packs, spec) : packs;
 
@@ -52,29 +61,31 @@ export default function QtyStepper({
 
   return (
     <div
-      className={`flex items-center h-9 w-[124px] rounded-lg overflow-hidden bg-red-600 text-white shadow-sm ${className}`}
+      className={`flex items-center overflow-hidden rounded-lg bg-red-600 text-white shadow-sm ${
+        lg ? "h-12 w-[176px]" : "h-9 w-[124px]"
+      } ${className}`}
     >
       <button
         onClick={bump(-1)}
-        className="w-9 h-full grid place-items-center hover:bg-red-700 transition"
+        className={`${lg ? "w-12" : "w-9"} h-full grid place-items-center hover:bg-red-700 transition`}
         aria-label={inPcs ? `Decrease by ${spec.step} pcs` : "Decrease by 1"}
       >
-        <Minus size={14} strokeWidth={3} />
+        <Minus size={lg ? 17 : 14} strokeWidth={3} />
       </button>
       <div className="flex-1 text-center leading-none">
-        <div className="text-[13px] font-extrabold tabular-nums">
+        <div className={`font-extrabold tabular-nums ${lg ? "text-[17px]" : "text-[13px]"}`}>
           {shown.toLocaleString("en-IN")}
         </div>
-        <div className="text-[8.5px] font-bold uppercase tracking-wide opacity-80">
+        <div className={`font-bold uppercase tracking-wide opacity-80 ${lg ? "text-[10px]" : "text-[8.5px]"}`}>
           {inPcs ? "pcs" : spec.noun}
         </div>
       </div>
       <button
         onClick={bump(1)}
-        className="w-9 h-full grid place-items-center hover:bg-red-700 transition"
+        className={`${lg ? "w-12" : "w-9"} h-full grid place-items-center hover:bg-red-700 transition`}
         aria-label={inPcs ? `Increase by ${spec.step} pcs` : "Increase by 1"}
       >
-        <Plus size={14} strokeWidth={3} />
+        <Plus size={lg ? 17 : 14} strokeWidth={3} />
       </button>
     </div>
   );

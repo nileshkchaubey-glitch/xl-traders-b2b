@@ -12,6 +12,13 @@ interface PriceSlotProps {
   isAuthenticated: boolean;
   /** Stop a card-level link from swallowing the sign-in click. */
   onLinkClick?: (e: React.MouseEvent) => void;
+  /**
+   * "card" pins a fixed 52px so a grid cell cannot change height between auth
+   * states. "pdp" is the same component at buy-panel scale — the rules are
+   * identical, only the type sizes differ, which is why this is a prop rather
+   * than a second component.
+   */
+  size?: "card" | "pdp";
 }
 
 /**
@@ -38,10 +45,20 @@ export default function PriceSlot({
   spec,
   isAuthenticated,
   onLinkClick,
+  size = "card",
 }: PriceSlotProps) {
-  // Fixed height — see rule 2 above. Change this and you must re-check both
-  // states at 390px and 1440px.
-  const shell = "h-[52px] flex flex-col justify-center";
+  const pdp = size === "pdp";
+  // Fixed height — see rule 2 above. Change either and you must re-check both
+  // auth states at 390px and 1440px.
+  const shell = pdp
+    ? "min-h-[68px] flex flex-col justify-center"
+    : "h-[52px] flex flex-col justify-center";
+  const rateCls = pdp
+    ? "text-3xl font-extrabold text-slate-900 tabular-nums leading-none"
+    : "text-lg font-extrabold text-slate-900 tabular-nums leading-none";
+  const subCls = pdp
+    ? "text-body-sm text-slate-500 tabular-nums"
+    : "text-caption text-slate-500 tabular-nums";
 
   if (!isAuthenticated) {
     return (
@@ -49,11 +66,13 @@ export default function PriceSlot({
         <Link
           href="/auth"
           onClick={onLinkClick}
-          className="inline-flex w-fit items-center gap-1 text-body-sm font-extrabold text-red-600 hover:underline"
+          className={`inline-flex w-fit items-center gap-1 font-extrabold text-red-600 hover:underline ${
+            pdp ? "text-xl" : "text-body-sm"
+          }`}
         >
           Sign in for rates
         </Link>
-        <span className="text-caption text-slate-500">
+        <span className={pdp ? "text-body-sm text-slate-500" : "text-caption text-slate-500"}>
           Wholesale rates for businesses
         </span>
       </div>
@@ -64,10 +83,10 @@ export default function PriceSlot({
     return (
       <div className={shell}>
         {/* Amber is the documented On-Enquiry colour (DESIGN_SYSTEM §1.3). */}
-        <span className="text-body-sm font-bold text-amber-700">
+        <span className={`font-bold text-amber-700 ${pdp ? "text-xl" : "text-body-sm"}`}>
           Price on enquiry
         </span>
-        <span className="text-caption text-slate-500">
+        <span className={pdp ? "text-body-sm text-slate-500" : "text-caption text-slate-500"}>
           Ask us on WhatsApp
         </span>
       </div>
@@ -81,14 +100,14 @@ export default function PriceSlot({
       {rate != null ? (
         <>
           <span className="flex items-baseline gap-1">
-            <span className="text-lg font-extrabold text-slate-900 tabular-nums leading-none">
-              ₹{formatPerPiecePrice(rate)}
-            </span>
-            <span className="text-caption font-semibold text-slate-500">
+            <span className={rateCls}>₹{formatPerPiecePrice(rate)}</span>
+            <span
+              className={`font-semibold text-slate-500 ${pdp ? "text-body-sm" : "text-caption"}`}
+            >
               / piece
             </span>
           </span>
-          <span className="text-caption text-slate-500 tabular-nums">
+          <span className={subCls}>
             ₹{price!.toLocaleString("en-IN")} per {spec.noun}
           </span>
         </>
@@ -96,10 +115,8 @@ export default function PriceSlot({
         // No usable pack size, so a per-piece rate would be a division by an
         // unknown. Show the selling-unit price and say which unit it is.
         <>
-          <span className="text-lg font-extrabold text-slate-900 tabular-nums leading-none">
-            ₹{price!.toLocaleString("en-IN")}
-          </span>
-          <span className="text-caption text-slate-500">per {spec.noun}</span>
+          <span className={rateCls}>₹{price!.toLocaleString("en-IN")}</span>
+          <span className={subCls}>per {spec.noun}</span>
         </>
       )}
     </div>
