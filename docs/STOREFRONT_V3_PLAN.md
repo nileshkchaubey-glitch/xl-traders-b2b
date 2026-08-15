@@ -68,6 +68,7 @@ Line counts are exact. "Customer-facing" = reachable from a storefront route
 | `components/home/HomeCatalogueShowcase.tsx` | 252 | **REFACTOR** | Closest existing thing to a merchandised row. Keep the paginated-fetch discipline; re-skin and re-point at the new list contract. |
 | `components/home/HeroMotionTiles.tsx` | 191 | **REWRITE** | V3 hero is a slideshow with `You order, we deliver.` **[proto]**, not rotating tiles. |
 | `components/home/HomeDailySuggestion.tsx` | 105 | **DELETE** | An internal *developer* idea-widget rendered on the public home page. Gated `{isDev && …}` (`Home.tsx:375`) so it is not live — but it is 105 lines of admin content in the storefront tree. See §2. |
+| `lib/dailySuggestions.ts` | 226 | **DELETE** | Its only consumer is the row above. See §2 (and the correction recorded there). |
 
 ### 1.4 Cart & ordering
 
@@ -97,14 +98,14 @@ Line counts are exact. "Customer-facing" = reachable from a storefront route
 | `hooks/useMobile.tsx` | 21 | **KEEP** | Chrome-only breakpoint hook. |
 | `index.css` | 282 | **REFACTOR** | Tailwind v4 `@theme`; there is **no `tailwind.config.*`** **[code]** — §4.3. Gains theme-accent variables (§9.2). |
 
-**Totals** — storefront surface: ~7,050 lines across 39 files. Verdicts:
-KEEP 15 · REFACTOR 10 · REWRITE 11 · DELETE 3.
+**Totals** — storefront surface: ~7,280 lines across 40 files. Verdicts:
+KEEP 15 · REFACTOR 10 · REWRITE 11 · DELETE 4.
 
 ---
 
 ## 2. DELETE LIST — with grep proof
 
-### 2.1 Safe to delete now (proof included)
+### 2.1 Safe to delete now — 4 files, 785 lines (proof included)
 
 **1. `client/src/components/cart/CartDrawer.tsx` — 299 lines**
 
@@ -142,12 +143,36 @@ client/src/pages/Home.tsx:375:        {isDev && <HomeDailySuggestion />}
 
 One importer, and it is dev-gated so it never renders in production. Its content
 is *internal development advice* ("Show product stock status (In Stock / Low Stock
-/ Pre-Order)") rendered inside the customer home page. The same data
-(`lib/dailySuggestions.ts`, 226 lines) already drives the admin Daily Improvement
-widget, which is where it belongs.
+/ Pre-Order)") rendered inside the customer home page.
 
-**Delete the component; keep `lib/dailySuggestions.ts`** — `AdminDailyImprovementsWidget`
-and `contexts/ThemeContext` both reference it **[code]**.
+**4. `client/src/lib/dailySuggestions.ts` — 226 lines**
+
+```
+$ grep -rn 'from "@/lib/dailySuggestions"' client/src
+client/src/components/home/HomeDailySuggestion.tsx:3:import { DAILY_SUGGESTIONS, getTodaysSuggestion } from "@/lib/dailySuggestions";
+```
+
+**Exactly one consumer — the component deleted above.** Deleting #3 orphans this
+file, so both go together.
+
+> **Correction (owner review).** An earlier revision of this section claimed
+> `dailySuggestions.ts` was also used by `AdminDailyImprovementsWidget` and
+> `ThemeContext`, and therefore said to keep it. **That was wrong on both counts.**
+> The admin widget imports a *different* file, `lib/adminDailyImprovements.ts`
+> (433 lines, alive, untouched); and the `ThemeContext` "reference" was a grep hit
+> for files *containing the string* `ThemeContext` — `dailySuggestions.ts` merely
+> mentions it in suggestion prose. The claim inverted import direction and
+> conflated two similarly-named modules.
+>
+> **Method fix, applied to every claim in this section:** references are now
+> derived from a resolved **import graph** (`from "…"` / dynamic `import()`,
+> comments stripped, `@/` and relative specifiers both resolved) rather than
+> substring greps. Re-run over all 141 modules: **107 reachable from `main.tsx`,
+> 34 orphaned** — and every orphan except the two dead cart files is an unused
+> `components/ui/*` shadcn primitive. A cascade check confirms deleting the four
+> files below orphans **nothing else**.
+
+**Delete set: 4 files, 785 lines.**
 
 ### 2.2 Verify with owner before deleting
 
@@ -721,13 +746,15 @@ Each PR is independently mergeable, independently testable, ≤ ~15 files.
 
 | # | Branch | Scope | Merge |
 | - | ------ | ----- | ----- |
-| **1** | `docs/storefront-v3-plan` | This document. | **Gate 1 — owner** |
-| **2** | `feat/storefront-v3-schema` | `order_unit`/`order_step` + grants (block [A]+[B]); `price_per_piece` + partial index (block [C], **not** granted to anon); `v_category_live_counts`; `promo_banners` + RLS; `category-images` + `banner-images` buckets + policies; `site_theme` seed. Verification output pasted; `CHANGELOG_SQL.md` in the same commit. | **Owner — do NOT self-merge** |
+| **1** | `docs/storefront-v3-plan` | This document. | **Gate 1 — owner ✅ approved** |
+| **1b** | `chore/remove-dead-storefront-code` | The §2.1 delete set (4 files, 785 lines). Pure dead-code removal, no behaviour change. | self |
+| **2** | `feat/storefront-v3-schema` | `order_unit`/`order_step` + grants (block [A]+[B]); **`GRANT SELECT (moq) TO anon`** (Q1-a); **`orders.user_id` + user-scoped read policy** (Q2-a); `price_per_piece` + partial index (block [C], **not** granted to anon); `v_category_live_counts`; `promo_banners` + RLS; `category-images` + `banner-images` buckets + policies; `site_theme` seed; annotate the `sql/02` landmine (§13.1-G); **correct CLAUDE.md's stale Known Issues** (§13.1-B/-C). `product_masters` RLS is **verified and recorded, not changed** (§13.1-D). Verification output pasted; `CHANGELOG_SQL.md` in the same commit. | **Owner — do NOT self-merge** |
+| **2b** | `fix/rls-authorization` | **Dedicated, not batched** (Q3-a): scope `site_content`, `orders`/`order_items` and `inquiries` writes/reads to `is_admin()` / owner. Each DROP/CREATE pair shown with verification output. | **Owner — do NOT self-merge** |
 | **3** | `chore/service-split` | Mechanical split of the `productService.ts` god-file (§3.1) behind a barrel. No behaviour change. | self |
 | **4** | `feat/ordering-model-pr-a` | `orderingModel.ts`; `CartItem` reshape; `cartStore` (`setPacks`/`setPcs`/`getLineCount`, persist `version`); mechanical call-site fixes; **guest price-sort fix (§13.1-A)**; vitest + `orderingModel` unit tests. | self |
 | **5** | `fix/public-search-sanitise` | §7.4 sanitiser + §7.3 trigram indexes + §7.5 composite indexes. Small, high-value, independently revertable. | self |
 | **6** | `feat/storefront-v3-data` | New list contract (§3.4): `listProducts`/`countProducts`/`pricingService.getRates`; `ProductSummary`/`CardModel` types; `getLiveCounts`. Old callers adapted, UI unchanged. | self |
-| **7** | `feat/storefront-v3-ui-card` | `ProductCard` + `PackChip`/`PriceSlot`/`QtyStepper`/`MoqNotice`/`DispatchLine`. **Delete `CartDrawer`, `AddToCartButton`, `HomeDailySuggestion`.** | self |
+| **7** | `feat/storefront-v3-ui-card` | `ProductCard` + `PackChip`/`PriceSlot`/`QtyStepper`/`MoqNotice`/`DispatchLine`. | self |
 | **8** | `feat/storefront-v3-ui-pdp` | ProductDetail rebuild: single rate, pcs stepper, variant reset, spec table hidden when empty, sticky add bar. | self |
 | **9** | `feat/storefront-v3-ui-cart` | Cart page + sticky cart bar + WhatsApp message format. | self |
 | **10** | `feat/storefront-v3-ui-shell` | Header/sticky search, 5-tab bottom nav, Back to top, `/categories`, `/search`, `/account` routes, bottom padding. | self |
@@ -907,7 +934,22 @@ actually uses `DROP` + `CREATE`). **Archive or annotate this file in PR 2.**
 
 ---
 
-## 14. Questions for the owner — Gate 1
+## 14. Questions for the owner — Gate 1 — **ANSWERED**
+
+Gate 1 was approved on 15 Aug 2026. Decisions, as given:
+
+| Q | Decision |
+| - | -------- |
+| **Q1** MOQ for guests | **(a) Grant `moq` to `anon`** — it is a quantity, not a price. The card shows an MOQ chip in every auth state. |
+| **Q2** Reorder data model | **(a) Add `orders.user_id` + a user-scoped read policy in PR 2.** History UI built later. |
+| **Q3** Authorization holes | **(a) Fix all three — in a DEDICATED PR, `site_content` first.** Replacing those policies is authorised. Each DROP/CREATE pair and its verification output must be shown. **Not to be batched with other work.** |
+| **Q4** Copy dispositions | **§12.3 accepted as written.** |
+
+Two consequent scope changes, both applied above: `product_masters` RLS is
+**verified and recorded, not changed** (§13.1-D), and CLAUDE.md's stale Known
+Issues (§13.1-B/-C) are corrected as part of PR 2.
+
+The original wording of each question is kept below for the record.
 
 These four genuinely change what gets built. Everything else in this plan is
 decided.
