@@ -286,7 +286,7 @@ export function packChipLabel(spec: OrderSpec): string | null {
 export function moqChipLabel(spec: OrderSpec): string {
   return spec.unit === "pcs"
     ? `MOQ ${spec.minPcs.toLocaleString("en-IN")} pcs`
-    : `MOQ ${spec.minPacks} ${pluralNoun(spec.noun, spec.minPacks)}`;
+    : `MOQ ${spec.minPacks.toLocaleString("en-IN")} ${pluralNoun(spec.noun, spec.minPacks)}`;
 }
 
 export interface OrderQtyLabel {
@@ -303,13 +303,13 @@ export interface OrderQtyLabel {
 export function formatOrderQty(packs: Packs, spec: OrderSpec): OrderQtyLabel {
   if (spec.unit === "pack") {
     return {
-      primary: `${packs} ${pluralNoun(spec.noun, packs)}`,
+      primary: `${packs.toLocaleString("en-IN")} ${pluralNoun(spec.noun, packs)}`,
       secondary: null,
     };
   }
   const pcs = pcsFromPacks(packs, spec);
   return {
     primary: `${pcs.toLocaleString("en-IN")} pcs`,
-    secondary: `${packs} ${pluralNoun(spec.noun, packs)} × ${spec.packSize.toLocaleString("en-IN")} pcs`,
+    secondary: `${packs.toLocaleString("en-IN")} ${pluralNoun(spec.noun, packs)} × ${spec.packSize.toLocaleString("en-IN")} pcs`,
   };
 }

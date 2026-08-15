@@ -640,7 +640,23 @@ The prototype is **not** the model here: the brief describes it as embedding
 base64 images, but it contains **zero** `data:image` URIs — its product imagery is
 placeholder blocks **[proto]**. So it offers no guidance on the real pipeline.
 
-**Decision:** production serves sized WebP from Supabase Storage.
+**DECISION (owner, final — 15 Aug 2026): do NOT buy Supabase paid image
+transformations. Resize on upload instead.**
+
+When a product or category image is uploaded through the admin path, store a
+web-sized WebP **alongside** the original. `autoResizeImage` already emits WebP
+(`imageUtils.ts:19,58`), so this is an addition to the upload pipeline, not new
+image machinery. Once those files exist, `ProductImage` emits a real 1x/2x
+`srcSet` against them — the component is already written to do so and
+deliberately does not emit a `srcSet` for renditions that do not yet exist.
+
+**This is settled. Do not revisit it, and do not propose the paid plan again.**
+Scheduled as **Phase 5** scope (see §10). Until it lands, Supabase-hosted
+originals are served at their stored size and Drive-hosted images are requested
+at a slot-appropriate width via the thumbnail endpoint.
+
+**Superseded reasoning, kept so the trade-off is legible:** production serves
+sized WebP from Supabase Storage.
 
 > **Constraint the plan must respect:** Supabase **image transformations are a
 > paid-plan feature**, and this project is on the **FREE plan** (CLAUDE.md, Tech
@@ -760,6 +776,7 @@ Each PR is independently mergeable, independently testable, ≤ ~15 files.
 | **10** | `feat/storefront-v3-ui-shell` | Header/sticky search, 5-tab bottom nav, Back to top, `/categories`, `/search`, `/account` routes, bottom padding. | self |
 | **11** | `feat/storefront-v3-ui-home` | Hero slideshow, promo banners, 4-across categories, merchandised rows, festival theme wiring. | self |
 | **12** | `perf/storefront-splitting` | Route-level lazy loading, `manualChunks`, framer-motion removal; before/after bundle numbers. | self |
+| **P5** | `feat/image-pipeline` | **Phase 5 (owner decision).** Resize-on-upload: admin writes a web-sized WebP beside the original for product AND category images; `ProductImage` then emits a real 1x/2x `srcSet`. No paid Supabase transformations. | self |
 | **13** | `feat/storefront-v3-copy` | Apply the §12 unbacked-claims decisions across `settingsService` fallbacks, Footer, PDP, `catalogHealth`. | self |
 
 PR 2 blocks 4, 6, 7, 8, 11. PR 3 should land early to keep later diffs small.

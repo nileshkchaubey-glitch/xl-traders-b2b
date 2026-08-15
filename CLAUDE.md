@@ -1067,6 +1067,17 @@ roadmap commitment yet.
 
 ---
 
+## 🖼️ Image pipeline — settled decision (15 Aug 2026)
+
+**Do NOT buy Supabase paid image transformations.** This project is on the FREE
+plan and stays there for images. Instead, **resize on upload**: when a product or
+category image is uploaded through admin, store a web-sized WebP alongside the
+original (`autoResizeImage` already emits WebP). `ProductImage` emits a real
+1x/2x `srcSet` only once those files exist — it deliberately does not emit one
+for renditions that do not. Scheduled as Phase 5. Do not revisit.
+
+---
+
 ## ⚠️ Critical Rules
 
 1. **Price security** — enforced by **column-level grants** (`anon` has no SELECT on

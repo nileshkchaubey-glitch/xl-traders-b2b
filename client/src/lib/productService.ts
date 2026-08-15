@@ -63,6 +63,24 @@ async function productSelectCols(): Promise<string> {
   return (await hasSession()) ? "*" : GUEST_PRODUCT_COLS;
 }
 
+/**
+ * The guest-safe query shape, for OTHER services that read `products`.
+ *
+ * Exported because masterService was doing `.select("*").order("price")` on the
+ * variants query, and BOTH halves are refused for `anon` — proved live:
+ *   select("*") + order("price")  -> permission denied for table products
+ * which silently returned [] and left every signed-out visitor with no variant
+ * selector. Any service touching `products` must go through this rather than
+ * hand-rolling a column list that can drift from the grants.
+ */
+export async function publicProductQueryShape(): Promise<{
+  cols: string;
+  canSortByPrice: boolean;
+}> {
+  const signedIn = await hasSession();
+  return { cols: signedIn ? "*" : GUEST_PRODUCT_COLS, canSortByPrice: signedIn };
+}
+
 // ============================================================================
 // CATEGORIES
 // ============================================================================
