@@ -275,8 +275,10 @@ export default function ProductDetail() {
     }
     setPinResult(
       pc.startsWith("395") || pc.startsWith("394")
-        ? "Same-day delivery available — order by 2pm"
-        : "Delivered in 2–4 days via surface transport"
+        // The "order by 2pm" cutoff existed nowhere else and was never
+        // confirmed (§12 C6). The dispatch promise is stated without it.
+        ? "Surat — same day"
+        : "Outside Surat — 2–3 days"
     );
   };
 
@@ -717,7 +719,7 @@ export default function ProductDetail() {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Truck size={13} className="text-slate-500" />
-                    24h dispatch
+                    Same-day in Surat
                   </span>
                   <a
                     href={`tel:${phone1}`}

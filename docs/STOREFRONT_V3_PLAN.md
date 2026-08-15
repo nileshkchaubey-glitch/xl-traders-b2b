@@ -834,7 +834,16 @@ searched, all zero. It is already consistent with the settled pricing rules.
 **C11 and C15 are the sharpest:** the site currently advertises slab pricing that
 the V3 model explicitly does not implement.
 
-### 12.3 Recommended disposition
+### 12.3 Disposition — **APPLIED 15 Aug 2026**
+
+Owner accepted these as written; applied in the Phase 4 copy PR. Note the fix
+required **both** a code change and a SQL UPDATE: `settingsService` merges a
+stored `site_content` row over its fallback, and every claim below was live in
+the **database**, so editing `FALLBACKS` alone would have been cosmetic. All 14
+rows re-scanned against a claim regex afterwards — clean. Previous values are
+recorded in `CHANGELOG_SQL.md` for reversal.
+
+
 
 Delete C1, C2, C3, C4, C11, C15. Rewrite C5/C7/C8 to the single confirmed
 two-tier dispatch line. Drop C6 unless the owner confirms a cutoff. Soften C10,
