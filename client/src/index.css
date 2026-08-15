@@ -86,6 +86,67 @@
   --text-display--line-height: 1.08;
 }
 
+/* ============================================================
+   FESTIVAL THEMING — one setting, two properties, nothing else.
+
+   `site_content.site_theme` is written onto <html data-xl-theme="...">
+   by ThemeContext, and it changes EXACTLY these two custom properties.
+   No component reads the theme value, so there is no scope in which a
+   theme could influence a layout decision or a price — that constraint
+   is structural rather than a rule someone has to remember.
+
+   Adding anything else to these blocks (spacing, font size, display,
+   any price-related value) breaks that guarantee. Don't.
+   ============================================================ */
+:root {
+  --xl-accent: var(--color-red-600);
+  --xl-accent-soft: var(--color-red-50);
+  --xl-hero-grad: radial-gradient(1000px 500px at 20% 0%, #fef2f2 0%, #ffffff 55%);
+}
+[data-xl-theme="diwali"] {
+  --xl-accent: #b45309;
+  --xl-accent-soft: #fffbeb;
+  --xl-hero-grad: radial-gradient(1000px 500px at 20% 0%, #fef3c7 0%, #ffffff 58%);
+}
+[data-xl-theme="holi"] {
+  --xl-accent: #be185d;
+  --xl-accent-soft: #fdf2f8;
+  --xl-hero-grad: radial-gradient(1000px 500px at 20% 0%, #fce7f3 0%, #f5f3ff 40%, #ffffff 70%);
+}
+[data-xl-theme="monsoon"] {
+  --xl-accent: #0f766e;
+  --xl-accent-soft: #f0fdfa;
+  --xl-hero-grad: radial-gradient(1000px 500px at 20% 0%, #ccfbf1 0%, #ffffff 58%);
+}
+[data-xl-theme="independence"] {
+  --xl-accent: #15803d;
+  --xl-accent-soft: #f0fdf4;
+  --xl-hero-grad: radial-gradient(1000px 500px at 20% 0%, #ffedd5 0%, #ffffff 45%, #dcfce7 100%);
+}
+
+/* Hero slideshow — CSS only. No video, no GIF, no JS animation loop.
+   The crossfade is a pure opacity transition between absolutely-positioned
+   layers inside a FIXED-HEIGHT box, so the page cannot shift between slides. */
+@keyframes xl-hero-fade {
+  0%, 42% { opacity: 1; }
+  50%, 92% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.xl-hero-slide {
+  animation: xl-hero-fade 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced motion shows the first slide and stops. Not a slower fade — a
+     still image, which is what the preference actually asks for. */
+  .xl-hero-slide {
+    animation: none;
+  }
+  .xl-hero-slide:not(:first-child) {
+    display: none;
+  }
+}
+
 /* Section vertical-spacing rhythm (docs/DESIGN_SYSTEM.md §1.4). Tailwind's
    numeric spacing scale already covers every step we need (py-8, py-12,
    py-14, py-16, py-20 are all plain multiples of --spacing), so this is a

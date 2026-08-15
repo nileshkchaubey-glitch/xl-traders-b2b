@@ -140,6 +140,53 @@ export const categoryService = {
     return counts;
   },
 
+  /**
+   * Live product count per category — the ONE storefront counting rule.
+   *
+   * Reads `v_category_live_counts`, a view whose WHERE clause IS the rule
+   * (status='published' AND is_active). Defining it in SQL keeps it from being
+   * re-implemented per component, the same discipline v_product_health
+   * establishes, and it replaces a client-side aggregation that fetched EVERY
+   * category_id row and ignored the publish gate entirely.
+   *
+   * A category absent from the result has zero live products and must not be
+   * rendered — 17 of 38 active categories are currently in that state.
+   */
+  async getLiveCounts(): Promise<Record<string, number>> {
+    try {
+      const { data, error } = await supabase
+        .from("v_category_live_counts")
+        .select("category_id,live_products");
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      for (const row of (data ?? []) as {
+        category_id: string | null;
+        live_products: number;
+      }[]) {
+        if (row.category_id) counts[row.category_id] = row.live_products;
+      }
+      return counts;
+    } catch (error) {
+      console.error("Error fetching live category counts:", error);
+      return {};
+    }
+  },
+
+  /**
+   * Active categories that actually have something to show, newest-count first
+   * is NOT applied — display_order is preserved. Never returns a zero-count
+   * category, so no caller needs its own guard.
+   */
+  async getLiveCategories(): Promise<Array<Category & { liveCount: number }>> {
+    const [cats, counts] = await Promise.all([
+      this.getAll(),
+      this.getLiveCounts(),
+    ]);
+    return cats
+      .map(c => ({ ...c, liveCount: counts[c.id] ?? 0 }))
+      .filter(c => c.liveCount > 0);
+  },
+
   async getById(id: string) {
     const { data, error } = await supabase
       .from("categories")
