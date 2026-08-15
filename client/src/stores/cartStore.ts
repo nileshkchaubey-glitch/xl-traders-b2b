@@ -7,6 +7,7 @@ import {
   lineTotal,
   packsFromPcs,
   snapPcsToStep,
+  specFromSnapshot,
 } from "@/lib/orderingModel";
 
 export interface CartItem {
@@ -76,13 +77,35 @@ interface CartState {
  * line's ordering rules the same way instead of re-deriving them.
  */
 export function specOfCartItem(item: CartItem): OrderSpec {
+  // Delegates so spec construction lives in ONE module. Building it inline here
+  // is what produced "5 pcses" in the cart while the card said "pack".
+  return specFromSnapshot(item);
+}
+
+/**
+ * Every headline number the cart shows, computed ONCE from the line items.
+ *
+ * This exists because the cart page and the WhatsApp message used to total
+ * themselves independently, and that message is what the business physically
+ * fulfils against — a divergence between the two is not a display bug, it is a
+ * customer dispute. Both now call this, so they cannot disagree.
+ *
+ * Pure, and free of any Supabase import, so it is unit-testable.
+ */
+export function cartTotals(items: CartItem[]) {
   return {
-    unit: item.orderUnit,
-    packSize: item.packSize,
-    step: item.orderStep,
-    minPacks: item.moq,
-    minPcs: Math.ceil((item.moq * item.packSize) / item.orderStep) * item.orderStep,
-    noun: item.unit,
+    /** Money. Always packs x price, via lineTotal. */
+    total: items.reduce((sum, i) => sum + lineTotal(i.packs, i.price), 0),
+    /** Selling units across the cart. */
+    packs: items.reduce((n, i) => n + i.packs, 0),
+    /** Pieces across the cart — the "quantities" figure on the cart bar. */
+    pieces: items.reduce((n, i) => n + i.packs * i.packSize, 0),
+    /** Distinct products — the "Items" figure. */
+    lines: items.length,
+    /** True when there is nothing to total, so "Rs 0" is never shown. */
+    allEnquiry: items.length > 0 && items.every(i => i.priceOnEnquiry),
+    /** Any line below its own MOQ. Checkout is blocked on this. */
+    anyBelowMoq: items.some(i => i.packs < i.moq),
   };
 }
 
@@ -145,14 +168,12 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => set({ items: [], customer: { name: "", phone: "" } }),
 
-      // The ONLY multiply-by-price outside orderingModel, and it delegates.
-      getTotal: () =>
-        get().items.reduce((sum, i) => sum + lineTotal(i.packs, i.price), 0),
-
-      getPackCount: () => get().items.reduce((n, i) => n + i.packs, 0),
-      getPieceCount: () =>
-        get().items.reduce((n, i) => n + i.packs * i.packSize, 0),
-      getLineCount: () => get().items.length,
+      // All four delegate to cartTotals, so the store, the cart page and the
+      // WhatsApp message are arithmetically the same code.
+      getTotal: () => cartTotals(get().items).total,
+      getPackCount: () => cartTotals(get().items).packs,
+      getPieceCount: () => cartTotals(get().items).pieces,
+      getLineCount: () => cartTotals(get().items).lines,
     }),
     {
       name: "xl-cart-storage",

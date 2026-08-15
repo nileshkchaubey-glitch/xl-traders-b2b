@@ -1,90 +1,106 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { ShoppingCart, MessageCircle, Loader2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ProductImage from "@/components/storefront/ProductImage";
+import QtyStepper from "@/components/storefront/QtyStepper";
+import { MoqChip } from "@/components/storefront/ProductMeta";
+
 import {
-  Minus,
-  Plus,
-  ShoppingCart,
-  MessageCircle,
-  Loader2,
-} from "lucide-react";
-import { useCartStore, specOfCartItem } from "@/stores/cartStore";
-import { asPacks, lineTotal, stepPacks } from "@/lib/orderingModel";
+  useCartStore,
+  cartTotals,
+  specOfCartItem,
+  type CartItem,
+} from "@/stores/cartStore";
 import { orderService } from "@/lib/orderService";
-import { normalizeImageUrl } from "@/lib/imageUtils";
+import { buildWhatsAppMessage } from "@/lib/orderMessage";
 import { useMinOrder } from "@/hooks/useMinOrder";
-import { toast } from "sonner";
+import {
+  type Packs,
+  formatOrderQty,
+  lineTotal,
+  pluralNoun,
+} from "@/lib/orderingModel";
 
 const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
 
+const money = (n: number) =>
+  n.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 export default function Cart() {
   const [, setLocation] = useLocation();
-  const {
-    items,
-    customer,
-    setPacks,
-    removeItem,
-    setCustomer,
-    clearCart,
-    getTotal,
-    getPackCount,
-  } = useCartStore();
+  const items = useCartStore(s => s.items);
+  const customer = useCartStore(s => s.customer);
+  const setPacks = useCartStore(s => s.setPacks);
+  const removeItem = useCartStore(s => s.removeItem);
+  const setCustomer = useCartStore(s => s.setCustomer);
+  const clearCart = useCartStore(s => s.clearCart);
+
   const [placing, setPlacing] = useState(false);
   const [notes, setNotes] = useState("");
   const minOrder = useMinOrder();
 
-  const total = getTotal();
-  const count = getPackCount();
-  const allEnquiry = items.length > 0 && items.every(i => i.priceOnEnquiry);
-  const anyMoqWarn = items.some(i => i.packs < i.moq);
+  // ONE source for every figure on this page — and the same one the WhatsApp
+  // message uses, so the two can never disagree.
+  const t = cartTotals(items);
+
   const belowMinOrder =
-    minOrder.enabled && !allEnquiry && total < minOrder.value;
-  const minOrderRemaining = belowMinOrder ? minOrder.value - total : 0;
-  // Block checkout until the real setting has loaded — otherwise a genuine
-  // ON setting can be bypassed by submitting before the fetch resolves.
-  const checkoutBlocked = minOrder.loading || belowMinOrder;
+    minOrder.enabled && !t.allEnquiry && t.total < minOrder.value;
+  const minOrderShort = belowMinOrder ? minOrder.value - t.total : 0;
+
+  /**
+   * A stepper change. `orderingModel` returns 0 when a decrement would go under
+   * the line's MOQ, which is the signal to REMOVE the line — with a message
+   * saying why, rather than silently dropping it or silently allowing an
+   * invalid quantity through to fulfilment.
+   */
+  const handleQty = (item: CartItem, next: Packs) => {
+    if (next > 0) {
+      setPacks(item.productId, next);
+      return;
+    }
+    const spec = specOfCartItem(item);
+    removeItem(item.productId);
+    toast.info(`${item.name} removed`, {
+      description:
+        spec.unit === "pcs"
+          ? `Minimum order is ${spec.minPcs.toLocaleString("en-IN")} pcs.`
+          : `Minimum order is ${spec.minPacks} ${pluralNoun(spec.noun, spec.minPacks)}.`,
+    });
+  };
 
   const handlePlaceOrder = async () => {
-    if (items.length === 0) {
-      toast.error("Your cart is empty");
-      return;
-    }
-    if (anyMoqWarn) {
-      toast.error("Some items are below MOQ — fix them to proceed");
-      return;
-    }
-    if (minOrder.loading) {
-      toast.error("Checking order settings — try again in a moment");
-      return;
-    }
-    if (belowMinOrder) {
-      toast.error(
-        `Add ₹${minOrderRemaining.toLocaleString()} more to meet the minimum order value`
+    if (!items.length) return toast.error("Your cart is empty");
+    if (t.anyBelowMoq)
+      return toast.error("Some lines are below their minimum order quantity");
+    if (minOrder.loading)
+      return toast.error("Checking order settings — try again in a moment");
+    if (belowMinOrder)
+      return toast.error(
+        `Add ₹${money(minOrderShort)} more to meet the minimum order value`
       );
-      return;
-    }
-    if (!customer.name.trim()) {
-      toast.error("Please enter your name");
-      return;
-    }
-    if (!/^[6-9]\d{9}$/.test(customer.phone.replace(/\s+/g, ""))) {
-      toast.error("Please enter a valid 10-digit Indian mobile number");
-      return;
-    }
+    if (!customer.name.trim()) return toast.error("Please enter your name");
+    if (!/^[6-9]\d{9}$/.test(customer.phone.replace(/\s+/g, "")))
+      return toast.error("Please enter a valid 10-digit Indian mobile number");
 
     setPlacing(true);
     try {
       await orderService.placeOrder(items, customer);
-      let message = orderService.buildWhatsAppMessage(items, customer);
-      if (notes.trim()) message += `\nNotes: ${notes.trim()}`;
+      const message = buildWhatsAppMessage(items, customer, notes);
       window.open(
         `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`,
-        "_blank"
+        "_blank",
+        "noopener,noreferrer"
       );
       clearCart();
       setNotes("");
-      toast.success("Order placed! Opening WhatsApp…");
+      toast.success("Order placed — opening WhatsApp");
       setLocation("/");
     } catch (err) {
       console.error(err);
@@ -95,260 +111,205 @@ export default function Cart() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900">
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <Header />
-
-      <main className="flex-1 pb-24 md:pb-0">
-        <div className="container py-6 w-full">
-          <h1 className="text-2xl font-extrabold tracking-tight mb-5">
-            Your Cart{" "}
-            {count > 0 && (
-              <span className="text-sm font-semibold text-slate-500">
-                · {items.length} items, {count} units
+      <main className="flex-1 pb-28 md:pb-10">
+        <div className="container py-6">
+          <h1 className="mb-5 text-2xl font-extrabold tracking-tight">
+            Your Cart
+            {t.lines > 0 && (
+              <span className="ml-2 text-sm font-semibold text-slate-500">
+                {t.lines} item{t.lines !== 1 ? "s" : ""} ·{" "}
+                {t.pieces.toLocaleString("en-IN")} quantities
               </span>
             )}
           </h1>
 
           {items.length === 0 ? (
-            /* Empty state */
-            <div className="bg-white border border-dashed border-slate-300 rounded-2xl px-6 py-14 text-center">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShoppingCart size={26} className="text-slate-400" />
-              </div>
-              <div className="text-base font-bold mb-1.5">
-                Your cart is empty
-              </div>
-              <div className="text-[13.5px] text-slate-500 mb-5">
-                Browse the catalogue and add products — MOQ is pre-filled for
-                you.
-              </div>
-              <Link
-                href="/catalog"
-                className="inline-flex bg-red-600 text-white px-5 py-3 rounded-xl text-[13.5px] font-bold hover:bg-red-700 transition"
-              >
-                Browse Products
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+              <ShoppingCart size={26} className="mx-auto mb-3 text-slate-400" />
+              <div className="mb-1.5 text-base font-bold">Your cart is empty</div>
+              <Link href="/catalog" className="font-bold text-red-600">
+                Browse the catalogue →
               </Link>
             </div>
           ) : (
-            <div className="grid lg:grid-cols-[1fr_360px] gap-6 items-start">
-              {/* Lines */}
+            <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
+              {/* ── Lines ── */}
               <div className="flex flex-col gap-3">
                 {items.map(item => {
-                  const warn = item.packs < item.moq;
+                  const spec = specOfCartItem(item);
+                  const label = formatOrderQty(item.packs, spec);
+                  const below = item.packs < item.moq;
                   return (
                     <div
                       key={item.productId}
-                      className={`bg-white border rounded-2xl p-4 flex gap-3.5 items-center ${
-                        warn ? "border-red-200" : "border-slate-200"
+                      className={`flex items-center gap-3.5 rounded-2xl border bg-white p-3.5 ${
+                        below ? "border-red-300" : "border-slate-200"
                       }`}
                     >
                       <Link
                         href={`/product/${item.productId}`}
-                        className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+                        className="w-[72px] flex-shrink-0 overflow-hidden rounded-xl border border-slate-100"
                       >
-                        {item.imageUrl ? (
-                          <img
-                            src={normalizeImageUrl(item.imageUrl, 150) ?? ""}
-                            alt={item.name}
-                            className="w-full h-full object-contain p-1"
-                          />
-                        ) : (
-                          <ShoppingCart size={20} className="text-slate-300" />
-                        )}
+                        <ProductImage
+                          url={item.imageUrl}
+                          alt={item.name}
+                          slotPx={140}
+                          aspect="aspect-square"
+                        />
                       </Link>
 
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <Link
                           href={`/product/${item.productId}`}
-                          className="text-sm font-bold hover:text-red-600 transition line-clamp-2"
+                          className="line-clamp-2 text-body-sm font-bold hover:text-red-600"
                         >
                           {item.name}
                         </Link>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          {item.priceOnEnquiry
-                            ? "Price on enquiry"
-                            : `₹${item.price.toLocaleString()} / ${item.unit}`}
+
+                        {/* Pieces lead; the pack breakdown sits beneath. */}
+                        <div className="mt-1 text-body-md font-extrabold tabular-nums text-slate-900">
+                          {label.primary}
                         </div>
-                        {warn && (
-                          <div className="inline-flex items-center gap-1.5 mt-1.5 bg-red-50 border border-red-200 text-red-700 text-[11.5px] font-bold px-2.5 py-1 rounded-lg">
-                            Below MOQ — minimum {item.moq}.
-                            <button
-                              onClick={() =>
-                                setPacks(item.productId, asPacks(item.moq))
-                              }
-                              className="underline font-extrabold"
-                            >
-                              Fix to {item.moq}
-                            </button>
+                        {label.secondary && (
+                          <div className="text-caption text-slate-500 tabular-nums">
+                            {label.secondary}
                           </div>
                         )}
-                        <div className="mt-1.5">
-                          <button
-                            onClick={() => removeItem(item.productId)}
-                            className="text-xs font-semibold text-slate-500 hover:text-red-600 transition"
-                          >
-                            Remove
-                          </button>
+
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <MoqChip spec={spec} />
+                          <span className="text-caption text-slate-500 tabular-nums">
+                            {item.priceOnEnquiry
+                              ? "Price on enquiry"
+                              : `₹${money(item.price)} / ${spec.noun}`}
+                          </span>
                         </div>
+
+                        {below && (
+                          <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[11.5px] font-bold text-red-700">
+                            Below minimum —{" "}
+                            {spec.unit === "pcs"
+                              ? `${spec.minPcs.toLocaleString("en-IN")} pcs`
+                              : `${spec.minPacks} ${pluralNoun(spec.noun, spec.minPacks)}`}{" "}
+                            required
+                          </div>
+                        )}
                       </div>
 
-                      {/* Stepper */}
-                      <div className="flex items-center border-[1.5px] border-slate-300 rounded-xl overflow-hidden h-11 flex-shrink-0">
-                        <button
-                          onClick={() =>
-                            setPacks(item.productId, stepPacks(item.packs, -1, specOfCartItem(item)))
-                          }
-                          className="w-10 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
-                          aria-label="Decrease"
-                        >
-                          <Minus size={15} />
-                        </button>
-                        <input
-                          value={item.packs}
-                          onChange={e => {
-                            const v = parseInt(e.target.value, 10);
-                            if (!isNaN(v)) setPacks(item.productId, asPacks(v));
-                          }}
-                          className="w-12 text-center text-sm font-bold tabular-nums outline-none"
-                          inputMode="numeric"
+                      <div className="flex flex-col items-end gap-2">
+                        <QtyStepper
+                          packs={item.packs}
+                          spec={spec}
+                          onChange={next => handleQty(item, next)}
                         />
+                        <div className="text-body-md font-extrabold tabular-nums">
+                          {item.priceOnEnquiry
+                            ? "—"
+                            : `₹${money(lineTotal(item.packs, item.price))}`}
+                        </div>
                         <button
-                          onClick={() =>
-                            setPacks(item.productId, stepPacks(item.packs, 1, specOfCartItem(item)))
-                          }
-                          className="w-10 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
-                          aria-label="Increase"
+                          onClick={() => removeItem(item.productId)}
+                          className="text-slate-400 transition hover:text-red-600"
+                          aria-label={`Remove ${item.name}`}
                         >
-                          <Plus size={15} />
+                          <Trash2 size={15} />
                         </button>
-                      </div>
-
-                      <div className="w-24 text-right text-[15px] font-extrabold tabular-nums hidden sm:block">
-                        {item.priceOnEnquiry
-                          ? "—"
-                          : `₹${lineTotal(item.packs, item.price).toLocaleString()}`}
                       </div>
                     </div>
                   );
                 })}
 
-                {/* Order notes */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                  <div className="text-[13px] font-bold mb-2">
-                    Order notes{" "}
-                    <span className="font-medium text-slate-400">
-                      (optional)
-                    </span>
-                  </div>
+                <div>
+                  <label className="mb-1.5 block text-caption font-bold uppercase tracking-wide text-slate-500">
+                    Order notes (optional)
+                  </label>
                   <textarea
                     value={notes}
                     onChange={e => setNotes(e.target.value)}
-                    placeholder="e.g. Need extra-strong boxes; deliver after 4pm"
-                    className="w-full min-h-16 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] outline-none focus:border-red-600 resize-y"
+                    rows={3}
+                    placeholder="Delivery instructions, GSTIN, preferred time…"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-body-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-100"
                   />
                 </div>
               </div>
 
-              {/* Summary */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 lg:sticky lg:top-24">
-                <div className="text-[15px] font-extrabold mb-3.5">
-                  Order Summary
-                </div>
-                <div className="flex justify-between text-[13.5px] text-slate-600 py-1.5">
-                  <span>Subtotal ({count} units)</span>
-                  <span className="font-bold text-slate-900 tabular-nums">
-                    {allEnquiry ? "On enquiry" : `₹${total.toLocaleString()}`}
-                  </span>
-                </div>
-                <div className="flex justify-between text-[13.5px] text-slate-600 py-1.5">
-                  <span>Delivery</span>
-                  <span className="font-bold text-emerald-700">
-                    FREE (Surat)
-                  </span>
-                </div>
-                <div className="border-t border-slate-200 mt-2.5 pt-2.5 flex justify-between text-base font-extrabold mb-3">
-                  <span>Total</span>
-                  <span className="text-red-600 tabular-nums">
-                    {allEnquiry ? "On enquiry" : `₹${total.toLocaleString()}`}
-                  </span>
-                </div>
-                <p className="text-[11.5px] text-slate-400 -mt-1 mb-3">
-                  GST &amp; final pricing confirmed on WhatsApp.
-                </p>
+              {/* ── Summary ── */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:sticky lg:top-24">
+                <h2 className="mb-3 font-extrabold">Order summary</h2>
 
-                {anyMoqWarn && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-2.5 rounded-lg mb-3">
-                    Some items are below MOQ — fix them to proceed.
-                  </div>
-                )}
+                <dl className="space-y-1.5 text-body-sm">
+                  <Row k="Items" v={String(t.lines)} />
+                  <Row k="Quantities" v={`${t.pieces.toLocaleString("en-IN")} pcs`} />
+                  <Row k="Selling units" v={`${t.packs.toLocaleString("en-IN")}`} />
+                </dl>
+
+                <div className="mt-3 flex items-baseline justify-between border-t border-slate-100 pt-3">
+                  <span className="font-bold">Total</span>
+                  <span className="text-xl font-extrabold tabular-nums">
+                    {t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`}
+                  </span>
+                </div>
 
                 {belowMinOrder && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-2.5 rounded-lg mb-3">
-                    Add ₹{minOrderRemaining.toLocaleString()} more to meet the
-                    minimum order value of ₹{minOrder.value.toLocaleString()}.
-                  </div>
+                  <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-caption font-semibold text-amber-800">
+                    Add ₹{money(minOrderShort)} more to meet the minimum order
+                    value of ₹{money(minOrder.value)}.
+                  </p>
                 )}
 
-                {/* Customer details */}
-                <div className="space-y-2 mb-3.5">
+                <div className="mt-4 space-y-2.5">
                   <input
-                    placeholder="Your name *"
                     value={customer.name}
                     onChange={e =>
                       setCustomer({ ...customer, name: e.target.value })
                     }
-                    className="w-full h-11 border border-slate-300 rounded-xl px-3.5 text-[13.5px] outline-none focus:border-red-600"
+                    placeholder="Your name"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-body-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-100"
                   />
                   <input
-                    type="tel"
-                    placeholder="Phone (WhatsApp) *"
                     value={customer.phone}
                     onChange={e =>
                       setCustomer({ ...customer, phone: e.target.value })
                     }
-                    className="w-full h-11 border border-slate-300 rounded-xl px-3.5 text-[13.5px] outline-none focus:border-red-600"
+                    inputMode="numeric"
+                    placeholder="10-digit mobile number"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-body-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-100"
                   />
                 </div>
 
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={placing || anyMoqWarn || checkoutBlocked}
-                  className={`w-full h-[50px] rounded-xl text-[15px] font-bold text-white transition flex items-center justify-center gap-2 ${
-                    anyMoqWarn || checkoutBlocked
-                      ? "bg-slate-300 cursor-not-allowed"
-                      : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_18px_rgba(5,150,105,0.25)]"
-                  }`}
+                  disabled={placing || t.anyBelowMoq}
+                  className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-red-600 text-body-md font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {placing ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Placing Order…
-                    </>
+                    <Loader2 size={16} className="animate-spin" />
                   ) : (
-                    <>
-                      <MessageCircle size={18} />
-                      Place Order via WhatsApp
-                    </>
+                    <MessageCircle size={16} />
                   )}
+                  Send order on WhatsApp
                 </button>
-                <p className="text-xs text-slate-400 text-center mt-2.5">
-                  Order is saved + confirmed on WhatsApp · GST invoice included
+
+                <p className="mt-2 text-center text-caption text-slate-500">
+                  Order is saved and confirmed on WhatsApp · GST invoice included
                 </p>
-                <button
-                  onClick={() => {
-                    if (confirm("Clear cart?")) clearCart();
-                  }}
-                  className="w-full text-xs text-slate-400 hover:text-red-500 transition mt-2"
-                >
-                  Clear cart
-                </button>
               </div>
             </div>
           )}
         </div>
       </main>
-
       <Footer />
+    </div>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between">
+      <dt className="text-slate-500">{k}</dt>
+      <dd className="font-semibold tabular-nums">{v}</dd>
     </div>
   );
 }
