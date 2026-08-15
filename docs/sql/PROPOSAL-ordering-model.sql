@@ -4,9 +4,16 @@
 --   PCS-based ordering model — schema proposal.
 --   Design spec: docs/ORDERING_MODEL.md
 --
--- ⚠ STATUS: PROPOSAL. NOT EXECUTED. Owner-run.
---   This file was written as a design deliverable and has NOT been run against
---   the project (danoeaftaazhbldeeuxj). Nothing here has touched the database.
+-- ✅ STATUS: SUPERSEDED — its contents WERE executed, from a different file.
+--   Blocks [A], [B] and [C] of this proposal were run against
+--   danoeaftaazhbldeeuxj on 15 Aug 2026 as part of Storefront V3 Phase 2, via
+--   docs/sql/v3-phase2-schema.sql (which also grants moq to anon and adds the
+--   category-count view, promo_banners, storage buckets, site_theme and
+--   orders.user_id). Verification output: docs/sql/v3-phase2-verification.md.
+--
+--   Keep this file as the design record. DO NOT run it — re-running is harmless
+--   (every statement is guarded by IF NOT EXISTS / catalog lookups), but
+--   v3-phase2-schema.sql is the file of record for what actually happened.
 --
 -- WHAT IT DOES
 --   [A] adds products.order_unit + products.order_step (+ their CHECKs)
