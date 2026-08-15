@@ -26,6 +26,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { ImagePlaceholder } from "@/components/ImagePlaceholder";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry, cartLinePrice } from "@/lib/priceUtils";
+import { resolveOrderSpec, asPacks } from "@/lib/orderingModel";
 import { brandLabel } from "@/lib/brandUtils";
 
 // ─── Recently Viewed helpers ───────────────────────────────────────────────
@@ -160,7 +161,7 @@ export default function ProductDetail() {
   const [qty, setQty] = useState(1);
   const [pincode, setPincode] = useState("");
   const [pinResult, setPinResult] = useState<string | null>(null);
-  const { addItem, updateQuantity, items: cartItems } = useCartStore();
+  const { addItem, setPacks, items: cartItems } = useCartStore();
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -234,25 +235,31 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (!currentProd) return;
-    const moq = currentProd.moq ?? 1;
+    // resolveOrderSpec is the single source of this product's ordering rules.
+    const spec = resolveOrderSpec(currentProd);
+    const moq = spec.minPacks;
     const finalQty = Math.max(qty, moq);
     const existing = cartItems.find(i => i.productId === currentProd.id);
     if (!existing) {
-      addItem({
-        productId: currentProd.id,
-        sku: currentProd.sku ?? currentProd.id,
-        name: currentProd.name,
-        price: cartLinePrice(currentProd.price),
-        priceOnEnquiry: isPriceOnEnquiry(currentProd.price) ? true : undefined,
-        unit: currentProd.unit_of_measure ?? "pcs",
-        imageUrl: currentProd.image_url ?? undefined,
-        moq,
-      });
+      addItem(
+        {
+          productId: currentProd.id,
+          sku: currentProd.sku ?? currentProd.id,
+          name: currentProd.name,
+          price: cartLinePrice(currentProd.price),
+          priceOnEnquiry: isPriceOnEnquiry(currentProd.price) ? true : undefined,
+          unit: currentProd.unit_of_measure ?? "pcs",
+          imageUrl: currentProd.image_url ?? undefined,
+          moq,
+          orderUnit: spec.unit,
+          packSize: spec.packSize,
+          orderStep: spec.step,
+        },
+        asPacks(finalQty)
+      );
+    } else {
+      setPacks(currentProd.id, asPacks(existing.packs + finalQty));
     }
-    updateQuantity(
-      currentProd.id,
-      existing ? existing.quantity + finalQty : finalQty
-    );
     if (qty < moq) {
       toast.warning(`Minimum ${moq} — quantity bumped to MOQ`);
     } else {

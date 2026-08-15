@@ -9,7 +9,8 @@ import {
   MessageCircle,
   Loader2,
 } from "lucide-react";
-import { useCartStore } from "@/stores/cartStore";
+import { useCartStore, specOfCartItem } from "@/stores/cartStore";
+import { asPacks, lineTotal, stepPacks } from "@/lib/orderingModel";
 import { orderService } from "@/lib/orderService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { useMinOrder } from "@/hooks/useMinOrder";
@@ -22,21 +23,21 @@ export default function Cart() {
   const {
     items,
     customer,
-    updateQuantity,
+    setPacks,
     removeItem,
     setCustomer,
     clearCart,
     getTotal,
-    getItemCount,
+    getPackCount,
   } = useCartStore();
   const [placing, setPlacing] = useState(false);
   const [notes, setNotes] = useState("");
   const minOrder = useMinOrder();
 
   const total = getTotal();
-  const count = getItemCount();
+  const count = getPackCount();
   const allEnquiry = items.length > 0 && items.every(i => i.priceOnEnquiry);
-  const anyMoqWarn = items.some(i => i.quantity < i.moq);
+  const anyMoqWarn = items.some(i => i.packs < i.moq);
   const belowMinOrder =
     minOrder.enabled && !allEnquiry && total < minOrder.value;
   const minOrderRemaining = belowMinOrder ? minOrder.value - total : 0;
@@ -133,7 +134,7 @@ export default function Cart() {
               {/* Lines */}
               <div className="flex flex-col gap-3">
                 {items.map(item => {
-                  const warn = item.quantity < item.moq;
+                  const warn = item.packs < item.moq;
                   return (
                     <div
                       key={item.productId}
@@ -173,7 +174,7 @@ export default function Cart() {
                             Below MOQ — minimum {item.moq}.
                             <button
                               onClick={() =>
-                                updateQuantity(item.productId, item.moq)
+                                setPacks(item.productId, asPacks(item.moq))
                               }
                               className="underline font-extrabold"
                             >
@@ -195,7 +196,7 @@ export default function Cart() {
                       <div className="flex items-center border-[1.5px] border-slate-300 rounded-xl overflow-hidden h-11 flex-shrink-0">
                         <button
                           onClick={() =>
-                            updateQuantity(item.productId, item.quantity - 1)
+                            setPacks(item.productId, stepPacks(item.packs, -1, specOfCartItem(item)))
                           }
                           className="w-10 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
                           aria-label="Decrease"
@@ -203,17 +204,17 @@ export default function Cart() {
                           <Minus size={15} />
                         </button>
                         <input
-                          value={item.quantity}
+                          value={item.packs}
                           onChange={e => {
                             const v = parseInt(e.target.value, 10);
-                            if (!isNaN(v)) updateQuantity(item.productId, v);
+                            if (!isNaN(v)) setPacks(item.productId, asPacks(v));
                           }}
                           className="w-12 text-center text-sm font-bold tabular-nums outline-none"
                           inputMode="numeric"
                         />
                         <button
                           onClick={() =>
-                            updateQuantity(item.productId, item.quantity + 1)
+                            setPacks(item.productId, stepPacks(item.packs, 1, specOfCartItem(item)))
                           }
                           className="w-10 h-full bg-slate-50 hover:bg-slate-100 transition flex items-center justify-center"
                           aria-label="Increase"
@@ -225,7 +226,7 @@ export default function Cart() {
                       <div className="w-24 text-right text-[15px] font-extrabold tabular-nums hidden sm:block">
                         {item.priceOnEnquiry
                           ? "—"
-                          : `₹${(item.price * item.quantity).toLocaleString()}`}
+                          : `₹${lineTotal(item.packs, item.price).toLocaleString()}`}
                       </div>
                     </div>
                   );

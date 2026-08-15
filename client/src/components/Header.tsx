@@ -71,7 +71,7 @@ export default function Header() {
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
   const [announcement, setAnnouncement] = useState(FALLBACKS.announcement);
   const { isAuthenticated, isAdmin, user, signOut } = useAuthStore();
-  const cartCount = useCartStore(s => s.getItemCount());
+  const cartCount = useCartStore(s => s.getLineCount());
   const [, setLocation] = useLocation();
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined

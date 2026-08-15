@@ -14,7 +14,8 @@ const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
 export default function MobileNav() {
   const [location] = useLocation();
   const items = useCartStore(s => s.items);
-  const cartCount = items.reduce((s, i) => s + i.quantity, 0);
+  // Distinct products, not summed packs — a B2B cart of 2 SKUs reads as "2".
+  const cartCount = items.length;
 
   const tabs = [
     { href: "/", label: "Home", icon: Home, active: location === "/" },

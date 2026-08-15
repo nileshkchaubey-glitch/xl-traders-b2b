@@ -12,6 +12,7 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
+import { useAuthStore } from "@/lib/authStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   categoryService,
@@ -64,6 +65,19 @@ export default function Catalog() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<PublicProductSort>("newest");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const { isAuthenticated } = useAuthStore();
+
+  // A price sort selected while signed in must not survive signing out: anon
+  // cannot ORDER BY price (the service falls back, but the <select> would show
+  // a value with no matching option). Coerce the state instead.
+  useEffect(() => {
+    if (
+      !isAuthenticated &&
+      (sortBy === "price-low" || sortBy === "price-high")
+    ) {
+      setSortBy("newest");
+    }
+  }, [isAuthenticated, sortBy]);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     params.get("category") || null
@@ -265,8 +279,15 @@ export default function Catalog() {
                 >
                   <option value="newest">Sort: Newest</option>
                   <option value="name">Name (A–Z)</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
+                  {/* Price sorts are signed-in only: anon has no SELECT grant
+                      on `price`, so ORDER BY price is refused by Postgres and
+                      the catalogue comes back empty. */}
+                  {isAuthenticated && (
+                    <>
+                      <option value="price-low">Price: Low to High</option>
+                      <option value="price-high">Price: High to Low</option>
+                    </>
+                  )}
                 </select>
                 <ChevronDown
                   size={15}
@@ -471,8 +492,12 @@ export default function Catalog() {
                     >
                       <option value="newest">Newest</option>
                       <option value="name">Name (A-Z)</option>
-                      <option value="price-low">Price (Low to High)</option>
-                      <option value="price-high">Price (High to Low)</option>
+                      {isAuthenticated && (
+                        <>
+                          <option value="price-low">Price (Low to High)</option>
+                          <option value="price-high">Price (High to Low)</option>
+                        </>
+                      )}
                     </select>
                     <ChevronDown
                       size={16}
@@ -647,8 +672,12 @@ export default function Catalog() {
                   [
                     ["newest", "Newest"],
                     ["name", "Name A–Z"],
-                    ["price-low", "Price: Low"],
-                    ["price-high", "Price: High"],
+                    ...(isAuthenticated
+                      ? ([
+                          ["price-low", "Price: Low"],
+                          ["price-high", "Price: High"],
+                        ] as [PublicProductSort, string][])
+                      : []),
                   ] as [PublicProductSort, string][]
                 ).map(([value, label]) => (
                   <button
