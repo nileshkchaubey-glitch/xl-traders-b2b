@@ -18,7 +18,9 @@ export default function CartBar() {
 
   if (items.length === 0 || location === "/cart") return null;
 
-  const qty = items.reduce((s, i) => s + i.quantity, 0);
+  // These are PACKS (selling units). They were labelled "pcs" below, which
+  // was simply wrong — a pack is not a piece.
+  const qty = items.reduce((s, i) => s + i.packs, 0);
   const allEnquiry = items.every(i => i.priceOnEnquiry);
   const totalLabel = allEnquiry ? "On enquiry" : `₹${total.toLocaleString()}`;
 
@@ -60,7 +62,7 @@ export default function CartBar() {
             <ShoppingCart size={19} className="flex-shrink-0" />
             <span className="flex flex-col items-start leading-tight min-w-0">
               <span className="text-[10.5px] font-semibold opacity-85">
-                {items.length} item{items.length !== 1 ? "s" : ""} · {qty} pcs
+                {items.length} item{items.length !== 1 ? "s" : ""} · {qty} units
               </span>
               <span className="text-[15px] font-extrabold tabular-nums">
                 {totalLabel}
@@ -85,7 +87,7 @@ export default function CartBar() {
             <ShoppingCart size={19} className="flex-shrink-0" />
             <span className="flex flex-col items-start leading-tight min-w-0">
               <span className="text-[10.5px] font-semibold opacity-85">
-                {items.length} item{items.length !== 1 ? "s" : ""} · {qty} pcs
+                {items.length} item{items.length !== 1 ? "s" : ""} · {qty} units
               </span>
               <span className="text-[15px] font-extrabold tabular-nums">
                 {totalLabel}

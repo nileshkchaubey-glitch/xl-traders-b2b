@@ -37,16 +37,22 @@ export function invalidateSessionCache() {
   cachedHasSession = null;
 }
 
-// Returns the right SELECT columns based on whether the caller has a session.
-// Authenticated users get all columns (*). Guests get GUEST_PRODUCT_COLS only.
-async function productSelectCols(): Promise<string> {
+// Whether the caller has a session, using the same cache productSelectCols
+// relies on. Exported shape kept internal: only this module needs it.
+async function hasSession(): Promise<boolean> {
   if (cachedHasSession === null) {
     const {
       data: { session },
     } = await supabase.auth.getSession();
     cachedHasSession = !!session;
   }
-  return cachedHasSession ? "*" : GUEST_PRODUCT_COLS;
+  return cachedHasSession;
+}
+
+// Returns the right SELECT columns based on whether the caller has a session.
+// Authenticated users get all columns (*). Guests get GUEST_PRODUCT_COLS only.
+async function productSelectCols(): Promise<string> {
+  return (await hasSession()) ? "*" : GUEST_PRODUCT_COLS;
 }
 
 // ============================================================================
@@ -323,14 +329,31 @@ function applyPublicScalarFilters(
 // Server-side ordering for the public catalogue. For price sorts, null-price
 // ("Price on enquiry") items always sort last so priced items lead the page.
 // Default (no sort) preserves the manual display_order used elsewhere.
-function applyPublicSort(query: any, sort?: PublicProductSort): any {
+//
+// 🔴 `canSortByPrice` is not a UX nicety. anon has NO SELECT grant on `price`
+// (sql/04-price-column-security.sql), and Postgres refuses an ORDER BY on a
+// column the role cannot read just as it refuses a WHERE — verified live as the
+// anon role:
+//     ORDER BY price         -> permission denied for table products
+//     ORDER BY display_order -> ok
+// So a guest asking for a price sort previously got a FAILED QUERY and an empty
+// catalogue, not a mis-ordered one. Guests fall back to display_order.
+function applyPublicSort(
+  query: any,
+  sort: PublicProductSort | undefined,
+  canSortByPrice: boolean
+): any {
   switch (sort) {
     case "newest":
       return query.order("created_at", { ascending: false });
     case "price-low":
-      return query.order("price", { ascending: true, nullsFirst: false });
+      return canSortByPrice
+        ? query.order("price", { ascending: true, nullsFirst: false })
+        : query.order("display_order", { ascending: true });
     case "price-high":
-      return query.order("price", { ascending: false, nullsFirst: false });
+      return canSortByPrice
+        ? query.order("price", { ascending: false, nullsFirst: false })
+        : query.order("display_order", { ascending: true });
     case "name":
       return query.order("name", { ascending: true });
     default:
@@ -414,7 +437,8 @@ export const productService = {
     }
 
     try {
-      const cols = await productSelectCols();
+      const signedIn = await hasSession();
+      const cols = signedIn ? "*" : GUEST_PRODUCT_COLS;
       // Public visibility = published AND active. Drafts never appear publicly.
       let query = applyPublicScalarFilters(
         supabase
@@ -424,7 +448,7 @@ export const productService = {
           .eq("is_active", true),
         filters
       );
-      query = applyPublicSort(query, filters?.sort);
+      query = applyPublicSort(query, filters?.sort, signedIn);
 
       if (filters?.pageSize != null) {
         const page = filters.page ?? 1;

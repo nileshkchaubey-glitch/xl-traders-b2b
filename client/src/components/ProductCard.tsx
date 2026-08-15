@@ -7,6 +7,7 @@ import { useCartStore } from "@/stores/cartStore";
 import { ImagePlaceholder } from "./ImagePlaceholder";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry, cartLinePrice } from "@/lib/priceUtils";
+import { resolveOrderSpec, stepPacks, initialPacks } from "@/lib/orderingModel";
 import { brandLabel } from "@/lib/brandUtils";
 import { toast } from "sonner";
 
@@ -21,11 +22,14 @@ export default function ProductCard({
   view = "grid",
 }: ProductCardProps) {
   const { isAuthenticated, user, profile } = useAuthStore();
-  const { items, addItem, updateQuantity } = useCartStore();
+  const { items, addItem, setPacks } = useCartStore();
   const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
 
   const cartLine = items.find(i => i.productId === product.id);
-  const moq = product.moq ?? 1;
+  // The single source for this product's ordering rules. Nothing below reads
+  // order_unit / order_step / quantity_in_unit / moq directly.
+  const spec = resolveOrderSpec(product);
+  const moq = spec.minPacks;
 
   // Rewrite Google Drive share links (and pass other URLs through) so images
   // actually render instead of showing the broken-image placeholder. Request a
@@ -52,28 +56,34 @@ export default function ProductCard({
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addItem({
-      productId: product.id,
-      sku: product.sku ?? product.id,
-      name: product.name,
-      price: cartLinePrice(product.price),
-      priceOnEnquiry: isPriceOnEnquiry(product.price) ? true : undefined,
-      unit: product.unit_of_measure ?? "pcs",
-      imageUrl: product.image_url ?? undefined,
-      moq,
-    });
+    // Seed at the MOQ in one step, rather than adding 1 and then correcting it.
+    addItem(
+      {
+        productId: product.id,
+        sku: product.sku ?? product.id,
+        name: product.name,
+        price: cartLinePrice(product.price),
+        priceOnEnquiry: isPriceOnEnquiry(product.price) ? true : undefined,
+        unit: product.unit_of_measure ?? "pcs",
+        imageUrl: product.image_url ?? undefined,
+        moq,
+        orderUnit: spec.unit,
+        packSize: spec.packSize,
+        orderStep: spec.step,
+      },
+      initialPacks(spec)
+    );
     if (moq > 1) {
-      updateQuantity(product.id, moq);
       toast.success(`Added — ${moq} ${product.unit_of_measure ?? "pcs"} (MOQ pre-filled)`);
     } else {
       toast.success("Added to cart");
     }
   };
 
-  const step = (e: React.MouseEvent, delta: number) => {
+  const step = (e: React.MouseEvent, delta: 1 | -1) => {
     e.preventDefault();
     e.stopPropagation();
-    if (cartLine) updateQuantity(product.id, cartLine.quantity + delta);
+    if (cartLine) setPacks(product.id, stepPacks(cartLine.packs, delta, spec));
   };
 
   const handleEnquire = (e: React.MouseEvent) => {
@@ -211,7 +221,7 @@ export default function ProductCard({
           <Minus size={14} />
         </button>
         <div className="flex-1 text-center text-body-sm font-bold tabular-nums">
-          {cartLine.quantity}
+          {cartLine.packs}
         </div>
         <button
           onClick={e => step(e, 1)}

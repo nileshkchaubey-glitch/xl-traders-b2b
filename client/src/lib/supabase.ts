@@ -42,6 +42,9 @@ export interface Brand {
 // status === 'published' AND is_active === true. New products default to draft.
 export type ProductStatus = "draft" | "published";
 
+/** How the customer counts. Display/input only — never what is priced. */
+export type OrderUnit = "pack" | "pcs";
+
 export interface Product {
   id: string;
   name: string;
@@ -76,6 +79,13 @@ export interface Product {
   updated_at: string;
   master_id?: string | null;
   variant_label?: string | null;
+  // ── Ordering (V3 Phase 2) — how the CUSTOMER counts. Neither column changes
+  // what is stored or what is priced: price is always the price of one selling
+  // unit. All conversion lives in lib/orderingModel.ts. See docs/ORDERING_MODEL.md.
+  /** 'pack' (default) or 'pcs'. */
+  order_unit?: OrderUnit;
+  /** Pieces per stepper click. NULL = one pack (inherits quantity_in_unit). */
+  order_step?: number | null;
   // Fields the operator has explicitly marked "not applicable" so they stop
   // counting as missing in v_product_health (e.g. 'brand','specifications',
   // 'image','description','moq'). No fake data is entered.
