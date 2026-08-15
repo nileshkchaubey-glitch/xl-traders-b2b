@@ -15,15 +15,23 @@ import { realBrands } from "./brandUtils";
 // demo mode by accident on a deployment that lacks VITE_SUPABASE_URL.
 const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
 
-// Columns granted to anon role — must exactly match sql/04-price-column-security.sql.
-// price, mrp, and discount_percent are intentionally excluded.
-// stock_status, tags, min_order_qty are omitted here because they are from
-// untracked migrations and may not exist in all DB instances; they ARE granted
-// conditionally by the SQL via a DO $$ existence check.
+// Columns the anon role holds a SELECT grant on. This list must never name a
+// column anon cannot read (the query 403s) and must never name a price column.
+//
+// 🔴 NEVER ADD: price, mrp, discount_percent, price_per_piece, bulk_price,
+//    bulk_threshold. price_per_piece is derived from price and, multiplied by
+//    the readable quantity_in_unit, reconstructs the wholesale price exactly.
+//
+// moq, order_unit and order_step were granted to anon in V3 Phase 2 and are
+// selected here so the card can show its MOQ and pack chips to signed-out
+// visitors — none of the three is a price or derived from one. master_id and
+// variant_label were already granted but never selected, which is why a guest
+// PDP could not render a variant selector.
 const GUEST_PRODUCT_COLS =
   "id,name,category_id,description,sku,unit_of_measure,quantity_in_unit," +
   "image_url,image_alt_text,image_description,specifications," +
-  "is_active,is_featured,status,display_order,brand,created_at,updated_at";
+  "is_active,is_featured,status,display_order,brand,created_at,updated_at," +
+  "moq,order_unit,order_step,master_id,variant_label";
 
 // SECURITY-SENSITIVE CACHE: productSelectCols() gates the price/mrp/discount
 // columns (guests must never see them). supabase.auth.getSession() does

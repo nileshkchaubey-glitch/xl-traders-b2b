@@ -19,7 +19,7 @@
 
 import type { Product, OrderUnit } from "./supabase";
 import { cartLinePrice } from "./priceUtils";
-import { packDivisor } from "./priceEntryMode";
+import { packDivisor, perPieceRate, formatPerPiece } from "./priceEntryMode";
 
 // Re-exported so consumers import the ordering vocabulary from one place; the
 // definition itself lives with the Product type it describes.
@@ -229,7 +229,65 @@ export function lineTotal(packs: Packs, price?: number | null): number {
   return Number.isFinite(amount) ? amount : 0;
 }
 
+/**
+ * The per-piece wholesale rate — the ONE figure a signed-in buyer sees
+ * (V3 pricing decision). Returns null when there is no usable pack size or no
+ * real price, so callers fall back to the pack figure rather than printing a
+ * bogus rate.
+ *
+ * Delegates to priceEntryMode's already-tested implementation rather than
+ * repeating the division. That module is imported here for exactly two things —
+ * `packDivisor` and this — because both answer questions it already owns, and a
+ * second independent answer is the `pack_size` mistake in function form
+ * (ORDERING_MODEL §1.4). Nothing else crosses between the two modules.
+ *
+ * NOTE this is a DERIVED display figure. It is never stored, and it never feeds
+ * money: `lineTotal` multiplies packs by the pack price, always.
+ */
+export function perPiecePrice(
+  price: number | null | undefined,
+  spec: OrderSpec
+): number | null {
+  const rate = perPieceRate(price, spec.packSize);
+  return rate == null || !Number.isFinite(rate) || rate <= 0 ? null : rate;
+}
+
+/** 2–4 dp, so a ₹0.025/pc rate is not rounded up to ₹0.03. */
+export function formatPerPiecePrice(rate: number): string {
+  return formatPerPiece(rate);
+}
+
 // ── Copy (§8) ───────────────────────────────────────────────────────────────
+
+/**
+ * The pack chip that sits top-left of the card image: "Pack of 1,500",
+ * "Box of 900", "Roll of 72". Derived from `unit_of_measure` via the same
+ * selling-unit noun the cart line uses, so the card and the cart never disagree
+ * about what one unit is called.
+ *
+ * Returns null when the pack size is unusable (NULL / 0 / 1) — "Pack of 1" is
+ * noise, and a chip is worse than no chip when it says nothing.
+ *
+ * Deviation from the brief, recorded: its third example is "Roll · 72" while
+ * the first two use "of". One separator is used here for all nouns, because
+ * two would need a per-noun rule with no data behind it.
+ */
+export function packChipLabel(spec: OrderSpec): string | null {
+  if (spec.packSize <= 1) return null;
+  const noun = spec.noun.charAt(0).toUpperCase() + spec.noun.slice(1);
+  return `${noun} of ${spec.packSize.toLocaleString("en-IN")}`;
+}
+
+/**
+ * The MOQ chip. Shown in EVERY auth state — `moq` is granted to `anon`
+ * (V3 Phase 2), so a signed-out visitor sees the minimum before they see a
+ * rate. Expressed in whatever unit the customer is counting in.
+ */
+export function moqChipLabel(spec: OrderSpec): string {
+  return spec.unit === "pcs"
+    ? `MOQ ${spec.minPcs.toLocaleString("en-IN")} pcs`
+    : `MOQ ${spec.minPacks} ${pluralNoun(spec.noun, spec.minPacks)}`;
+}
 
 export interface OrderQtyLabel {
   /** The number the customer is counting in, e.g. "6000 pcs" or "2 boxes". */
