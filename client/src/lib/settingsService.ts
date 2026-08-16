@@ -100,8 +100,14 @@ export interface DispatchContent {
   line: string;
 }
 
+/** Festival theme. Accent colour + hero gradient only — never layout or prices. */
+export interface SiteThemeContent {
+  theme: "default" | "diwali" | "holi" | "monsoon" | "independence";
+}
+
 export interface SiteContentMap {
   hero: HeroContent;
+  site_theme: SiteThemeContent;
   dispatch: DispatchContent;
   trust_badge: TrustBadge;
   trust_stats: TrustStat[];
@@ -145,6 +151,7 @@ export const FALLBACKS: SiteContentMap = {
   dispatch: {
     line: "Surat — same day · Outside Surat — 2–3 days",
   },
+  site_theme: { theme: "default" },
   /** @deprecated Not rendered since storefront PR-1. Values cleared in §12. */
   trust_badge: {
     rating: "",
