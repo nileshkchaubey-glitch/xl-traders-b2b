@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:storefront": "node scripts/check-storefront.mjs"
+    "check:storefront": "node scripts/check-storefront.mjs",
+    "ci": "npm run check && npm run check:storefront && npm test && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

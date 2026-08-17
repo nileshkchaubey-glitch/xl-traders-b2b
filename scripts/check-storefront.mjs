@@ -316,6 +316,12 @@ const BANNED_CLAIMS = [
  * search results.
  */
 const ADMIN_ONLY_LIBS = [
+  // Admin PAGES, not just components/admin/**. AdminProductEditor renders a
+  // <label>MRP (₹)</label> for a real DB column the operator must be able to
+  // edit — flagging that as customer copy is noise. Found when JSX-text
+  // scanning was added.
+  join("pages", "AdminProductEditor.tsx"),
+  join("pages", "AdminDashboard.tsx"),
   join("lib", "adminDailyImprovements.ts"),
   join("lib", "aiService.ts"),
   join("lib", "templateService.ts"),
@@ -333,9 +339,18 @@ rule(
   report => {
     scan(({ file, line, text }) => {
       if (ADMIN_ONLY_LIBS.includes(relative(SRC, file))) return;
-      // Only string literals — an identifier or a prop name is not copy.
+
+      // Copy appears in TWO shapes, and scanning only the first left a hole:
+      //   1. string literals   title="Same-day delivery in Surat"
+      //   2. JSX text nodes    <div>Same-day delivery in Surat</div>
+      // The rule originally checked literals only, so the identical claim was
+      // caught in a prop and missed in rendered text — which is where most
+      // customer-facing copy actually lives. Found by planting both forms.
       const literals = text.match(/(["'`])(?:(?!\1)[^\\]|\\.)*\1/g) ?? [];
-      for (const lit of literals) {
+      const jsxText = (text.match(/>([^<>{}\n]{4,})</g) ?? []).filter(t =>
+        /[A-Za-z]{3}/.test(t)
+      );
+      for (const lit of [...literals, ...jsxText]) {
         for (const [re, label] of BANNED_CLAIMS) {
           if (re.test(lit)) report(file, line, `${label}: ${lit.slice(0, 60)}`);
         }
