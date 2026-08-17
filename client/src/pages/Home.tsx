@@ -59,11 +59,7 @@ export default function Home() {
       <Header />
 
       <main className="flex-1 pb-24 md:pb-0">
-        <HeroSlideshow
-          hero={hero}
-          slides={HERO_SLIDES}
-          whatsappHref={bulkQuoteHref}
-        />
+        <HeroSlideshow hero={hero} slides={HERO_SLIDES} />
 
         {/* Owner-controlled slot. Renders NOTHING when unconfigured. */}
         <PromoBanners position="home_top" className="pt-6" />
