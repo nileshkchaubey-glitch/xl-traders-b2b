@@ -30,7 +30,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -87,8 +87,20 @@ if (!touched) {
 }
 
 // ── Run the guardrails ──────────────────────────────────────────────────────
+const CHECKER = join(REPO, "scripts", "check-storefront.mjs");
+
+// A MISSING checker must warn, not block. Without this guard node exits 1 —
+// a *defined* status — so the failure branch below would take it as a
+// guardrail violation and trap the turn behind a module-not-found trace.
+if (!existsSync(CHECKER)) {
+  console.error(
+    `[storefront guardrails] checker not found at ${CHECKER} — skipping.`
+  );
+  process.exit(1); // non-blocking notice
+}
+
 try {
-  execFileSync(process.execPath, [join(REPO, "scripts", "check-storefront.mjs")], {
+  execFileSync(process.execPath, [CHECKER], {
     cwd: REPO,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],

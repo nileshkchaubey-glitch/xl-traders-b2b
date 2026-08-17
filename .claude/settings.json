@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/claude-stop-check.mjs\""
+            "command": "node scripts/claude-stop-check.mjs"
           }
         ]
       }

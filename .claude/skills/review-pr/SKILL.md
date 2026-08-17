@@ -43,5 +43,20 @@ already been made.
 6. **Audit customer-facing strings.** Every string added or changed, and where
    in `docs/` it is confirmed. Unconfirmed strings are flagged, not shipped.
 
-Follow the review procedure and output format in your system prompt. Do not
-approve anything — report findings and let the lead decide.
+## The procedure
+
+@.claude/agents/storefront-reviewer.md
+
+The full procedure, operating rules and output format are imported above rather
+than left to the agent's system prompt.
+
+**Why this import exists.** The first run of this skill forked correctly but
+executed with a generic subagent prompt — `agent: storefront-reviewer` did not
+bind the persona. Everything living only in the agent file was silently skipped:
+the output format, the import-direction rule, the positive-control rule, the
+customer-facing-strings table. The reviewer noticed and recovered by reading the
+file off disk, but a guardrail that depends on the agent noticing is not a
+guardrail. Importing it makes the procedure load either way, and keeps one copy
+— the agent file stays the single source.
+
+Do not approve anything. Report findings and let the lead decide.
