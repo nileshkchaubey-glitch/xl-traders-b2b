@@ -11,7 +11,8 @@
     "check:price": "node scripts/check-price-entry.ts",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:storefront": "node scripts/check-storefront.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
