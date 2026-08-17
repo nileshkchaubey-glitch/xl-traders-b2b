@@ -1,29 +1,50 @@
 import { Link, useLocation } from "wouter";
-import { Home, LayoutGrid, ShoppingCart, MessageCircle } from "lucide-react";
-import { useCartStore } from "@/stores/cartStore";
-
-const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
+import {
+  Home,
+  LayoutGrid,
+  Search,
+  ShoppingCart,
+  User,
+} from "lucide-react";
+import { useCartStore, cartTotals } from "@/stores/cartStore";
+import { useAuthStore } from "@/lib/authStore";
 
 /**
- * Mobile-only chrome from the mobile prototype: a fixed bottom tab bar.
- * Rendered by Header so every storefront page gets it. The floating cart
- * summary (count/total/View Cart + min-order progress) lives in CartBar,
- * rendered alongside this by Header. Pages add `pb-24 md:pb-0` so content
- * never hides behind the bar(s).
+ * Mobile bottom navigation — five tabs.
+ *
+ * Home · Categories · Search · Cart · Account
+ *
+ * Two details that are rules rather than styling:
+ *  * The active tab uses `--xl-accent`, so festival theming reaches it without
+ *    the component ever reading the theme value.
+ *  * The cart badge is DISTINCT PRODUCTS (`cartTotals().lines`), not summed
+ *    packs or pieces. A B2B cart of two SKUs reads "2", not "6,500" — and the
+ *    figure comes from the same `cartTotals` the cart page and the WhatsApp
+ *    message use, so it cannot disagree with either.
+ *
+ * The sticky cart bar sits ABOVE this (`bottom-[calc(60px+safe-area)]`), and
+ * pages carry bottom padding so nothing hides behind either bar.
  */
 export default function MobileNav() {
   const [location] = useLocation();
   const items = useCartStore(s => s.items);
-  // Distinct products, not summed packs — a B2B cart of 2 SKUs reads as "2".
-  const cartCount = items.length;
+  const { isAuthenticated } = useAuthStore();
+
+  const cartCount = cartTotals(items).lines;
 
   const tabs = [
     { href: "/", label: "Home", icon: Home, active: location === "/" },
     {
-      href: "/catalog",
+      href: "/categories",
       label: "Categories",
       icon: LayoutGrid,
-      active: location.startsWith("/catalog"),
+      active: location.startsWith("/categories") || location.startsWith("/catalog"),
+    },
+    {
+      href: "/search",
+      label: "Search",
+      icon: Search,
+      active: location.startsWith("/search"),
     },
     {
       href: "/cart",
@@ -32,39 +53,40 @@ export default function MobileNav() {
       active: location === "/cart",
       badge: cartCount,
     },
+    {
+      href: isAuthenticated ? "/account" : "/auth",
+      label: "Account",
+      icon: User,
+      active: location.startsWith("/account") || location.startsWith("/auth"),
+    },
   ];
 
   return (
-    <>
-      {/* Bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 flex pb-[max(4px,env(safe-area-inset-bottom))]">
-        {tabs.map(t => (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={`flex-1 min-h-[60px] flex flex-col items-center justify-center gap-1 relative ${
-              t.active ? "text-red-600" : "text-slate-500"
-            }`}
-          >
-            <t.icon size={21} />
-            <span className="text-[10px] font-bold">{t.label}</span>
-            {t.badge != null && t.badge > 0 && (
-              <span className="absolute top-1.5 right-[calc(50%-22px)] bg-red-600 text-white text-[9px] font-extrabold min-w-4 h-4 rounded-full flex items-center justify-center px-1">
-                {t.badge > 99 ? "99+" : t.badge}
-              </span>
-            )}
-          </Link>
-        ))}
-        <a
-          href={`https://wa.me/${WA_NUMBER}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 min-h-[60px] flex flex-col items-center justify-center gap-1 text-emerald-600"
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white pb-[max(4px,env(safe-area-inset-bottom))] md:hidden">
+      {tabs.map(t => (
+        <Link
+          key={t.href}
+          href={t.href}
+          className="relative flex min-h-[60px] flex-1 flex-col items-center justify-center gap-1"
+          style={{ color: t.active ? "var(--xl-accent)" : undefined }}
+          aria-current={t.active ? "page" : undefined}
         >
-          <MessageCircle size={21} />
-          <span className="text-[10px] font-bold">WhatsApp</span>
-        </a>
-      </nav>
-    </>
+          <t.icon size={20} className={t.active ? "" : "text-slate-500"} />
+          <span
+            className={`text-[10px] font-bold ${t.active ? "" : "text-slate-500"}`}
+          >
+            {t.label}
+          </span>
+          {t.badge != null && t.badge > 0 && (
+            <span
+              className="absolute top-1.5 right-[calc(50%-20px)] flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-extrabold text-white"
+              style={{ background: "var(--xl-accent)" }}
+            >
+              {t.badge > 99 ? "99+" : t.badge}
+            </span>
+          )}
+        </Link>
+      ))}
+    </nav>
   );
 }
