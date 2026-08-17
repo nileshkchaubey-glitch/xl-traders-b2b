@@ -9,6 +9,7 @@ import {
 } from "./supabase";
 import { demoProducts, demoCategories } from "./demoData";
 import { realBrands } from "./brandUtils";
+import { orIlike } from "./searchFilter";
 
 // Demo mode is opt-in only (VITE_DEMO_MODE=true). The supabase client now
 // always has real credentials via built-in fallbacks, so we never fall into
@@ -351,10 +352,11 @@ function applyAdminScalarFilters(
   }
 ): any {
   if (search?.trim()) {
-    // Match name OR sku. Strip commas/parens which would break PostgREST's
-    // or() filter syntax.
-    const q = search.trim().replace(/[,()]/g, " ").trim();
-    if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%`);
+    // Match name OR sku. Previously stripped [,()] to avoid breaking
+    // PostgREST's or() grammar, which worked but silently mangled the operator's
+    // term; the shared escaper quotes it instead so it survives intact.
+    const or = orIlike(search, ["name", "sku"]);
+    if (or) query = query.or(or);
   }
   if (categoryId && categoryId !== "all")
     query = query.eq("category_id", categoryId);
@@ -392,10 +394,12 @@ function applyPublicScalarFilters(
     query = query.in("category_id", filters.categoryIds);
   if (filters?.featured) query = query.eq("is_featured", true);
   if (filters?.brand) query = query.eq("brand", filters.brand);
-  if (filters?.search)
-    query = query.or(
-      `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
-    );
+  if (filters?.search) {
+    // Escaped + quoted: a comma in the term used to produce HTTP 400 and take
+    // the whole catalogue down. See lib/searchFilter.ts.
+    const or = orIlike(filters.search, ["name", "description"]);
+    if (or) query = query.or(or);
+  }
   return query;
 }
 
@@ -668,14 +672,13 @@ export const productService = {
   // every status (drafts included — unlike the public search()). Returns only
   // the display columns the palette needs; price is intentionally excluded.
   async searchAdmin(query: string, limit = 8): Promise<Product[]> {
-    // Commas/parens would break the PostgREST or() filter syntax.
-    const q = query.trim().replace(/[,()]/g, " ").trim();
-    if (!q) return [];
+    const or = orIlike(query, ["name", "sku"]);
+    if (!or) return [];
 
     const { data, error } = await supabase
       .from("products")
       .select("id,name,sku,image_url,status,variant_label")
-      .or(`name.ilike.%${q}%,sku.ilike.%${q}%`)
+      .or(or)
       .order("name", { ascending: true })
       .limit(limit);
 
@@ -785,7 +788,7 @@ export const productService = {
         .select(cols)
         .eq("status", "published")
         .eq("is_active", true)
-        .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+        .or(orIlike(query, ["name", "description"]) ?? "")
         .limit(limit);
 
       if (error) throw error;
