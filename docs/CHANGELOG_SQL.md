@@ -17,6 +17,52 @@ statements are appended *after* they run, not submitted for approval.
 
 ---
 
+## 2026-08-17 — product-images storage RLS (last authorization hole closed)
+
+Full file: [`docs/sql/v3-storage-product-images-rls.sql`](sql/v3-storage-product-images-rls.sql) ·
+Behavioural proof: [`docs/sql/v3-storage-rls-verification.md`](sql/v3-storage-rls-verification.md)
+
+⚠️ **Replaced existing policies** — owner-authorised for this change only. Each
+DROP paired with its CREATE in the same transaction.
+
+Reason: `auth_read/upload/update/delete_product_images` checked only
+`bucket_id`, with no `is_admin()`, so **any signed-in customer could write to or
+rename catalogue imagery**. Proved as a real non-admin role before the change
+(UPLOAD succeeded, RENAME succeeded, 1 row); proved blocked after, with admin
+upload and update still succeeding. `product-images` was the last bucket not
+matching the admin-scoped shape `category-images` / `banner-images` already had.
+
+```sql
+DROP POLICY IF EXISTS auth_read_product_images   ON storage.objects;
+DROP POLICY IF EXISTS auth_upload_product_images ON storage.objects;
+DROP POLICY IF EXISTS auth_update_product_images ON storage.objects;
+DROP POLICY IF EXISTS auth_delete_product_images ON storage.objects;
+
+CREATE POLICY public_read_product_images  ON storage.objects FOR SELECT TO anon, authenticated
+  USING (bucket_id = 'product-images');
+CREATE POLICY admin_insert_product_images ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'product-images' AND is_admin());
+CREATE POLICY admin_update_product_images ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'product-images' AND is_admin())
+  WITH CHECK (bucket_id = 'product-images' AND is_admin());
+CREATE POLICY admin_delete_product_images ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'product-images' AND is_admin());
+```
+
+READ stays open deliberately: the bucket is public, so CDN reads bypass RLS and
+a public URL already exposes every object; this policy governs the authenticated
+object API that admin's image library and SKU workbench use via `.list()`.
+
+**Recorded limitation:** Supabase's trigger refusing direct `DELETE` on
+`storage.objects` fires before RLS, so the DELETE verb is not exercisable from
+SQL — for the hole or the fix. INSERT and UPDATE are proved; DELETE is verified
+by catalog inspection and is written identically to the proved UPDATE policy.
+
+Probes ran inside `BEGIN … ROLLBACK`; object count returned to 256, 0 probe rows
+left.
+
+---
+
 ## 2026-08-15 — Unbacked customer-facing claims removed (§12.3 dispositions)
 
 Reason: the storefront advertised **slab pricing that V3 explicitly does not

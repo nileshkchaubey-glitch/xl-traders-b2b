@@ -1007,10 +1007,14 @@ sites the ordering work must thread through.
   [`docs/sql/v3-rls-authorization-verification.md`](docs/sql/v3-rls-authorization-verification.md).
   `orders.user_id` now DEFAULTs to `auth.uid()` — required, or `INSERT … RETURNING` in
   `placeOrder()` would have broken checkout for every signed-in customer.
-- 🔴 **Storage `product-images` policies are still open** — `auth_read/upload/update/
-  delete_product_images` grant all four verbs to **any authenticated user** (bucket check
-  only, no `is_admin()`). The `category-images` and `banner-images` buckets added in V3
-  Phase 2 ARE admin-scoped, so this is the odd one out. One line per verb to fix.
+- ~~**Storage `product-images` policies are still open**~~ **CLOSED 17 Aug 2026.**
+  Writes are now `is_admin()`-scoped (`admin_insert/update/delete_product_images`),
+  reads stay public (`public_read_product_images`) because the bucket is public and
+  CDN reads bypass RLS anyway. Proved behaviourally — a non-admin could upload and
+  rename catalogue imagery before, and is blocked after, with admin upload/update
+  still working:
+  [`docs/sql/v3-storage-rls-verification.md`](docs/sql/v3-storage-rls-verification.md).
+  All three buckets now share the same admin-scoped shape.
 - 🔴 **Guest checkout is broken** (pre-existing, found 15 Aug 2026). `orderService.placeOrder`
   uses `.insert(...).select("id").single()` — an `INSERT … RETURNING`, which needs a SELECT
   policy admitting the new row; `anon` has none, so it fails with *"new row violates

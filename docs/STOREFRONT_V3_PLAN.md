@@ -922,9 +922,10 @@ dedicated PR (Gate 1, Q3-a). Each was demonstrated live before the fix and
 re-probed after; see
 [`docs/sql/v3-rls-authorization-verification.md`](sql/v3-rls-authorization-verification.md).
 `site_content`, `orders`/`order_items` and `inquiries` are now `is_admin()`-scoped,
-with a user-scoped read for a customer's own orders. **Still open:** the
-`product-images` storage policies (all four verbs to any authenticated user) —
-not among the three authorised, awaiting a go-ahead. Original text:
+with a user-scoped read for a customer's own orders. **`product-images` storage policies — ALSO CLOSED, 17 Aug 2026**, in their own
+PR to the same standard (hole proved, closed, proved closed, admin upload proved
+still working). All three buckets now share the admin-scoped shape. §13.1-F is
+fully closed. Original text:
 - `orders` / `order_items`: `SELECT` USING `auth.role() = 'authenticated'` —
   **any signed-in customer can read every other customer's orders**: name, phone,
   totals. This gets worse the moment reorder ships.
