@@ -1063,6 +1063,25 @@ being skim-read in a way that two identical labels in different sections does no
 
 ### 10.1 What exists today
 
+> **SUPERSEDED (17 Aug 2026).** This section described a repo with no test
+> runner, and proposed following that precedent. Both halves are now obsolete:
+>
+> * **vitest was added** with the ordering model, so there IS a test runner.
+>   `orderingModel`, the cart/WhatsApp total parity and the price-entry
+>   regression are all vitest suites (85 tests).
+> * **The bespoke-script precedent was actively harmful.** Node's native type
+>   stripping needs Node 22.6+; `.nvmrc` pins Node 20, so
+>   `node scripts/check-price-entry.ts` passed locally and failed the moment it
+>   ran in CI with `ERR_UNKNOWN_FILE_EXTENSION`. It was ported to
+>   `client/src/lib/priceEntryMode.test.ts` with its assertions unchanged, and
+>   `scripts/check-price-entry.ts` deleted. `npm run check:price` still works
+>   and now runs that suite.
+>
+> §10.2 below therefore does NOT apply — no `scripts/check-ordering-model.ts`
+> was written. Its assertions live in `client/src/lib/orderingModel.test.ts`.
+
+Original text, for the record:
+
 `package.json` has `check` (`tsc --noEmit`), `check:price`
 (`node scripts/check-price-entry.ts`) and `format`. There is **no test runner and no
 test dependency**, and `scripts/check-price-entry.ts` is run by Node's native type

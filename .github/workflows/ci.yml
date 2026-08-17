@@ -34,5 +34,16 @@ jobs:
       - name: Type-check
         run: npm run check
 
+      # Storefront invariants — the price gate, the ordering-arithmetic
+      # boundary, banned copy claims. Every rule here exists because breaking
+      # it produced a real defect; see docs/STOREFRONT_RULES.md.
+      - name: Storefront guardrails
+        run: npm run check:storefront
+
+      # Covers orderingModel, the cart/WhatsApp total parity, and the
+      # price-entry round-trip regression (all vitest, all on the pinned Node).
+      - name: Unit tests
+        run: npm test
+
       - name: Build
         run: npm run build
