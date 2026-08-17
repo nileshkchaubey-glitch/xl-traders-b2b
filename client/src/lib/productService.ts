@@ -263,11 +263,22 @@ export const categoryService = {
     }
   },
 
-  // Returns categories bucketed by group_name, sorted by group_order.
-  // Returns [] when no category has a group_name yet (caller falls back to flat list).
+  /**
+   * Categories bucketed by group_name, sorted by group_order.
+   *
+   * LIVE ONLY — built from getLiveCategories(), so a category with no published
+   * products never appears. All three consumers (Header mega-menu, Footer
+   * quick-links, Catalog sidebar) are storefront surfaces, and the home grid
+   * already hides empties; sourcing this from getAll() meant the mega-menu
+   * advertised 17 categories the grid deliberately hid, and each one led to an
+   * empty page.
+   *
+   * Returns [] when no category has a group_name yet (caller falls back to a
+   * flat list).
+   */
   async getCategoriesGroupedByGroup(): Promise<CategoryGroup[]> {
     if (isDemo) return [];
-    const cats = await this.getAll();
+    const cats = await this.getLiveCategories();
     if (!cats.some(c => c.group_name)) return [];
 
     const groupMap = new Map<string, CategoryGroup>();

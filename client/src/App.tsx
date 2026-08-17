@@ -11,6 +11,9 @@ import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
+import Search from "./pages/Search";
+import Categories from "./pages/Categories";
+import Account from "./pages/Account";
 import Auth from "./pages/Auth";
 
 // Admin panel is heavy (charts, xlsx/CSV import, image tools) and is only ever
@@ -38,6 +41,9 @@ function Router() {
       <Route path={"/catalog"} component={Catalog} />
       <Route path={"/product/:id"} component={ProductDetail} />
       <Route path={"/cart"} component={Cart} />
+      <Route path={"/search"} component={Search} />
+      <Route path={"/categories"} component={Categories} />
+      <Route path={"/account"} component={Account} />
       <Route path={"/auth"} component={Auth} />
       <Route path={"/admin/products/new"}>
         <Suspense fallback={<AdminFallback />}>

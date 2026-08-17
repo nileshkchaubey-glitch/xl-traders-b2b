@@ -1121,6 +1121,26 @@ for renditions that do not. Scheduled as Phase 5. Do not revisit.
 
 ---
 
+## 📦 Selling-unit noun — settled decision (17 Aug 2026)
+
+`unit_of_measure` names the selling unit. When it is null, empty, or a piece word
+(`pcs`, `pc`, `piece(s)`, `nos`, `no`, `unit(s)`) it is treated as **absent** and
+the storefront falls back to **"Pack of N"**. Nobody sells "one pcs of 900" — it
+is an absent value wearing the costume of a present one.
+
+**Do NOT hardcode `"pack"`** (the catalogue really does contain boxes, bags and
+rolls — the derivation is right, the data is empty), and **do NOT populate the
+column by hand** (the catalogue is being reimported from Excel, DATA-01, so
+values entered now are discarded).
+
+Live today: **138 of 139 published products are `pcs`**, so nearly everything
+renders "Pack of N". Real units arrive with the reimport — the import already
+maps the sheet's `unit` column to `unit_of_measure`
+(`bulkImportService.ts:454,588`), so no mapping work is outstanding; the sheet
+just has to carry real selling units. See `docs/STOREFRONT_RULES.md` §4.4b.
+
+---
+
 ## 🔑 Test Admin
 
 Full details, including every SQL statement run: [`docs/TEST_ADMIN.md`](docs/TEST_ADMIN.md).
@@ -1219,7 +1239,7 @@ just don't click merge until the go-ahead is given.
 | ---------------- | -------- | -------------------------------------------------------- |
 | name             | ✅       | Full name including size for variants                    |
 | category         | ⬜       | Blank → Uncategorized; must match Categories tab exactly |
-| unit             | ✅       | pcs/box/kg/set/roll/meter/litre/packet                   |
+| unit             | ✅       | **The SELLING unit** — `box`/`bag`/`roll`/`packet`/`carton`/`set`. Use `pcs` only when there genuinely is no pack noun; `pcs` is treated as ABSENT and renders "Pack of N" (see below). |
 | price            | ⬜       | Blank = "Price on enquiry"                               |
 | mrp              | ⬜       | Optional                                                 |
 | moq              | ⬜       | Blank = unknown                                          |

@@ -174,6 +174,32 @@ Adding spacing, sizing, `display`, or anything price-related to a
 
 *Enforced: `check-storefront.mjs` — `theme-block-scope`.*
 
+### 4.4b The selling-unit noun: 'pcs' is an ABSENT value, not a unit
+
+`unit_of_measure` names the selling unit — "box", "bag", "roll", "packet". When
+it is **null, empty, or a piece word** (`pcs`, `pc`, `piece(s)`, `nos`, `no`,
+`unit(s)`), it is treated as **absent** and the noun falls back to `pack`, so
+the card reads **"Pack of 900"**.
+
+Nobody sells "one pcs of 900". `pcs` is an absent value wearing the costume of a
+present one, and rendering it produced "1 pcs of 900" and "5 pcses" before this
+rule existed.
+
+**Do not "fix" this by hardcoding `"pack"`.** The catalogue genuinely contains
+boxes, bags and rolls; the derivation is correct and the data is empty. Live
+today: **138 of 139 published products have `unit_of_measure = 'pcs'`**, so
+almost everything renders "Pack of N" — which is right, not a bug.
+
+**Do not populate the column by hand either.** The catalogue is being reimported
+from Excel (DATA-01), so values entered now are discarded. Real units arrive
+with the real catalogue: the import already maps the sheet's `unit` column to
+`unit_of_measure` (`bulkImportService.ts:454,588`).
+
+> **Sheet guidance for the reimport:** `unit` should be the **selling unit** —
+> what one purchasable item is called (`box`, `bag`, `roll`, `packet`, `carton`,
+> `set`). Use `pcs` only when the product genuinely has no pack noun; it will
+> render as "Pack of N".
+
 ### 4.5 Images
 
 Sized WebP from Supabase Storage, generated **at upload** — the owner's settled
