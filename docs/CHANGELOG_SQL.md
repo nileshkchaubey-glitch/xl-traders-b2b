@@ -17,6 +17,38 @@ statements are appended *after* they run, not submitted for approval.
 
 ---
 
+## 2026-08-17 — FAQ answer reworded from delivery to dispatch
+
+Row updated: `faqs` (one answer).
+
+Reason: same defect class as the hero headline fixed in the same PR. The
+question "Do you deliver outside Surat?" was answered "Yes — same day within
+Surat, and 2–3 days outside Surat", which reads as a DELIVERY (arrival) promise.
+The owner confirmed a DISPATCH promise. Dispatch is when goods leave; delivery is
+when they arrive.
+
+Previous value, for reversal:
+
+```
+faqs[1].a  "Yes — same day within Surat, and 2–3 days outside Surat."
+```
+
+New value states dispatch explicitly:
+
+```
+faqs[1].a  "Yes. We dispatch same day within Surat, and within 2–3 days for
+            orders outside Surat."
+```
+
+The code fallback alone would not have fixed this — a stored `site_content` row
+wins over `FALLBACKS`. (`hero.promiseLead` needed no SQL: the stored `hero` row
+carries no `promiseLead`, so the fallback is what renders.)
+
+**Verified after:** all 15 `site_content` rows scanned for a timing adjacent to
+deliver/delivery — every row clean.
+
+---
+
 ## 2026-08-17 — product-images storage RLS (last authorization hole closed)
 
 Full file: [`docs/sql/v3-storage-product-images-rls.sql`](sql/v3-storage-product-images-rls.sql) ·

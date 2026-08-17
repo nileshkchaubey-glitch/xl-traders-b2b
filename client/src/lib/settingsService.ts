@@ -20,6 +20,10 @@ const isDemo = import.meta.env.VITE_DEMO_MODE === "true";
 // ── Value shapes ─────────────────────────────────────────────────────────────
 
 export interface HeroContent {
+  /** The single V3 hero line, overlaid on the image. */
+  line: string;
+  /** The single V3 hero button label. */
+  cta: string;
   // The delivery promise — the largest element on the page since PR-1
   // (STYLE_REFERENCE §2.1 A6: same-day-in-Surat is the strongest
   // differentiator and used to sit as a small tick below the hero).
@@ -130,7 +134,18 @@ export type SiteContentKey = keyof SiteContentMap;
 // `site_content` table produces a byte-identical site.
 export const FALLBACKS: SiteContentMap = {
   hero: {
-    promiseLead: "Same-day delivery in",
+    // The V3 hero: ONE line over the image plus one route to products, matching
+    // the frozen prototype. Nothing else belongs here.
+    line: "You order, we deliver.",
+    cta: "Shop catalogue",
+
+    // 🔴 DISPATCH, not delivery. These are different promises: dispatch is when
+    // goods LEAVE, delivery is when they ARRIVE. This read "Same-day delivery
+    // in Surat" — which silently upgraded the owner-confirmed dispatch promise
+    // into an arrival guarantee the business never made, while the tier line
+    // directly beneath it said the correct thing. Technically clean code, a new
+    // commercial promise.
+    promiseLead: "Same-day dispatch in",
     promiseAccent: "Surat",
     // Two tiers only — the owner-confirmed dispatch promise. The previous
     // three-tier version ("Next-day South Gujarat", "2–4 days Pan-India")
@@ -212,7 +227,7 @@ export const FALLBACKS: SiteContentMap = {
     },
     {
       q: "Do you deliver outside Surat?",
-      a: "Yes — same day within Surat, and 2–3 days outside Surat.",
+      a: "Yes. We dispatch same day within Surat, and within 2–3 days for orders outside Surat.",
     },
     {
       q: "Do I get a GST invoice?",

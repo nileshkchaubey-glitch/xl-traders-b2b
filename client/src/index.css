@@ -136,14 +136,32 @@
   animation: xl-hero-fade 18s ease-in-out infinite;
 }
 
+/* Slide dots, animated on the SAME 18s cycle as the slides rather than driven
+   by React state — so the indicator stays in step with a CSS-only slideshow
+   and the hero renders nothing that needs a re-render. */
+@keyframes xl-hero-dot {
+  0%, 42% { background-color: rgb(255 255 255 / 0.95); }
+  50%, 92% { background-color: rgb(255 255 255 / 0.4); }
+  100% { background-color: rgb(255 255 255 / 0.95); }
+}
+.xl-hero-dot {
+  animation: xl-hero-dot 18s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Reduced motion shows the first slide and stops. Not a slower fade — a
      still image, which is what the preference actually asks for. */
-  .xl-hero-slide {
+  .xl-hero-slide,
+  .xl-hero-dot {
     animation: none;
   }
   .xl-hero-slide:not(:first-child) {
     display: none;
+  }
+  /* Only the first dot stays lit — the indicator must not imply motion that
+     is not happening. */
+  .xl-hero-dot:first-child {
+    background-color: rgb(255 255 255 / 0.95);
   }
 }
 

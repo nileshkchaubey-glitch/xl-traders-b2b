@@ -1,117 +1,96 @@
 import { Link } from "wouter";
-import { ArrowRight, MessageCircle, Truck, Check } from "lucide-react";
 import type { HeroContent } from "@/lib/settingsService";
 
 interface HeroSlideshowProps {
   hero: HeroContent;
-  /** Local hero images, largest first. CSS-crossfaded; never video or GIF. */
+  /** Local hero images. CSS-crossfaded; never video, GIF or base64. */
   slides: string[];
-  whatsappHref: string;
 }
 
 /**
- * The hero.
+ * The hero, matching the frozen prototype.
  *
- * ── Motion rules, all held in CSS ────────────────────────────────────────
- *  * CSS ONLY. No video, no GIF, no JS animation loop, no timer state — the
- *    crossfade is one `@keyframes` opacity cycle per layer, staggered by
- *    animation-delay. Nothing re-renders while it plays.
- *  * FIXED HEIGHT. Every slide is absolutely positioned inside a box with an
- *    explicit height, so the page cannot shift as slides change — the layout
- *    is identical at slide 1 and slide 3.
- *  * `prefers-reduced-motion` shows the FIRST slide only and stops. Not a
- *    slower fade: a still image, which is what the preference asks for
- *    (index.css hides the rest and cancels the animation).
+ * ── What it is ───────────────────────────────────────────────────────────
+ * A full-bleed image slideshow with the content OVERLAID on it: one line, one
+ * button. That is the whole hero.
  *
- * The background gradient is `--xl-hero-grad`, one of the two properties
- * festival theming is allowed to change.
+ *   design-reference/xl-traders-storefront.dc.html:
+ *     <div style="position:absolute; …">
+ *       <div style="font-size:44px; …">You order, we deliver.</div>
+ *       <button …>Shop catalogue</button>
+ *     </div>
+ *
+ * ── What it deliberately no longer has ───────────────────────────────────
+ * An eyebrow, a two-part headline, a sub-headline, a paragraph, a second
+ * button, and a checkmark tier row — all pre-V3 copy that had been left wired
+ * up. The owner's instruction is that nothing sits on this page that is not a
+ * product or a route to products, and the dispatch and hours information lives
+ * in the top bar, where it already was.
+ *
+ * The line is the company TAGLINE, not a timing promise — it makes no claim
+ * about when anything arrives.
+ *
+ * ── Motion ───────────────────────────────────────────────────────────────
+ * CSS only. One opacity keyframe per layer, staggered by animation-delay; no
+ * video, no GIF, no JS loop, no timer state. Fixed height, so the page cannot
+ * shift between slides. The dots are animated on the SAME cycle rather than
+ * driven by state, which keeps the whole thing stateless.
+ * `prefers-reduced-motion` shows the first slide and stops (index.css).
  */
-export default function HeroSlideshow({
-  hero,
-  slides,
-  whatsappHref,
-}: HeroSlideshowProps) {
+export default function HeroSlideshow({ hero, slides }: HeroSlideshowProps) {
+  const count = Math.max(slides.length, 1);
+  const cycle = 18; // seconds, must match the xl-hero-fade keyframe duration
+
   return (
-    <section
-      className="relative overflow-hidden border-b border-slate-100"
-      style={{ background: "var(--xl-hero-grad)" }}
-    >
-      <div className="container grid items-center gap-8 py-8 md:py-14 lg:grid-cols-[1.15fr_1fr] lg:gap-12 lg:py-16">
-        <div>
-          <h1 className="mb-3">
-            <span className="mb-2 flex items-center gap-2 text-caption font-bold uppercase tracking-[0.12em] text-emerald-700">
-              <Truck size={14} strokeWidth={2.5} />
-              Surat · wholesale packaging
-            </span>
-            <span className="block text-4xl font-extrabold leading-[1.05] tracking-tight md:text-5xl lg:text-display">
-              {hero.promiseLead}{" "}
-              <span style={{ color: "var(--xl-accent)" }}>
-                {hero.promiseAccent}
-              </span>
-            </span>
-            <span className="mt-2 block text-lg font-bold tracking-tight text-slate-500 md:text-xl">
-              {hero.titleLead} {hero.titleAccent}
-            </span>
+    <section className="relative overflow-hidden">
+      <div className="relative h-[320px] w-full sm:h-[380px] lg:h-[460px]">
+        {slides.map((src, i) => (
+          <img
+            key={src}
+            src={src}
+            alt=""
+            aria-hidden
+            loading={i === 0 ? "eager" : "lazy"}
+            fetchPriority={i === 0 ? "high" : "auto"}
+            decoding="async"
+            className="xl-hero-slide absolute inset-0 h-full w-full object-cover"
+            style={{ animationDelay: `${(i * cycle) / count}s`, zIndex: i }}
+          />
+        ))}
+
+        {/* Legibility scrim. The prototype leans on a text-shadow; a gradient
+            holds up better across four very different photographs. */}
+        <div
+          className="pointer-events-none absolute inset-0 z-10"
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(15,23,42,0.78) 0%, rgba(15,23,42,0.45) 55%, rgba(15,23,42,0.05) 100%)",
+          }}
+        />
+
+        <div className="absolute inset-0 z-20 flex flex-col items-start justify-end gap-3 p-5 sm:justify-center sm:p-10 lg:p-14">
+          <h1
+            className="max-w-[15ch] text-[26px] font-extrabold leading-[1.05] tracking-tight text-white sm:text-4xl lg:text-[44px]"
+            style={{ textShadow: "0 2px 18px rgba(15,23,42,0.5)" }}
+          >
+            {hero.line}
           </h1>
-
-          <p className="mb-5 max-w-md text-body-md text-slate-600 md:text-base">
-            {hero.subline}
-          </p>
-
-          <div className="mb-5 flex flex-col gap-2.5 sm:flex-row">
-            <Link
-              href="/catalog"
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-body-md font-bold text-white shadow-[0_6px_20px_rgba(220,38,38,0.28)] transition hover:opacity-90"
-              style={{ background: "var(--xl-accent)" }}
-            >
-              Browse Products
-              <ArrowRight size={16} />
-            </Link>
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border-[1.5px] border-emerald-200 bg-white px-6 py-3.5 text-body-md font-bold text-emerald-700 transition hover:bg-emerald-50"
-            >
-              <MessageCircle size={16} />
-              Get Quote on WhatsApp
-            </a>
-          </div>
-
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-            {hero.promiseTiers.map(t => (
-              <span
-                key={t}
-                className="flex items-center gap-1.5 text-body-sm font-semibold text-slate-700"
-              >
-                <Check size={14} strokeWidth={3} className="flex-shrink-0 text-emerald-600" />
-                {t}
-              </span>
-            ))}
-          </div>
+          <Link
+            href="/catalog"
+            className="rounded-xl px-5 py-3 text-body-sm font-extrabold text-white transition hover:opacity-90 lg:px-7 lg:py-3.5 lg:text-body-md"
+            style={{ background: "var(--xl-accent)" }}
+          >
+            {hero.cta}
+          </Link>
         </div>
 
-        {/* Fixed-height stage. Hidden below lg: on a 390px screen it pushed the
-            first product a full extra screen down, and the promise above is the
-            point of the hero. */}
-        {slides.length > 0 && (
-          <div className="relative hidden h-[340px] overflow-hidden rounded-2xl border border-white/60 bg-white/40 shadow-sm lg:block">
+        {slides.length > 1 && (
+          <div className="absolute bottom-4 right-4 z-20 flex gap-1.5" aria-hidden>
             {slides.map((src, i) => (
-              <img
-                key={src}
-                src={src}
-                alt=""
-                aria-hidden
-                loading={i === 0 ? "eager" : "lazy"}
-                fetchPriority={i === 0 ? "high" : "auto"}
-                decoding="async"
-                className="xl-hero-slide absolute inset-0 h-full w-full object-cover"
-                style={{
-                  animationDelay: `${(i * 18) / slides.length}s`,
-                  // Later layers sit above earlier ones; each fades out to
-                  // reveal the next. Layer 1 needs no fade of its own.
-                  zIndex: i,
-                }}
+              <span
+                key={`dot-${src}`}
+                className="xl-hero-dot block h-[7px] w-[7px] rounded-full bg-white/40"
+                style={{ animationDelay: `${(i * cycle) / count}s` }}
               />
             ))}
           </div>

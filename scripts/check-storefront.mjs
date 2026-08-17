@@ -274,6 +274,27 @@ const BANNED_CLAIMS = [
   [/\b[0-9]\.[0-9]\s*(?:★|stars?\b|on Google\b)/i, "rating claim"],
   [/\b\d+\+\s*years\s+in\s+business\b/i, "years-in-business claim"],
   [/\bfree\s+(?:delivery|shipping)\b/i, "freight claim"],
+
+  // ── "delivery" used as a TIMING promise ────────────────────────────────
+  // Dispatch is when goods LEAVE; delivery is when they ARRIVE. The owner
+  // confirmed a DISPATCH promise, and the hero read "Same-day delivery in
+  // Surat" while the tier line directly beneath it said the correct thing —
+  // technically clean code quietly making a new commercial promise. That is
+  // the most dangerous shape a copy defect takes, so it gets its own rule.
+  //
+  // Deliberately narrow: it fires only when a TIMING sits next to
+  // deliver/delivery, so it does NOT catch the brand tagline ("You Order, We
+  // Deliver."), a service offering ("scheduled deliveries available"), a form
+  // label ("Delivery instructions"), or a plain question ("Do you deliver
+  // outside Surat?"). Say "dispatch" when you mean dispatch.
+  [
+    /\b(?:same[-\s]?day|next[-\s]?day|\d+\s*(?:-|\s)?\s*(?:hour|hr|day)s?)\b[^"'`]{0,24}\bdeliver(?:y|ed|ies)?\b/i,
+    "delivery used as a timing promise — say 'dispatch' unless arrival is guaranteed",
+  ],
+  [
+    /\bdeliver(?:y|ed|s)?\b[^"'`]{0,24}\b(?:same[-\s]?day|next[-\s]?day|within\s+\d+|in\s+\d+\s*(?:-|\s)?\s*(?:hour|hr|day)s?)\b/i,
+    "delivery used as a timing promise — say 'dispatch' unless arrival is guaranteed",
+  ],
   [/\bslab\s+pricing\b/i, "slab pricing"],
   [/\bunlock\s+better\s+rates\b/i, "tiered-pricing claim"],
   [/\b(?:in|out\s+of)\s+stock\b/i, "stock-availability claim"],
