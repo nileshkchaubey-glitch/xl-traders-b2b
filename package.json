@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
-    "check:price": "node scripts/check-price-entry.ts",
+    "check:price": "vitest run src/lib/priceEntryMode.test.ts",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",

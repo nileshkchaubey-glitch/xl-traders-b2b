@@ -814,10 +814,14 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   original pack string beside the draft and reuse it verbatim when the
   displayed rate is untouched — `CellEdit.originalPack`/`.seededPiece` via
   `packValueOf()` in the table, `originRef` via `onChange` in `usePriceEntry`.
-  Regression check: `npm run check:price` (`scripts/check-price-entry.ts`, run
-  by Node's native type stripping — no test runner, no new dependency; note
-  `tsconfig.json` only includes `client/src`, so this file is executed rather
-  than type-checked). Deleting either guard makes it fail.
+  Regression check: `npm run check:price`. **Now a vitest suite**
+  (`client/src/lib/priceEntryMode.test.ts`); it was `scripts/check-price-entry.ts`
+  run by Node's native type stripping, which only works on Node 22.6+ and so
+  failed the moment it was put in CI (`.nvmrc` pins Node 20 →
+  `ERR_UNKNOWN_FILE_EXTENSION`). The "no test runner, no new dependency"
+  rationale is obsolete: vitest arrived with the ordering model. Assertions are
+  unchanged, and deleting either guard still makes it fail (verified — removing
+  the guard fails 6 of the 23 tests).
   **On-Enquiry is toggle-only (same review):** the drawer derived `onEnquiry`
   live from `formData.price`, so clearing the box to retype a price flipped it
   true mid-keystroke — the pricing block and the focused input unmounted under

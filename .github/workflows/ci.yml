@@ -40,12 +40,10 @@ jobs:
       - name: Storefront guardrails
         run: npm run check:storefront
 
+      # Covers orderingModel, the cart/WhatsApp total parity, and the
+      # price-entry round-trip regression (all vitest, all on the pinned Node).
       - name: Unit tests
         run: npm test
-
-      # Pack/pcs price-entry round-trip regression.
-      - name: Price-entry regression
-        run: npm run check:price
 
       - name: Build
         run: npm run build
