@@ -96,9 +96,18 @@ export default function Footer() {
             {email}
           </a>
         </div>
+        {/* The "Ordering" label is NOT decoration. Without it the first entry
+            ("Surat — same day") renders unlabelled, one hairline above the
+            tagline "You Order, We Deliver." — an arrival-flavoured phrase
+            directly under what is actually a DISPATCH timing. That adjacency is
+            the split-across-strings shape STOREFRONT_RULES §3.2 exists to stop.
+            Desktop has always carried this heading; the mobile stub must too. */}
+        <div className="mt-3 text-caption font-bold uppercase tracking-widest text-slate-500">
+          Ordering
+        </div>
         {/* Rendered whole and unfiltered: `ordering` is admin-editable, so the
             footer must not decide which of the owner's lines are worth showing. */}
-        <div className="mt-2.5 text-caption leading-relaxed">
+        <div className="mt-1 text-caption leading-relaxed">
           {footer.ordering.join(" · ")}
         </div>
       </div>
