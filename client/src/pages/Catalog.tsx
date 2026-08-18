@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Loader2, MessageCircle, SlidersHorizontal } from "lucide-react";
 
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import ActiveFilters from "@/components/catalog/ActiveFilters";
 import CatalogFilterSheet from "@/components/catalog/CatalogFilterSheet";
@@ -219,9 +217,7 @@ export default function Catalog() {
   )}`;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <Header />
-
+    <>
       <main className="flex-1 pb-24 md:pb-0">
         <div className="container py-6">
           <div className="mb-3.5 text-body-sm text-slate-500">
@@ -400,8 +396,6 @@ export default function Catalog() {
         onClearAll={clearAll}
         totalCount={totalCount}
       />
-
-      <Footer />
-    </div>
+    </>
   );
 }

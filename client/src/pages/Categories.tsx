@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Package } from "lucide-react";
 
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import BackToTop from "@/components/storefront/BackToTop";
 import SectionEyebrow from "@/components/SectionEyebrow";
 import { categoryService, type CategoryGroup } from "@/lib/productService";
@@ -19,7 +17,9 @@ import { normalizeImageUrl } from "@/lib/imageUtils";
  */
 export default function Categories() {
   const [groups, setGroups] = useState<CategoryGroup[]>([]);
-  const [flat, setFlat] = useState<Awaited<ReturnType<typeof categoryService.getLiveCategories>>>([]);
+  const [flat, setFlat] = useState<
+    Awaited<ReturnType<typeof categoryService.getLiveCategories>>
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,8 +50,7 @@ export default function Categories() {
     : [{ title: null, items: flat }];
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <Header />
+    <>
       <main className="flex-1 pb-24 md:pb-10">
         <div className="container py-6">
           <h1 className="mb-1 text-2xl font-extrabold tracking-tight">
@@ -72,7 +71,9 @@ export default function Categories() {
             </div>
           ) : sections.every(s => s.items.length === 0) ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-              <div className="text-base font-bold">No categories to show yet</div>
+              <div className="text-base font-bold">
+                No categories to show yet
+              </div>
             </div>
           ) : (
             sections
@@ -91,7 +92,10 @@ export default function Categories() {
                       >
                         <div className="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                           <div className="absolute inset-0 grid place-items-center">
-                            <Package className="h-6 w-6 text-slate-300" aria-hidden />
+                            <Package
+                              className="h-6 w-6 text-slate-300"
+                              aria-hidden
+                            />
                           </div>
                           {c.image_url && (
                             <img
@@ -124,7 +128,6 @@ export default function Categories() {
         </div>
       </main>
       <BackToTop />
-      <Footer />
-    </div>
+    </>
   );
 }

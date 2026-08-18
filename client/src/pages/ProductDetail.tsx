@@ -1,17 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "wouter";
-import { ChevronRight, MessageCircle, ShieldCheck, Loader2 } from "lucide-react";
+import {
+  ChevronRight,
+  MessageCircle,
+  ShieldCheck,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import ProductImage from "@/components/storefront/ProductImage";
 import PriceSlot from "@/components/storefront/PriceSlot";
 import QtyStepper from "@/components/storefront/QtyStepper";
 import OrderRule from "@/components/storefront/OrderRule";
 import VariantSelector from "@/components/storefront/VariantSelector";
-import { PackChip, MoqChip, DispatchLine } from "@/components/storefront/ProductMeta";
+import {
+  PackChip,
+  MoqChip,
+  DispatchLine,
+} from "@/components/storefront/ProductMeta";
 
 import type { Product, ProductImage as ProductImageRow } from "@/lib/supabase";
 import { productService, productImageService } from "@/lib/productService";
@@ -44,7 +51,9 @@ export default function ProductDetail() {
   const [imageIndex, setImageIndex] = useState(0);
   const [similar, setSimilar] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [packs, setPacksState] = useState<Packs>(initialPacks(resolveOrderSpec(null)));
+  const [packs, setPacksState] = useState<Packs>(
+    initialPacks(resolveOrderSpec(null))
+  );
 
   // The row every field is read from — the chosen variant, or the product
   // itself when it is standalone. Ordering is ALWAYS per-variant.
@@ -130,7 +139,10 @@ export default function ProductDetail() {
       <Shell>
         <div className="container py-20 text-center">
           <h1 className="text-xl font-extrabold">Product not found</h1>
-          <Link href="/catalog" className="mt-3 inline-block font-bold text-red-600">
+          <Link
+            href="/catalog"
+            className="mt-3 inline-block font-bold text-red-600"
+          >
             Browse the catalogue →
           </Link>
         </div>
@@ -176,11 +188,17 @@ export default function ProductDetail() {
     <Shell>
       <div className="container py-5">
         <nav className="mb-4 flex items-center gap-1 text-caption text-slate-500">
-          <Link href="/" className="hover:text-red-600">Home</Link>
+          <Link href="/" className="hover:text-red-600">
+            Home
+          </Link>
           <ChevronRight size={12} />
-          <Link href="/catalog" className="hover:text-red-600">Catalogue</Link>
+          <Link href="/catalog" className="hover:text-red-600">
+            Catalogue
+          </Link>
           <ChevronRight size={12} />
-          <span className="truncate font-semibold text-slate-700">{current.name}</span>
+          <span className="truncate font-semibold text-slate-700">
+            {current.name}
+          </span>
         </nav>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr] lg:gap-10">
@@ -207,7 +225,12 @@ export default function ProductDetail() {
                       i === imageIndex ? "border-red-600" : "border-slate-200"
                     }`}
                   >
-                    <ProductImage url={url} alt="" slotPx={120} aspect="aspect-square" />
+                    <ProductImage
+                      url={url}
+                      alt=""
+                      slotPx={120}
+                      aspect="aspect-square"
+                    />
                   </button>
                 ))}
               </div>
@@ -225,7 +248,9 @@ export default function ProductDetail() {
               {current.name}
             </h1>
             {current.sku && (
-              <div className="mt-1 text-caption text-slate-500">SKU {current.sku}</div>
+              <div className="mt-1 text-caption text-slate-500">
+                SKU {current.sku}
+              </div>
             )}
 
             <div className="mt-4">
@@ -301,7 +326,9 @@ export default function ProductDetail() {
 
             {current.description && (
               <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
-                <h2 className="mb-2 font-extrabold text-slate-900">Description</h2>
+                <h2 className="mb-2 font-extrabold text-slate-900">
+                  Description
+                </h2>
                 <p className="whitespace-pre-line text-body-sm leading-relaxed text-slate-600">
                   {current.description}
                 </p>
@@ -312,15 +339,21 @@ export default function ProductDetail() {
                 table reads as missing data, not as a product with no specs. */}
             {hasSpecs && (
               <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
-                <h2 className="mb-2 font-extrabold text-slate-900">Specifications</h2>
+                <h2 className="mb-2 font-extrabold text-slate-900">
+                  Specifications
+                </h2>
                 <dl>
                   {Object.entries(specs).map(([k, v]) => (
                     <div
                       key={k}
                       className="grid grid-cols-[140px_1fr] gap-3 border-b border-slate-100 py-2 text-body-sm last:border-0"
                     >
-                      <dt className="font-medium capitalize text-slate-500">{k}</dt>
-                      <dd className="font-semibold text-slate-900">{String(v)}</dd>
+                      <dt className="font-medium capitalize text-slate-500">
+                        {k}
+                      </dt>
+                      <dd className="font-semibold text-slate-900">
+                        {String(v)}
+                      </dd>
                     </div>
                   ))}
                 </dl>
@@ -352,7 +385,9 @@ export default function ProductDetail() {
             <QtyStepper
               packs={packs}
               spec={spec}
-              onChange={next => setPacksState(next > 0 ? next : initialPacks(spec))}
+              onChange={next =>
+                setPacksState(next > 0 ? next : initialPacks(spec))
+              }
             />
             <button
               onClick={addToCart}
@@ -387,13 +422,10 @@ export default function ProductDetail() {
   );
 }
 
+// Kept as a local component because ProductDetail renders it from THREE
+// branches (loading, not-found, loaded). The chrome around it now comes from
+// StorefrontLayout; this is only the <main> and its page-specific padding.
 function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <Header />
-      {/* Bottom padding clears the sticky action bar AND the mobile nav. */}
-      <main className="flex-1 pb-40 lg:pb-10">{children}</main>
-      <Footer />
-    </div>
-  );
+  // Bottom padding clears the sticky action bar AND the mobile nav.
+  return <main className="flex-1 pb-40 lg:pb-10">{children}</main>;
 }

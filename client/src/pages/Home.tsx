@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Lock, MapPin, MessageCircle } from "lucide-react";
 
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import SectionEyebrow from "@/components/SectionEyebrow";
 import HeroSlideshow from "@/components/storefront/HeroSlideshow";
 import PromoBanners from "@/components/storefront/PromoBanners";
@@ -55,9 +53,7 @@ export default function Home() {
   )}`;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <Header />
-
+    <>
       <main className="flex-1 pb-24 md:pb-0">
         <HeroSlideshow hero={hero} slides={HERO_SLIDES} />
 
@@ -88,7 +84,10 @@ export default function Home() {
           <section className="container py-8">
             <div className="flex flex-col items-start gap-4 rounded-2xl bg-slate-900 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
-                <Lock size={20} className="mt-0.5 flex-shrink-0 text-white/70" />
+                <Lock
+                  size={20}
+                  className="mt-0.5 flex-shrink-0 text-white/70"
+                />
                 <div>
                   <div className="text-body-md font-bold text-white">
                     Sign in for your wholesale rates
@@ -125,7 +124,9 @@ export default function Home() {
                 >
                   {s.value}
                 </div>
-                <div className="mt-0.5 text-body-sm font-semibold">{s.label}</div>
+                <div className="mt-0.5 text-body-sm font-semibold">
+                  {s.label}
+                </div>
                 <div className="mt-0.5 text-xs text-slate-500">{s.sub}</div>
               </div>
             ))}
@@ -213,7 +214,9 @@ export default function Home() {
                     </span>
                   </button>
                   {openFaq === i && (
-                    <p className="px-4 pb-3 text-body-sm text-slate-600">{f.a}</p>
+                    <p className="px-4 pb-3 text-body-sm text-slate-600">
+                      {f.a}
+                    </p>
                   )}
                 </div>
               ))}
@@ -223,7 +226,6 @@ export default function Home() {
       </main>
 
       <BackToTop />
-      <Footer />
-    </div>
+    </>
   );
 }
