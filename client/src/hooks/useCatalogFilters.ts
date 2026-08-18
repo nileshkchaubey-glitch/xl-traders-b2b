@@ -93,6 +93,13 @@ export function useCatalogFilters() {
   // Back/Forward, the "clear" chip, or a link into /catalog?search=…
   useEffect(() => setSearchInput(selection.search), [selection.search]);
 
+  /** Removing the search chip must not wait out the typing debounce — a click
+   *  on an X should not leave that chip on screen for another 300ms. */
+  const clearSearch = useCallback(() => {
+    setSearchInput("");
+    navigate({ ...selection, search: "" });
+  }, [navigate, selection]);
+
   useEffect(() => {
     const next = searchInput.trim();
     if (next === selection.search) return;
@@ -114,6 +121,7 @@ export function useCatalogFilters() {
     setBrand,
     setSort,
     clearAll,
+    clearSearch,
   };
 }
 

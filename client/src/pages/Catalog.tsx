@@ -41,6 +41,7 @@ export default function Catalog() {
     setBrand,
     setSort,
     clearAll,
+    clearSearch,
   } = useCatalogFilters();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -89,10 +90,29 @@ export default function Catalog() {
   }, []);
 
   // ── What are we asking the database for? ──────────────────────────────────
-  const query = useMemo(
-    () => resolveCatalogQuery(selection, categories, categoriesLoaded),
-    [selection, categories, categoriesLoaded]
-  );
+  const resolved = resolveCatalogQuery(selection, categories, categoriesLoaded);
+
+  // Key on CONTENT, not object identity. An unfiltered /catalog resolves to the
+  // same empty filter set before and after the category list arrives, but a
+  // fresh object each time made the product effect refire — a cold load fetched
+  // the list and its count TWICE (measured: 5 product requests, of which 2 were
+  // exact duplicates). Pre-existing; the old effect had `categories` in its
+  // dependency array for the same reason.
+  //
+  // `filters` is built in a fixed key order by resolveCatalogQuery, so
+  // stringifying it is a stable key rather than an accident of insertion order.
+  const queryKey =
+    resolved.status === "ready"
+      ? `ready:${JSON.stringify(resolved.filters)}`
+      : resolved.status === "unknown"
+        ? `unknown:${resolved.what}`
+        : "pending";
+
+  // Deliberately keyed only on queryKey: it is a complete description of
+  // `resolved`, so holding the first object for a given key is what makes the
+  // identity stable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const query = useMemo(() => resolved, [queryKey]);
 
   // ── Products ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -275,7 +295,7 @@ export default function Catalog() {
                 onClearCategory={() => setCategory(null)}
                 onClearGroup={() => setGroup(null)}
                 onClearBrand={() => setBrand(null)}
-                onClearSearch={() => setSearchInput("")}
+                onClearSearch={clearSearch}
                 onClearAll={clearAll}
               />
 
