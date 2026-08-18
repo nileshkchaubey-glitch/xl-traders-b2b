@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Loader2, MessageCircle, SlidersHorizontal } from "lucide-react";
 
@@ -57,6 +57,7 @@ export default function Catalog() {
 
   const [view, setView] = useState<CatalogView>("grid");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const filtersButtonRef = useRef<HTMLButtonElement>(null);
 
   // ── Facets ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -87,6 +88,17 @@ export default function Catalog() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // The sheet is opened from an `lg:hidden` button, but it renders in a portal
+  // and would survive a resize past that breakpoint — as a bottom sheet on a
+  // layout that already shows the sidebar, still holding a focus trap. Close it
+  // on the crossing rather than trusting the viewport not to change.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const close = (e: MediaQueryListEvent) => e.matches && setSheetOpen(false);
+    mq.addEventListener("change", close);
+    return () => mq.removeEventListener("change", close);
   }, []);
 
   // ── What are we asking the database for? ──────────────────────────────────
@@ -262,6 +274,7 @@ export default function Catalog() {
                   header (z-40) and above the cards. */}
               <div className="scrollbar-hide sticky top-[116px] z-20 mb-4 flex gap-2 overflow-x-auto bg-slate-50 py-1 lg:hidden">
                 <button
+                  ref={filtersButtonRef}
                   onClick={() => setSheetOpen(true)}
                   className={`flex h-10 flex-shrink-0 items-center gap-1.5 rounded-full border-[1.5px] px-3.5 text-body-sm font-bold transition ${
                     activeCount
@@ -372,7 +385,8 @@ export default function Catalog() {
 
       <CatalogFilterSheet
         open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onOpenChange={setSheetOpen}
+        triggerRef={filtersButtonRef}
         selection={selection}
         categories={categories}
         groups={groups}
