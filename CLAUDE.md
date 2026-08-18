@@ -319,6 +319,41 @@ categories` → links to `/catalog`), sourced from the same public
     underneath it.
     Screenshots: `docs/screenshots/pr1-home-{signedout,signedin}-{390,1440}.png`.
 
+  - **Catalog page — composable filters (Phase 4, Aug 2026):** `pages/Catalog.tsx`
+    769 → 373 lines, split into `components/catalog/*` (sidebar, toolbar, filter
+    sheet, active-filter chips, skeleton, category icon), a `useCatalogFilters`
+    hook and a pure, unit-tested `lib/catalogQuery.ts` (16 tests).
+    **Filters now AND together.** `applyPublicScalarFilters` in `productService`
+    had always composed `categoryId` + `brand` + `search` onto one query; the page
+    threw that away with a chain of early returns in `buildFilters()` — search beat
+    brand beat group beat category. Measured on the old code:
+    `?category=paper-cup&brand=Packworld` rendered **18 products under the heading
+    "Paper Cup"** when only 7 exist — every Packworld product, confidently
+    mislabelled. Now 7. This needed **no service change**; the capability was
+    already there. An unresolvable slug now reports `status:"unknown"` and renders
+    an empty state instead of silently dropping the filter (the old `{}` return
+    showed the ENTIRE catalogue under that category's name).
+    **The URL is the single source of truth.** State derives from wouter's
+    reactive `useSearch()` rather than being copied into `useState` at mount and
+    only ever written back, so Back/Forward work by construction — measured
+    before: Back changed the address bar to a bare `/catalog` while the page kept
+    showing "Paper Cup / 7 products". Search is debounced 300ms and written with
+    `replace`: 6 keystrokes went from **12 product requests + 6 history entries**
+    to **2 and 0** (both measured, old vs new).
+    **Live-only categories** (STOREFRONT_RULES §4.2): the sheet and sidebar now
+    read `categoryService.getLiveCategories()`, not `getAll()` (active-only).
+    Measured: **38 category chips → 21**, exactly matching
+    `v_category_live_counts`; the 17 removed each led to "No products found".
+    Also: one `CatalogToolbar` replaces the duplicated desktop/mobile sort+view
+    controls whose labels had already drifted apart, and the mobile view toggle
+    moved into the sheet rather than being dropped with that duplicate bar.
+    Price sorts stay signed-in only, and a `?sort=price-low` link opened by a
+    guest is now coerced **and rewritten** out of the URL.
+    **Deliberately deferred to a follow-up PR:** the filter sheet is still a
+    hand-rolled overlay with no focus trap, no Escape handler, no `role="dialog"`
+    and no body scroll lock. That is an a11y fix with its own verification, not
+    something to smuggle into a filter-composition change.
+
 ### Admin Panel (PIM)
 
 - Shopify-style dark sidebar; CATALOGUE / SALES / CONTENT & IMPORT / SYSTEM
