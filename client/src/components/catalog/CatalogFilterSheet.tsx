@@ -1,3 +1,13 @@
+import type { RefObject } from "react";
+
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+
 import type { CatalogSelection } from "@/lib/catalogQuery";
 import type { CategoryGroup, PublicProductSort } from "@/lib/productService";
 import type { Category } from "@/lib/supabase";
@@ -7,7 +17,10 @@ import type { CatalogView } from "./CatalogToolbar";
 
 interface Props {
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
+  /** The control that opens this sheet. Focus returns here on close — see the
+   *  note on `onCloseAutoFocus` below. */
+  triggerRef: RefObject<HTMLButtonElement | null>;
   selection: CatalogSelection;
   categories: Category[];
   groups: CategoryGroup[];
@@ -22,18 +35,35 @@ interface Props {
   totalCount: number;
 }
 
+function Section({ title }: { title: string }) {
+  return (
+    <div className="mb-2.5 text-caption font-bold uppercase tracking-widest text-slate-400">
+      {title}
+    </div>
+  );
+}
+
 /**
  * Mobile filter & sort sheet.
  *
- * KNOWN GAP, deliberately left for the follow-up: this is a hand-rolled overlay
- * with no focus trap, no Escape handler, no `role="dialog"` and no body scroll
- * lock — the page still scrolls behind it. That is an accessibility fix with
- * its own verification (keyboard traversal, screen reader, scroll behaviour at
- * 390px), not something to smuggle into a filter-composition change.
+ * Built on the `vaul` Drawer rather than the hand-rolled overlay it replaces.
+ * That overlay had none of the four things a modal owes a keyboard or screen
+ * reader user: no `role="dialog"`, no focus trap, no Escape handler, and no
+ * body scroll lock — the page scrolled behind it, and Tab walked straight out
+ * of the sheet into the catalogue underneath while the sheet stayed open.
+ *
+ * The primitive supplies all four, plus swipe-to-close. It is also FREE here:
+ * `vaul` already sits in the storefront entry chunk (Rollup hoists it there
+ * because two lazy admin chunks share it), so every storefront visitor was
+ * already downloading it. Hand-rolling a focus trap to avoid a cost we were
+ * paying anyway would have been the worst of both.
+ *
+ * `ui/drawer` is the same primitive every admin bottom sheet uses.
  */
 export default function CatalogFilterSheet({
   open,
-  onClose,
+  onOpenChange,
+  triggerRef,
   selection,
   categories,
   groups,
@@ -47,8 +77,6 @@ export default function CatalogFilterSheet({
   onClearAll,
   totalCount,
 }: Props) {
-  if (!open) return null;
-
   const sorts: Array<[PublicProductSort, string]> = [
     ["newest", "Newest"],
     ["name", "Name A–Z"],
@@ -68,40 +96,67 @@ export default function CatalogFilterSheet({
         categories)
       : categories;
 
-  const Section = ({ title }: { title: string }) => (
-    <div className="mb-2.5 text-caption font-bold uppercase tracking-widest text-slate-400">
-      {title}
-    </div>
-  );
-
   return (
-    <div className="lg:hidden">
-      <div
-        className="fixed inset-0 z-50 bg-slate-900/45"
-        onClick={onClose}
-        aria-hidden
-      />
-      <div className="animate-in slide-in-from-bottom fixed inset-x-0 bottom-0 z-50 max-h-[75vh] overflow-auto rounded-t-[20px] bg-white duration-300">
-        <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white px-5 pb-2.5 pt-3.5">
-          <div className="absolute left-1/2 top-2 h-1 w-9 -translate-x-1/2 rounded-full bg-slate-200" />
-          <span className="mt-1.5 text-body-md font-extrabold">
+    // `autoFocus` is REQUIRED for the focus trap to engage, and it is not the
+    // default. vaul's Content does
+    //     onOpenAutoFocus: e => { …; if (!autoFocus) e.preventDefault(); }
+    // and `Root` defaults `autoFocus = false`, so focus stays on the trigger —
+    // OUTSIDE Radix's FocusScope. The scope's sentinel guards only wrap focus
+    // that is already inside it, so Tab walked straight through the chips
+    // behind the open sheet. Measured before adding this: six Tab presses, six
+    // landings outside the dialog. `role="dialog"` was present the whole time,
+    // which is exactly why checking the markup would not have caught it.
+    <Drawer open={open} onOpenChange={onOpenChange} autoFocus>
+      <DrawerContent
+        className="max-h-[85vh] rounded-t-[20px]"
+        // The focus trap covers Tab, but a screen reader in BROWSE mode does
+        // not follow focus — measured with the sheet open, `#root` carried no
+        // `aria-hidden` and the content no `aria-modal`, so the whole
+        // catalogue was still readable behind it. `aria-modal="true"` is the
+        // signal that confines browse mode to this subtree. vaul does not set
+        // it; Radix only would in its own modal path.
+        aria-modal="true"
+        // Radix restores focus to `Dialog.Trigger` on close. This sheet is
+        // CONTROLLED — the button lives in the catalogue toolbar, not in a
+        // DrawerTrigger — so there is nothing for Radix to restore to and
+        // focus fell to <body>. Measured: after Escape, activeElement was
+        // BODY, meaning a keyboard user lost their place and had to Tab from
+        // the top of the document. Restore it explicitly instead.
+        onCloseAutoFocus={e => {
+          const el = triggerRef.current;
+          if (!el?.isConnected) return; // let Radix do whatever it would
+          e.preventDefault();
+          el.focus();
+        }}
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 pb-2.5 pt-2">
+          <DrawerTitle className="text-body-md font-extrabold text-slate-900">
             Filters &amp; Sort
-          </span>
+          </DrawerTitle>
+          {/* Radix announces the dialog by title + description; without a
+              description it logs a missing-aria-describedby warning. This is
+              the description, read only by assistive tech. */}
+          <DrawerDescription className="sr-only">
+            Filter and sort the product catalogue.
+          </DrawerDescription>
           <button
             onClick={onClearAll}
-            className="mt-1.5 text-body-sm font-bold text-red-600"
+            className="text-body-sm font-bold text-red-600"
           >
             Clear all
           </button>
         </div>
 
-        <div className="px-5 py-4 pb-24">
+        {/* The scroller. DrawerContent is a flex column, so this takes the
+            remaining height and the footer below stays put. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <Section title="Sort" />
           <div className="mb-5 flex flex-wrap gap-2">
             {sorts.map(([value, label]) => (
               <button
                 key={value}
                 onClick={() => onSortChange(value)}
+                aria-pressed={selection.sort === value}
                 className={chipClass(selection.sort === value)}
               >
                 {label}
@@ -122,6 +177,7 @@ export default function CatalogFilterSheet({
               <button
                 key={value}
                 onClick={() => onViewChange(value)}
+                aria-pressed={view === value}
                 className={chipClass(view === value)}
               >
                 {label}
@@ -139,6 +195,7 @@ export default function CatalogFilterSheet({
                     selection.category === cat.slug ? null : cat.slug
                   )
                 }
+                aria-pressed={selection.category === cat.slug}
                 className={chipClass(selection.category === cat.slug)}
               >
                 {cat.name}
@@ -156,6 +213,7 @@ export default function CatalogFilterSheet({
                     onClick={() =>
                       onBrandChange(selection.brand === brand ? null : brand)
                     }
+                    aria-pressed={selection.brand === brand}
                     className={chipClass(selection.brand === brand)}
                   >
                     {brand}
@@ -166,15 +224,14 @@ export default function CatalogFilterSheet({
           )}
         </div>
 
-        <div className="sticky bottom-0 border-t border-slate-100 bg-white px-5 py-3">
-          <button
-            onClick={onClose}
-            className="h-[50px] w-full rounded-xl bg-red-600 text-body-md font-extrabold text-white transition hover:bg-red-700"
-          >
-            Show {totalCount.toLocaleString()} products
-          </button>
+        <div className="shrink-0 border-t border-slate-100 bg-white px-5 py-3">
+          <DrawerClose asChild>
+            <button className="h-[50px] w-full rounded-xl bg-red-600 text-body-md font-extrabold text-white transition hover:bg-red-700">
+              Show {totalCount.toLocaleString()} products
+            </button>
+          </DrawerClose>
         </div>
-      </div>
-    </div>
+      </DrawerContent>
+    </Drawer>
   );
 }

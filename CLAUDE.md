@@ -349,10 +349,31 @@ categories` → links to `/catalog`), sourced from the same public
     moved into the sheet rather than being dropped with that duplicate bar.
     Price sorts stay signed-in only, and a `?sort=price-low` link opened by a
     guest is now coerced **and rewritten** out of the URL.
-    **Deliberately deferred to a follow-up PR:** the filter sheet is still a
-    hand-rolled overlay with no focus trap, no Escape handler, no `role="dialog"`
-    and no body scroll lock. That is an a11y fix with its own verification, not
-    something to smuggle into a filter-composition change.
+  - **Catalog filter sheet — accessibility (Phase 4 close, Aug 2026):** the
+    hand-rolled mobile overlay is replaced by the `vaul` Drawer (`ui/drawer`,
+    the same primitive every admin bottom sheet uses). It costs **nothing**:
+    `vaul` already sat in the storefront entry chunk, hoisted there by Rollup
+    because two lazy admin chunks share it.
+    **Reaching for the primitive was not enough, and that is the finding.**
+    vaul's `Content` does `onOpenAutoFocus: e => { …; if (!autoFocus)
+    e.preventDefault(); }` and its `Root` defaults **`autoFocus = false`** — so
+    focus stayed on the trigger, OUTSIDE Radix's FocusScope, whose sentinel
+    guards only wrap focus already inside it. Measured: six Tab presses, six
+    landings on the chips *behind* the open sheet — with `role="dialog"`
+    present the whole time. Fixed with the `autoFocus` prop; measured after:
+    **41 Tab stops and 8 Shift+Tab stops, zero outside the dialog**, wrapping
+    at both ends. Two more gaps the primitive did not close on its own:
+    **focus did not return** to the trigger on close (Radix restores to
+    `Dialog.Trigger`, and this sheet is controlled — activeElement was `BODY`),
+    fixed with an explicit `onCloseAutoFocus` + `triggerRef`; and **`aria-modal`
+    was absent with `#root` not `aria-hidden`**, so a screen reader in browse
+    mode could still read the catalogue behind the sheet — set explicitly.
+    Also: the sheet now closes when the viewport crosses to `lg`, since it
+    renders in a portal and would otherwise survive as a bottom sheet on the
+    sidebar layout while holding a focus trap. Verified live at 375px with real
+    key events: Escape closes and restores focus, overlay click and "Show N
+    products" both close and restore, body scroll locks and releases, and the
+    dialog has an accessible name and description. No console warnings.
 
 ### Admin Panel (PIM)
 
