@@ -320,7 +320,7 @@ categories` → links to `/catalog`), sourced from the same public
     Screenshots: `docs/screenshots/pr1-home-{signedout,signedin}-{390,1440}.png`.
 
   - **Catalog page — composable filters (Phase 4, Aug 2026):** `pages/Catalog.tsx`
-    769 → 373 lines, split into `components/catalog/*` (sidebar, toolbar, filter
+    769 → 393 lines, split into `components/catalog/*` (sidebar, toolbar, filter
     sheet, active-filter chips, skeleton, category icon), a `useCatalogFilters`
     hook and a pure, unit-tested `lib/catalogQuery.ts` (16 tests).
     **Filters now AND together.** `applyPublicScalarFilters` in `productService`

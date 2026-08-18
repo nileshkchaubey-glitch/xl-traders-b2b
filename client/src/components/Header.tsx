@@ -199,8 +199,7 @@ export default function Header() {
           No matches for "{searchQuery.trim()}"
         </div>
         <div className="text-body-sm text-slate-500 mb-3">
-          We probably stock it — ask us directly and we'll add it to your
-          order.
+          The catalogue is still being listed — ask us directly and we'll check.
         </div>
         <a
           href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi XL Traders, do you stock "${searchQuery.trim()}"?`)}`}

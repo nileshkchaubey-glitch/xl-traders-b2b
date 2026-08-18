@@ -15,7 +15,7 @@ import ProductGridSkeleton from "@/components/catalog/ProductGridSkeleton";
 import { chipClass } from "@/components/catalog/chip";
 
 import { useCatalogFilters } from "@/hooks/useCatalogFilters";
-import { isEmptySelection, resolveCatalogQuery } from "@/lib/catalogQuery";
+import { resolveCatalogQuery } from "@/lib/catalogQuery";
 import { useAuthStore } from "@/lib/authStore";
 import {
   categoryService,
@@ -274,7 +274,7 @@ export default function Catalog() {
                 </button>
                 <button
                   onClick={() => setGroup(null)}
-                  className={chipClass(isEmptySelection(selection))}
+                  className={chipClass(!selection.category && !selection.group)}
                 >
                   All
                 </button>
@@ -305,13 +305,13 @@ export default function Catalog() {
                 <div className="rounded-lg border border-slate-200 bg-white p-12 text-center">
                   <p className="text-lg text-slate-500">
                     {query.status === "unknown"
-                      ? "That category is not available right now"
+                      ? "We could not find that category"
                       : "No products found"}
                   </p>
                   <p className="mb-4 mt-2 text-sm text-slate-400">
                     {activeCount > 1
-                      ? "Try removing one of the filters above, or we probably stock it and just have not listed it yet."
-                      : "Try adjusting your filters or search query, or we probably stock it and just have not listed it yet."}
+                      ? "Try removing one of the filters above — the catalogue is still being listed, so ask us if it is not here."
+                      : "Try adjusting your filters or search query — the catalogue is still being listed, so ask us if it is not here."}
                   </p>
                   <a
                     href={waHref}
