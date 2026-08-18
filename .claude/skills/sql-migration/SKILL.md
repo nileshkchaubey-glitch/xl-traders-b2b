@@ -7,6 +7,21 @@ disable-model-invocation: true
 
 # SQL migration protocol
 
+## Invocation policy: NOT model-invocable
+
+`disable-model-invocation: true` **deliberately, and this one stays.** This skill
+executes statements against the production database — dev and production are the
+same database — so a human should always be the one who starts it. That is true
+even though the procedure below is careful: the safety of the procedure is not
+the point, the identity of whoever decided to run it is.
+
+**The line, project-wide:** a skill is model-invocable unless its side effects
+land **outside version control** — a production database, an external service, a
+published artefact. Code changes are inside version control and revertible, so
+they do not count. `review-pr` sits on the other side of this line and was
+wrongly blocked until #163; see its file.
+
+
 The procedure proven across PRs #147 (schema), #148 (RLS authorization) and
 #158 (storage RLS). Follow it in order.
 
