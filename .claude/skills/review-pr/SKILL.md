@@ -5,7 +5,7 @@ argument-hint: [PR number, or blank for the current branch]
 context: fork
 agent: storefront-reviewer
 background: false
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 Review the current branch against `main` — or the PR given as an argument.
@@ -58,5 +58,21 @@ customer-facing-strings table. The reviewer noticed and recovered by reading the
 file off disk, but a guardrail that depends on the agent noticing is not a
 guardrail. Importing it makes the procedure load either way, and keeps one copy
 — the agent file stays the single source.
+
+## Invocation policy: model-invocable
+
+`disable-model-invocation: false` **deliberately**. This skill only reads — it
+runs the CI gate, greps the tree and inspects a diff. It changes nothing.
+
+It was shipped as `true` in #161 and that was a mistake, found the first time it
+mattered: asked to review a branch before opening a PR, the agent could not run
+its own review gate. Blocking programmatic invocation on a read-only skill costs
+review coverage and buys nothing.
+
+**The line, project-wide:** a skill is model-invocable unless its side effects
+land **outside version control** — a production database, an external service, a
+published artefact. Code changes are inside version control and revertible, so
+they do not count. `sql-migration` is the one skill on the other side of that
+line, and its own file says why.
 
 Do not approve anything. Report findings and let the lead decide.
