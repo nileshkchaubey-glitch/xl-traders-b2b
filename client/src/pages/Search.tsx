@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { Search as SearchIcon, X, Loader2 } from "lucide-react";
 
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import BackToTop from "@/components/storefront/BackToTop";
 import SectionEyebrow from "@/components/SectionEyebrow";
@@ -87,12 +85,12 @@ export default function Search() {
   )}`;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <Header />
-
+    <>
       <main className="flex-1 pb-24 md:pb-10">
         <div className="container py-6">
-          <h1 className="mb-4 text-2xl font-extrabold tracking-tight">Search</h1>
+          <h1 className="mb-4 text-2xl font-extrabold tracking-tight">
+            Search
+          </h1>
 
           <div className="relative mb-5">
             <SearchIcon
@@ -141,7 +139,10 @@ export default function Search() {
           {loading && (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="overflow-hidden rounded-2xl border border-slate-200">
+                <div
+                  key={i}
+                  className="overflow-hidden rounded-2xl border border-slate-200"
+                >
                   <Skeleton className="aspect-[4/3] w-full" />
                   <div className="space-y-2 p-3">
                     <Skeleton className="h-3 w-3/4" />
@@ -156,7 +157,10 @@ export default function Search() {
             <>
               <div className="mb-3 text-body-sm text-slate-500">
                 {results.length} result{results.length !== 1 ? "s" : ""} for
-                <span className="font-bold text-slate-900"> “{term.trim()}”</span>
+                <span className="font-bold text-slate-900">
+                  {" "}
+                  “{term.trim()}”
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                 {results.map((p, i) => (
@@ -197,7 +201,6 @@ export default function Search() {
       </main>
 
       <BackToTop />
-      <Footer />
-    </div>
+    </>
   );
 }

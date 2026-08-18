@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
+import StorefrontLayout from "@/components/StorefrontLayout";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useAuthStore } from "./lib/authStore";
 import Home from "./pages/Home";
@@ -34,17 +35,36 @@ function AdminFallback() {
   );
 }
 
+const STOREFRONT_ROUTES: Array<[string, React.ComponentType]> = [
+  ["/", Home],
+  ["/catalog", Catalog],
+  ["/product/:id", ProductDetail],
+  ["/cart", Cart],
+  ["/search", Search],
+  ["/categories", Categories],
+  ["/account", Account],
+  ["/auth", Auth],
+];
+
 function Router() {
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/catalog"} component={Catalog} />
-      <Route path={"/product/:id"} component={ProductDetail} />
-      <Route path={"/cart"} component={Cart} />
-      <Route path={"/search"} component={Search} />
-      <Route path={"/categories"} component={Categories} />
-      <Route path={"/account"} component={Account} />
-      <Route path={"/auth"} component={Auth} />
+      {/* Storefront — Header/Footer come from StorefrontLayout, which each of
+          these pages used to import and render for itself. <main> stays with
+          the page: its bottom padding is page-specific.
+
+          These are enumerated rather than wrapped as one catch-all Route so
+          that NotFound and /admin keep rendering with NO storefront chrome,
+          exactly as they do today. That keeps this refactor behaviour-neutral;
+          giving the 404 a header and bottom nav is a real improvement but a
+          separate decision. */}
+      {STOREFRONT_ROUTES.map(([path, Page]) => (
+        <Route key={path} path={path}>
+          <StorefrontLayout>
+            <Page />
+          </StorefrontLayout>
+        </Route>
+      ))}
       <Route path={"/admin/products/new"}>
         <Suspense fallback={<AdminFallback />}>
           <AdminProductEditor />
