@@ -1,185 +1,171 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation, useSearch } from "wouter";
-import {
-  Grid3x3,
-  List,
-  ChevronDown,
-  Package,
-  Loader2,
-  SlidersHorizontal,
-  MessageCircle,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "wouter";
+import { Loader2, MessageCircle, SlidersHorizontal } from "lucide-react";
+
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
+import ActiveFilters from "@/components/catalog/ActiveFilters";
+import CatalogFilterSheet from "@/components/catalog/CatalogFilterSheet";
+import CatalogSidebar from "@/components/catalog/CatalogSidebar";
+import CatalogToolbar, {
+  CatalogView,
+} from "@/components/catalog/CatalogToolbar";
+import ProductGridSkeleton from "@/components/catalog/ProductGridSkeleton";
+import { chipClass } from "@/components/catalog/chip";
+
+import { useCatalogFilters } from "@/hooks/useCatalogFilters";
+import { resolveCatalogQuery } from "@/lib/catalogQuery";
 import { useAuthStore } from "@/lib/authStore";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   categoryService,
   productService,
   CategoryGroup,
-  PublicProductFilters,
-  PublicProductSort,
 } from "@/lib/productService";
 import { Category, Product } from "@/lib/supabase";
 
-// Products fetched per page. Chosen as a common multiple of the grid columns
-// (2 / 3 / 4 / 5) so pages fill evenly across breakpoints.
+// A common multiple of the grid column counts (2 / 3 / 4 / 5) so pages fill
+// evenly across breakpoints.
 const PAGE_SIZE = 24;
 
-// Icon shown next to each category in the 2-level sidebar
-function CategoryIcon({ cat }: { cat: Category }) {
-  if (cat.image_url) {
-    return (
-      <img
-        src={cat.image_url}
-        alt={cat.name}
-        className="h-5 w-5 rounded object-cover flex-shrink-0"
-      />
-    );
-  }
-  if (cat.icon_emoji) {
-    return (
-      <span className="text-base leading-none flex-shrink-0">
-        {cat.icon_emoji}
-      </span>
-    );
-  }
-  return <Package size={14} className="flex-shrink-0 text-slate-400" />;
-}
+const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
 
 export default function Catalog() {
-  const [, setLocation] = useLocation();
-  const searchParams = useSearch();
-  const params = new URLSearchParams(searchParams);
-  const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
+  const { isAuthenticated } = useAuthStore();
+  const {
+    selection,
+    searchInput,
+    setSearchInput,
+    setCategory,
+    setGroup,
+    setBrand,
+    setSort,
+    clearAll,
+    clearSearch,
+  } = useCatalogFilters();
 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
+  const [groups, setGroups] = useState<CategoryGroup[]>([]);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
-  const [brands, setBrands] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sortBy, setSortBy] = useState<PublicProductSort>("newest");
+
+  const [view, setView] = useState<CatalogView>("grid");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { isAuthenticated } = useAuthStore();
 
-  // A price sort selected while signed in must not survive signing out: anon
-  // cannot ORDER BY price (the service falls back, but the <select> would show
-  // a value with no matching option). Coerce the state instead.
+  // ── Facets ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (
-      !isAuthenticated &&
-      (sortBy === "price-low" || sortBy === "price-high")
-    ) {
-      setSortBy("newest");
-    }
-  }, [isAuthenticated, sortBy]);
-
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(
-    params.get("category") || null
-  );
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(
-    params.get("group") || null
-  );
-  const [selectedBrand, setSelectedBrand] = useState<string | null>(
-    params.get("brand") || null
-  );
-  const [searchQuery, setSearchQuery] = useState(params.get("search") || "");
-
-  // Load categories, groups, brands
-  useEffect(() => {
-    const loadMeta = async () => {
-      try {
-        const [cats, brnds, groups] = await Promise.all([
-          categoryService.getAll(),
-          productService.getBrands(),
-          categoryService.getCategoriesGroupedByGroup(),
-        ]);
+    let cancelled = false;
+    Promise.all([
+      // LIVE ONLY. categoryService.getAll() returns every ACTIVE category,
+      // which is not the same thing: 17 of the 38 active categories have no
+      // published+active products (verified live), so the mobile filter sheet
+      // was offering 17 chips that each land on "No products found".
+      // STOREFRONT_RULES 4.2 — the published-AND-active rule lives in
+      // v_category_live_counts, in SQL, once.
+      categoryService.getLiveCategories(),
+      categoryService.getCategoriesGroupedByGroup(),
+      // Already funnels through realBrands(), so 'Generic' — the null-brand
+      // placeholder — never reaches this facet.
+      productService.getBrands(),
+    ])
+      .then(([cats, grps, brnds]) => {
+        if (cancelled) return;
         setCategories(cats);
+        setGroups(grps);
         setBrands(brnds);
-        setCategoryGroups(groups);
-      } catch (error) {
-        console.error("Error loading categories/brands:", error);
-      }
+      })
+      .catch(error => console.error("Error loading catalogue facets:", error))
+      .finally(() => {
+        if (!cancelled) setCategoriesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
     };
-    loadMeta();
   }, []);
 
-  // Resolve the active UI selection into the server-side filter getAll/
-  // countPublished understand. Sorting + pagination are applied on top of this;
-  // this is only the "which products" part so the list and its count agree.
-  const buildFilters = useCallback((): PublicProductFilters => {
-    if (searchQuery) return { search: searchQuery };
-    if (selectedBrand) return { brand: selectedBrand };
-    if (selectedGroup) {
-      const ids = categories
-        .filter(c => c.group_name === selectedGroup)
-        .map(c => c.id);
-      // No categories in the group yet → fall back to all products (old behaviour).
-      return ids.length ? { categoryIds: ids } : {};
-    }
-    if (selectedCategory) {
-      const cat = categories.find(c => c.slug === selectedCategory);
-      return cat ? { categoryId: cat.id } : {};
-    }
-    return {};
-  }, [searchQuery, selectedBrand, selectedGroup, selectedCategory, categories]);
+  // ── What are we asking the database for? ──────────────────────────────────
+  const resolved = resolveCatalogQuery(selection, categories, categoriesLoaded);
 
-  // Load (or reload) the first page whenever the filters or sort change. Fetches
-  // one page + the matching total in parallel; sort/pagination happen server-side
-  // so the browser never pulls the whole catalogue.
+  // Key on CONTENT, not object identity. An unfiltered /catalog resolves to the
+  // same empty filter set before and after the category list arrives, but a
+  // fresh object each time made the product effect refire — a cold load fetched
+  // the list and its count TWICE (measured: 5 product requests, of which 2 were
+  // exact duplicates). Pre-existing; the old effect had `categories` in its
+  // dependency array for the same reason.
+  //
+  // `filters` is built in a fixed key order by resolveCatalogQuery, so
+  // stringifying it is a stable key rather than an accident of insertion order.
+  const queryKey =
+    resolved.status === "ready"
+      ? `ready:${JSON.stringify(resolved.filters)}`
+      : resolved.status === "unknown"
+        ? `unknown:${resolved.what}`
+        : "pending";
+
+  // Deliberately keyed only on queryKey: it is a complete description of
+  // `resolved`, so holding the first object for a given key is what makes the
+  // identity stable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const query = useMemo(() => resolved, [queryKey]);
+
+  // ── Products ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    // A category/group filter needs the categories list to resolve its id/slug —
-    // wait for it rather than briefly showing every product.
-    if ((selectedCategory || selectedGroup) && categories.length === 0) return;
+    if (query.status === "pending") return;
+    if (query.status === "unknown") {
+      setProducts([]);
+      setTotalCount(0);
+      setIsLoading(false);
+      return;
+    }
 
+    const { filters } = query;
     let cancelled = false;
-    const loadFirstPage = async () => {
-      setIsLoading(true);
-      setPage(1);
-      const filters = buildFilters();
-      try {
-        const [rows, count] = await Promise.all([
-          productService.getAll({
-            ...filters,
-            sort: sortBy,
-            page: 1,
-            pageSize: PAGE_SIZE,
-          }),
-          productService.countPublished(filters),
-        ]);
+    setIsLoading(true);
+    setPage(1);
+
+    Promise.all([
+      productService.getAll({
+        ...filters,
+        sort: selection.sort,
+        page: 1,
+        pageSize: PAGE_SIZE,
+      }),
+      productService.countPublished(filters),
+    ])
+      .then(([rows, count]) => {
         if (cancelled) return;
         setProducts(rows);
         setTotalCount(count);
-      } catch (error) {
+      })
+      .catch(error => {
         if (cancelled) return;
         console.error("Error loading products:", error);
         setProducts([]);
         setTotalCount(0);
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setIsLoading(false);
-      }
-    };
+      });
 
-    loadFirstPage();
     return () => {
       cancelled = true;
     };
-  }, [buildFilters, sortBy, selectedCategory, selectedGroup, categories]);
+  }, [query, selection.sort]);
 
-  // "Load More" — append the next page to the already-loaded list.
   const handleLoadMore = async () => {
-    if (isLoadingMore) return;
+    if (isLoadingMore || query.status !== "ready") return;
     const nextPage = page + 1;
     setIsLoadingMore(true);
     try {
       const rows = await productService.getAll({
-        ...buildFilters(),
-        sort: sortBy,
+        ...query.filters,
+        sort: selection.sort,
         page: nextPage,
         pageSize: PAGE_SIZE,
       });
@@ -192,399 +178,146 @@ export default function Catalog() {
     }
   };
 
-  const hasMore = products.length < totalCount;
+  // An unresolvable slug falls back to the raw URL value rather than through
+  // to "All Products" — a heading of "All Products" over an empty list reads
+  // as a broken page, and over a full one it would be an outright lie.
+  const categoryName = selection.category
+    ? (categories.find(c => c.slug === selection.category)?.name ??
+      selection.category)
+    : null;
 
-  const handleCategoryChange = (slug: string | null) => {
-    setSelectedCategory(slug);
-    setSelectedGroup(null);
-    setSelectedBrand(null);
-    setLocation(slug ? `/catalog?category=${slug}` : "/catalog");
-  };
+  const heading =
+    selection.group ||
+    categoryName ||
+    selection.brand ||
+    (selection.search ? `"${selection.search}"` : null) ||
+    "All Products";
 
-  const handleGroupChange = (groupName: string | null) => {
-    setSelectedGroup(groupName);
-    setSelectedCategory(null);
-    setSelectedBrand(null);
-    setLocation(
-      groupName ? `/catalog?group=${encodeURIComponent(groupName)}` : "/catalog"
-    );
-  };
+  const activeCount = [
+    selection.category,
+    selection.group,
+    selection.brand,
+    selection.search,
+  ].filter(Boolean).length;
 
-  const handleBrandChange = (brand: string | null) => {
-    setSelectedBrand(brand);
-    setSelectedCategory(null);
-    setSelectedGroup(null);
-    setLocation(
-      brand ? `/catalog?brand=${encodeURIComponent(brand)}` : "/catalog"
-    );
-  };
-
-  const handleSearchChange = (query: string) => {
-    setSearchQuery(query);
-    setLocation(
-      query ? `/catalog?search=${encodeURIComponent(query)}` : "/catalog"
-    );
-  };
-
-  const isNothingSelected =
-    !selectedCategory && !selectedGroup && !selectedBrand && !searchQuery;
-
-  // Readable label for the active filter
-  const activeFilterLabel =
-    selectedGroup ||
-    categories.find(c => c.slug === selectedCategory)?.name ||
-    selectedBrand ||
-    null;
-
-  // Mobile: categories filtered by selected group (or all)
-  const mobileCategoryOptions =
-    selectedGroup && categoryGroups.length > 0
-      ? (categoryGroups.find(g => g.group_name === selectedGroup)?.categories ??
-        categories)
-      : categories;
+  const waHref = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
+    selection.search
+      ? `Hi XL Traders, do you stock "${selection.search}"?`
+      : "Hi XL Traders, I couldn't find what I'm looking for on the site — can you help?"
+  )}`;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="flex min-h-screen flex-col bg-slate-50">
       <Header />
 
       <main className="flex-1 pb-24 md:pb-0">
         <div className="container py-6">
-          {/* Breadcrumb */}
-          <div className="text-body-sm text-slate-500 mb-3.5">
-            <Link href="/" className="hover:text-red-600 transition">
+          <div className="mb-3.5 text-body-sm text-slate-500">
+            <Link href="/" className="transition hover:text-red-600">
               Home
             </Link>
             <span className="mx-1.5">/</span>
-            <span className="text-slate-900 font-semibold">
-              {activeFilterLabel || "All Products"}
-            </span>
+            <span className="font-semibold text-slate-900">{heading}</span>
           </div>
 
-          {/* Title + controls */}
-          <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-                {activeFilterLabel || "All Products"}
+                {heading}
               </h1>
-              <p className="text-body-sm text-slate-500 mt-0.5">
+              <p className="mt-0.5 text-body-sm text-slate-500">
                 {totalCount.toLocaleString()} products
               </p>
             </div>
-            <div className="hidden lg:flex items-center gap-2.5">
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={e => setSortBy(e.target.value as PublicProductSort)}
-                  className="appearance-none h-10 pl-3 pr-8 border border-slate-200 rounded-lg text-body-sm font-semibold bg-white cursor-pointer outline-none"
-                >
-                  <option value="newest">Sort: Newest</option>
-                  <option value="name">Name (A–Z)</option>
-                  {/* Price sorts are signed-in only: anon has no SELECT grant
-                      on `price`, so ORDER BY price is refused by Postgres and
-                      the catalogue comes back empty. */}
-                  {isAuthenticated && (
-                    <>
-                      <option value="price-low">Price: Low to High</option>
-                      <option value="price-high">Price: High to Low</option>
-                    </>
-                  )}
-                </select>
-                <ChevronDown
-                  size={15}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"
-                />
-              </div>
-              <div className="flex border border-slate-200 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  aria-label="Grid view"
-                  className={`w-10 h-10 flex items-center justify-center transition ${
-                    viewMode === "grid"
-                      ? "bg-slate-900 text-white"
-                      : "bg-white text-slate-500 hover:bg-slate-50"
-                  }`}
-                >
-                  <Grid3x3 size={16} />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  aria-label="List view"
-                  className={`w-10 h-10 flex items-center justify-center transition ${
-                    viewMode === "list"
-                      ? "bg-slate-900 text-white"
-                      : "bg-white text-slate-500 hover:bg-slate-50"
-                  }`}
-                >
-                  <List size={16} />
-                </button>
-              </div>
-            </div>
+            <CatalogToolbar
+              className="hidden lg:flex"
+              sort={selection.sort}
+              onSortChange={setSort}
+              view={view}
+              onViewChange={setView}
+              canSortByPrice={isAuthenticated}
+            />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* ── Desktop Sidebar ── */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
             <aside className="hidden lg:block">
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden sticky top-24">
-                {/* Search */}
-                <div className="p-4 border-b border-slate-200">
-                  <input
-                    type="text"
-                    placeholder="Search products..."
-                    value={searchQuery}
-                    onChange={e => handleSearchChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
-                  />
-                </div>
-
-                {/* Categories — 2-level grouped or flat fallback */}
-                <div className="p-4 overflow-y-auto max-h-[60vh]">
-                  <h3 className="font-bold text-sm text-slate-900 mb-3">
-                    Categories
-                  </h3>
-                  <div className="space-y-0.5">
-                    {/* All Products */}
-                    <button
-                      onClick={() => handleCategoryChange(null)}
-                      className={`w-full text-left px-3 py-2 rounded text-sm transition ${
-                        isNothingSelected
-                          ? "bg-red-100 text-red-600 font-semibold"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      All Products
-                    </button>
-
-                    {categoryGroups.length > 0
-                      ? // ── 2-level grouped view ──
-                        categoryGroups.map(group => {
-                          const isGroupActive =
-                            selectedGroup === group.group_name;
-                          const hasActiveCatInGroup = group.categories.some(
-                            c => c.slug === selectedCategory
-                          );
-                          return (
-                            <div key={group.group_name} className="mt-3">
-                              {/* Group header */}
-                              <button
-                                onClick={() =>
-                                  handleGroupChange(group.group_name)
-                                }
-                                className={`w-full text-left px-3 py-2 rounded text-xs font-bold uppercase tracking-wider transition ${
-                                  isGroupActive
-                                    ? "bg-red-600 text-white"
-                                    : hasActiveCatInGroup
-                                      ? "text-red-600"
-                                      : "text-slate-500 hover:bg-slate-100"
-                                }`}
-                              >
-                                {group.group_name}
-                              </button>
-                              {/* Category items */}
-                              <div className="ml-1 mt-0.5 space-y-0.5">
-                                {group.categories.map(cat => (
-                                  <button
-                                    key={cat.id}
-                                    onClick={() =>
-                                      handleCategoryChange(cat.slug)
-                                    }
-                                    className={`w-full text-left px-3 py-1.5 rounded text-sm transition flex items-center gap-2 ${
-                                      selectedCategory === cat.slug
-                                        ? "bg-red-100 text-red-600 font-semibold"
-                                        : "text-slate-600 hover:bg-slate-100"
-                                    }`}
-                                  >
-                                    <CategoryIcon cat={cat} />
-                                    <span className="truncate">{cat.name}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })
-                      : // ── Flat fallback (no groups yet) ──
-                        categories.map(cat => (
-                          <button
-                            key={cat.id}
-                            onClick={() => handleCategoryChange(cat.slug)}
-                            className={`w-full text-left px-3 py-2 rounded text-sm transition flex items-center gap-2 ${
-                              selectedCategory === cat.slug
-                                ? "bg-red-100 text-red-600 font-semibold"
-                                : "text-slate-600 hover:bg-slate-100"
-                            }`}
-                          >
-                            <CategoryIcon cat={cat} />
-                            <span>{cat.name}</span>
-                          </button>
-                        ))}
-                  </div>
-                </div>
-
-                {/* Brands */}
-                {brands.length > 0 && (
-                  <div className="p-4 border-t border-slate-200">
-                    <h3 className="font-bold text-sm text-slate-900 mb-3">
-                      Brands
-                    </h3>
-                    <div className="space-y-0.5">
-                      {brands.map(brand => (
-                        <button
-                          key={brand}
-                          onClick={() =>
-                            handleBrandChange(
-                              selectedBrand === brand ? null : brand
-                            )
-                          }
-                          className={`w-full text-left px-3 py-2 rounded text-sm transition ${
-                            selectedBrand === brand
-                              ? "bg-red-100 text-red-600 font-semibold"
-                              : "text-slate-600 hover:bg-slate-100"
-                          }`}
-                        >
-                          {brand}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <CatalogSidebar
+                search={searchInput}
+                onSearchChange={setSearchInput}
+                categories={categories}
+                groups={groups}
+                brands={brands}
+                selectedCategory={selection.category}
+                selectedGroup={selection.group}
+                selectedBrand={selection.brand}
+                onCategoryChange={setCategory}
+                onGroupChange={setGroup}
+                onBrandChange={setBrand}
+              />
             </aside>
 
-            {/* ── Main Content ── */}
             <div className="lg:col-span-3">
-              {/* Controls Bar — mobile/tablet only; desktop controls sit in the title row */}
-              <div className="lg:hidden bg-white border border-slate-200 rounded-lg p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setViewMode("grid")}
-                    aria-label="Grid view"
-                    className={`p-2 rounded transition ${
-                      viewMode === "grid"
-                        ? "bg-red-100 text-red-600"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    <Grid3x3 size={20} />
-                  </button>
-                  <button
-                    onClick={() => setViewMode("list")}
-                    aria-label="List view"
-                    className={`p-2 rounded transition ${
-                      viewMode === "list"
-                        ? "bg-red-100 text-red-600"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    <List size={20} />
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-semibold text-slate-600">
-                    Sort:
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={sortBy}
-                      onChange={e =>
-                        setSortBy(e.target.value as PublicProductSort)
-                      }
-                      className="appearance-none px-3 py-2 pr-8 border border-slate-300 rounded text-sm bg-white cursor-pointer focus:border-red-600 focus:ring-2 focus:ring-red-100 outline-none transition"
-                    >
-                      <option value="newest">Newest</option>
-                      <option value="name">Name (A-Z)</option>
-                      {isAuthenticated && (
-                        <>
-                          <option value="price-low">Price (Low to High)</option>
-                          <option value="price-high">Price (High to Low)</option>
-                        </>
-                      )}
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Mobile: Filters button + quick group chips (bottom sheet holds
-                  the rest). Sticky below the mobile header (logo row + search =
-                  ~116px) so filtering stays reachable while scrolling a long
-                  list; z-20 sits under the header (z-40) and above the cards. ── */}
-              <div className="lg:hidden mb-4 flex gap-2 overflow-x-auto py-1 scrollbar-hide sticky top-[116px] z-20 bg-slate-50">
+              {/* Mobile: Filters button + group chips. Sticky below the mobile
+                  header (logo row + search = ~116px); z-20 sits under the
+                  header (z-40) and above the cards. */}
+              <div className="scrollbar-hide sticky top-[116px] z-20 mb-4 flex gap-2 overflow-x-auto bg-slate-50 py-1 lg:hidden">
                 <button
                   onClick={() => setSheetOpen(true)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 h-10 px-3.5 rounded-full text-body-sm font-bold border-[1.5px] transition ${
-                    activeFilterLabel
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-900 border-slate-200"
+                  className={`flex h-10 flex-shrink-0 items-center gap-1.5 rounded-full border-[1.5px] px-3.5 text-body-sm font-bold transition ${
+                    activeCount
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 bg-white text-slate-900"
                   }`}
                 >
                   <SlidersHorizontal size={14} />
-                  Filters{activeFilterLabel ? " · 1" : ""}
+                  Filters{activeCount ? ` · ${activeCount}` : ""}
                 </button>
                 <button
-                  onClick={() => handleGroupChange(null)}
-                  className={`flex-shrink-0 h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
-                    isNothingSelected
-                      ? "bg-red-50 text-red-600 border-red-600"
-                      : "bg-white text-slate-600 border-slate-200"
-                  }`}
+                  onClick={() => setGroup(null)}
+                  className={chipClass(!selection.category && !selection.group)}
                 >
                   All
                 </button>
-                {categoryGroups.map(group => (
+                {groups.map(group => (
                   <button
                     key={group.group_name}
-                    onClick={() => handleGroupChange(group.group_name)}
-                    className={`flex-shrink-0 h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
-                      selectedGroup === group.group_name
-                        ? "bg-red-50 text-red-600 border-red-600"
-                        : "bg-white text-slate-600 border-slate-200"
-                    }`}
+                    onClick={() => setGroup(group.group_name)}
+                    className={chipClass(selection.group === group.group_name)}
                   >
                     {group.group_name}
                   </button>
                 ))}
               </div>
 
-              {/* Products Grid/List */}
+              <ActiveFilters
+                selection={selection}
+                categories={categories}
+                onClearCategory={() => setCategory(null)}
+                onClearGroup={() => setGroup(null)}
+                onClearBrand={() => setBrand(null)}
+                onClearSearch={clearSearch}
+                onClearAll={clearAll}
+              />
+
               {isLoading ? (
-                // Skeleton grid matching the ProductCard footprint (image +
-                // brand line + name + price + button) so the page doesn't
-                // jump when real cards replace it.
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-white border border-slate-200 rounded-2xl overflow-hidden"
-                    >
-                      <Skeleton className="aspect-square rounded-none" />
-                      <div className="p-3 space-y-2">
-                        <Skeleton className="h-3 w-1/3" />
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-4 w-1/2" />
-                        <Skeleton className="h-9 w-full rounded-lg" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <ProductGridSkeleton />
               ) : products.length === 0 ? (
-                <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
-                  <p className="text-slate-500 text-lg">No products found</p>
-                  <p className="text-slate-400 text-sm mt-2 mb-4">
-                    Try adjusting your filters or search query — or we
-                    probably stock it and just haven't listed it yet.
+                <div className="rounded-lg border border-slate-200 bg-white p-12 text-center">
+                  <p className="text-lg text-slate-500">
+                    {query.status === "unknown"
+                      ? "We could not find that category"
+                      : "No products found"}
+                  </p>
+                  <p className="mb-4 mt-2 text-sm text-slate-400">
+                    {activeCount > 1
+                      ? "Try removing one of the filters above — the catalogue is still being listed, so ask us if it is not here."
+                      : "Try adjusting your filters or search query — the catalogue is still being listed, so ask us if it is not here."}
                   </p>
                   <a
-                    href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-                      searchQuery
-                        ? `Hi XL Traders, do you stock "${searchQuery}"?`
-                        : "Hi XL Traders, I couldn't find what I'm looking for on the site — can you help?"
-                    )}`}
+                    href={waHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-body-sm font-semibold hover:bg-emerald-700 transition"
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-body-sm font-semibold text-white transition hover:bg-emerald-700"
                   >
                     <MessageCircle size={14} />
                     Ask on WhatsApp
@@ -594,8 +327,8 @@ export default function Catalog() {
                 <>
                   <div
                     className={
-                      viewMode === "grid"
-                        ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
+                      view === "grid"
+                        ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                         : "space-y-4"
                     }
                   >
@@ -603,27 +336,26 @@ export default function Catalog() {
                       <ProductCard
                         key={product.id}
                         product={product}
-                        view={viewMode}
+                        view={view}
                       />
                     ))}
                   </div>
 
-                  {/* Load More / end-of-list */}
                   <div className="mt-8 flex flex-col items-center gap-3">
                     <p className="text-sm text-slate-500">
                       Showing {products.length.toLocaleString()} of{" "}
                       {totalCount.toLocaleString()}
                     </p>
-                    {hasMore && (
+                    {products.length < totalCount && (
                       <button
                         onClick={handleLoadMore}
                         disabled={isLoadingMore}
-                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
                       >
                         {isLoadingMore ? (
                           <>
                             <Loader2 size={16} className="animate-spin" />
-                            Loading…
+                            Loading...
                           </>
                         ) : (
                           "Load More"
@@ -638,130 +370,22 @@ export default function Catalog() {
         </div>
       </main>
 
-      {/* ── Mobile filter & sort bottom sheet (prototype) ── */}
-      {sheetOpen && (
-        <div className="lg:hidden">
-          <div
-            className="fixed inset-0 bg-slate-900/45 z-50"
-            onClick={() => setSheetOpen(false)}
-          />
-          <div className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-[20px] max-h-[75vh] overflow-auto animate-in slide-in-from-bottom duration-300">
-            <div className="sticky top-0 bg-white px-5 pt-3.5 pb-2.5 border-b border-slate-100 flex items-center justify-between">
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 bg-slate-200 rounded-full" />
-              <span className="text-body-md font-extrabold mt-1.5">
-                Filters &amp; Sort
-              </span>
-              <button
-                onClick={() => {
-                  handleCategoryChange(null);
-                  setSortBy("newest");
-                }}
-                className="text-body-sm font-bold text-red-600 mt-1.5"
-              >
-                Clear all
-              </button>
-            </div>
-
-            <div className="px-5 py-4 pb-24">
-              {/* Sort */}
-              <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2.5">
-                Sort
-              </div>
-              <div className="flex flex-wrap gap-2 mb-5">
-                {(
-                  [
-                    ["newest", "Newest"],
-                    ["name", "Name A–Z"],
-                    ...(isAuthenticated
-                      ? ([
-                          ["price-low", "Price: Low"],
-                          ["price-high", "Price: High"],
-                        ] as [PublicProductSort, string][])
-                      : []),
-                  ] as [PublicProductSort, string][]
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    onClick={() => setSortBy(value)}
-                    className={`h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
-                      sortBy === value
-                        ? "bg-red-50 text-red-600 border-red-600"
-                        : "bg-white text-slate-600 border-slate-200"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Categories */}
-              <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2.5">
-                Category
-              </div>
-              <div className="flex flex-wrap gap-2 mb-5">
-                {(selectedGroup && categoryGroups.length > 0
-                  ? (categoryGroups.find(g => g.group_name === selectedGroup)
-                      ?.categories ?? categories)
-                  : categories
-                ).map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() =>
-                      handleCategoryChange(
-                        selectedCategory === cat.slug ? null : cat.slug
-                      )
-                    }
-                    className={`h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
-                      selectedCategory === cat.slug
-                        ? "bg-red-50 text-red-600 border-red-600"
-                        : "bg-white text-slate-600 border-slate-200"
-                    }`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-
-              {/* Brands */}
-              {brands.length > 0 && (
-                <>
-                  <div className="text-caption font-bold tracking-widest uppercase text-slate-400 mb-2.5">
-                    Brand
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {brands.map(brand => (
-                      <button
-                        key={brand}
-                        onClick={() =>
-                          handleBrandChange(
-                            selectedBrand === brand ? null : brand
-                          )
-                        }
-                        className={`h-10 px-3.5 rounded-full text-body-sm font-semibold border-[1.5px] transition ${
-                          selectedBrand === brand
-                            ? "bg-red-50 text-red-600 border-red-600"
-                            : "bg-white text-slate-600 border-slate-200"
-                        }`}
-                      >
-                        {brand}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="sticky bottom-0 bg-white border-t border-slate-100 px-5 py-3">
-              <button
-                onClick={() => setSheetOpen(false)}
-                className="w-full h-[50px] bg-red-600 text-white rounded-xl text-body-md font-extrabold hover:bg-red-700 transition"
-              >
-                Show {totalCount.toLocaleString()} products
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CatalogFilterSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        selection={selection}
+        categories={categories}
+        groups={groups}
+        brands={brands}
+        canSortByPrice={isAuthenticated}
+        view={view}
+        onViewChange={setView}
+        onSortChange={setSort}
+        onCategoryChange={setCategory}
+        onBrandChange={setBrand}
+        onClearAll={clearAll}
+        totalCount={totalCount}
+      />
 
       <Footer />
     </div>

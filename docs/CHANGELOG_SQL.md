@@ -4,9 +4,10 @@ Every SQL statement an agent executes against the Supabase project
 (`danoeaftaazhbldeeuxj`), newest first, with a one-line reason.
 
 **Purpose:** reconstruct what happened weeks later. This is a record, not a gate —
-statements are appended *after* they run, not submitted for approval.
+statements are appended _after_ they run, not submitted for approval.
 
 **Conventions**
+
 - **Mutating** statements (INSERT / UPDATE / DELETE / DDL / RLS) are logged in full.
 - **Read-only** `SELECT` / introspection is not logged individually — only noted when it
   established something that later work depends on.
@@ -326,6 +327,7 @@ UPDATE public.products SET brand_id = NULL, brand = '', status='draft', is_activ
 WHERE sku = 'ZZ-TEST-PRODUCT';
 DELETE FROM public.brands WHERE slug = 'zz-test-brand';
 ```
+
 → brands back to 3; scratch row back to `brand_id NULL` / `brand ''` / draft / inactive.
 
 **Writes made through the UI** (listed for the trail; no hand-written SQL):
@@ -363,6 +365,7 @@ FROM public.categories c WHERE c.slug = 'uncategorized'
 ON CONFLICT (sku) DO UPDATE SET status = 'draft', is_active = FALSE
 RETURNING id, name, sku, status, is_active, brand, brand_id, category_id;
 ```
+
 → created `27a7d798-7d73-419a-a4b9-4195ab67bdce`.
 
 **3. Dual-write test on `ZZ-TEST-PRODUCT`** (committed; ends in clean state).
@@ -377,6 +380,7 @@ FROM public.brands b WHERE b.name='Fortune Petpack' AND p.sku='ZZ-TEST-PRODUCT';
 -- clear ("No brand")
 UPDATE public.products SET brand_id = NULL, brand = '' WHERE sku='ZZ-TEST-PRODUCT';
 ```
+
 → both steps verified; row left at `brand_id NULL`, `brand ''`.
 
 ### Rolled back (verification only — no persistent effect)
@@ -391,6 +395,7 @@ SET LOCAL ROLE authenticated;
 SELECT auth.uid(), public.is_admin();
 ROLLBACK;
 ```
+
 → `is_admin() = true`.
 
 **5. Brand create / rename / deactivate under RLS as the admin.**
@@ -404,6 +409,7 @@ UPDATE public.brands SET name='ZZ Test Brand Renamed' WHERE slug='zz-test-brand'
 UPDATE public.brands SET is_active=FALSE WHERE slug='zz-test-brand';
 ROLLBACK;
 ```
+
 → all three succeeded.
 
 **6. Duplicate-name constraint + non-admin RLS denial.**
@@ -416,6 +422,7 @@ INSERT INTO public.brands (name, slug) VALUES ('Packworld','packworld-dup');
 INSERT INTO public.brands (name, slug) VALUES ('ZZ Should Fail','zz-should-fail');
 ROLLBACK;
 ```
+
 → duplicate raised **`23505`** on `brands_name_key`; non-admin write **blocked, `42501`**.
 
 ### Read-only findings worth keeping
@@ -431,3 +438,39 @@ ROLLBACK;
   **112**; the 113 figure includes `ZZ-TEST-PRODUCT`.
 - `HINGED-BOX-2250-ML` is `published` but `is_active=false` — why Fortune Petpack shows
   11 total / 10 public.
+
+---
+
+## 2026-08-18 — catalog filter rewrite (read-only measurement, PR #162)
+
+No DDL, no DML. Every statement below is a `SELECT` run to ground the claims in
+the PR body with real numbers rather than assertions.
+
+```sql
+-- Live-category rule (STOREFRONT_RULES 4.2). Drives the 38 -> 21 chip change.
+SELECT
+  (SELECT count(*) FROM categories WHERE is_active) AS active_categories,
+  (SELECT count(*) FROM v_category_live_counts WHERE live_products > 0) AS categories_with_live,
+  (SELECT count(*) FROM categories c WHERE c.is_active
+     AND NOT EXISTS (SELECT 1 FROM v_category_live_counts v
+                     WHERE v.category_id = c.id AND v.live_products > 0)) AS active_but_empty;
+
+-- Reference counts for the filter-composition proof.
+SELECT
+ (SELECT count(*) FROM products p JOIN categories c ON c.id=p.category_id
+   WHERE p.status='published' AND p.is_active AND c.slug='paper-cup') AS paper_cup,
+ (SELECT count(*) FROM products
+   WHERE status='published' AND is_active AND brand='Packworld') AS packworld,
+ (SELECT count(*) FROM products p JOIN categories c ON c.id=p.category_id
+   WHERE p.status='published' AND p.is_active AND c.slug='paper-cup'
+     AND p.brand='Packworld') AS both;
+```
+
+### Findings worth keeping
+
+- **38** active categories, **21** with live products, **17** active but empty.
+  Those 17 were rendering as filter chips that each led to "No products found".
+- `paper-cup` = **7** live, `Packworld` = **18** live, intersection = **7**.
+  The old `buildFilters()` returned `{ brand }` when both were set, so
+  `?category=paper-cup&brand=Packworld` rendered **18 products under the
+  heading "Paper Cup"** — measured in the browser, not inferred.

@@ -23,17 +23,17 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-const ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+const ROOT = new URL("..", import.meta.url).pathname.replace(
+  /^\/([A-Za-z]:)/,
+  "$1"
+);
 const SRC = join(ROOT, "client", "src");
 const VERBOSE = process.argv.includes("--verbose");
 
 // ── File collection ─────────────────────────────────────────────────────────
 
 /** Admin is grandfathered; tests and the guardrail docs describe rules rather than break them. */
-const EXCLUDED_DIRS = [
-  join("components", "admin"),
-  join("components", "ui"),
-];
+const EXCLUDED_DIRS = [join("components", "admin"), join("components", "ui")];
 const EXCLUDED_FILES = [/\.test\.tsx?$/];
 
 function walk(dir, out = []) {
@@ -59,7 +59,10 @@ function inScope(file) {
 function stripComments(src) {
   return src
     .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, " "))
-    .replace(/(^|[^:"'`\\])\/\/[^\n]*/g, (m, p1) => p1 + " ".repeat(m.length - p1.length));
+    .replace(
+      /(^|[^:"'`\\])\/\/[^\n]*/g,
+      (m, p1) => p1 + " ".repeat(m.length - p1.length)
+    );
 }
 
 const FILES = walk(SRC).filter(inScope);
@@ -72,7 +75,11 @@ const ran = [];
 function rule(id, description, fn) {
   const found = [];
   fn((file, line, detail) =>
-    found.push({ file: relative(ROOT, file).replaceAll("\\", "/"), line, detail })
+    found.push({
+      file: relative(ROOT, file).replaceAll("\\", "/"),
+      line,
+      detail,
+    })
   );
   ran.push({ id, count: found.length });
   for (const f of found) violations.push({ id, description, ...f });
@@ -127,7 +134,11 @@ rule(
     const lineNo = code.slice(0, m.index).split("\n").length;
     for (const bad of FORBIDDEN_GUEST_COLS) {
       if (cols.includes(bad)) {
-        report(svc, lineNo, `"${bad}" is selectable by guests — this opens the price gate`);
+        report(
+          svc,
+          lineNo,
+          `"${bad}" is selectable by guests — this opens the price gate`
+        );
       }
     }
   }
@@ -168,7 +179,7 @@ rule(
 
 rule(
   "unguarded-price-order",
-  'ORDER BY price must be guarded by an auth check (STOREFRONT_RULES §1.3)',
+  "ORDER BY price must be guarded by an auth check (STOREFRONT_RULES §1.3)",
   report => {
     const files = FILES.filter(f => relative(SRC, f).startsWith("lib" + sep));
     scan(({ file, line, text }) => {
@@ -215,9 +226,18 @@ rule(
       join("lib", "priceUtils.ts"),
     ];
     const PATTERNS = [
-      [/\bprice\s*\*\s*(?:quantity|packs|qty)\b/i, "price × quantity outside orderingModel"],
-      [/\b(?:quantity|packs|qty)\s*\*\s*price\b/i, "quantity × price outside orderingModel"],
-      [/\bprice\s*\/\s*quantity_in_unit\b/, "per-piece division outside orderingModel"],
+      [
+        /\bprice\s*\*\s*(?:quantity|packs|qty)\b/i,
+        "price × quantity outside orderingModel",
+      ],
+      [
+        /\b(?:quantity|packs|qty)\s*\*\s*price\b/i,
+        "quantity × price outside orderingModel",
+      ],
+      [
+        /\bprice\s*\/\s*quantity_in_unit\b/,
+        "per-piece division outside orderingModel",
+      ],
       [/\.price\s*\*\s*\w+\.packs\b/, "price × packs outside orderingModel"],
     ];
     scan(({ file, line, text }) => {
@@ -238,7 +258,11 @@ rule(
       if (relative(SRC, file) === join("lib", "orderingModel.ts")) return;
       // An object literal carrying the spec's own shape is a hand-rolled spec.
       if (/\bminPcs\s*:/.test(text) && /Math\.(ceil|floor)/.test(text)) {
-        report(file, line, "hand-built OrderSpec — use resolveOrderSpec/specFromSnapshot");
+        report(
+          file,
+          line,
+          "hand-built OrderSpec — use resolveOrderSpec/specFromSnapshot"
+        );
       }
     });
   }
@@ -269,7 +293,10 @@ rule(
 // ── §3 Copy ─────────────────────────────────────────────────────────────────
 
 const BANNED_CLAIMS = [
-  [/\b\d[\d,]*\+?\s*(?:businesses|customers|clients)\s+served\b/i, "customer count"],
+  [
+    /\b\d[\d,]*\+?\s*(?:businesses|customers|clients)\s+served\b/i,
+    "customer count",
+  ],
   [/\b\d[\d,]*\+\s*(?:SKUs|products)\b/i, "SKU/product count"],
   [/\b[0-9]\.[0-9]\s*(?:★|stars?\b|on Google\b)/i, "rating claim"],
   [/\b\d+\+\s*years\s+in\s+business\b/i, "years-in-business claim"],
@@ -298,6 +325,15 @@ const BANNED_CLAIMS = [
   [/\bslab\s+pricing\b/i, "slab pricing"],
   [/\bunlock\s+better\s+rates\b/i, "tiered-pricing claim"],
   [/\b(?:in|out\s+of)\s+stock\b/i, "stock-availability claim"],
+  // "we probably stock it" asserts inventory just as hard as "in stock", and
+  // sailed straight past the rule above. Found by /review-pr on PR #162, where
+  // the PR ticked the no-stock-claim box on a green checker run that was not
+  // actually covering the phrase — two live render sites at the time (the
+  // header search empty state and the catalogue's).
+  [
+    /\bwe\s+(?:probably\s+|likely\s+|definitely\s+)?(?:stock|carry|have)\s+it\b/i,
+    "stock-availability claim",
+  ],
   [/\bMRP\b/, "MRP"],
   [/\b\d+%\s*off\b/i, "discount badge"],
 ];
@@ -410,7 +446,12 @@ rule(
   report => {
     scan(({ file, line, text }) => {
       const m = text.match(/<a\s[^>]*href=["']\/(?!\/)[^"']*["']/);
-      if (m) report(file, line, `raw anchor to an internal route: ${m[0].slice(0, 60)}`);
+      if (m)
+        report(
+          file,
+          line,
+          `raw anchor to an internal route: ${m[0].slice(0, 60)}`
+        );
     });
   }
 );
@@ -430,7 +471,11 @@ rule(
         if (!prop) continue;
         // Only the two theming variables are permitted.
         if (!/^--xl-(accent|accent-soft|hero-grad)$/.test(prop)) {
-          report(css, lineNo, `theme block sets "${prop}" — themes may set colour only`);
+          report(
+            css,
+            lineNo,
+            `theme block sets "${prop}" — themes may set colour only`
+          );
         }
       }
     }
@@ -445,16 +490,24 @@ rule(
   report => {
     const files = FILES.filter(f => {
       const rel = relative(SRC, f);
-      return rel.startsWith("components" + sep) || rel.startsWith("pages" + sep);
+      return (
+        rel.startsWith("components" + sep) || rel.startsWith("pages" + sep)
+      );
     });
     scan(({ file, line, text }) => {
-      if (/from\s+["'](?:@\/lib\/supabase|\.\.?\/.*\/supabase)["']/.test(text)) {
+      if (
+        /from\s+["'](?:@\/lib\/supabase|\.\.?\/.*\/supabase)["']/.test(text)
+      ) {
         // Type-only imports are fine — they carry no runtime coupling.
         if (/^\s*import\s+type\b/.test(text)) return;
         if (/\bimport\s*\{[^}]*\}\s*from/.test(text)) {
           const names = text.match(/\{([^}]*)\}/)?.[1] ?? "";
           if (/\bsupabase\b/.test(names)) {
-            report(file, line, "component imports the supabase client directly");
+            report(
+              file,
+              line,
+              "component imports the supabase client directly"
+            );
           }
         }
       }
@@ -468,7 +521,11 @@ rule(
   report => {
     scan(({ file, line, text }) => {
       if (/\bgetItemCount\b/.test(text)) {
-        report(file, line, "getItemCount is ambiguous — use getPackCount/getPieceCount/getLineCount");
+        report(
+          file,
+          line,
+          "getItemCount is ambiguous — use getPackCount/getPieceCount/getLineCount"
+        );
       }
     });
   }
@@ -500,7 +557,8 @@ if (violations.length === 0) {
 
 const byRule = new Map();
 for (const v of violations) {
-  if (!byRule.has(v.id)) byRule.set(v.id, { description: v.description, items: [] });
+  if (!byRule.has(v.id))
+    byRule.set(v.id, { description: v.description, items: [] });
   byRule.get(v.id).items.push(v);
 }
 
