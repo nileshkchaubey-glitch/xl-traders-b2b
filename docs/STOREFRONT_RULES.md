@@ -33,7 +33,7 @@ price · mrp · discount_percent · price_per_piece · bulk_price · bulk_thresh
 already read `quantity_in_unit`, so a granted per-piece rate multiplied by the
 pack size **reconstructs the wholesale price exactly**.
 
-*Enforced: `check-storefront.mjs` — `guest-price-columns`.*
+_Enforced: `check-storefront.mjs` — `guest-price-columns`._
 
 ### 1.3 Never `SELECT *` or `ORDER BY price` on `products` in a public path
 
@@ -53,7 +53,7 @@ and it refuses an `ORDER BY` on an unreadable column exactly as it refuses a
 Any service reading `products` for a public surface goes through
 `publicProductQueryShape()`.
 
-*Enforced: `check-storefront.mjs` — `public-select-star`, `unguarded-price-order`.*
+_Enforced: `check-storefront.mjs` — `public-select-star`, `unguarded-price-order`._
 
 ---
 
@@ -67,9 +67,9 @@ which calls `lineTotal`.
 
 Money is **always** `packs × price`. `products.price` is the price of one
 selling unit; a piece count is a display and input convenience that is converted
-to packs *before* any money arithmetic happens.
+to packs _before_ any money arithmetic happens.
 
-*Enforced: `check-storefront.mjs` — `arithmetic-outside-model`.*
+_Enforced: `check-storefront.mjs` — `arithmetic-outside-model`._
 
 ### 2.2 `lineTotal` takes a branded `Packs`, never a number
 
@@ -92,7 +92,7 @@ line) both live in `orderingModel`. Nothing else builds one.
 > and it hit nearly every line, because 138 of 139 live products have
 > `unit_of_measure = 'pcs'`.
 
-*Enforced: `check-storefront.mjs` — `inline-orderspec`.*
+_Enforced: `check-storefront.mjs` — `inline-orderspec`._
 
 ### 2.4 Cart, cart bar, saved order and WhatsApp message all use `cartTotals`
 
@@ -101,8 +101,8 @@ invoices against**. A divergence between it and the cart the customer approved
 is a dispute, not a rendering bug. All four surfaces call the same function, so
 they cannot disagree. Do not reintroduce a local `reduce`.
 
-*Enforced: `check-storefront.mjs` — `local-cart-total`. Parity asserted by
-`orderMessage.test.ts`.*
+_Enforced: `check-storefront.mjs` — `local-cart-total`. Parity asserted by
+`orderMessage.test.ts`._
 
 ---
 
@@ -110,16 +110,16 @@ they cannot disagree. Do not reintroduce a local `reduce`.
 
 ### 3.1 Claims that must never ship
 
-| Banned | Why |
-| --- | --- |
-| Customer counts (`500+ businesses served`) | Unverifiable; owner instruction |
-| SKU / product counts | Owner instruction |
-| Ratings (`4.8`, `4.8★`) | Unverifiable |
-| Years in business (`10+ years`) | Unverified |
-| Any freight or free-delivery claim | **The rule is unsettled — omit the line entirely rather than state a threshold** |
-| Stock availability (`In stock`, `Out of stock`) | No such field exists on `Product` |
+| Banned                                           | Why                                                                              |
+| ------------------------------------------------ | -------------------------------------------------------------------------------- |
+| Customer counts (`500+ businesses served`)       | Unverifiable; owner instruction                                                  |
+| SKU / product counts                             | Owner instruction                                                                |
+| Ratings (`4.8`, `4.8★`)                          | Unverifiable                                                                     |
+| Years in business (`10+ years`)                  | Unverified                                                                       |
+| Any freight or free-delivery claim               | **The rule is unsettled — omit the line entirely rather than state a threshold** |
+| Stock availability (`In stock`, `Out of stock`)  | No such field exists on `Product`                                                |
 | Slab / tier pricing, "bulk unlocks better rates" | **V3 implements ONE rate.** Advertising slabs describes a product we do not have |
-| `MRP`, struck-through prices, discount badges | Owner instruction |
+| `MRP`, struck-through prices, discount badges    | Owner instruction                                                                |
 
 > **Incident.** `free delivery` sat in the **generated SEO meta description**
 > (`catalogHealth.ts`), so it reached search results, not just the page.
@@ -137,8 +137,8 @@ hardcoded elsewhere.
 > already existed — every banned claim above was live in the **database**. A
 > copy change that does not also update the row is cosmetic.
 
-*Enforced: `check-storefront.mjs` — `banned-claims` (source only; the DB half is
-**[manual]**).*
+_Enforced: `check-storefront.mjs` — `banned-claims` (source only; the DB half is
+**[manual]**)._
 
 ---
 
@@ -172,7 +172,7 @@ no scope in which a theme value could reach a layout or pricing decision.
 Adding spacing, sizing, `display`, or anything price-related to a
 `[data-xl-theme]` block breaks that guarantee.
 
-*Enforced: `check-storefront.mjs` — `theme-block-scope`.*
+_Enforced: `check-storefront.mjs` — `theme-block-scope`._
 
 ### 4.4b The selling-unit noun: 'pcs' is an ABSENT value, not a unit
 
@@ -210,11 +210,54 @@ Fixed aspect ratios, lazy below the fold, `width`/`height` set.
 
 Do not emit a `srcSet` for renditions that do not exist yet.
 
-*Enforced: `check-storefront.mjs` — `base64-image`.*
+_Enforced: `check-storefront.mjs` — `base64-image`._
 
 ### 4.6 Internal navigation uses wouter `<Link>`, never `<a href="/…">`
 
-*Enforced: `check-storefront.mjs` — `raw-internal-anchor`.*
+_Enforced: `check-storefront.mjs` — `raw-internal-anchor`._
+
+---
+
+### 4.6b A `<Drawer>` must set `autoFocus`, or it is not a modal
+
+Reaching for the battle-tested primitive is not enough here. `vaul`'s `Content`
+does
+
+```js
+onOpenAutoFocus: e => {
+  onOpenAutoFocus?.(e);
+  if (!autoFocus) e.preventDefault();
+};
+```
+
+and its `Root` defaults **`autoFocus = false`**, so it CANCELS the open-autofocus.
+Focus stays on the trigger — outside Radix's `FocusScope`, whose sentinel guards
+only wrap focus already inside it — and Tab walks the page behind the open sheet.
+
+> **Incident.** The catalogue filter sheet was migrated to `vaul` specifically to
+> fix its missing focus trap. It shipped `role="dialog"`, an accessible name, a
+> working Escape handler and a working scroll lock — and **no trap**. Measured:
+> six Tab presses, six landings on the chips _behind_ the open sheet. Nothing
+> about the markup gave it away; only pressing Tab did. With `autoFocus`: 40 Tab
+> stops and 8 Shift+Tab stops, zero outside the dialog.
+>
+> The guarantee rests on one prop with no other trace. A reviewer deleted it and
+> the whole gate — `tsc`, guardrails, 111 tests — stayed green. Hence the rule.
+
+Two things the primitive still does not give you, both needed and both set by
+hand on `CatalogFilterSheet`:
+
+- **`onCloseAutoFocus`** — Radix restores focus to `Dialog.Trigger`. A CONTROLLED
+  sheet has none, so focus falls to `<body>` and a keyboard user loses their
+  place. Restore it explicitly from a `triggerRef`.
+- **`aria-modal="true"`** — the trap covers Tab; a screen reader in browse mode
+  does not follow focus. Measured with the sheet open, `#root` carried no
+  `aria-hidden`, so the catalogue behind stayed readable. (Reading Radix's source
+  suggests `hideOthers()` should have covered this. Re-measured: it does not.
+  Trust the measurement.)
+
+_Enforced: `check-storefront.mjs` — `drawer-autofocus`. The other two are
+**[manual]**._
 
 ---
 
@@ -225,14 +268,14 @@ Do not emit a `srcSet` for renditions that do not exist yet.
 `components → lib/*Service.ts → supabase`. (`components/admin/**` is
 grandfathered and out of storefront scope.)
 
-*Enforced: `check-storefront.mjs` — `supabase-in-component`.*
+_Enforced: `check-storefront.mjs` — `supabase-in-component`._
 
 ### 5.2 Deleted API stays deleted
 
 `getItemCount` was removed and **not aliased**, so every consumer had to state
 whether it meant packs, pieces or lines. Do not reintroduce it.
 
-*Enforced: `check-storefront.mjs` — `revived-getitemcount`.*
+_Enforced: `check-storefront.mjs` — `revived-getitemcount`._
 
 ---
 

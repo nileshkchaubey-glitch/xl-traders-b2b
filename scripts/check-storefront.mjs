@@ -531,6 +531,42 @@ rule(
   }
 );
 
+rule(
+  "drawer-autofocus",
+  "A storefront <Drawer> must set autoFocus or its focus trap silently does not engage (STOREFRONT_RULES §4.6b)",
+  report => {
+    // vaul's Content does `if (!autoFocus) e.preventDefault()` on
+    // onOpenAutoFocus, and its Root defaults autoFocus = false. Focus then
+    // stays on the trigger — OUTSIDE Radix's FocusScope, whose sentinels only
+    // wrap focus already inside it — so Tab walks the page behind an open
+    // sheet. `role="dialog"` is present the whole time, so nothing visible or
+    // greppable about the markup gives it away.
+    //
+    // This rule exists because the fix is one prop with no other trace: the
+    // reviewer on PR #164 deleted `autoFocus` and the entire gate — tsc,
+    // guardrails, 111 tests — stayed green.
+    // Iterates FILES directly rather than through scan(), which is
+    // line-oriented: reading whole-file `raw` from inside a per-line callback
+    // re-reports every match once per line. Caught by counting the output —
+    // one missing prop produced 255 identical lines, the file's length.
+    for (const file of FILES) {
+      // Comments stripped so the explanation above a <Drawer> cannot trip it;
+      // stripComments preserves line count, so reported numbers stay real.
+      const code = stripComments(readFileSync(file, "utf8"));
+      // Whole-file, not per line: the opening tag routinely wraps. The
+      // lookahead stops `<DrawerContent` / `<DrawerClose` matching.
+      for (const m of code.matchAll(/<Drawer(?=[\s>])[^>]*>/g)) {
+        if (/\bautoFocus\b/.test(m[0])) continue;
+        report(
+          file,
+          code.slice(0, m.index).split("\n").length,
+          "<Drawer> without autoFocus — the focus trap will not engage"
+        );
+      }
+    }
+  }
+);
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 const RED = "\x1b[31m";

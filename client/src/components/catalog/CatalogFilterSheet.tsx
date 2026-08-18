@@ -52,11 +52,19 @@ function Section({ title }: { title: string }) {
  * body scroll lock — the page scrolled behind it, and Tab walked straight out
  * of the sheet into the catalogue underneath while the sheet stayed open.
  *
- * The primitive supplies all four, plus swipe-to-close. It is also FREE here:
- * `vaul` already sits in the storefront entry chunk (Rollup hoists it there
- * because two lazy admin chunks share it), so every storefront visitor was
- * already downloading it. Hand-rolling a focus trap to avoid a cost we were
- * paying anyway would have been the worst of both.
+ * The primitive supplies all four, plus swipe-to-close. It is also very nearly
+ * free: `vaul`'s implementation was ALREADY in the storefront entry chunk on
+ * `main` (measured — the chunk the HTML loads, not an admin chunk), so every
+ * storefront visitor was downloading it regardless. Using it here costs about
+ * +0.9 kB gzip. Hand-rolling a focus trap to dodge a cost we were already
+ * paying would have been the worst of both.
+ *
+ * Why vaul is in the entry chunk is NOT established: only one lazy admin chunk
+ * reaches `ui/drawer` (AdminDashboard -> AdminCategories -> MobileCategorySheet),
+ * and there is no `manualChunks` config. An earlier draft of this comment
+ * asserted "two lazy chunks share it"; a resolved-import graph disproved that.
+ * The placement is measured, the reason is not — do not repeat a mechanism for
+ * it without checking.
  *
  * `ui/drawer` is the same primitive every admin bottom sheet uses.
  */
@@ -108,13 +116,22 @@ export default function CatalogFilterSheet({
     // which is exactly why checking the markup would not have caught it.
     <Drawer open={open} onOpenChange={onOpenChange} autoFocus>
       <DrawerContent
-        className="max-h-[85vh] rounded-t-[20px]"
-        // The focus trap covers Tab, but a screen reader in BROWSE mode does
-        // not follow focus — measured with the sheet open, `#root` carried no
-        // `aria-hidden` and the content no `aria-modal`, so the whole
-        // catalogue was still readable behind it. `aria-modal="true"` is the
-        // signal that confines browse mode to this subtree. vaul does not set
-        // it; Radix only would in its own modal path.
+        // The base sets `data-[vaul-drawer-direction=bottom]:max-h-[80vh]`.
+        // A bare `max-h-[85vh]` LOSES to it — an attribute-qualified
+        // selector is (0,2,0) against (0,1,0) — so the class applied but
+        // did nothing (measured: max-height 649.9px on an 812px viewport,
+        // exactly 80vh). Matching the variant lets tailwind-merge dedupe.
+        className="rounded-t-[20px] data-[vaul-drawer-direction=bottom]:max-h-[85vh]"
+        // The focus trap covers Tab; a screen reader in BROWSE mode does not
+        // follow focus. Measured with the sheet open on this build: `#root`
+        // carried NO `aria-hidden` and the content no `aria-modal`, so the
+        // catalogue behind was still readable. `aria-modal="true"` is the
+        // signal that confines browse mode to this subtree.
+        //
+        // Reading Radix's source suggests `hideOthers()` should have marked
+        // `#root` here, so this attribute ought to be redundant. It is not:
+        // re-measured live and `#root` is still unhidden. Trust the
+        // measurement over the read; this line is doing real work.
         aria-modal="true"
         // Radix restores focus to `Dialog.Trigger` on close. This sheet is
         // CONTROLLED — the button lives in the catalogue toolbar, not in a

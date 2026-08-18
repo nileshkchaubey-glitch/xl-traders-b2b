@@ -351,9 +351,13 @@ categories` → links to `/catalog`), sourced from the same public
     guest is now coerced **and rewritten** out of the URL.
   - **Catalog filter sheet — accessibility (Phase 4 close, Aug 2026):** the
     hand-rolled mobile overlay is replaced by the `vaul` Drawer (`ui/drawer`,
-    the same primitive every admin bottom sheet uses). It costs **nothing**:
-    `vaul` already sat in the storefront entry chunk, hoisted there by Rollup
-    because two lazy admin chunks share it.
+    the same primitive every admin bottom sheet uses). It is very nearly free:
+    `vaul`'s implementation was **already in the storefront entry chunk** on
+    `main` (measured against the chunk the HTML actually loads), so every
+    visitor was downloading it regardless; using it here costs **+0.9 kB gzip**.
+    Why it sits there is NOT established — only one lazy admin chunk reaches
+    `ui/drawer` and there is no `manualChunks` config. An earlier draft claimed
+    "two lazy chunks share it"; a resolved-import graph disproved that.
     **Reaching for the primitive was not enough, and that is the finding.**
     vaul's `Content` does `onOpenAutoFocus: e => { …; if (!autoFocus)
     e.preventDefault(); }` and its `Root` defaults **`autoFocus = false`** — so
@@ -361,7 +365,7 @@ categories` → links to `/catalog`), sourced from the same public
     guards only wrap focus already inside it. Measured: six Tab presses, six
     landings on the chips *behind* the open sheet — with `role="dialog"`
     present the whole time. Fixed with the `autoFocus` prop; measured after:
-    **41 Tab stops and 8 Shift+Tab stops, zero outside the dialog**, wrapping
+    **40 Tab presses and 8 Shift+Tab presses, zero landings outside the dialog**, wrapping
     at both ends. Two more gaps the primitive did not close on its own:
     **focus did not return** to the trigger on close (Radix restores to
     `Dialog.Trigger`, and this sheet is controlled — activeElement was `BODY`),
@@ -374,6 +378,17 @@ categories` → links to `/catalog`), sourced from the same public
     key events: Escape closes and restores focus, overlay click and "Show N
     products" both close and restore, body scroll locks and releases, and the
     dialog has an accessible name and description. No console warnings.
+    **The fix is one prop with no other trace**, so `check-storefront.mjs` gained
+    a `drawer-autofocus` rule (STOREFRONT_RULES §4.6b) — the reviewer deleted
+    `autoFocus` and the entire gate stayed green. Positive-controlled: removing
+    it now reports exactly once. Also fixed in review: `max-h-[85vh]` was
+    **inert**, because `ui/drawer`'s own `data-[vaul-drawer-direction=bottom]:`
+    variant outranks a bare utility (0,2,0) vs (0,1,0) — measured 649.9px on an
+    812px viewport, i.e. still 80vh. Matching the variant makes tailwind-merge
+    dedupe it; now 690.5px = 85vh. The same latent bug remains on the two admin
+    sheets (`max-h-[88vh]`, equally inert) — **and both also lack `autoFocus`**,
+    so their focus traps are not engaging either. Untested in admin, flagged not
+    fixed.
 
 ### Admin Panel (PIM)
 
