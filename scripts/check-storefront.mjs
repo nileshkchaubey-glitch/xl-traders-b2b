@@ -316,6 +316,11 @@ const BANNED_CLAIMS = [
  * search results.
  */
 const ADMIN_ONLY_LIBS = [
+  // Admin PAGES, not just components/admin/**. AdminProductEditor renders a
+  // <label>MRP (₹)</label> for a real DB column the operator must be able to
+  // edit — flagging that as customer copy is noise. Found when JSX-text
+  // scanning was added.
+  join("pages", "AdminProductEditor.tsx"),
   join("lib", "adminDailyImprovements.ts"),
   join("lib", "aiService.ts"),
   join("lib", "templateService.ts"),
@@ -333,7 +338,9 @@ rule(
   report => {
     scan(({ file, line, text }) => {
       if (ADMIN_ONLY_LIBS.includes(relative(SRC, file))) return;
-      // Only string literals — an identifier or a prop name is not copy.
+
+      // String literals only. JSX text is handled by `banned-claims-jsx`,
+      // which scans whole files — a per-line scan cannot see wrapped copy.
       const literals = text.match(/(["'`])(?:(?!\1)[^\\]|\\.)*\1/g) ?? [];
       for (const lit of literals) {
         for (const [re, label] of BANNED_CLAIMS) {
@@ -341,6 +348,45 @@ rule(
         }
       }
     });
+  }
+);
+
+rule(
+  "banned-claims-jsx",
+  "Rendered JSX text must not make unbacked claims (STOREFRONT_RULES §3.1)",
+  report => {
+    // A PER-LINE scan cannot see the dominant shape of JSX copy. With
+    // prettier's printWidth 80, real copy wraps:
+    //
+    //     <p>
+    //       Same-day delivery in Surat
+    //     </p>
+    //
+    // The first version of this check matched `>text<` on a single line only,
+    // so the identical claim was caught inline and missed when wrapped —
+    // leaving open the very hole the rule was added to close. This pass reads
+    // each file whole. Found by a review subagent probing both shapes.
+    for (const file of FILES) {
+      if (ADMIN_ONLY_LIBS.includes(relative(SRC, file))) continue;
+      const code = stripComments(readFileSync(file, "utf8"));
+      const re = />([^<>]{4,}?)</gs;
+      let m;
+      while ((m = re.exec(code))) {
+        const raw = m[1];
+        // Prose, not code: needs letters and a space, and must not look like an
+        // expression. `{}` is deliberately allowed through so interpolated copy
+        // ("same-day {city} delivery") is still checked.
+        if (!/[A-Za-z]{3}/.test(raw) || !/\s/.test(raw)) continue;
+        if (/[;=]|=>|&&|\|\||\breturn\b|\bimport\b/.test(raw)) continue;
+        const flat = raw.replace(/\s+/g, " ").trim();
+        const lineNo = code.slice(0, m.index).split("\n").length;
+        for (const [pattern, label] of BANNED_CLAIMS) {
+          if (pattern.test(flat)) {
+            report(file, lineNo, `${label}: ${flat.slice(0, 70)}`);
+          }
+        }
+      }
+    }
   }
 );
 

@@ -1,6 +1,9 @@
 ---
-description: XL Traders B2B site me 2-level category UI + emoji ki jagah category image lagao
+name: setup-catalog-ui
+description: Implement the 2-level category UI and replace category emoji with images. Use only if that UI needs rebuilding — most of it has since shipped.
+model: inherit
 ---
+
 
 Implement the 2-level category UI in this React (Vite + TS + Tailwind + Supabase) repo.
 Assume the DB migration in `sql/01-category-groups-migration.sql` has already been run, so
