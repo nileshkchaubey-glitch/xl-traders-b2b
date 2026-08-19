@@ -127,17 +127,24 @@ the `--chart-*` and `--sidebar-*` ramps, etc.). Notable:
 
 ### 1.5 Mobile: one system, layout switch (not a fork)
 
-`useIsMobile()` in [`client/src/hooks/useMobile.tsx`](../client/src/hooks/useMobile.tsx)
-(`matchMedia`, breakpoint **768px**) is the single switch. Same routes, same services, same
-data — only the **chrome/presentation** changes below `md`:
+Same routes, same services, same data — only the **chrome/presentation** changes below
+`md`. **The two halves of the app reach that differently, and this entry used to claim
+otherwise.**
 
-- Storefront: `MobileNav` (bottom nav + cart FAB) rendered by `Header`.
-- Admin: `MobileAdminShell` (bottom tabs + "More") wraps the identical section content that
-  the desktop layout renders; `MobileProductCard` / `ProductQuickEditSheet`, etc.
+- **Storefront: Tailwind breakpoints only, no JS switch.** `MobileNav` is rendered
+  unconditionally by `Header` and hides itself with `md:hidden`; `Footer`, `LocationBar`
+  and the catalogue filter sheet do the same. **No storefront file imports
+  `useIsMobile`** — verified by grep; the only match in `Footer.tsx` is a comment saying
+  it deliberately does not. One component tree, so the two states cannot drift.
+- **Admin: `useIsMobile()`** in [`client/src/hooks/useMobile.tsx`](../client/src/hooks/useMobile.tsx)
+  (`matchMedia`, breakpoint **768px**). `MobileAdminShell` (bottom tabs + "More") wraps the
+  identical section content the desktop layout renders. Admin needs the JS switch because it
+  swaps whole components, not just visibility.
 
-**Rule:** never build a parallel mobile system or duplicate routes/services. Branch on
-`useIsMobile()` and swap the presentation. (The removed `/admin-v2` is the cautionary tale —
-see §4.)
+**Rule:** never build a parallel mobile system or duplicate routes/services. On the
+storefront reach for a Tailwind breakpoint; branch on `useIsMobile()` only when the mobile
+and desktop trees are genuinely different components, as in admin. (The removed `/admin-v2`
+is the cautionary tale — see §4.)
 
 ### 1.6 Price display rule (hard rule)
 
@@ -230,7 +237,11 @@ Consolidated from `CLAUDE.md` "Critical Rules" and "Workflow":
 - Feature branches off `main`; `main` auto-deploys to Cloudflare Pages (~2–3 min).
 - **npm only.** `package-lock.json` is the lockfile; **`pnpm-lock.yaml` must NOT exist**
   (Cloudflare build fails if it does).
-- **DB migrations are run manually in the Supabase SQL Editor — never by an agent.**
+- **DB migrations: SQL is agent-executable** (standing grant, 29 Jul 2026 — see
+  `CLAUDE.md` Critical Rule #3, which explicitly supersedes the old "Supabase SQL
+  Editor only, never via agent" rule this line used to carry). Two conditions:
+  announce destructive operations in the reply before running them, and append every
+  executed statement to [`CHANGELOG_SQL.md`](CHANGELOG_SQL.md) with a one-line reason.
   `CREATE POLICY IF NOT EXISTS` is invalid Postgres; use `CREATE POLICY`.
 - Conventional commits (`feat`/`fix`/`chore`/`docs`/`style`).
 - Update `CLAUDE.md` (Shipped + Roadmap) in the same PR that ships a feature.
