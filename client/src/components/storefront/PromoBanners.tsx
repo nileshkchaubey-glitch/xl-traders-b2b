@@ -46,7 +46,7 @@ export default function PromoBanners({
   if (banners.length === 0) return null;
 
   return (
-    <section className={`container ${className}`}>
+    <section className={`xl-shell ${className}`}>
       <div
         className={`grid gap-3 ${banners.length > 1 ? "sm:grid-cols-2" : ""}`}
       >

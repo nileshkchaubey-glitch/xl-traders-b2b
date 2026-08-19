@@ -257,7 +257,7 @@ export default function Header() {
 
       {/* Utility bar */}
       <div className="bg-slate-900 text-slate-300 text-xs hidden md:block">
-        <div className="container py-1.5 flex items-center gap-5">
+        <div className="xl-shell py-1.5 flex items-center gap-5">
           <span className="flex items-center gap-1.5">
             <ShieldCheck size={13} className="text-emerald-400" />
             {announcement.gstLine}
@@ -282,7 +282,7 @@ export default function Header() {
 
       {/* Main header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="container py-3 flex items-center gap-3 lg:gap-5">
+        <div className="xl-shell py-3 flex items-center gap-3 lg:gap-5">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
             <div className="w-9 h-9 md:w-10 md:h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-extrabold text-lg tracking-tight">

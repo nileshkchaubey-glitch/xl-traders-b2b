@@ -25,17 +25,17 @@ the doc, don't paper over it.
 
 Named tokens added in the "Phase A" pass (`client/src/index.css`):
 
-| Token | Value | Usage |
-| --- | --- | --- |
-| `--font-sans` | `"Inter", ui-sans-serif, system-ui, …` | Applied to `<body>`; Inter everywhere |
-| `--color-admin-bg` | `#f4f6f9` | Admin shell background (`bg-admin-bg`) |
-| `--color-admin-sidebar` | `#1a1d27` | Admin dark sidebar (`bg-admin-sidebar`, 220px) |
-| `--shadow-red` | `0 10px 15px -3px rgb(220 38 38 / 0.25)` | Red CTA glow (`shadow-red`) |
-| `--shadow-emerald` | `0 10px 15px -3px rgb(5 150 105 / 0.3)` | Emerald CTA glow (`shadow-emerald`) |
-| `--text-caption` | `0.6875rem` (11px), line-height `1.35` | Smallest meta/label text (`text-caption`) |
-| `--text-body-sm` | `0.8125rem` (13px), line-height `1.45` | Secondary body/UI text (`text-body-sm`) |
-| `--text-body-md` | `0.9375rem` (15px), line-height `1.4` | Emphasized inline text, CTAs (`text-body-md`) |
-| `--text-display` | `2.875rem` (46px), line-height `1.08` | Hero-scale headline (`text-display`) |
+| Token                   | Value                                    | Usage                                          |
+| ----------------------- | ---------------------------------------- | ---------------------------------------------- |
+| `--font-sans`           | `"Inter", ui-sans-serif, system-ui, …`   | Applied to `<body>`; Inter everywhere          |
+| `--color-admin-bg`      | `#f4f6f9`                                | Admin shell background (`bg-admin-bg`)         |
+| `--color-admin-sidebar` | `#1a1d27`                                | Admin dark sidebar (`bg-admin-sidebar`, 220px) |
+| `--shadow-red`          | `0 10px 15px -3px rgb(220 38 38 / 0.25)` | Red CTA glow (`shadow-red`)                    |
+| `--shadow-emerald`      | `0 10px 15px -3px rgb(5 150 105 / 0.3)`  | Emerald CTA glow (`shadow-emerald`)            |
+| `--text-caption`        | `0.6875rem` (11px), line-height `1.35`   | Smallest meta/label text (`text-caption`)      |
+| `--text-body-sm`        | `0.8125rem` (13px), line-height `1.45`   | Secondary body/UI text (`text-body-sm`)        |
+| `--text-body-md`        | `0.9375rem` (15px), line-height `1.4`    | Emphasized inline text, CTAs (`text-body-md`)  |
+| `--text-display`        | `2.875rem` (46px), line-height `1.08`    | Hero-scale headline (`text-display`)           |
 
 Added in the "Foundation" pass (`docs/STOREFRONT_DESIGN_PROPOSALS.md` §4, PR1): four named
 type-scale tokens filling the gaps in Tailwind's default scale (which already covers
@@ -57,13 +57,13 @@ the `--chart-*` and `--sidebar-*` ramps, etc.). Notable:
 
 ### 1.3 Semantic color usage
 
-| Color | Meaning | Examples |
-| --- | --- | --- |
+| Color                                 | Meaning                                                            | Examples                                                            |
+| ------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------- |
 | **Brand red** (`red-600` / `#DC2626`) | Primary action, brand identity, active/selected state, destructive | Add-to-cart, "Publish", active nav pill, selected tree node, Delete |
-| **Emerald** (`emerald-500/600`) | Success / positive / "live & available" | "Available" stock dot, published badge, in-cart confirmation |
-| **Amber** (`amber-500/700`) | Attention / "needs a decision", the **On-Enquiry** price state | "On Enquiry" label, active missing-data filter |
-| **Slate** (`slate-*`) | Neutral text, borders, surfaces, disabled | Body copy, table borders, muted metadata |
-| **Red tint** (`red-50` / `red-400`) | Missing required data inline | Red-tinted price/description/image cells in the Catalog Editor |
+| **Emerald** (`emerald-500/600`)       | Success / positive / "live & available"                            | "Available" stock dot, published badge, in-cart confirmation        |
+| **Amber** (`amber-500/700`)           | Attention / "needs a decision", the **On-Enquiry** price state     | "On Enquiry" label, active missing-data filter                      |
+| **Slate** (`slate-*`)                 | Neutral text, borders, surfaces, disabled                          | Body copy, table borders, muted metadata                            |
+| **Red tint** (`red-50` / `red-400`)   | Missing required data inline                                       | Red-tinted price/description/image cells in the Catalog Editor      |
 
 ### 1.4 Typography & spacing
 
@@ -82,28 +82,43 @@ the `--chart-*` and `--sidebar-*` ramps, etc.). Notable:
   - `py-8` — compact utility strips (kept distinct; not part of the 3-step "section" rhythm)
   - `py-12 md:py-16` — standard content sections (category grid, featured/showcase, trust)
   - `py-14 md:py-20` — hero only
-  New full-width Home sections should pick the step matching their visual weight instead of
-  a one-off `py-*` value. See `client/src/index.css`'s comment block above `@layer base` and
-  `docs/STOREFRONT_DESIGN_PROPOSALS.md` §4 for the full rationale (including why the two
-  slim utility strips — trust strip, marquee — are deliberately excluded from this rhythm
-  rather than forced into it).
+    New full-width Home sections should pick the step matching their visual weight instead of
+    a one-off `py-*` value. See `client/src/index.css`'s comment block above `@layer base` and
+    `docs/STOREFRONT_DESIGN_PROPOSALS.md` §4 for the full rationale (including why the two
+    slim utility strips — trust strip, marquee — are deliberately excluded from this rhythm
+    rather than forced into it).
 - **Radii:** come from `--radius` (0.65rem) via `rounded-lg`/`rounded-xl`. Cards are
   typically `rounded-xl border border-slate-200`.
-- **Container:** `client/src/index.css`'s `.container` utility is the single mechanism for
+- **Container:** `client/src/index.css`'s `.xl-shell` utility is the single mechanism for
   page-width sections — storefront pages previously hand-rolled
   `max-w-7xl mx-auto px-4 lg:px-8` inline in ~14 places; those now all use
   `className="container"` instead. Use `.container` for any new full-width section rather
   than reintroducing the inline pattern.
 
-  > **Discrepancy (found July 2026, not yet fixed).** This entry used to claim `.container`
-  > "caps at 1280px above 1024px". It does not. **Two `.container` rules ship**: ours in
-  > `@layer components`, and **Tailwind's own `container` utility**, which emits
-  > `max-width` at 40/48/64/80/96rem. Tailwind's rules win the cascade, so the effective
-  > caps are **640 / 768 / 1024 / 1280 / 1536px**. Two visible consequences: at a 1000px
-  > viewport the content is only **768px** wide, and above 1536px the container expands to
-  > **1536px** rather than staying at 1280px. Verified in the compiled CSS and live at
-  > 1000 / 1440 / 1920px. Deciding which cap we actually want (adopt Tailwind's, or disable
-  > its container and pin our own) is an open item — see `STYLE_REFERENCE.md` §5.
+  > **RESOLVED, 19 Aug 2026 — the cap is 1440px and the class is now `.xl-shell`.**
+  >
+  > The discrepancy this entry recorded was real and is now measured, not inferred.
+  > Two `.container` rules shipped: ours in `@layer components`, and Tailwind's own
+  > `container` utility emitting `max-width` at 40/48/64/80/96rem. Tailwind's landed
+  > later at equal specificity, so it won the `max-width` while ours supplied only the
+  > padding — nine `.container` rules in the compiled CSS. Measured live on `main`: a
+  > **800px viewport gave a 768px shell**, and 1600px gave 1536px. Our own comment
+  > claimed to "override Tailwind's default container behavior"; it never did.
+  >
+  > **The cap is 1440px**, from the prototype's desktop shell
+  > (`design-reference/xl-traders-storefront.source.dc.html`, `max-width:1440px`).
+  >
+  > **The collision is gone because the class is renamed**, not because one rule was
+  > deleted. `@utility container` was tried first and did **not** replace the built-in —
+  > verified in the compiled CSS, both still emitted. Tailwind v4 emits `.container`
+  > unconditionally: with zero references anywhere in `client/src`, `index.html`,
+  > `design-reference` or `dist`, the six built-in rules are still output. So the
+  > storefront's shell is `.xl-shell`, defined once via `@utility`, and Tailwind's
+  > `.container` remains in the bundle as ~150 bytes of dead CSS that nothing selects.
+  >
+  > After: 1600px → **1440** (was 1536); 800px → **785** (was 768, now fills).
+  > `Account.tsx` composes `xl-shell max-w-2xl`; `.max-w-2xl` is emitted later in the
+  > cascade, so the narrower cap still wins.
 
 > Still open: the token comment in `client/src/index.css` originally promised a brand color
 > ramp and WhatsApp colors "in a later pass" — those remain **not** in `@theme` yet; call
@@ -130,8 +145,8 @@ see §4.)
 is the **single source of truth**:
 
 ```ts
-isPriceOnEnquiry(price)  // true when price is null/undefined OR <= 0
-cartLinePrice(price)     // 0 for on-enquiry items, else the real price
+isPriceOnEnquiry(price); // true when price is null/undefined OR <= 0
+cartLinePrice(price); // 0 for on-enquiry items, else the real price
 ```
 
 - **`0` and `NULL` both mean "On Enquiry."** A price must **NEVER** render as `₹0` anywhere —
@@ -175,19 +190,19 @@ missing/health logic lives only in the `v_product_health` view + `healthService`
 
 Service modules that exist today (`client/src/lib/`):
 
-| Module | Responsibility |
-| --- | --- |
-| `productService.ts` | Products CRUD, `getAllAdmin` (paginated, `.range()`), `getAdminMatchingIds`, bulk ops, plus exported `categoryService`, `productImageService`, `enquiryService`, `inquiriesService`, `mediaService`, `storageService` |
-| `brandsService.ts` | Brands CRUD (PIM P1): `getAll` (active, storefront/pickers), `getAllAdmin`, `getById`, `getProductCounts`, `create`/`update` (slug auto via `slugify`), `setActive` (soft delete — never hard delete). `isUniqueViolation` helper for inline 23505 handling |
-| `healthService.ts` | Reads `v_product_health` only (missing counts, ids, category rollup) |
-| `masterService.ts` | Product masters & variants |
-| `orderService.ts` | Orders / WhatsApp order message |
-| `settingsService.ts` | `site_content` + business settings |
-| `bulkImportService.ts` / `googleSheetsService.ts` | CSV / Google Sheets import (SKU upsert) |
-| `aiService.ts` | AI Smart Paste / description (browser-side API key — see Known Issues) |
-| `templateService.ts` | Import template generation |
-| Support libs | `catalogHealth.ts` (colors/labels only), `priceUtils.ts`, `brandUtils.ts`, `imageUtils.ts`, `productForm.ts`, `demoData.ts`, `utils.ts`, `supabase.ts` |
-| Stores | `authStore.ts` (`useAuthStore`), `stores/cartStore.ts` |
+| Module                                            | Responsibility                                                                                                                                                                                                                                              |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `productService.ts`                               | Products CRUD, `getAllAdmin` (paginated, `.range()`), `getAdminMatchingIds`, bulk ops, plus exported `categoryService`, `productImageService`, `enquiryService`, `inquiriesService`, `mediaService`, `storageService`                                       |
+| `brandsService.ts`                                | Brands CRUD (PIM P1): `getAll` (active, storefront/pickers), `getAllAdmin`, `getById`, `getProductCounts`, `create`/`update` (slug auto via `slugify`), `setActive` (soft delete — never hard delete). `isUniqueViolation` helper for inline 23505 handling |
+| `healthService.ts`                                | Reads `v_product_health` only (missing counts, ids, category rollup)                                                                                                                                                                                        |
+| `masterService.ts`                                | Product masters & variants                                                                                                                                                                                                                                  |
+| `orderService.ts`                                 | Orders / WhatsApp order message                                                                                                                                                                                                                             |
+| `settingsService.ts`                              | `site_content` + business settings                                                                                                                                                                                                                          |
+| `bulkImportService.ts` / `googleSheetsService.ts` | CSV / Google Sheets import (SKU upsert)                                                                                                                                                                                                                     |
+| `aiService.ts`                                    | AI Smart Paste / description (browser-side API key — see Known Issues)                                                                                                                                                                                      |
+| `templateService.ts`                              | Import template generation                                                                                                                                                                                                                                  |
+| Support libs                                      | `catalogHealth.ts` (colors/labels only), `priceUtils.ts`, `brandUtils.ts`, `imageUtils.ts`, `productForm.ts`, `demoData.ts`, `utils.ts`, `supabase.ts`                                                                                                      |
+| Stores                                            | `authStore.ts` (`useAuthStore`), `stores/cartStore.ts`                                                                                                                                                                                                      |
 
 > **Known discrepancy (flagged, not hidden):** `CLAUDE.md` Rule #1 states "components never
 > call Supabase directly," but several admin components still do —
@@ -247,16 +262,16 @@ Toasts use **`sonner`**. Bottom sheets use the single **`drawer`** (vaul) primit
 
 ### 3.2 Shared app components & patterns
 
-| Component / hook | Role |
-| --- | --- |
-| `useProductForm` + `lib/productForm.ts` (`saveProductForm`) | **Single source of truth for create/update.** Used by the route editor and `CatalogProductPanel` so save logic never forks |
-| `CatalogProductPanel` | Catalog Editor's field editor (on `useProductForm`; embeds `ProductMediaSection` for image assign) |
-| `CatalogTreeEditor` | **THE products surface** (Phase 2b) — group→category tree + shared `<DataTable>` with inline edit, bulk, keyboard nav |
-| `CategoryCombobox`, `BrandCombobox`, `AISmartPasteDialog`, `ProductMediaSection`, `MobileAdminShell`, `adminNav.tsx` | Reusable admin building blocks. `BrandCombobox` (PIM P1) clones `CategoryCombobox`'s Popover+cmdk pattern; adds an explicit "No brand" entry and resolves inactive-brand values with an "(inactive)" suffix |
-| `AdminBrands` | Brands manager tab (`/admin` → Catalogue → Brands). Self-loading via `brandsService` only — zero direct Supabase calls. Create/edit dialog with inline 23505 duplicate error; active switch = soft delete |
-| `HealthDot` / `catalogHealth.ts` | Health color/label only (logic stays in the view) |
-| `SectionEyebrow` (`client/src/components/SectionEyebrow.tsx`) | Storefront-only: the small uppercase/tracked label above a section `<h2>` (`tone="light"` red-600 on white/slate-50, `tone="dark"` red-400 on a dark card). Standardizes a pattern that used to be re-typed per section — reuse it for any new section eyebrow rather than hand-rolling the classes again |
-| `HomeCatalogueShowcase` (`client/src/components/home/HomeCatalogueShowcase.tsx`) | Home-page catalogue taster: category chips + chip-filtered `ProductCard` grid on the same paginated `productService.getAll` call `/catalog` uses (pageSize 10). Replaced `HomeFeaturedProducts` (removed — its tabs were a client-side heuristic over an unpaginated full-catalogue fetch; recover from git if needed). Not a second catalogue: capped per view, always links into `/catalog` |
+| Component / hook                                                                                                     | Role                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useProductForm` + `lib/productForm.ts` (`saveProductForm`)                                                          | **Single source of truth for create/update.** Used by the route editor and `CatalogProductPanel` so save logic never forks                                                                                                                                                                                                                                                                    |
+| `CatalogProductPanel`                                                                                                | Catalog Editor's field editor (on `useProductForm`; embeds `ProductMediaSection` for image assign)                                                                                                                                                                                                                                                                                            |
+| `CatalogTreeEditor`                                                                                                  | **THE products surface** (Phase 2b) — group→category tree + shared `<DataTable>` with inline edit, bulk, keyboard nav                                                                                                                                                                                                                                                                         |
+| `CategoryCombobox`, `BrandCombobox`, `AISmartPasteDialog`, `ProductMediaSection`, `MobileAdminShell`, `adminNav.tsx` | Reusable admin building blocks. `BrandCombobox` (PIM P1) clones `CategoryCombobox`'s Popover+cmdk pattern; adds an explicit "No brand" entry and resolves inactive-brand values with an "(inactive)" suffix                                                                                                                                                                                   |
+| `AdminBrands`                                                                                                        | Brands manager tab (`/admin` → Catalogue → Brands). Self-loading via `brandsService` only — zero direct Supabase calls. Create/edit dialog with inline 23505 duplicate error; active switch = soft delete                                                                                                                                                                                     |
+| `HealthDot` / `catalogHealth.ts`                                                                                     | Health color/label only (logic stays in the view)                                                                                                                                                                                                                                                                                                                                             |
+| `SectionEyebrow` (`client/src/components/SectionEyebrow.tsx`)                                                        | Storefront-only: the small uppercase/tracked label above a section `<h2>` (`tone="light"` red-600 on white/slate-50, `tone="dark"` red-400 on a dark card). Standardizes a pattern that used to be re-typed per section — reuse it for any new section eyebrow rather than hand-rolling the classes again                                                                                     |
+| `HomeCatalogueShowcase` (`client/src/components/home/HomeCatalogueShowcase.tsx`)                                     | Home-page catalogue taster: category chips + chip-filtered `ProductCard` grid on the same paginated `productService.getAll` call `/catalog` uses (pageSize 10). Replaced `HomeFeaturedProducts` (removed — its tabs were a client-side heuristic over an unpaginated full-catalogue fetch; recover from git if needed). Not a second catalogue: capped per view, always links into `/catalog` |
 
 > Removed in Phase 2b (recover from git if needed): `AdminProducts`, `ProductsTable`
 > (TanStack + `react-virtual` — the only virtualized grid), `ProductDrawer`,
@@ -275,28 +290,28 @@ component — **no bespoke grids.**
 **Target feature set (20)** — `[DONE]` = live in `<DataTable>` Phase 1; the rest land in later
 phases per this contract:
 
-| # | Feature | Status |
-| --- | --- | --- |
-| 1 | Column sort | `[DONE]` — per-column sort headers → `getAllAdmin` `sortField`/`sortAscending` (server-side) |
-| 2 | Per-column filter | `[medium]` — deferred |
-| 3 | Column resize | `[DONE]` — TanStack's built-in resize API (`columnResizeMode: "onChange"`); drag handle on each resizable column's right edge, per-column `minSize`/`maxSize`, widths persisted to URL (`${persistKey}Sizing`) on drag-end only |
-| 4 | Hide/show columns | `[DONE]` — Columns menu (from `meta.hideable`/`defaultHidden`) |
-| 5 | Column pin | `[DONE]` — `meta.sticky`, sticky-left with cumulative offsets |
-| 6 | Multi-select rows | `[DONE]` — consumer-controlled selection; select-all-matching in Catalog Editor |
-| 7 | Bulk action bar | `[DONE]` — consumer slot; publish / unpublish / delete in Catalog Editor |
-| 8 | Infinite scroll (virtualization) | `[deferred]` — `react-virtual` installed but unused since Phase 2b; DataTable paginates |
-| 9 | Sticky header | `[DONE]` — `thead` sticky top |
-| 10 | Sticky first column | `[DONE]` — checkbox + first `meta.sticky` column |
-| 11 | Keyboard navigation | `[DONE]` — consumer via `containerProps` + `managed` inline inputs (↑↓←→, Enter, Tab, Esc) |
-| 12 | Copy/paste (Excel) | `[deferred]` |
-| 13 | Right-click menu | `[DONE]` — `rowContextMenu` render-prop wraps each row in `ContextMenu`/`ContextMenuTrigger` (`asChild` onto the `<tr>`); Catalog Editor also exposes the same item list via an always-visible "⋯" `DropdownMenu` button for touch |
-| 14 | Row grouping | `[deferred]` — the tree gives group→category filtering, not in-table grouping |
-| 15 | Export CSV | `[deferred]` — import exists; export doesn't |
-| 16 | Save layout | `[DONE]` — columns + density persisted to URL (`persistKey`); no localStorage |
-| 17 | Search | `[DONE]` — `search` hook (Catalog Editor keeps its own toolbar box; server-side name/SKU) |
-| 18 | Pagination | `[DONE]` — server-side `.range()` footer |
-| 19 | Density toggle | `[DONE]` — compact / comfortable, persisted to URL |
-| 20 | Loading skeleton | `[DONE]` — reuses `ui/skeleton` |
+| #   | Feature                          | Status                                                                                                                                                                                                                             |
+| --- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Column sort                      | `[DONE]` — per-column sort headers → `getAllAdmin` `sortField`/`sortAscending` (server-side)                                                                                                                                       |
+| 2   | Per-column filter                | `[medium]` — deferred                                                                                                                                                                                                              |
+| 3   | Column resize                    | `[DONE]` — TanStack's built-in resize API (`columnResizeMode: "onChange"`); drag handle on each resizable column's right edge, per-column `minSize`/`maxSize`, widths persisted to URL (`${persistKey}Sizing`) on drag-end only    |
+| 4   | Hide/show columns                | `[DONE]` — Columns menu (from `meta.hideable`/`defaultHidden`)                                                                                                                                                                     |
+| 5   | Column pin                       | `[DONE]` — `meta.sticky`, sticky-left with cumulative offsets                                                                                                                                                                      |
+| 6   | Multi-select rows                | `[DONE]` — consumer-controlled selection; select-all-matching in Catalog Editor                                                                                                                                                    |
+| 7   | Bulk action bar                  | `[DONE]` — consumer slot; publish / unpublish / delete in Catalog Editor                                                                                                                                                           |
+| 8   | Infinite scroll (virtualization) | `[deferred]` — `react-virtual` installed but unused since Phase 2b; DataTable paginates                                                                                                                                            |
+| 9   | Sticky header                    | `[DONE]` — `thead` sticky top                                                                                                                                                                                                      |
+| 10  | Sticky first column              | `[DONE]` — checkbox + first `meta.sticky` column                                                                                                                                                                                   |
+| 11  | Keyboard navigation              | `[DONE]` — consumer via `containerProps` + `managed` inline inputs (↑↓←→, Enter, Tab, Esc)                                                                                                                                         |
+| 12  | Copy/paste (Excel)               | `[deferred]`                                                                                                                                                                                                                       |
+| 13  | Right-click menu                 | `[DONE]` — `rowContextMenu` render-prop wraps each row in `ContextMenu`/`ContextMenuTrigger` (`asChild` onto the `<tr>`); Catalog Editor also exposes the same item list via an always-visible "⋯" `DropdownMenu` button for touch |
+| 14  | Row grouping                     | `[deferred]` — the tree gives group→category filtering, not in-table grouping                                                                                                                                                      |
+| 15  | Export CSV                       | `[deferred]` — import exists; export doesn't                                                                                                                                                                                       |
+| 16  | Save layout                      | `[DONE]` — columns + density persisted to URL (`persistKey`); no localStorage                                                                                                                                                      |
+| 17  | Search                           | `[DONE]` — `search` hook (Catalog Editor keeps its own toolbar box; server-side name/SKU)                                                                                                                                          |
+| 18  | Pagination                       | `[DONE]` — server-side `.range()` footer                                                                                                                                                                                           |
+| 19  | Density toggle                   | `[DONE]` — compact / comfortable, persisted to URL                                                                                                                                                                                 |
+| 20  | Loading skeleton                 | `[DONE]` — reuses `ui/skeleton`                                                                                                                                                                                                    |
 
 **Phase 1 live: 13 / 20.** Deferred to later phases: per-column filter, column resize,
 virtualization/infinite scroll, copy-paste, right-click menu, row grouping, export CSV.

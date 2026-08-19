@@ -52,7 +52,7 @@ export default function Categories() {
   return (
     <>
       <main className="flex-1 pb-24 md:pb-10">
-        <div className="container py-6">
+        <div className="xl-shell py-6">
           <h1 className="mb-1 text-2xl font-extrabold tracking-tight">
             All categories
           </h1>

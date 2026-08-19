@@ -110,7 +110,7 @@ export default function Cart() {
 
   return (
     <main className="flex-1 pb-28 md:pb-10">
-      <div className="container py-6">
+      <div className="xl-shell py-6">
         <h1 className="mb-5 text-2xl font-extrabold tracking-tight">
           Your Cart
           {t.lines > 0 && (

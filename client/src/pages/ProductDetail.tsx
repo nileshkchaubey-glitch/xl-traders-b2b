@@ -127,7 +127,7 @@ export default function ProductDetail() {
   if (loading) {
     return (
       <Shell>
-        <div className="container flex items-center justify-center py-24">
+        <div className="xl-shell flex items-center justify-center py-24">
           <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
         </div>
       </Shell>
@@ -137,7 +137,7 @@ export default function ProductDetail() {
   if (!current) {
     return (
       <Shell>
-        <div className="container py-20 text-center">
+        <div className="xl-shell py-20 text-center">
           <h1 className="text-xl font-extrabold">Product not found</h1>
           <Link
             href="/catalog"
@@ -186,7 +186,7 @@ export default function ProductDetail() {
 
   return (
     <Shell>
-      <div className="container py-5">
+      <div className="xl-shell py-5">
         <nav className="mb-4 flex items-center gap-1 text-caption text-slate-500">
           <Link href="/" className="hover:text-red-600">
             Home

@@ -85,7 +85,7 @@ export default function Footer() {
   return (
     <footer className="mt-auto bg-slate-900 text-slate-400">
       {/* ── Mobile: only what the bottom nav and header do NOT provide ── */}
-      <div className="container py-6 md:hidden">
+      <div className="xl-shell py-6 md:hidden">
         <div className="mb-2 text-body-sm font-extrabold tracking-[0.08em] text-white">
           XL TRADERS
         </div>
@@ -113,7 +113,7 @@ export default function Footer() {
       </div>
 
       {/* ── Desktop: the full four-column footer, unchanged ── */}
-      <div className="container hidden gap-8 py-10 md:grid md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div className="xl-shell hidden gap-8 py-10 md:grid md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         {/* Brand */}
         <div>
           <div className="mb-3 flex items-center gap-2.5">
@@ -204,7 +204,7 @@ export default function Footer() {
       <div className="border-t border-slate-800">
         {/* pb-24 on mobile clears the fixed 65px bottom nav, which otherwise
             covers this row — the same clearance every page's <main> uses. */}
-        <div className="container flex flex-col gap-1 py-4 pb-24 text-xs sm:flex-row sm:justify-between md:pb-4">
+        <div className="xl-shell flex flex-col gap-1 py-4 pb-24 text-xs sm:flex-row sm:justify-between md:pb-4">
           <span>© {currentYear} XL Traders. All rights reserved.</span>
           <span>{footer.tagline}</span>
         </div>

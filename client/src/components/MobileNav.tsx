@@ -1,11 +1,5 @@
 import { Link, useLocation } from "wouter";
-import {
-  Home,
-  LayoutGrid,
-  Search,
-  ShoppingCart,
-  User,
-} from "lucide-react";
+import { Home, LayoutGrid, Search, ShoppingCart, User } from "lucide-react";
 import { useCartStore, cartTotals } from "@/stores/cartStore";
 import { useAuthStore } from "@/lib/authStore";
 
@@ -38,7 +32,8 @@ export default function MobileNav() {
       href: "/categories",
       label: "Categories",
       icon: LayoutGrid,
-      active: location.startsWith("/categories") || location.startsWith("/catalog"),
+      active:
+        location.startsWith("/categories") || location.startsWith("/catalog"),
     },
     {
       href: "/search",

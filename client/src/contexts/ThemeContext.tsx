@@ -27,7 +27,9 @@ export const SITE_THEMES = [
 export type SiteTheme = (typeof SITE_THEMES)[number];
 
 function isSiteTheme(v: unknown): v is SiteTheme {
-  return typeof v === "string" && (SITE_THEMES as readonly string[]).includes(v);
+  return (
+    typeof v === "string" && (SITE_THEMES as readonly string[]).includes(v)
+  );
 }
 
 const ThemeContext = createContext<SiteTheme>("default");
