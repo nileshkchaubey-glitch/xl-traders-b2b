@@ -88,6 +88,10 @@ export interface AnnouncementContent {
   deliveryLine: string;
   hours: string;
   mobilePill: string;
+  /** Mobile location bar, line 1. Safe to add to an existing stored row:
+   *  getAllContent merges per field (mergeOverFallback), so a row saved before
+   *  this key existed still resolves it from FALLBACKS. */
+  deliverTo: string;
 }
 
 export interface FooterContent {
@@ -253,11 +257,14 @@ export const FALLBACKS: SiteContentMap = {
     deliveryLine: "Surat — same day · Outside Surat — 2–3 days",
     hours: "Mon–Sat 9AM–9PM",
     mobilePill: "Same-day Surat",
+    // The prototype reads "Deliver to Surat · 395010". That is sample content:
+    // 394221 is the owner-confirmed pincode.
+    deliverTo: "Deliver to Surat · 394221",
   },
   footer: {
     description:
       "Wholesale food packaging & disposables for restaurants, cafés, cloud kitchens, caterers and distributors. Surat, Gujarat.",
-    address: "Surat, Gujarat 395002",
+    address: "Surat, Gujarat 394221",
     tagline: "You Order, We Deliver.",
     ordering: [
       "Surat — same day",

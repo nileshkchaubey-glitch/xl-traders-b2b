@@ -256,9 +256,9 @@ categories` → links to `/catalog`), sourced from the same public
     `maxUniqueSrcsAnyTile === 1`, i.e. it could _never_ show four distinct images; packaging text
     came out sliced into nonsense). Now one `aspect-[4/3] object-cover` image with the existing
     lucide `FALLBACK_ICONS` layered _underneath_ it, so a missing or failed image reveals the icon
-    with no JS toggling (STYLE_REFERENCE §4.3 fallback chain). **The desktop group row stretches:**
+    with no JS toggling (STYLE*REFERENCE §4.3 fallback chain). **The desktop group row stretches:**
     it was a flex row of fixed-width `w-44 xl:w-48` tiles left-aligned inside a wider container —
-    192px of dead space per row at 1440px, ~500px at 1920px, and _clipping_ around 1000px. It is now
+    192px of dead space per row at 1440px, ~500px at 1920px, and \_clipping* around 1000px. It is now
     a `1fr` grid whose column count is derived from the tile count (`GROUP_COLS`, static class
     strings; `pickTop` caps a group at 5), so the row reaches the container edge at any width and
     any group size — verified 0px dead space at 1000 / 1440 / 1920. **`unit_of_measure` no longer
@@ -360,10 +360,10 @@ categories` → links to `/catalog`), sourced from the same public
     "two lazy chunks share it"; a resolved-import graph disproved that.
     **Reaching for the primitive was not enough, and that is the finding.**
     vaul's `Content` does `onOpenAutoFocus: e => { …; if (!autoFocus)
-    e.preventDefault(); }` and its `Root` defaults **`autoFocus = false`** — so
+e.preventDefault(); }` and its `Root` defaults **`autoFocus = false`** — so
     focus stayed on the trigger, OUTSIDE Radix's FocusScope, whose sentinel
     guards only wrap focus already inside it. Measured: six Tab presses, six
-    landings on the chips *behind* the open sheet — with `role="dialog"`
+    landings on the chips _behind_ the open sheet — with `role="dialog"`
     present the whole time. Fixed with the `autoFocus` prop; measured after:
     **40 Tab presses and 8 Shift+Tab presses, zero landings outside the dialog**, wrapping
     at both ends. Two more gaps the primitive did not close on its own:
@@ -1024,8 +1024,11 @@ sites the ordering work must thread through.
      `unit_of_measure` leak); PR-2 folds it, the On-Enquiry rule and the per-piece formula into
      the one pure mapper, then completes §3.1 — image proportion, action overlapping the image,
      and the mono / green-badge treatment.
-   - **PR-3 — category tiles.** Owns **category product counts (G3)**. `STYLE_REFERENCE.md`
-     §3.2 wants a count on every tile and §2.2-B1 says never render a category whose count is 0
+   - **PR-3 — category tiles.** **Counts are OFF the tiles (owner decision, 18 Aug 2026).**
+     `STOREFRONT_RULES` §3.1 bans product counts, and that reading wins over
+     `STYLE_REFERENCE.md` §3.2's "count on every tile" — tiles carry name and image
+     only, so nothing on them can drift from the catalogue. §2.2-B1 still applies:
+     never render a category whose count is 0
      (`Bouffant Cap` / `Gloves` are the likely zero-count tiles). Blocked on data access, not
      design: `productService.countPublished()` exists and takes `categoryId`/`categoryIds` but
      is **per-category** — 25 calls for one Home render. Needs a grouped variant (one
@@ -1088,8 +1091,8 @@ sites the ordering work must thread through.
   All three buckets now share the same admin-scoped shape.
 - 🔴 **Guest checkout is broken** (pre-existing, found 15 Aug 2026). `orderService.placeOrder`
   uses `.insert(...).select("id").single()` — an `INSERT … RETURNING`, which needs a SELECT
-  policy admitting the new row; `anon` has none, so it fails with *"new row violates
-  row-level security policy"*. A plain INSERT succeeds, so the fix is client-side (drop the
+  policy admitting the new row; `anon` has none, so it fails with _"new row violates
+  row-level security policy"_. A plain INSERT succeeds, so the fix is client-side (drop the
   `.select()` for anonymous checkout) or server-side order creation — **not** widening
   anon's reads, which would re-open a disclosure hole.
 - `VITE_ANTHROPIC_API_KEY` browser-exposed — move to Edge Function before scaling
@@ -1310,22 +1313,22 @@ just don't click merge until the go-ahead is given.
 
 ## 📋 Import Template Columns (v3 — current)
 
-| Column           | Required | Notes                                                    |
-| ---------------- | -------- | -------------------------------------------------------- |
-| name             | ✅       | Full name including size for variants                    |
-| category         | ⬜       | Blank → Uncategorized; must match Categories tab exactly |
+| Column           | Required | Notes                                                                                                                                                                                   |
+| ---------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| name             | ✅       | Full name including size for variants                                                                                                                                                   |
+| category         | ⬜       | Blank → Uncategorized; must match Categories tab exactly                                                                                                                                |
 | unit             | ✅       | **The SELLING unit** — `box`/`bag`/`roll`/`packet`/`carton`/`set`. Use `pcs` only when there genuinely is no pack noun; `pcs` is treated as ABSENT and renders "Pack of N" (see below). |
-| price            | ⬜       | Blank = "Price on enquiry"                               |
-| mrp              | ⬜       | Optional                                                 |
-| moq              | ⬜       | Blank = unknown                                          |
-| brand            | ⬜       | Blank = unknown                                          |
-| description      | ⬜       | Short B2B description                                    |
-| sku              | ⬜       | Blank = auto-generated                                   |
-| quantity_in_unit | ⬜       | Pack size e.g. 100                                       |
-| is_featured      | ⬜       | Yes/No                                                   |
-| status           | ⬜       | draft (default) or published                             |
-| master_name      | ⬜       | Variants only — e.g. "Hinged Box"                        |
-| variant_label    | ⬜       | Variants only — e.g. "250ml"                             |
-| tags             | ⬜       | restaurant,cloud-kitchen,hotel…                          |
-| na_fields        | ⬜       | brand,specifications,image                               |
-| image_url        | ⬜       | drive.google.com/thumbnail?id=FILE_ID&sz=w800            |
+| price            | ⬜       | Blank = "Price on enquiry"                                                                                                                                                              |
+| mrp              | ⬜       | Optional                                                                                                                                                                                |
+| moq              | ⬜       | Blank = unknown                                                                                                                                                                         |
+| brand            | ⬜       | Blank = unknown                                                                                                                                                                         |
+| description      | ⬜       | Short B2B description                                                                                                                                                                   |
+| sku              | ⬜       | Blank = auto-generated                                                                                                                                                                  |
+| quantity_in_unit | ⬜       | Pack size e.g. 100                                                                                                                                                                      |
+| is_featured      | ⬜       | Yes/No                                                                                                                                                                                  |
+| status           | ⬜       | draft (default) or published                                                                                                                                                            |
+| master_name      | ⬜       | Variants only — e.g. "Hinged Box"                                                                                                                                                       |
+| variant_label    | ⬜       | Variants only — e.g. "250ml"                                                                                                                                                            |
+| tags             | ⬜       | restaurant,cloud-kitchen,hotel…                                                                                                                                                         |
+| na_fields        | ⬜       | brand,specifications,image                                                                                                                                                              |
+| image_url        | ⬜       | drive.google.com/thumbnail?id=FILE_ID&sz=w800                                                                                                                                           |
