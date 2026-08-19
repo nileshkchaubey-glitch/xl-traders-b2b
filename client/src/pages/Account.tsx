@@ -36,7 +36,7 @@ export default function Account() {
 
   return (
     <main className="flex-1 pb-24 md:pb-10">
-      <div className="container max-w-2xl py-6">
+      <div className="xl-shell max-w-2xl py-6">
         <h1 className="mb-4 text-2xl font-extrabold tracking-tight">
           My account
         </h1>

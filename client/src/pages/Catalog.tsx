@@ -219,7 +219,7 @@ export default function Catalog() {
   return (
     <>
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="container py-6">
+        <div className="xl-shell py-6">
           <div className="mb-3.5 text-body-sm text-slate-500">
             <Link href="/" className="transition hover:text-red-600">
               Home

@@ -47,7 +47,7 @@ export default function HomeCategoryGrid() {
   if (!loading && categories.length === 0) return null;
 
   return (
-    <section className="container py-8 md:py-12">
+    <section className="xl-shell py-8 md:py-12">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <SectionEyebrow>Shop by category</SectionEyebrow>

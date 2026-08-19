@@ -66,7 +66,7 @@ export default function InstallPrompt() {
 
   return (
     <div className="bg-red-50 border-b border-red-100">
-      <div className="container py-2 flex items-center gap-3 text-[12.5px]">
+      <div className="xl-shell py-2 flex items-center gap-3 text-[12.5px]">
         <Download size={15} className="text-red-600 flex-shrink-0" />
         <span className="flex-1 font-medium text-slate-700">
           Add XL Traders to your home screen for quick access
