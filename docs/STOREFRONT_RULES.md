@@ -172,6 +172,13 @@ no scope in which a theme value could reach a layout or pricing decision.
 Adding spacing, sizing, `display`, or anything price-related to a
 `[data-xl-theme]` block breaks that guarantee.
 
+**Amended 18 Aug 2026 (owner decision):** purely decorative motifs — the
+prototype's per-theme corner glyphs (flame, sparkles, gift, umbrella, flag) —
+are also permitted, **in the hero only**. They are neither layout nor price, so
+the guarantee above is unchanged: still no spacing, no sizing, no `display`, no
+price. A motif that displaces content rather than sitting behind it is layout,
+and is out.
+
 _Enforced: `check-storefront.mjs` — `theme-block-scope`._
 
 ### 4.4b The selling-unit noun: 'pcs' is an ABSENT value, not a unit

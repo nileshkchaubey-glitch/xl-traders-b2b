@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+  html, body { margin:0; padding:0; }
+  body { font-family:'Inter', ui-sans-serif, system-ui, sans-serif; background:#eef2f6; color:#0f172a; -webkit-font-smoothing:antialiased; }
+  * { box-sizing:border-box; }
+  a { color:#dc2626; text-decoration:none; }
+  a:hover { color:#b91c1c; }
+  button { font-family:inherit; }
+  ::-webkit-scrollbar { height:6px; width:6px; }
+  ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:99px; }
+  @keyframes xlKen {
+    0%   { opacity:0; transform:scale(1.05); }
+    2%   { opacity:1; }
+    24%  { opacity:1; }
+    27%  { opacity:0; }
+    30%  { opacity:0; transform:scale(1.14); }
+    100% { opacity:0; transform:scale(1.05); }
+  }
+  @keyframes xlDot { 0%,24% { opacity:1; } 27%,100% { opacity:0; } }
+  @keyframes xlStrip { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+  @keyframes xlMotif { 0%,100% { transform:translateY(0) rotate(-3deg); } 50% { transform:translateY(-5px) rotate(3deg); } }
+  button { transition:transform .12s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease; }
+  button:active { transform:scale(0.97); }
+  .xl-hero:hover .xl-slide, .xl-hero:hover .xl-dotfill,
+  .xl-hero:active .xl-slide, .xl-hero:active .xl-dotfill { animation-play-state:paused; }
+  .xl-strip:hover .xl-track, .xl-strip:active .xl-track { animation-play-state:paused; }
+  @media (prefers-reduced-motion: reduce) {
+    .xl-slide { animation:none !important; opacity:0 !important; transform:none !important; }
+    .xl-slide:first-of-type { opacity:1 !important; }
+    .xl-dotfill { animation:none !important; opacity:0 !important; }
+    .xl-dots > span:first-child .xl-dotfill { opacity:1 !important; }
+    .xl-track { animation:none !important; }
+    svg[style*="xlMotif"] { animation:none !important; }
+    button:active { transform:none !important; }
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh; padding:0 0 60px;">
+
+  <!-- ══════════════ REVIEW STRIP ══════════════ -->
+  <div style="background:#0f172a; padding:10px 20px; display:flex; align-items:center; gap:12px; row-gap:8px; flex-wrap:wrap; position:relative; z-index:90;">
+    <div style="display:flex; align-items:baseline; gap:8px; margin-right:auto;">
+      <span style="font-size:14px; font-weight:800; color:#ffffff; letter-spacing:-0.01em;">XL TRADERS</span>
+      <span style="font-size:10.5px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.09em;">Storefront prototype</span>
+    </div>
+    <div style="display:flex; background:#1e293b; border-radius:99px; padding:3px; gap:2px;">
+      <button onClick="{{ setMobile }}" style="border:none; cursor:pointer; padding:6px 14px; border-radius:99px; font-size:11.5px; font-weight:700; background:{{ mobileTabBg }}; color:{{ mobileTabFg }};">Mobile</button>
+      <button onClick="{{ setDesktop }}" style="border:none; cursor:pointer; padding:6px 14px; border-radius:99px; font-size:11.5px; font-weight:700; background:{{ desktopTabBg }}; color:{{ desktopTabFg }};">Desktop</button>
+    </div>
+    <div style="display:flex; background:#1e293b; border-radius:99px; padding:3px; gap:2px;">
+      <button onClick="{{ setGuest }}" style="border:none; cursor:pointer; padding:6px 14px; border-radius:99px; font-size:11.5px; font-weight:700; background:{{ guestTabBg }}; color:{{ guestTabFg }};">Guest</button>
+      <button onClick="{{ setSignedIn }}" style="border:none; cursor:pointer; padding:6px 14px; border-radius:99px; font-size:11.5px; font-weight:700; background:{{ signedTabBg }}; color:{{ signedTabFg }};">Signed in</button>
+    </div>
+    <div style="display:flex; background:#1e293b; border-radius:99px; padding:3px; gap:2px;">
+      <sc-for list="{{ themeBtns }}" as="t" hint-placeholder-count="5">
+        <button onClick="{{ t.set }}" style="border:none; cursor:pointer; padding:6px 11px; border-radius:99px; font-size:11px; font-weight:700; display:flex; align-items:center; gap:6px; background:{{ t.bg }}; color:{{ t.fg }};">
+          <span style="width:8px; height:8px; border-radius:99px; background:{{ t.swatch }};"></span>{{ t.label }}
+        </button>
+      </sc-for>
+    </div>
+    <span style="font-size:10.5px; font-weight:600; color:#64748b; max-width:230px; line-height:1.35;">{{ reviewNote }}</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       MOBILE
+       ══════════════════════════════════════════════════════════════════ -->
+  <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex; justify-content:center; padding:28px 12px;">
+    <div data-screen-label="Mobile storefront" style="width:430px; max-width:100%; background:#ffffff; border-radius:34px; box-shadow:0 30px 60px -20px rgba(15,23,42,0.35); overflow:hidden; position:relative; height:880px; display:flex; flex-direction:column;">
+
+      <!-- location bar -->
+      <div style="background:#dc2626; color:#ffffff; padding:9px 14px; display:flex; align-items:center; gap:9px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" style="flex-shrink:0;"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"></path><circle cx="12" cy="10" r="2.4"></circle></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Deliver to Surat · 395010</div>
+          <div style="font-size:9.5px; font-weight:500; opacity:0.88; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ dispatchLine }}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          <div style="width:30px; height:30px; border-radius:99px; background:rgba(255,255,255,0.16); display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.1"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"></path></svg></div>
+          <div style="width:30px; height:30px; border-radius:99px; background:#059669; display:flex; align-items:center; justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="#ffffff"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.3A10 10 0 1 0 12 2zm5.2 14.1c-.2.6-1.3 1.2-1.8 1.2-.5 0-2.3-.3-4.4-2.2s-2.5-3.4-2.6-4-.1-1.3.3-1.8c.3-.4.6-.5.8-.5h.6c.2 0 .4 0 .6.5l.7 1.7c.1.2.1.4 0 .6l-.4.5c-.2.2-.3.3-.1.6.2.4.8 1.2 1.4 1.7.8.7 1.3.9 1.6 1 .2.1.4 0 .5-.1l.6-.7c.2-.2.4-.2.6-.1l1.6.8c.3.1.4.2.4.4v.6z"></path></svg></div>
+          <button style="border:none; cursor:pointer; height:30px; padding:0 11px; border-radius:99px; background:#059669; color:#ffffff; font-size:10.5px; font-weight:800; white-space:nowrap;">Quote</button>
+        </div>
+      </div>
+
+      <div ref="{{ shellRef }}" onScroll="{{ onShellScroll }}" style="flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; position:relative; padding-bottom:14px;">
+
+      <!-- search — pinned, never scrolls away -->
+      <div style="position:sticky; top:0; z-index:40; background:#ffffff; padding:11px 14px; display:flex; gap:9px; align-items:center; border-bottom:1px solid #f1f5f9;">
+        <div style="flex:1; min-width:0; height:42px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:12px; display:flex; align-items:center; gap:9px; padding:0 12px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.3" style="flex-shrink:0;"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+          <span style="font-size:12.5px; color:#94a3b8; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ searchPlaceholder }}</span>
+        </div>
+        <div style="width:42px; height:42px; flex-shrink:0; border:1.5px solid #e2e8f0; border-radius:12px; display:flex; align-items:center; justify-content:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"></rect><path d="M3 9h18M9 21V9"></path></svg></div>
+      </div>
+
+      <!-- ══════ MOBILE HOME ══════ -->
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <!-- hero slideshow -->
+          <div class="xl-hero" style="margin:12px 14px 0; border-radius:18px; overflow:hidden; position:relative; background:#0f172a; aspect-ratio:16 / 10;">
+            <sc-for list="{{ heroSlidesM }}" as="s" hint-placeholder-count="4">
+              <div class="xl-slide" style="position:absolute; inset:0; opacity:0; animation:xlKen 16s ease-in-out infinite; animation-delay:{{ s.delay }}; will-change:opacity, transform;">
+                <image-slot id="{{ s.slot }}" src="{{ s.src }}" shape="rect" fit="cover" placeholder="{{ s.hint }}" style="position:absolute; inset:0;"></image-slot>
+              </div>
+            </sc-for>
+            <div style="position:absolute; inset:0; pointer-events:none; background:{{ heroScrimM }};"></div>
+            <div style="position:absolute; top:12px; right:12px; display:flex; gap:5px; pointer-events:none;">
+              <sc-for list="{{ motif }}" as="m" hint-placeholder-count="0">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="{{ m.color }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 6px {{ m.glow }}); animation:xlMotif 5s ease-in-out infinite; animation-delay:{{ m.delay }};"><path d="{{ m.d }}"></path></svg>
+              </sc-for>
+            </div>
+            <div style="position:absolute; left:16px; right:16px; bottom:16px; display:flex; flex-direction:column; align-items:flex-start; gap:12px;">
+              <div style="font-size:23px; font-weight:800; color:#ffffff; line-height:1.1; letter-spacing:-0.025em; text-shadow:0 2px 14px rgba(15,23,42,0.55);">You order, we deliver.</div>
+              <button onClick="{{ goCatalog }}" style="border:none; cursor:pointer; background:#dc2626; color:#ffffff; font-size:13px; font-weight:800; padding:11px 20px; border-radius:10px;">Shop catalogue</button>
+            </div>
+            <div class="xl-dots" style="position:absolute; right:14px; bottom:18px; display:flex; gap:6px;">
+              <sc-for list="{{ heroSlidesM }}" as="s" hint-placeholder-count="4">
+                <span style="position:relative; width:7px; height:7px; border-radius:99px; background:rgba(255,255,255,0.4);">
+                  <span class="xl-dotfill" style="position:absolute; inset:0; border-radius:99px; background:{{ accent }}; opacity:0; animation:xlDot 16s linear infinite; animation-delay:{{ s.delay }};"></span>
+                </span>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- banner slot 1 · below hero · owner-controlled, empty renders nothing -->
+          <sc-if value="{{ bannerTop.show }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:12px 14px 0;">
+              <div style="overflow:hidden;">
+              <div style="display:flex; transform:{{ bannerTop.shift }}; transition:transform .35s ease;">
+                <sc-for list="{{ bannerTop.items }}" as="b" hint-placeholder-count="1">
+                  <button onClick="{{ b.go }}" style="flex:0 0 100%; scroll-snap-align:center; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; padding:0; cursor:pointer; background:#ffffff; display:flex; align-items:stretch; height:94px; text-align:left;">
+                    <div style="width:112px; flex-shrink:0; background:#f1f5f9; position:relative;">
+                      <image-slot id="{{ b.slotId }}" src="{{ b.img }}" shape="rect" fit="cover" placeholder="{{ b.hint }}"></image-slot>
+                    </div>
+                    <div style="flex:1; min-width:0; padding:11px 12px; display:flex; flex-direction:column; justify-content:center; gap:4px;">
+                      <div style="font-size:12.5px; font-weight:800; color:#0f172a; line-height:1.3; text-wrap:pretty;">{{ b.headline }}</div>
+                      <sc-if value="{{ b.showRate }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:11px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums;">{{ b.rate }}</div>
+                      </sc-if>
+                      <div style="font-size:10px; font-weight:700; color:#475569;">Shop now →</div>
+                    </div>
+                  </button>
+                </sc-for>
+              </div>
+              </div>
+              <sc-if value="{{ bannerTop.multi }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; justify-content:center; gap:5px; margin-top:7px;">
+                  <sc-for list="{{ bannerTop.dots }}" as="d" hint-placeholder-count="2">
+                    <button onClick="{{ d.go }}" style="width:6px; height:6px; padding:0; border:none; border-radius:99px; background:{{ d.bg }}; cursor:pointer;"></button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- categories -->
+          <div style="padding:16px 14px 0; display:flex; align-items:center; justify-content:space-between;">
+            <div style="font-size:15px; font-weight:800; letter-spacing:-0.01em;">Shop by category</div>
+            <button onClick="{{ goCatalog }}" style="border:none; background:none; cursor:pointer; font-size:11.5px; font-weight:700; color:#dc2626;">View all →</button>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:9px; padding:11px 14px 0;">
+            <sc-for list="{{ cats }}" as="c" hint-placeholder-count="12">
+              <button onClick="{{ c.open }}" style="border:none; background:none; padding:0; cursor:pointer; text-align:center;">
+                <div style="aspect-ratio:1 / 1; background:{{ c.tileBg }}; border-radius:12px; overflow:hidden; position:relative;">
+                  <image-slot id="{{ c.slot }}" src="{{ c.imgSrc }}" shape="rect" fit="cover" placeholder="{{ c.slotHint }}"></image-slot>
+                </div>
+                <div style="font-size:9.5px; font-weight:700; color:#0f172a; line-height:1.2; margin-top:5px; height:23px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ c.name }}</div>
+                <div style="font-size:8px; font-weight:600; color:#94a3b8; margin-top:1px;">{{ c.countLabel }}</div>
+              </button>
+            </sc-for>
+          </div>
+
+          <!-- product spotlight strip -->
+          <div class="xl-strip" style="margin-top:14px; overflow:hidden; position:relative; padding-left:14px;">
+            <div class="xl-track" style="display:flex; width:max-content; animation:xlStrip 44s linear infinite;">
+              <sc-for list="{{ stripItems }}" as="s" hint-placeholder-count="12">
+                <button onClick="{{ s.open }}" style="flex:0 0 auto; width:96px; margin-right:10px; border:1px solid #e2e8f0; background:#ffffff; border-radius:12px; padding:0 0 7px; cursor:pointer; text-align:left; overflow:hidden;">
+                  <div style="aspect-ratio:1 / 1; background:#f8fafc; position:relative;">
+                    <image-slot id="{{ s.slotM }}" src="{{ s.src }}" shape="rect" fit="cover" placeholder="{{ s.hint }}"></image-slot>
+                  </div>
+                  <div style="padding:6px 8px 0; font-size:9.5px; font-weight:700; color:#0f172a; line-height:1.25; height:30px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ s.name }}</div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- banner slot 2 · between categories and product rows -->
+          <sc-if value="{{ bannerMid.show }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:16px 14px 0;">
+              <div style="overflow:hidden;">
+              <div style="display:flex; transform:{{ bannerMid.shift }}; transition:transform .35s ease;">
+                <sc-for list="{{ bannerMid.items }}" as="b" hint-placeholder-count="1">
+                  <button onClick="{{ b.go }}" style="flex:0 0 100%; scroll-snap-align:center; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; padding:0; cursor:pointer; background:#ffffff; display:flex; align-items:stretch; height:94px; text-align:left;">
+                    <div style="width:112px; flex-shrink:0; background:#f1f5f9; position:relative;">
+                      <image-slot id="{{ b.slotId }}" src="{{ b.img }}" shape="rect" fit="cover" placeholder="{{ b.hint }}"></image-slot>
+                    </div>
+                    <div style="flex:1; min-width:0; padding:11px 12px; display:flex; flex-direction:column; justify-content:center; gap:4px;">
+                      <div style="font-size:12.5px; font-weight:800; color:#0f172a; line-height:1.3; text-wrap:pretty;">{{ b.headline }}</div>
+                      <sc-if value="{{ b.showRate }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:11px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums;">{{ b.rate }}</div>
+                      </sc-if>
+                      <div style="font-size:10px; font-weight:700; color:#475569;">Shop now →</div>
+                    </div>
+                  </button>
+                </sc-for>
+              </div>
+              </div>
+              <sc-if value="{{ bannerMid.multi }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; justify-content:center; gap:5px; margin-top:7px;">
+                  <sc-for list="{{ bannerMid.dots }}" as="d" hint-placeholder-count="2">
+                    <button onClick="{{ d.go }}" style="width:6px; height:6px; padding:0; border:none; border-radius:99px; background:{{ d.bg }}; cursor:pointer;"></button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- merchandised product rows -->
+          <sc-for list="{{ homeRows }}" as="r" hint-placeholder-count="2">
+            <div>
+              <div style="padding:18px 14px 0; display:flex; align-items:baseline; justify-content:space-between;">
+                <div style="font-size:15px; font-weight:800; letter-spacing:-0.01em;">{{ r.title }}</div>
+                <button onClick="{{ goCatalog }}" style="border:none; background:none; cursor:pointer; font-size:11px; font-weight:700; color:#dc2626;">See all →</button>
+              </div>
+              <div style="display:flex; gap:10px; overflow-x:auto; padding:11px 14px 4px; scroll-snap-type:x proximity;">
+                <sc-for list="{{ r.items }}" as="p" hint-placeholder-count="6">
+                  <div style="flex:0 0 148px; scroll-snap-align:start; border:1px solid #e2e8f0; border-radius:13px; background:#ffffff; overflow:hidden;">
+                    <div style="position:relative; background:#f8fafc;">
+                      <button onClick="{{ p.open }}" style="border:none; padding:0; cursor:pointer; background:none; width:100%; aspect-ratio:1 / 1; display:block;">
+                        <sc-if value="{{ p.hasPhoto }}" hint-placeholder-val="{{ true }}">
+                          <image-slot id="{{ p.rowSlot }}" src="{{ p.imgSrc }}" shape="rect" fit="cover" placeholder="{{ p.slotHint }}"></image-slot>
+                        </sc-if>
+                        <sc-if value="{{ p.noPhoto }}" hint-placeholder-val="{{ false }}">
+                          <div style="width:100%; height:100%; background:#f1f5f9; display:flex; align-items:center; justify-content:center;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-6 6"></path></svg>
+                          </div>
+                        </sc-if>
+                      </button>
+                      <sc-if value="{{ p.showPack }}" hint-placeholder-val="{{ true }}">
+                        <span style="position:absolute; top:7px; left:7px; background:rgba(255,255,255,0.94); color:#334155; font-size:8px; font-weight:700; padding:3px 6px; border-radius:99px;">{{ p.packChip }}</span>
+                      </sc-if>
+                      <div style="position:absolute; right:7px; bottom:-15px; z-index:3;">
+                        <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ p.add }}" style="height:31px; min-width:56px; padding:0 12px; border:1.5px solid #dc2626; background:#ffffff; color:#dc2626; border-radius:9px; font-size:11.5px; font-weight:800; cursor:pointer; box-shadow:0 3px 8px -2px rgba(15,23,42,0.2);" style-hover="background:#dc2626; color:#ffffff;">Add</button>
+                        </sc-if>
+                        <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex; align-items:center; height:31px; border:1.5px solid #dc2626; border-radius:9px; overflow:hidden; background:#ffffff; box-shadow:0 3px 8px -2px rgba(15,23,42,0.2);">
+                            <button onClick="{{ p.dec }}" style="width:26px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:14px; font-weight:800; cursor:pointer;">−</button>
+                            <div style="padding:0 7px; font-size:9.5px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap;">{{ p.cartQtyLabel }}</div>
+                            <button onClick="{{ p.inc }}" style="width:26px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:14px; font-weight:800; cursor:pointer;">+</button>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </div>
+                    <div style="padding:20px 9px 10px;">
+                      <button onClick="{{ p.open }}" style="border:none; background:none; padding:0; text-align:left; cursor:pointer; font-size:10.5px; font-weight:700; color:#0f172a; line-height:1.3; height:27px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ p.name }}</button>
+                      <div style="height:19px; display:flex; align-items:baseline; gap:3px; margin-top:5px;">
+                        <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size:13.5px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ p.rate }}</span>
+                        </sc-if>
+                        <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size:9px; font-weight:600; color:#64748b;">{{ p.rateUnit }}</span>
+                        </sc-if>
+                        <sc-if value="{{ p.isGuest }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ signInNow }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:10.5px; font-weight:800; color:#dc2626; display:inline-flex; align-items:center; gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Sign in for rates</button>
+                        </sc-if>
+                      </div>
+                      <div style="font-size:8.5px; font-weight:600; color:#94a3b8; margin-top:3px;">{{ p.dispatchLabel }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+
+          <!-- best sellers -->
+          <div style="padding:18px 14px 0; display:flex; align-items:center; justify-content:space-between;">
+            <div style="font-size:15px; font-weight:800; letter-spacing:-0.01em;">Best sellers</div>
+            <span style="font-size:10px; font-weight:600; color:#64748b; background:#f1f5f9; padding:4px 8px; border-radius:99px;">{{ priceBasisNote }}</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:11px; padding:11px 14px 0;">
+            <sc-for list="{{ featured }}" as="p" hint-placeholder-count="4">
+              <div style="border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#ffffff; display:flex; flex-direction:column;">
+                <div style="position:relative; background:#f8fafc;">
+                  <button onClick="{{ p.open }}" style="border:none; padding:0; cursor:pointer; background:none; width:100%; aspect-ratio:1 / 1; display:block; position:relative;">
+                    <sc-if value="{{ p.hasPhoto }}" hint-placeholder-val="{{ true }}">
+                      <image-slot id="{{ p.slot }}" src="{{ p.imgSrc }}" shape="rect" fit="cover" placeholder="{{ p.slotHint }}"></image-slot>
+                    </sc-if>
+                    <sc-if value="{{ p.noPhoto }}" hint-placeholder-val="{{ false }}">
+                      <div style="width:100%; height:100%; background:#f1f5f9; border-bottom:1px dashed #cbd5e1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-6 6"></path></svg>
+                        <span style="font-size:9px; font-weight:700; color:#94a3b8;">Photo pending</span>
+                      </div>
+                    </sc-if>
+                  </button>
+                  <button onClick="{{ p.share }}" style="position:absolute; top:6px; right:6px; width:26px; height:26px; border:none; border-radius:99px; background:rgba(255,255,255,0.94); cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(15,23,42,0.14);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#059669"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.3A10 10 0 1 0 12 2z"></path></svg>
+                  </button>
+                  <sc-if value="{{ p.showPack }}" hint-placeholder-val="{{ true }}">
+                    <span style="position:absolute; top:8px; left:8px; background:rgba(255,255,255,0.94); color:#334155; font-size:8.5px; font-weight:700; padding:3px 7px; border-radius:99px;">{{ p.packChip }}</span>
+                  </sc-if>
+                  <div style="position:absolute; right:8px; bottom:-16px; z-index:3;">
+                    <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ p.add }}" style="height:34px; min-width:62px; padding:0 14px; border:1.5px solid #dc2626; background:#ffffff; color:#dc2626; border-radius:10px; font-size:12px; font-weight:800; cursor:pointer; box-shadow:0 3px 9px -2px rgba(15,23,42,0.22);" style-hover="background:#dc2626; color:#ffffff;">Add</button>
+                    </sc-if>
+                    <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex; align-items:center; height:34px; border:1.5px solid #dc2626; border-radius:10px; overflow:hidden; background:#ffffff; box-shadow:0 3px 9px -2px rgba(15,23,42,0.22);">
+                        <button onClick="{{ p.dec }}" style="width:28px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:15px; font-weight:800; cursor:pointer;">−</button>
+                        <div style="padding:0 8px; font-size:10px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap;">{{ p.cartQtyLabel }}</div>
+                        <button onClick="{{ p.inc }}" style="width:28px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:15px; font-weight:800; cursor:pointer;">+</button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+                <div style="padding:22px 10px 10px; display:flex; flex-direction:column; flex:1;">
+                  <div style="display:flex; align-items:center; gap:5px; min-height:12px;">
+                    <span style="font-size:8.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.07em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ p.brand }}</span>
+                    <sc-if value="{{ p.showLast }}" hint-placeholder-val="{{ false }}">
+                      <span style="margin-left:auto; font-size:8px; font-weight:700; color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:99px; white-space:nowrap;">{{ p.lastOrdered }}</span>
+                    </sc-if>
+                  </div>
+                  <button onClick="{{ p.open }}" style="border:none; background:none; padding:0; margin:2px 0 0; text-align:left; cursor:pointer; font-size:11.5px; font-weight:700; color:#0f172a; line-height:1.3; min-height:30px;">{{ p.name }}</button>
+                  <!-- price row: same height in both states -->
+                  <div style="height:21px; display:flex; align-items:baseline; gap:4px; margin-top:6px;">
+                    <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:15px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ p.rate }}</span>
+                    </sc-if>
+                    <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:9.5px; font-weight:600; color:#64748b;">{{ p.rateUnit }}</span>
+                    </sc-if>
+                    <sc-if value="{{ p.isGuest }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ signInNow }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:12.5px; font-weight:800; color:#dc2626; letter-spacing:-0.01em; display:inline-flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Sign in for rates</button>
+                    </sc-if>
+                  </div>
+                  <div style="height:14px; margin-top:2px;">
+                    <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:9.5px; font-weight:600; color:#64748b; font-variant-numeric:tabular-nums;">{{ p.packPriceLabel }}</span>
+                    </sc-if>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:5px; margin-top:7px; flex-wrap:wrap;">
+                    <span style="font-size:8.5px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fef3c7; padding:2px 6px; border-radius:99px;">MOQ {{ p.moqLabel }}</span>
+                    <span style="font-size:8.5px; font-weight:600; color:#64748b;">{{ p.packSpec }}</span>
+                  </div>
+                  <div style="font-size:9px; font-weight:600; color:#94a3b8; margin-top:6px;">{{ p.dispatchLabel }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="height:20px;"></div>
+        </div>
+      </sc-if>
+
+      <!-- ══════ MOBILE CATALOGUE ══════ -->
+      <sc-if value="{{ isCatalog }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="padding:12px 14px 10px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #f1f5f9;">
+            <button onClick="{{ goHome }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:19px; color:#0f172a; line-height:1;">←</button>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:15px; font-weight:800; letter-spacing:-0.01em;">{{ catTitle }}</div>
+              <div style="font-size:10px; font-weight:500; color:#94a3b8;">{{ resultLabel }}</div>
+            </div>
+            <button style="border:1.5px solid #e2e8f0; background:#ffffff; border-radius:99px; padding:7px 12px; cursor:pointer; font-size:11px; font-weight:700; color:#334155; display:flex; align-items:center; gap:5px; flex-shrink:0;">Filter <span style="width:6px; height:6px; border-radius:99px; background:#dc2626; display:inline-block;"></span></button>
+          </div>
+          <div style="display:flex;">
+            <!-- category rail -->
+            <div style="width:76px; flex-shrink:0; background:#f8fafc; border-right:1px solid #f1f5f9; padding:8px 0;">
+              <sc-for list="{{ railCats }}" as="c" hint-placeholder-count="7">
+                <button onClick="{{ c.open }}" style="width:100%; border:none; background:{{ c.railBg }}; cursor:pointer; padding:9px 4px; display:flex; flex-direction:column; align-items:center; gap:5px; border-left:3px solid {{ c.railBar }};">
+                  <div style="width:40px; height:40px; border-radius:11px; overflow:hidden; background:#e2e8f0;">
+                    <image-slot id="{{ c.railSlot }}" src="{{ c.imgSrc }}" shape="rect" fit="cover" placeholder="{{ c.name }}"></image-slot>
+                  </div>
+                  <div style="font-size:8.5px; font-weight:700; color:{{ c.railFg }}; line-height:1.2; text-align:center;">{{ c.name }}</div>
+                </button>
+              </sc-for>
+            </div>
+            <!-- grid -->
+            <div style="flex:1; padding:10px 12px 0; min-width:0;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <sc-for list="{{ listing }}" as="p" hint-placeholder-count="6">
+                  <div style="border:1px solid #e2e8f0; border-radius:13px; overflow:hidden; background:#ffffff;">
+                    <div style="position:relative; background:#f8fafc;">
+                      <button onClick="{{ p.open }}" style="border:none; padding:0; cursor:pointer; background:none; width:100%; aspect-ratio:1 / 1; display:block;">
+                        <sc-if value="{{ p.hasPhoto }}" hint-placeholder-val="{{ true }}">
+                          <image-slot id="{{ p.listSlot }}" src="{{ p.imgSrc }}" shape="rect" fit="cover" placeholder="{{ p.slotHint }}"></image-slot>
+                        </sc-if>
+                        <sc-if value="{{ p.noPhoto }}" hint-placeholder-val="{{ false }}">
+                          <div style="width:100%; height:100%; background:#f1f5f9; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-6 6"></path></svg>
+                            <span style="font-size:8.5px; font-weight:700; color:#94a3b8;">Photo pending</span>
+                          </div>
+                        </sc-if>
+                      </button>
+                      <button onClick="{{ p.share }}" style="position:absolute; top:5px; right:5px; width:24px; height:24px; border:none; border-radius:99px; background:rgba(255,255,255,0.94); cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="#059669"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.3A10 10 0 1 0 12 2z"></path></svg>
+                      </button>
+                      <sc-if value="{{ p.showPack }}" hint-placeholder-val="{{ true }}">
+                        <span style="position:absolute; top:7px; left:7px; background:rgba(255,255,255,0.94); color:#334155; font-size:8px; font-weight:700; padding:3px 6px; border-radius:99px;">{{ p.packChip }}</span>
+                      </sc-if>
+                      <div style="position:absolute; right:7px; bottom:-15px; z-index:3;">
+                        <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ p.add }}" style="height:32px; min-width:58px; padding:0 13px; border:1.5px solid #dc2626; background:#ffffff; color:#dc2626; border-radius:9px; font-size:11.5px; font-weight:800; cursor:pointer; box-shadow:0 3px 8px -2px rgba(15,23,42,0.2);" style-hover="background:#dc2626; color:#ffffff;">Add</button>
+                        </sc-if>
+                        <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex; align-items:center; height:32px; border:1.5px solid #dc2626; border-radius:9px; overflow:hidden; background:#ffffff; box-shadow:0 3px 8px -2px rgba(15,23,42,0.2);">
+                            <button onClick="{{ p.dec }}" style="width:26px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:14px; font-weight:800; cursor:pointer;">−</button>
+                            <div style="padding:0 7px; font-size:9.5px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap;">{{ p.cartQtyLabel }}</div>
+                            <button onClick="{{ p.inc }}" style="width:26px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:14px; font-weight:800; cursor:pointer;">+</button>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </div>
+                    <div style="padding:20px 9px 9px;">
+                      <div style="font-size:11px; font-weight:700; line-height:1.3; min-height:29px; color:#0f172a;">{{ p.name }}</div>
+                      <div style="height:20px; display:flex; align-items:baseline; gap:4px; margin-top:5px;">
+                        <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size:14px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums;">{{ p.rate }}</span>
+                        </sc-if>
+                        <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size:9px; font-weight:600; color:#64748b;">{{ p.rateUnit }}</span>
+                        </sc-if>
+                        <sc-if value="{{ p.isGuest }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ signInNow }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:11.5px; font-weight:800; color:#dc2626; display:inline-flex; align-items:center; gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Sign in for rates</button>
+                        </sc-if>
+                      </div>
+                      <div style="height:13px; margin-top:2px;">
+                        <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size:9px; font-weight:600; color:#64748b;">{{ p.packPriceLabel }}</span>
+                        </sc-if>
+                      </div>
+                      <div style="font-size:9px; font-weight:600; color:#64748b; margin-top:4px;">{{ p.packSpec }} · MOQ {{ p.moqLabel }}</div>
+                      <div style="font-size:8.5px; font-weight:600; color:#94a3b8; margin-top:4px;">{{ p.dispatchLabel }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="height:18px;"></div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══════ MOBILE PRODUCT ══════ -->
+      <sc-if value="{{ isProduct }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="height:290px; background:#f8fafc; position:relative;">
+            <sc-if value="{{ prod.hasPhoto }}" hint-placeholder-val="{{ true }}">
+              <image-slot id="{{ prod.mainSlot }}" src="{{ prod.imgSrc }}" shape="rect" fit="cover" placeholder="{{ prod.slotHint }}"></image-slot>
+            </sc-if>
+            <sc-if value="{{ prod.noPhoto }}" hint-placeholder-val="{{ false }}">
+              <div style="width:100%; height:100%; background:#f1f5f9; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-6 6"></path></svg>
+                <span style="font-size:11px; font-weight:700; color:#94a3b8;">Photo pending for this SKU</span>
+              </div>
+            </sc-if>
+            <button onClick="{{ goBack }}" style="position:absolute; top:12px; left:12px; width:38px; height:38px; border:none; border-radius:99px; background:rgba(255,255,255,0.94); cursor:pointer; font-size:17px; color:#0f172a; box-shadow:0 2px 8px rgba(15,23,42,0.12);">←</button>
+            <button onClick="{{ prod.share }}" style="position:absolute; top:12px; right:12px; height:34px; border:none; border-radius:99px; background:rgba(255,255,255,0.94); cursor:pointer; padding:0 12px; display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:#047857; box-shadow:0 2px 8px rgba(15,23,42,0.12);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#059669"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.3A10 10 0 1 0 12 2z"></path></svg>Share
+            </button>
+          </div>
+
+          <!-- thumb strip -->
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; padding:10px 14px 0;">
+            <sc-for list="{{ prod.thumbs }}" as="t" hint-placeholder-count="4">
+              <div style="aspect-ratio:1 / 1; border:1.5px solid {{ t.bc }}; border-radius:10px; overflow:hidden; background:#f1f5f9;">
+                <image-slot id="{{ t.slot }}" src="{{ t.imgSrc }}" shape="rect" fit="cover" placeholder="{{ t.label }}"></image-slot>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="padding:14px 16px 0;">
+            <div style="font-size:9.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.09em;">{{ prod.brand }}</div>
+            <h1 style="margin:5px 0 0; font-size:19px; font-weight:800; line-height:1.28; letter-spacing:-0.015em;">{{ prod.name }}</h1>
+            <div style="font-size:11px; font-weight:600; color:#64748b; margin-top:5px;">{{ prod.sku }} · {{ prod.packSpec }} · {{ prod.material }}</div>
+
+            <!-- price block -->
+            <div style="margin-top:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:13px;">
+              <sc-if value="{{ prod.isTrade }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="display:flex; align-items:baseline; gap:7px; flex-wrap:wrap;">
+                    <span style="font-size:27px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums; letter-spacing:-0.025em;">{{ prod.rate }}</span>
+                    <span style="font-size:12px; font-weight:700; color:#475569;">{{ prod.rateUnit }}</span>
+                  </div>
+                  <div style="font-size:12px; font-weight:600; color:#475569; margin-top:6px; font-variant-numeric:tabular-nums;">{{ prod.packPriceLabel }}</div>
+                  <div style="display:flex; align-items:center; gap:7px; margin-top:10px; flex-wrap:wrap;">
+                    <span style="font-size:10.5px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fef3c7; padding:4px 9px; border-radius:99px;">MOQ {{ prod.moqLabel }}</span>
+                    <span style="font-size:10.5px; font-weight:700; color:#334155; background:#ffffff; border:1px solid #e2e8f0; padding:4px 9px; border-radius:99px;">Step {{ prod.stepLabel }}</span>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ prod.isGuest }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <div style="font-size:20px; font-weight:800; color:#0f172a; letter-spacing:-0.02em; display:flex; align-items:center; gap:8px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Sign in for rates</div>
+                  <div style="font-size:11.5px; font-weight:600; color:#475569; margin-top:7px; line-height:1.5;">Per-piece rates for this SKU are visible to signed-in business accounts.</div>
+                  <button onClick="{{ signInNow }}" style="margin-top:10px; width:100%; border:none; background:#dc2626; color:#ffffff; font-size:12.5px; font-weight:800; padding:11px; border-radius:10px; cursor:pointer;">Sign in</button>
+                  <div style="display:flex; align-items:center; gap:7px; margin-top:10px; flex-wrap:wrap;">
+                    <span style="font-size:10.5px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fef3c7; padding:4px 9px; border-radius:99px;">MOQ {{ prod.moqLabel }}</span>
+                    <span style="font-size:10.5px; font-weight:700; color:#334155; background:#ffffff; border:1px solid #e2e8f0; padding:4px 9px; border-radius:99px;">Step {{ prod.stepLabel }}</span>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <!-- quantity -->
+            <div style="margin-top:16px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px;">
+                <div style="font-size:13px; font-weight:800;">Order quantity</div>
+                <div style="font-size:10.5px; font-weight:600; color:#64748b; text-align:right;">{{ qtyHeadNote }}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+                <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:11px; overflow:hidden; height:46px;">
+                  <button onClick="{{ prod.dec }}" style="width:44px; height:100%; border:none; background:#f8fafc; color:#334155; font-size:18px; font-weight:800; cursor:pointer;">−</button>
+                  <div style="width:86px; text-align:center; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums;">{{ prod.qtyLabel }}</div>
+                  <button onClick="{{ prod.inc }}" style="width:44px; height:100%; border:none; background:#f8fafc; color:#334155; font-size:18px; font-weight:800; cursor:pointer;">+</button>
+                </div>
+                <div style="flex:1; min-width:0; text-align:right;">
+                  <div style="font-size:16px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ prod.lineTotal }}</div>
+                  <div style="font-size:9.5px; font-weight:600; color:#94a3b8;">{{ prod.packsLabel }}</div>
+                </div>
+              </div>
+              <button onClick="{{ prod.addSelected }}" style="width:100%; margin-top:10px; height:48px; border:none; background:#dc2626; color:#ffffff; font-size:13.5px; font-weight:800; border-radius:12px; cursor:pointer;">{{ prod.addLabel }}</button>
+              <div style="font-size:10.5px; font-weight:600; color:#64748b; margin-top:8px; line-height:1.5;">{{ prod.orderRule }}</div>
+            </div>
+
+            <!-- specs -->
+            <div style="margin-top:18px; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
+              <div style="background:#f8fafc; padding:10px 13px; font-size:12px; font-weight:800; border-bottom:1px solid #e2e8f0;">Specifications</div>
+              <sc-for list="{{ prod.specs }}" as="s" hint-placeholder-count="5">
+                <div style="display:flex; padding:9px 13px; border-bottom:1px solid #f1f5f9; gap:10px;">
+                  <div style="width:110px; flex-shrink:0; font-size:11px; font-weight:600; color:#64748b;">{{ s.k }}</div>
+                  <div style="font-size:11px; font-weight:700; color:#0f172a;">{{ s.v }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="margin-top:16px; font-size:12px; font-weight:800;">Description</div>
+            <div style="font-size:12px; color:#475569; line-height:1.65; margin-top:5px;">{{ prod.desc }}</div>
+            <div style="margin-top:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:11px 12px; font-size:11px; font-weight:600; color:#475569; line-height:1.55;">{{ deliveryNote }}</div>
+            <div style="height:24px;"></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══════ MOBILE CART ══════ -->
+      <sc-if value="{{ isCart }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:14px 14px 0;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+            <button onClick="{{ goBack }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:19px; color:#0f172a;">←</button>
+            <div style="font-size:16px; font-weight:800; letter-spacing:-0.01em;">Your cart</div>
+            <div style="font-size:11px; font-weight:600; color:#64748b;">{{ cartCountLabel }}</div>
+          </div>
+
+          <sc-if value="{{ isGuest }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:10px; background:#fffbeb; border:1px solid #fef3c7; border-radius:12px; padding:11px 12px; display:flex; align-items:center; gap:10px;">
+              <div style="flex:1; min-width:0; font-size:11px; font-weight:700; color:#92400e; line-height:1.45;">Rates and order total are visible once you sign in.</div>
+              <button onClick="{{ signInNow }}" style="flex-shrink:0; border:none; background:#dc2626; color:#ffffff; font-size:11px; font-weight:800; padding:8px 12px; border-radius:9px; cursor:pointer;">Sign in</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:52px 20px; text-align:center;">
+              <div style="font-size:14px; font-weight:800; color:#0f172a;">Cart is empty</div>
+              <div style="font-size:12px; color:#64748b; margin-top:5px; line-height:1.6;">{{ emptyNote }}</div>
+              <button onClick="{{ goCatalog }}" style="margin-top:14px; border:none; background:#dc2626; color:#ffffff; font-size:12.5px; font-weight:800; padding:11px 20px; border-radius:11px; cursor:pointer;">Browse catalogue</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cartFilled }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; flex-direction:column; gap:11px; margin-top:10px;">
+              <sc-for list="{{ lines }}" as="l" hint-placeholder-count="2">
+                <div style="border:1px solid #e2e8f0; border-radius:14px; padding:11px; background:#ffffff;">
+                  <div style="display:flex; gap:11px;">
+                    <div style="width:62px; height:62px; border-radius:11px; overflow:hidden; background:#f1f5f9; flex-shrink:0;">
+                      <image-slot id="{{ l.slot }}" src="{{ l.imgSrc }}" shape="rect" fit="cover" placeholder="{{ l.name }}"></image-slot>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:12.5px; font-weight:700; line-height:1.32; color:#0f172a;">{{ l.name }}</div>
+                      <div style="height:18px; display:flex; align-items:baseline; gap:5px; margin-top:4px;">
+                        <sc-if value="{{ l.isTrade }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size:13px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums;">{{ l.price }}</span>
+                        </sc-if>
+                        <sc-if value="{{ l.isTrade }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size:9.5px; font-weight:600; color:#64748b;">{{ l.rateUnit }}</span>
+                        </sc-if>
+                        <sc-if value="{{ l.isGuest }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ signInNow }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:11.5px; font-weight:800; color:#dc2626; display:inline-flex; align-items:center; gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Sign in for rates</button>
+                        </sc-if>
+                      </div>
+                      <div style="font-size:9.5px; font-weight:600; color:#64748b; margin-top:2px;">{{ l.packSpec }} · MOQ {{ l.moqLabel }}</div>
+                    </div>
+                    <button onClick="{{ l.remove }}" style="border:none; background:none; cursor:pointer; color:#94a3b8; font-size:11px; font-weight:700; align-self:flex-start; flex-shrink:0;">Remove</button>
+                  </div>
+
+                  <sc-if value="{{ l.belowMoq }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:9px; background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:8px 10px; display:flex; align-items:center; gap:9px;">
+                      <div style="flex:1; min-width:0; font-size:10.5px; font-weight:700; color:#b91c1c; line-height:1.4;">{{ l.moqWarning }}</div>
+                      <button onClick="{{ l.fix }}" style="border:none; background:#dc2626; color:#ffffff; font-size:10.5px; font-weight:800; padding:6px 11px; border-radius:8px; cursor:pointer; flex-shrink:0;">Fix to MOQ</button>
+                    </div>
+                  </sc-if>
+
+                  <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+                    <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:10px; overflow:hidden; height:44px; flex-shrink:0;">
+                      <button onClick="{{ l.dec }}" style="width:40px; height:100%; border:none; background:#f8fafc; color:#334155; font-size:17px; font-weight:800; cursor:pointer;">−</button>
+                      <div style="width:70px; text-align:center; font-size:12px; font-weight:800; font-variant-numeric:tabular-nums;">{{ l.qtyLabel }}</div>
+                      <button onClick="{{ l.inc }}" style="width:40px; height:100%; border:none; background:#f8fafc; color:#334155; font-size:17px; font-weight:800; cursor:pointer;">+</button>
+                    </div>
+                    <div style="margin-left:auto; text-align:right; min-width:0;">
+                      <div style="font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ l.total }}</div>
+                      <div style="font-size:9px; font-weight:600; color:#94a3b8; line-height:1.35;">{{ l.packsLabel }}</div>
+                    </div>
+                  </div>
+                  <div style="font-size:9.5px; font-weight:600; color:#94a3b8; margin-top:6px;">{{ l.orderRule }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- summary -->
+            <div style="margin-top:14px; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
+              <div style="background:#f8fafc; padding:10px 13px; font-size:12px; font-weight:800; border-bottom:1px solid #e2e8f0;">Order summary</div>
+              <div style="padding:11px 13px;">
+                <sc-for list="{{ summary }}" as="s" hint-placeholder-count="2">
+                  <div style="display:flex; justify-content:space-between; gap:10px; padding:5px 0; font-size:12px;">
+                    <span style="font-weight:600; color:{{ s.kc }};">{{ s.k }}</span>
+                    <span style="font-weight:700; color:{{ s.vc }}; font-variant-numeric:tabular-nums; white-space:nowrap;">{{ s.v }}</span>
+                  </div>
+                </sc-for>
+                <div style="height:1px; background:#e2e8f0; margin:9px 0;"></div>
+                <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                  <span style="font-size:13px; font-weight:800;">Total payable</span>
+                  <span style="font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ total }}</span>
+                </div>
+                <div style="margin-top:9px; font-size:10.5px; font-weight:600; color:#64748b; line-height:1.5;">{{ checkoutNote }}</div>
+              </div>
+            </div>
+            <div style="height:24px;"></div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ══════ MOBILE ACCOUNT ══════ -->
+      <sc-if value="{{ isAccount }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="background:#0f172a; padding:18px 16px 20px;">
+            <div style="display:flex; align-items:center; gap:13px;">
+              <div style="width:52px; height:52px; border-radius:99px; background:#dc2626; display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800; color:#ffffff; flex-shrink:0;">{{ acct.initials }}</div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:-0.01em;">{{ acct.name }}</div>
+                <div style="font-size:11.5px; font-weight:600; color:#94a3b8; margin-top:2px;">{{ acct.sub }}</div>
+              </div>
+              <sc-if value="{{ acct.isGuest }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ acct.signIn }}" style="border:none; background:#dc2626; color:#ffffff; font-size:11.5px; font-weight:800; padding:9px 14px; border-radius:10px; cursor:pointer; flex-shrink:0;">Sign in</button>
+              </sc-if>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:9px; margin-top:16px;">
+              <sc-for list="{{ acct.stats }}" as="st" hint-placeholder-count="3">
+                <div style="background:#1e293b; border-radius:11px; padding:10px;">
+                  <div style="font-size:15px; font-weight:800; color:#ffffff; font-variant-numeric:tabular-nums;">{{ st.big }}</div>
+                  <div style="font-size:9px; font-weight:600; color:#94a3b8; margin-top:2px;">{{ st.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ acct.isGuest }}" hint-placeholder-val="{{ true }}">
+            <div style="margin:14px; background:#fffbeb; border:1px solid #fef3c7; border-radius:13px; padding:13px;">
+              <div style="font-size:12.5px; font-weight:800; color:#78350f;">Sign in to see your rates</div>
+              <div style="font-size:11px; font-weight:600; color:#92400e; margin-top:4px; line-height:1.55;">{{ guestPitch }}</div>
+              <button onClick="{{ acct.signIn }}" style="margin-top:10px; border:none; background:#dc2626; color:#ffffff; font-size:11.5px; font-weight:800; padding:10px 16px; border-radius:10px; cursor:pointer;">Sign in</button>
+            </div>
+          </sc-if>
+
+          <div style="padding:14px 14px 0;">
+            <div style="font-size:14px; font-weight:800; letter-spacing:-0.01em;">Recent orders</div>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+              <sc-for list="{{ acct.orders }}" as="o" hint-placeholder-count="3">
+                <div style="border:1px solid #e2e8f0; border-radius:13px; padding:12px;">
+                  <div style="display:flex; align-items:baseline; gap:8px;">
+                    <div style="font-size:12.5px; font-weight:800; color:#0f172a;">{{ o.id }}</div>
+                    <div style="font-size:10.5px; font-weight:600; color:#94a3b8;">{{ o.date }}</div>
+                    <div style="margin-left:auto; font-size:9.5px; font-weight:800; color:{{ o.statusFg }}; background:{{ o.statusBg }}; padding:3px 9px; border-radius:99px; white-space:nowrap;">{{ o.status }}</div>
+                  </div>
+                  <div style="font-size:11px; font-weight:600; color:#64748b; margin-top:6px; line-height:1.5;">{{ o.items }}</div>
+                  <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+                    <div style="font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ o.total }}</div>
+                    <div style="font-size:10px; font-weight:600; color:#64748b;">{{ o.pieces }}</div>
+                    <button onClick="{{ o.reorder }}" style="margin-left:auto; border:1.5px solid #dc2626; background:#ffffff; color:#dc2626; font-size:11px; font-weight:800; padding:8px 14px; border-radius:9px; cursor:pointer; flex-shrink:0;">Reorder</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="font-size:14px; font-weight:800; letter-spacing:-0.01em; margin-top:20px;">Account</div>
+            <div style="border:1px solid #e2e8f0; border-radius:13px; overflow:hidden; margin-top:10px;">
+              <sc-for list="{{ acct.rows }}" as="r" hint-placeholder-count="5">
+                <div style="display:flex; align-items:center; gap:11px; padding:12px 13px; border-bottom:1px solid #f1f5f9;">
+                  <div style="width:30px; height:30px; border-radius:9px; background:#f8fafc; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:#475569; flex-shrink:0;">{{ r.icon }}</div>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:12px; font-weight:700; color:#0f172a;">{{ r.label }}</div>
+                    <div style="font-size:10px; font-weight:500; color:#94a3b8; margin-top:1px;">{{ r.sub }}</div>
+                  </div>
+                  <span style="color:#cbd5e1; font-size:14px;">›</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="height:22px;"></div>
+          </div>
+        </div>
+      </sc-if>
+      </div>
+
+      <!-- back to top -->
+      <sc-if value="{{ showToTop }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ toTop }}" style="position:absolute; left:50%; transform:translateX(-50%); bottom:120px; z-index:45; border:none; background:rgba(15,23,42,0.9); color:#ffffff; font-size:11px; font-weight:800; padding:9px 15px; border-radius:99px; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 8px 18px -6px rgba(15,23,42,0.6);">↑ Back to top</button>
+      </sc-if>
+
+      <!-- sticky cart bar -->
+      <sc-if value="{{ showCartBar }}" hint-placeholder-val="{{ true }}">
+        <div style="position:relative; z-index:50; flex-shrink:0; margin:10px 14px; background:#dc2626; border-radius:14px; padding:11px 14px; display:flex; align-items:center; gap:12px; box-shadow:0 12px 20px -8px rgba(220,38,38,0.5);">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:14px; font-weight:800; color:#ffffff; font-variant-numeric:tabular-nums;">{{ cartBarTotal }}</div>
+            <div style="font-size:9.5px; font-weight:600; color:rgba(255,255,255,0.88); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ cartBarLabel }}</div>
+          </div>
+          <button onClick="{{ goCart }}" style="border:none; background:#ffffff; color:#b91c1c; font-size:12px; font-weight:800; padding:9px 16px; border-radius:10px; cursor:pointer; flex-shrink:0;">{{ cartBarCta }}</button>
+        </div>
+      </sc-if>
+
+      <!-- bottom nav -->
+      <div style="position:relative; z-index:50; flex-shrink:0; background:#ffffff; border-top:1px solid #e2e8f0; display:grid; grid-template-columns:repeat(5, 1fr); padding:7px 0 9px; box-shadow:0 -4px 14px -8px rgba(15,23,42,0.25);">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+          <button onClick="{{ n.go }}" style="border:none; background:none; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px; padding:4px 0; min-height:48px;">
+            <div style="position:relative; width:24px; height:24px; display:flex; align-items:center; justify-content:center;">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="{{ n.fg }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.d }}"></path></svg>
+              <sc-if value="{{ n.showBadge }}" hint-placeholder-val="{{ false }}">
+                <span style="position:absolute; top:-4px; right:-6px; min-width:15px; height:15px; padding:0 3px; border-radius:99px; background:#dc2626; color:#ffffff; font-size:8.5px; font-weight:800; display:flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums;">{{ n.badge }}</span>
+              </sc-if>
+            </div>
+            <span style="font-size:9.5px; font-weight:700; color:{{ n.fg }};">{{ n.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       DESKTOP
+       ══════════════════════════════════════════════════════════════════ -->
+  <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:24px 20px;">
+    <div data-screen-label="Desktop storefront" style="max-width:1440px; margin:0 auto; background:#ffffff; border-radius:16px; overflow:clip; box-shadow:0 24px 50px -24px rgba(15,23,42,0.28);">
+
+      <!-- utility bar -->
+      <div style="background:#0f172a; color:#cbd5e1; padding:7px 28px; display:flex; align-items:center; gap:14px; row-gap:4px; flex-wrap:wrap; font-size:11.5px; font-weight:600;">
+        <span style="white-space:nowrap;">Wholesale rates for businesses</span>
+        <span style="color:#334155;">|</span>
+        <span style="white-space:nowrap;">{{ dispatchLine }}</span>
+        <span style="margin-left:auto; color:#ffffff; white-space:nowrap;">+91 97732 39442</span>
+      </div>
+
+      <!-- header -->
+      <div style="position:sticky; top:0; z-index:60; background:#ffffff; padding:14px 28px; display:flex; align-items:center; gap:18px; row-gap:12px; flex-wrap:wrap; border-bottom:1px solid #f1f5f9;">
+        <button onClick="{{ goHome }}" style="border:none; background:none; padding:0; cursor:pointer; text-align:left; flex-shrink:0;">
+          <div style="font-size:22px; font-weight:800; letter-spacing:-0.03em; color:#0f172a; white-space:nowrap;"><span style="color:#dc2626;">XL</span> TRADERS</div>
+          <div style="font-size:8.5px; font-weight:700; color:#94a3b8; letter-spacing:0.14em; text-transform:uppercase; white-space:nowrap;">B2B Packaging &amp; Hospitality</div>
+        </button>
+        <div style="flex:1 1 300px; min-width:0; max-width:580px; display:flex; height:44px; border:1.5px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+          <div style="flex:1; min-width:0; display:flex; align-items:center; gap:9px; padding:0 14px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.3" style="flex-shrink:0;"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+            <span style="font-size:13px; color:#94a3b8; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ searchPlaceholder }}</span>
+          </div>
+          <div style="width:126px; flex-shrink:0; border-left:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-size:12px; font-weight:600; color:#475569; white-space:nowrap;">All categories <span style="color:#94a3b8;">▾</span></div>
+          <button style="width:92px; flex-shrink:0; border:none; background:#dc2626; color:#ffffff; font-size:13px; font-weight:800; cursor:pointer;">Search</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; margin-left:auto; flex-wrap:wrap; row-gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:11px; padding:7px 12px; flex-shrink:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#059669"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.3A10 10 0 1 0 12 2z"></path></svg>
+            <div>
+              <div style="font-size:11.5px; font-weight:800; color:#047857; white-space:nowrap;">WhatsApp</div>
+              <div style="font-size:9.5px; font-weight:600; color:#059669; white-space:nowrap;">Chat now</div>
+            </div>
+          </div>
+          <button style="border:none; background:#059669; color:#ffffff; border-radius:11px; padding:11px 15px; font-size:12px; font-weight:800; cursor:pointer; flex-shrink:0; white-space:nowrap;">Quote on WhatsApp</button>
+          <button onClick="{{ goCart }}" style="border:1.5px solid #e2e8f0; background:#ffffff; border-radius:12px; padding:8px 14px; cursor:pointer; display:flex; align-items:center; gap:10px; flex-shrink:0;">
+            <div style="position:relative;">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2"><path d="M3 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 7H6"></path><circle cx="10" cy="20" r="1.4"></circle><circle cx="18" cy="20" r="1.4"></circle></svg>
+              <span style="position:absolute; top:-7px; right:-8px; background:#dc2626; color:#ffffff; font-size:9px; font-weight:800; min-width:16px; height:16px; border-radius:99px; display:flex; align-items:center; justify-content:center; padding:0 3px;">{{ cartCount }}</span>
+            </div>
+            <div style="text-align:left;">
+              <div style="font-size:12px; font-weight:800; color:#0f172a; font-variant-numeric:tabular-nums;">{{ cartBarTotal }}</div>
+              <div style="font-size:9.5px; font-weight:600; color:#64748b; white-space:nowrap;">{{ cartBarLabel }}</div>
+            </div>
+          </button>
+          <button onClick="{{ goAccount }}" style="font-size:12px; font-weight:800; color:#dc2626; border:1.5px solid #fecaca; background:#fef2f2; padding:9px 15px; border-radius:11px; cursor:pointer; flex-shrink:0; white-space:nowrap;">{{ authLabel }}</button>
+        </div>
+      </div>
+
+      <!-- category nav -->
+      <div style="position:relative; z-index:55; background:#dc2626; padding:0 28px; display:flex; align-items:center; gap:26px;">
+        <div style="display:flex; align-items:center; gap:9px; background:#b91c1c; color:#ffffff; padding:12px 16px; font-size:12.5px; font-weight:800; margin-right:6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.4"><path d="M4 6h16M4 12h16M4 18h16"></path></svg> All categories
+        </div>
+        <sc-for list="{{ topNav }}" as="n" hint-placeholder-count="5">
+          <button onClick="{{ n.go }}" style="border:none; background:none; cursor:pointer; color:#ffffff; font-size:12.5px; font-weight:600; padding:12px 0;">{{ n.label }}</button>
+        </sc-for>
+        <div style="margin-left:auto; font-size:11.5px; font-weight:600; color:rgba(255,255,255,0.9); display:flex; align-items:center; gap:7px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"></path></svg> Deliver to Surat · 395010
+        </div>
+      </div>
+
+      <!-- ══════ DESKTOP HOME ══════ -->
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:22px 28px 30px;">
+          <div>
+            <!-- hero band -->
+            <div class="xl-hero" style="border-radius:16px; overflow:hidden; position:relative; background:#0f172a; aspect-ratio:1384 / 380;">
+              <sc-for list="{{ heroSlidesD }}" as="s" hint-placeholder-count="4">
+                <div class="xl-slide" style="position:absolute; inset:0; opacity:0; animation:xlKen 16s ease-in-out infinite; animation-delay:{{ s.delay }}; will-change:opacity, transform;">
+                  <image-slot id="{{ s.slot }}" src="{{ s.src }}" shape="rect" fit="cover" placeholder="{{ s.hint }}" style="position:absolute; inset:0;"></image-slot>
+                </div>
+              </sc-for>
+              <div style="position:absolute; inset:0; pointer-events:none; background:{{ heroScrimD }};"></div>
+              <div style="position:absolute; top:18px; right:20px; display:flex; gap:7px; pointer-events:none;">
+                <sc-for list="{{ motif }}" as="m" hint-placeholder-count="0">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="{{ m.color }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 9px {{ m.glow }}); animation:xlMotif 5s ease-in-out infinite; animation-delay:{{ m.delay }};"><path d="{{ m.d }}"></path></svg>
+                </sc-for>
+              </div>
+              <div style="position:absolute; left:44px; top:0; bottom:0; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:20px;">
+                <div style="font-size:44px; font-weight:800; color:#ffffff; line-height:1.05; letter-spacing:-0.035em; text-shadow:0 2px 18px rgba(15,23,42,0.5);">You order, we deliver.</div>
+                <button onClick="{{ goCatalog }}" style="border:none; background:#dc2626; color:#ffffff; font-size:14px; font-weight:800; padding:14px 28px; border-radius:12px; cursor:pointer;">Shop catalogue</button>
+              </div>
+              <div class="xl-dots" style="position:absolute; right:22px; bottom:20px; display:flex; gap:7px;">
+                <sc-for list="{{ heroSlidesD }}" as="s" hint-placeholder-count="4">
+                  <span style="position:relative; width:8px; height:8px; border-radius:99px; background:rgba(255,255,255,0.4);">
+                    <span class="xl-dotfill" style="position:absolute; inset:0; border-radius:99px; background:{{ accent }}; opacity:0; animation:xlDot 16s linear infinite; animation-delay:{{ s.delay }};"></span>
+                  </span>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <!-- banner slot 1 · below hero -->
+          <sc-if value="{{ bannerTop.show }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:16px;">
+              <div style="overflow:hidden;">
+              <div style="display:flex; transform:{{ bannerTop.shift }}; transition:transform .35s ease;">
+                <sc-for list="{{ bannerTop.items }}" as="b" hint-placeholder-count="1">
+                  <button onClick="{{ b.go }}" style="flex:0 0 100%; scroll-snap-align:center; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; padding:0; cursor:pointer; background:#ffffff; display:flex; align-items:stretch; height:132px; text-align:left;" style-hover="border-color:#fecaca;">
+                    <div style="width:220px; flex-shrink:0; background:#f1f5f9; position:relative;">
+                      <image-slot id="{{ b.slotId }}" src="{{ b.img }}" shape="rect" fit="cover" placeholder="{{ b.hint }}"></image-slot>
+                    </div>
+                    <div style="flex:1; min-width:0; padding:18px 24px; display:flex; flex-direction:column; justify-content:center; gap:7px;">
+                      <div style="font-size:19px; font-weight:800; color:#0f172a; line-height:1.25; letter-spacing:-0.02em;">{{ b.headline }}</div>
+                      <sc-if value="{{ b.showRate }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:14px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums;">{{ b.rate }}</div>
+                      </sc-if>
+                      <div style="font-size:12px; font-weight:700; color:#475569;">Shop now →</div>
+                    </div>
+                  </button>
+                </sc-for>
+              </div>
+              </div>
+              <sc-if value="{{ bannerTop.multi }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; justify-content:center; gap:6px; margin-top:9px;">
+                  <sc-for list="{{ bannerTop.dots }}" as="d" hint-placeholder-count="2">
+                    <button onClick="{{ d.go }}" style="width:7px; height:7px; padding:0; border:none; border-radius:99px; background:{{ d.bg }}; cursor:pointer;"></button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- shop by category -->
+          <div style="margin-top:26px; display:flex; align-items:baseline; justify-content:space-between; gap:16px;">
+            <div style="font-size:22px; font-weight:800; letter-spacing:-0.02em;">Shop by category</div>
+            <button onClick="{{ goCatalog }}" style="border:1.5px solid #e2e8f0; background:#ffffff; border-radius:11px; padding:10px 16px; font-size:12px; font-weight:700; cursor:pointer; color:#334155; flex-shrink:0;">View all →</button>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(12, 1fr); gap:12px; margin-top:14px;">
+            <sc-for list="{{ cats }}" as="c" hint-placeholder-count="12">
+              <button onClick="{{ c.open }}" style="border:none; background:none; padding:0; cursor:pointer; text-align:center;">
+                <div style="aspect-ratio:1 / 1; background:{{ c.tileBg }}; border-radius:13px; overflow:hidden; position:relative;">
+                  <image-slot id="{{ c.sideSlot }}" src="{{ c.imgSrc }}" shape="rect" fit="cover" placeholder="{{ c.slotHint }}"></image-slot>
+                </div>
+                <div style="font-size:11px; font-weight:700; color:#0f172a; line-height:1.25; margin-top:7px; height:27px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ c.name }}</div>
+                <div style="font-size:9.5px; font-weight:600; color:#94a3b8; margin-top:1px;">{{ c.countLabel }}</div>
+              </button>
+            </sc-for>
+          </div>
+
+          <!-- product spotlight strip -->
+          <div class="xl-strip" style="margin-top:18px; overflow:hidden; position:relative;">
+            <div class="xl-track" style="display:flex; width:max-content; animation:xlStrip 52s linear infinite;">
+              <sc-for list="{{ stripItems }}" as="s" hint-placeholder-count="12">
+                <button onClick="{{ s.open }}" style="flex:0 0 auto; width:124px; margin-right:12px; border:1px solid #e2e8f0; background:#ffffff; border-radius:12px; padding:0 0 8px; cursor:pointer; text-align:left; overflow:hidden;" style-hover="border-color:#fecaca;">
+                  <div style="aspect-ratio:1 / 1; background:#f8fafc; position:relative;">
+                    <image-slot id="{{ s.slotD }}" src="{{ s.src }}" shape="rect" fit="cover" placeholder="{{ s.hint }}"></image-slot>
+                  </div>
+                  <div style="padding:7px 9px 0; font-size:10px; font-weight:700; color:#0f172a; line-height:1.25; height:32px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ s.name }}</div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- banner slot 2 · between categories and product rows -->
+          <sc-if value="{{ bannerMid.show }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:22px;">
+              <div style="overflow:hidden;">
+              <div style="display:flex; transform:{{ bannerMid.shift }}; transition:transform .35s ease;">
+                <sc-for list="{{ bannerMid.items }}" as="b" hint-placeholder-count="1">
+                  <button onClick="{{ b.go }}" style="flex:0 0 100%; scroll-snap-align:center; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; padding:0; cursor:pointer; background:#ffffff; display:flex; align-items:stretch; height:120px; text-align:left;" style-hover="border-color:#fecaca;">
+                    <div style="width:200px; flex-shrink:0; background:#f1f5f9; position:relative;">
+                      <image-slot id="{{ b.slotId }}" src="{{ b.img }}" shape="rect" fit="cover" placeholder="{{ b.hint }}"></image-slot>
+                    </div>
+                    <div style="flex:1; min-width:0; padding:16px 24px; display:flex; flex-direction:column; justify-content:center; gap:6px;">
+                      <div style="font-size:18px; font-weight:800; color:#0f172a; line-height:1.25; letter-spacing:-0.02em;">{{ b.headline }}</div>
+                      <sc-if value="{{ b.showRate }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:13.5px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums;">{{ b.rate }}</div>
+                      </sc-if>
+                      <div style="font-size:12px; font-weight:700; color:#475569;">Shop now →</div>
+                    </div>
+                  </button>
+                </sc-for>
+              </div>
+              </div>
+              <sc-if value="{{ bannerMid.multi }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; justify-content:center; gap:6px; margin-top:9px;">
+                  <sc-for list="{{ bannerMid.dots }}" as="d" hint-placeholder-count="2">
+                    <button onClick="{{ d.go }}" style="width:7px; height:7px; padding:0; border:none; border-radius:99px; background:{{ d.bg }}; cursor:pointer;"></button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- merchandised product rows -->
+          <sc-for list="{{ homeRows }}" as="r" hint-placeholder-count="2">
+            <div style="margin-top:24px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:16px;">
+                <div style="font-size:18px; font-weight:800; letter-spacing:-0.02em;">{{ r.title }}</div>
+                <button onClick="{{ goCatalog }}" style="border:none; background:none; cursor:pointer; font-size:12px; font-weight:700; color:#dc2626;">See all →</button>
+              </div>
+              <div style="display:flex; gap:14px; overflow-x:auto; padding:12px 2px 6px; scroll-snap-type:x proximity;">
+                <sc-for list="{{ r.items }}" as="p" hint-placeholder-count="6">
+                  <div style="flex:0 0 178px; scroll-snap-align:start; border:1px solid #e2e8f0; border-radius:13px; background:#ffffff; overflow:hidden;" style-hover="border-color:#fecaca; box-shadow:0 10px 15px -3px rgba(15,23,42,0.1);">
+                    <div style="position:relative; background:#f8fafc;">
+                      <button onClick="{{ p.open }}" style="border:none; padding:0; cursor:pointer; background:none; width:100%; aspect-ratio:1 / 1; display:block;">
+                        <sc-if value="{{ p.hasPhoto }}" hint-placeholder-val="{{ true }}">
+                          <image-slot id="{{ p.rowSlot }}" src="{{ p.imgSrc }}" shape="rect" fit="cover" placeholder="{{ p.slotHint }}"></image-slot>
+                        </sc-if>
+                        <sc-if value="{{ p.noPhoto }}" hint-placeholder-val="{{ false }}">
+                          <div style="width:100%; height:100%; background:#f1f5f9; display:flex; align-items:center; justify-content:center;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-6 6"></path></svg>
+                          </div>
+                        </sc-if>
+                      </button>
+                      <sc-if value="{{ p.showPack }}" hint-placeholder-val="{{ true }}">
+                        <span style="position:absolute; top:8px; left:8px; background:rgba(255,255,255,0.94); color:#334155; font-size:9px; font-weight:700; padding:3px 7px; border-radius:99px;">{{ p.packChip }}</span>
+                      </sc-if>
+                      <div style="position:absolute; right:8px; bottom:-16px; z-index:3;">
+                        <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ p.add }}" style="height:34px; min-width:64px; padding:0 14px; border:1.5px solid #dc2626; background:#ffffff; color:#dc2626; border-radius:10px; font-size:12px; font-weight:800; cursor:pointer; box-shadow:0 3px 9px -2px rgba(15,23,42,0.22);" style-hover="background:#dc2626; color:#ffffff;">Add</button>
+                        </sc-if>
+                        <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex; align-items:center; height:34px; border:1.5px solid #dc2626; border-radius:10px; overflow:hidden; background:#ffffff; box-shadow:0 3px 9px -2px rgba(15,23,42,0.22);">
+                            <button onClick="{{ p.dec }}" style="width:28px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:15px; font-weight:800; cursor:pointer;">−</button>
+                            <div style="padding:0 8px; font-size:10px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap;">{{ p.cartQtyLabel }}</div>
+                            <button onClick="{{ p.inc }}" style="width:28px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:15px; font-weight:800; cursor:pointer;">+</button>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </div>
+                    <div style="padding:22px 11px 11px;">
+                      <button onClick="{{ p.open }}" style="border:none; background:none; padding:0; text-align:left; cursor:pointer; font-size:11.5px; font-weight:700; color:#0f172a; line-height:1.3; height:30px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ p.name }}</button>
+                      <div style="height:21px; display:flex; align-items:baseline; gap:4px; margin-top:6px;">
+                        <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size:15px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ p.rate }}</span>
+                        </sc-if>
+                        <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size:9.5px; font-weight:600; color:#64748b;">{{ p.rateUnit }}</span>
+                        </sc-if>
+                        <sc-if value="{{ p.isGuest }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ signInNow }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:11.5px; font-weight:800; color:#dc2626; display:inline-flex; align-items:center; gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Sign in for rates</button>
+                        </sc-if>
+                      </div>
+                      <div style="font-size:9.5px; font-weight:600; color:#94a3b8; margin-top:4px;">{{ p.dispatchLabel }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+
+          <!-- product grid -->
+          <div style="margin-top:26px; display:flex; align-items:baseline; justify-content:space-between; gap:16px;">
+            <div>
+              <div style="font-size:22px; font-weight:800; letter-spacing:-0.02em;">Best selling products</div>
+              <div style="font-size:12.5px; font-weight:500; color:#64748b; margin-top:3px;">{{ gridNote }}</div>
+            </div>
+            <button onClick="{{ goCatalog }}" style="border:1.5px solid #e2e8f0; background:#ffffff; border-radius:11px; padding:10px 16px; font-size:12px; font-weight:700; cursor:pointer; color:#334155; flex-shrink:0;">View all →</button>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(6, 1fr); gap:14px; margin-top:16px;">
+            <sc-for list="{{ gridProducts }}" as="p" hint-placeholder-count="12">
+              <div style="border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#ffffff; display:flex; flex-direction:column;" style-hover="border-color:#fecaca; box-shadow:0 10px 15px -3px rgba(15,23,42,0.1);">
+                <div style="position:relative; background:#f8fafc;">
+                  <button onClick="{{ p.open }}" style="border:none; padding:0; cursor:pointer; background:none; width:100%; aspect-ratio:1 / 1; display:block;">
+                    <sc-if value="{{ p.hasPhoto }}" hint-placeholder-val="{{ true }}">
+                      <image-slot id="{{ p.gridSlot }}" src="{{ p.imgSrc }}" shape="rect" fit="cover" placeholder="{{ p.slotHint }}"></image-slot>
+                    </sc-if>
+                    <sc-if value="{{ p.noPhoto }}" hint-placeholder-val="{{ false }}">
+                      <div style="width:100%; height:100%; background:#f1f5f9; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-6 6"></path></svg>
+                        <span style="font-size:10px; font-weight:700; color:#94a3b8;">Photo pending</span>
+                      </div>
+                    </sc-if>
+                  </button>
+                  <button onClick="{{ p.share }}" style="position:absolute; top:7px; right:7px; width:28px; height:28px; border:none; border-radius:99px; background:rgba(255,255,255,0.94); cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(15,23,42,0.14);">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="#059669"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.3A10 10 0 1 0 12 2z"></path></svg>
+                  </button>
+                  <sc-if value="{{ p.showPack }}" hint-placeholder-val="{{ true }}">
+                    <span style="position:absolute; top:9px; left:9px; background:rgba(255,255,255,0.94); color:#334155; font-size:9px; font-weight:700; padding:3px 8px; border-radius:99px;">{{ p.packChip }}</span>
+                  </sc-if>
+                  <div style="position:absolute; right:9px; bottom:-17px; z-index:3;">
+                    <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ p.add }}" style="height:36px; min-width:68px; padding:0 15px; border:1.5px solid #dc2626; background:#ffffff; color:#dc2626; border-radius:10px; font-size:12.5px; font-weight:800; cursor:pointer; box-shadow:0 3px 9px -2px rgba(15,23,42,0.22);" style-hover="background:#dc2626; color:#ffffff;">Add</button>
+                    </sc-if>
+                    <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex; align-items:center; height:36px; border:1.5px solid #dc2626; border-radius:10px; overflow:hidden; background:#ffffff; box-shadow:0 3px 9px -2px rgba(15,23,42,0.22);">
+                        <button onClick="{{ p.dec }}" style="width:30px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:16px; font-weight:800; cursor:pointer;">−</button>
+                        <div style="padding:0 8px; font-size:10.5px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap;">{{ p.cartQtyLabel }}</div>
+                        <button onClick="{{ p.inc }}" style="width:30px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:16px; font-weight:800; cursor:pointer;">+</button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+                <div style="padding:24px 12px 12px; flex:1; display:flex; flex-direction:column;">
+                  <div style="display:flex; align-items:center; gap:6px; min-height:13px;">
+                    <span style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.08em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ p.brand }}</span>
+                    <sc-if value="{{ p.showLast }}" hint-placeholder-val="{{ false }}">
+                      <span style="margin-left:auto; font-size:8.5px; font-weight:700; color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:99px; white-space:nowrap;">{{ p.lastOrdered }}</span>
+                    </sc-if>
+                  </div>
+                  <button onClick="{{ p.open }}" style="border:none; background:none; padding:0; margin:3px 0 0; text-align:left; cursor:pointer; font-size:12.5px; font-weight:700; color:#0f172a; line-height:1.32; min-height:33px;">{{ p.name }}</button>
+                  <div style="font-size:10px; font-weight:600; color:#64748b; margin-top:5px;">{{ p.packSpec }} · MOQ {{ p.moqLabel }}</div>
+                  <div style="height:24px; display:flex; align-items:baseline; gap:6px; margin-top:7px;">
+                    <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:17px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ p.rate }}</span>
+                    </sc-if>
+                    <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:10px; font-weight:600; color:#64748b;">{{ p.rateUnit }}</span>
+                    </sc-if>
+                    <sc-if value="{{ p.isGuest }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ signInNow }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:14px; font-weight:800; color:#dc2626; letter-spacing:-0.01em; display:inline-flex; align-items:center; gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Sign in for rates</button>
+                    </sc-if>
+                  </div>
+                  <div style="height:15px; margin-top:3px;">
+                    <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:10.5px; font-weight:600; color:#475569; font-variant-numeric:tabular-nums;">{{ p.packPriceLabel }}</span>
+                    </sc-if>
+                  </div>
+                  <div style="font-size:9.5px; font-weight:600; color:#94a3b8; margin-top:7px;">{{ p.dispatchLabel }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══════ DESKTOP CATALOGUE ══════ -->
+      <sc-if value="{{ isCatalog }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:20px 28px 30px;">
+          <div style="font-size:11.5px; font-weight:600; color:#94a3b8;">Home / Catalogue / {{ catTitle }}</div>
+          <div style="display:flex; align-items:baseline; gap:12px; margin-top:6px;">
+            <div style="font-size:24px; font-weight:800; letter-spacing:-0.02em;">{{ catTitle }}</div>
+            <div style="font-size:12.5px; font-weight:500; color:#64748b;">{{ resultLabel }}</div>
+          </div>
+          <div style="display:grid; grid-template-columns:250px 1fr; gap:20px; margin-top:18px; align-items:start;">
+            <!-- filters -->
+            <div style="border:1px solid #e2e8f0; border-radius:14px; padding:16px;">
+              <div style="font-size:13px; font-weight:800; margin-bottom:12px;">Filters</div>
+              <sc-for list="{{ filterGroups }}" as="g" hint-placeholder-count="4">
+                <div style="margin-bottom:16px;">
+                  <div style="font-size:11px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:0.07em;">{{ g.title }}</div>
+                  <div style="display:flex; flex-wrap:wrap; gap:7px; margin-top:9px;">
+                    <sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="4">
+                      <span style="font-size:11px; font-weight:600; color:#475569; border:1px solid #e2e8f0; background:#f8fafc; padding:5px 10px; border-radius:99px;">{{ o.label }}</span>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="border-top:1px solid #f1f5f9; padding-top:13px;">
+                <div style="font-size:11px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:0.07em;">Categories</div>
+                <div style="display:flex; flex-direction:column; gap:3px; margin-top:9px;">
+                  <sc-for list="{{ railCats }}" as="c" hint-placeholder-count="8">
+                    <button onClick="{{ c.open }}" style="border:none; background:{{ c.railBg }}; cursor:pointer; text-align:left; padding:7px 9px; border-radius:8px; display:flex; justify-content:space-between; gap:8px;">
+                      <span style="font-size:11.5px; font-weight:700; color:{{ c.railFg }};">{{ c.name }}</span>
+                      <span style="font-size:10px; font-weight:600; color:#94a3b8;">{{ c.count }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <!-- grid -->
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:14px;">
+              <sc-for list="{{ listing }}" as="p" hint-placeholder-count="8">
+                <div style="border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#ffffff;" style-hover="border-color:#fecaca; box-shadow:0 10px 15px -3px rgba(15,23,42,0.1);">
+                  <div style="position:relative; background:#f8fafc;">
+                    <button onClick="{{ p.open }}" style="border:none; padding:0; cursor:pointer; background:none; width:100%; aspect-ratio:1 / 1; display:block;">
+                      <sc-if value="{{ p.hasPhoto }}" hint-placeholder-val="{{ true }}">
+                        <image-slot id="{{ p.listSlot }}" src="{{ p.imgSrc }}" shape="rect" fit="cover" placeholder="{{ p.slotHint }}"></image-slot>
+                      </sc-if>
+                      <sc-if value="{{ p.noPhoto }}" hint-placeholder-val="{{ false }}">
+                        <div style="width:100%; height:100%; background:#f1f5f9; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;">
+                          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-6 6"></path></svg>
+                          <span style="font-size:10px; font-weight:700; color:#94a3b8;">Photo pending</span>
+                        </div>
+                      </sc-if>
+                    </button>
+                    <button onClick="{{ p.share }}" style="position:absolute; top:7px; right:7px; width:28px; height:28px; border:none; border-radius:99px; background:rgba(255,255,255,0.94); cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="#059669"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.3A10 10 0 1 0 12 2z"></path></svg>
+                    </button>
+                    <sc-if value="{{ p.showPack }}" hint-placeholder-val="{{ true }}">
+                      <span style="position:absolute; top:9px; left:9px; background:rgba(255,255,255,0.94); color:#334155; font-size:9px; font-weight:700; padding:3px 8px; border-radius:99px;">{{ p.packChip }}</span>
+                    </sc-if>
+                    <div style="position:absolute; right:9px; bottom:-17px; z-index:3;">
+                      <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                        <button onClick="{{ p.add }}" style="height:36px; min-width:68px; padding:0 15px; border:1.5px solid #dc2626; background:#ffffff; color:#dc2626; border-radius:10px; font-size:12.5px; font-weight:800; cursor:pointer; box-shadow:0 3px 9px -2px rgba(15,23,42,0.22);" style-hover="background:#dc2626; color:#ffffff;">Add</button>
+                      </sc-if>
+                      <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex; align-items:center; height:36px; border:1.5px solid #dc2626; border-radius:10px; overflow:hidden; background:#ffffff; box-shadow:0 3px 9px -2px rgba(15,23,42,0.22);">
+                          <button onClick="{{ p.dec }}" style="width:30px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:16px; font-weight:800; cursor:pointer;">−</button>
+                          <div style="padding:0 8px; font-size:10.5px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap;">{{ p.cartQtyLabel }}</div>
+                          <button onClick="{{ p.inc }}" style="width:30px; height:100%; border:none; background:#fef2f2; color:#dc2626; font-size:16px; font-weight:800; cursor:pointer;">+</button>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </div>
+                  <div style="padding:24px 12px 12px;">
+                    <div style="display:flex; align-items:center; gap:6px; min-height:13px;">
+                      <span style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.08em;">{{ p.brand }}</span>
+                      <sc-if value="{{ p.showLast }}" hint-placeholder-val="{{ false }}">
+                        <span style="margin-left:auto; font-size:8.5px; font-weight:700; color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:99px; white-space:nowrap;">{{ p.lastOrdered }}</span>
+                      </sc-if>
+                    </div>
+                    <button onClick="{{ p.open }}" style="border:none; background:none; padding:0; margin:3px 0 0; text-align:left; cursor:pointer; font-size:13px; font-weight:700; line-height:1.32; color:#0f172a; min-height:34px;">{{ p.name }}</button>
+                    <div style="height:25px; display:flex; align-items:baseline; gap:6px; margin-top:7px;">
+                      <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:18px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ p.rate }}</span>
+                      </sc-if>
+                      <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:10.5px; font-weight:600; color:#64748b;">{{ p.rateUnit }}</span>
+                      </sc-if>
+                      <sc-if value="{{ p.isGuest }}" hint-placeholder-val="{{ true }}">
+                        <button onClick="{{ signInNow }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:14px; font-weight:800; color:#dc2626; letter-spacing:-0.01em; display:inline-flex; align-items:center; gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Sign in for rates</button>
+                      </sc-if>
+                    </div>
+                    <div style="height:15px; margin-top:3px;">
+                      <sc-if value="{{ p.isTrade }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:10.5px; font-weight:600; color:#475569;">{{ p.packPriceLabel }}</span>
+                      </sc-if>
+                    </div>
+                    <div style="font-size:10px; font-weight:600; color:#64748b; margin-top:5px;">{{ p.packSpec }} · MOQ {{ p.moqLabel }}</div>
+                    <div style="font-size:9.5px; font-weight:600; color:#94a3b8; margin-top:5px;">{{ p.dispatchLabel }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══════ DESKTOP PRODUCT ══════ -->
+      <sc-if value="{{ isProduct }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:20px 28px 34px;">
+          <div style="font-size:11.5px; font-weight:600; color:#94a3b8;">Home / {{ prod.catName }} / {{ prod.name }}</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:14px; align-items:start;">
+            <!-- gallery -->
+            <div>
+              <div style="border:1px solid #e2e8f0; border-radius:16px; height:430px; overflow:hidden; background:#f8fafc; position:relative;">
+                <sc-if value="{{ prod.hasPhoto }}" hint-placeholder-val="{{ true }}">
+                  <image-slot id="{{ prod.mainSlotD }}" src="{{ prod.imgSrc }}" shape="rect" fit="cover" placeholder="{{ prod.slotHint }}"></image-slot>
+                </sc-if>
+                <sc-if value="{{ prod.noPhoto }}" hint-placeholder-val="{{ false }}">
+                  <div style="width:100%; height:100%; background:#f1f5f9; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;">
+                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-6 6"></path></svg>
+                    <span style="font-size:12.5px; font-weight:700; color:#94a3b8;">Photo pending for this SKU</span>
+                    <span style="font-size:11px; font-weight:600; color:#cbd5e1;">{{ prod.sku }}</span>
+                  </div>
+                </sc-if>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-top:12px;">
+                <sc-for list="{{ prod.thumbsD }}" as="t" hint-placeholder-count="4">
+                  <div style="height:96px; border:1.5px solid {{ t.bc }}; border-radius:11px; overflow:hidden; background:#f1f5f9;">
+                    <image-slot id="{{ t.slot }}" src="{{ t.imgSrc }}" shape="rect" fit="cover" placeholder="{{ t.label }}"></image-slot>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- buy box -->
+            <div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.1em;">{{ prod.brand }}</div>
+                <sc-if value="{{ prod.showLast }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:10px; font-weight:700; color:#475569; background:#f1f5f9; padding:3px 9px; border-radius:99px;">{{ prod.lastOrdered }}</span>
+                </sc-if>
+                <button onClick="{{ prod.share }}" style="margin-left:auto; border:1.5px solid #a7f3d0; background:#ecfdf5; border-radius:9px; padding:7px 12px; cursor:pointer; display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:800; color:#047857;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#059669"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.3A10 10 0 1 0 12 2z"></path></svg>Share on WhatsApp
+                </button>
+              </div>
+              <h1 style="margin:6px 0 0; font-size:28px; font-weight:800; line-height:1.2; letter-spacing:-0.025em;">{{ prod.name }}</h1>
+              <div style="font-size:12.5px; font-weight:600; color:#64748b; margin-top:7px;">{{ prod.sku }} · {{ prod.packSpec }} · {{ prod.material }}</div>
+
+              <div style="margin-top:18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:18px;">
+                <sc-if value="{{ prod.isTrade }}" hint-placeholder-val="{{ false }}">
+                  <div>
+                    <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
+                      <span style="font-size:38px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums; letter-spacing:-0.03em;">{{ prod.rate }}</span>
+                      <span style="font-size:14px; font-weight:700; color:#475569;">{{ prod.rateUnit }}</span>
+                    </div>
+                    <div style="font-size:13px; font-weight:600; color:#475569; margin-top:8px; font-variant-numeric:tabular-nums;">{{ prod.packPriceLabel }}</div>
+                    <div style="display:flex; gap:9px; margin-top:12px; flex-wrap:wrap;">
+                      <span style="font-size:11.5px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fef3c7; padding:6px 11px; border-radius:99px;">MOQ {{ prod.moqLabel }}</span>
+                      <span style="font-size:11.5px; font-weight:700; color:#334155; background:#ffffff; border:1px solid #e2e8f0; padding:6px 11px; border-radius:99px;">Order step {{ prod.stepLabel }}</span>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ prod.isGuest }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+                    <div style="min-width:190px;">
+                      <div style="font-size:26px; font-weight:800; color:#0f172a; letter-spacing:-0.025em; display:flex; align-items:center; gap:10px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Sign in for rates</div>
+                      <div style="display:flex; gap:9px; margin-top:12px; flex-wrap:wrap;">
+                        <span style="font-size:11.5px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fef3c7; padding:6px 11px; border-radius:99px;">MOQ {{ prod.moqLabel }}</span>
+                        <span style="font-size:11.5px; font-weight:700; color:#334155; background:#ffffff; border:1px solid #e2e8f0; padding:6px 11px; border-radius:99px;">Step {{ prod.stepLabel }}</span>
+                      </div>
+                    </div>
+                    <div style="flex:1; min-width:230px;">
+                      <div style="font-size:12px; font-weight:600; color:#475569; line-height:1.55;">Per-piece rates for this SKU are visible to signed-in business accounts.</div>
+                      <button onClick="{{ signInNow }}" style="margin-top:10px; border:none; background:#dc2626; color:#ffffff; font-size:13px; font-weight:800; padding:12px 20px; border-radius:11px; cursor:pointer;">Sign in</button>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+
+              <!-- quantity -->
+              <div style="margin-top:20px;">
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
+                  <div style="font-size:14px; font-weight:800;">Order quantity</div>
+                  <div style="font-size:11.5px; font-weight:600; color:#64748b;">{{ qtyHeadNote }}</div>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:11px; margin-top:11px;">
+                  <sc-for list="{{ prod.qtyFacts }}" as="f" hint-placeholder-count="3">
+                    <div style="border:1px solid #e2e8f0; border-radius:13px; padding:12px 13px;">
+                      <div style="font-size:15px; font-weight:800; color:#0f172a; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ f.big }}</div>
+                      <div style="font-size:10.5px; font-weight:600; color:#64748b; margin-top:3px; line-height:1.35;">{{ f.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="display:flex; gap:12px; margin-top:16px; align-items:center; flex-wrap:wrap;">
+                  <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:12px; overflow:hidden; height:50px;">
+                    <button onClick="{{ prod.dec }}" style="width:46px; height:100%; border:none; background:#f8fafc; color:#334155; font-size:19px; font-weight:800; cursor:pointer;">−</button>
+                    <div style="width:98px; text-align:center; font-size:14px; font-weight:800; font-variant-numeric:tabular-nums;">{{ prod.qtyLabel }}</div>
+                    <button onClick="{{ prod.inc }}" style="width:46px; height:100%; border:none; background:#f8fafc; color:#334155; font-size:19px; font-weight:800; cursor:pointer;">+</button>
+                  </div>
+                  <button onClick="{{ prod.addSelected }}" style="flex:1; min-width:200px; height:50px; border:none; background:#dc2626; color:#ffffff; font-size:14px; font-weight:800; border-radius:12px; cursor:pointer;" style-hover="background:#b91c1c;">{{ prod.addLabel }}</button>
+                  <button style="height:50px; border:1.5px solid #a7f3d0; background:#ecfdf5; color:#047857; font-size:13px; font-weight:800; border-radius:12px; cursor:pointer; padding:0 18px;">Enquire</button>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:12px; margin-top:12px; flex-wrap:wrap;">
+                  <div style="font-size:11.5px; font-weight:600; color:#64748b;">{{ prod.orderRule }}</div>
+                  <div style="margin-left:auto; font-size:11.5px; font-weight:600; color:#94a3b8;">{{ prod.packsLabel }}</div>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px;">
+                <div style="border:1px solid #e2e8f0; border-radius:13px; overflow:hidden;">
+                  <div style="background:#f8fafc; padding:9px 13px; font-size:12px; font-weight:800; border-bottom:1px solid #e2e8f0;">Specifications</div>
+                  <sc-for list="{{ prod.specs }}" as="s" hint-placeholder-count="5">
+                    <div style="display:flex; padding:8px 13px; border-bottom:1px solid #f1f5f9; gap:8px;">
+                      <div style="width:96px; flex-shrink:0; font-size:11px; font-weight:600; color:#64748b;">{{ s.k }}</div>
+                      <div style="font-size:11px; font-weight:700;">{{ s.v }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div>
+                  <div style="border:1px solid #e2e8f0; border-radius:13px; padding:14px;">
+                    <div style="font-size:12px; font-weight:800;">Description</div>
+                    <div style="font-size:11.5px; color:#475569; line-height:1.65; margin-top:6px;">{{ prod.desc }}</div>
+                  </div>
+                  <div style="border:1px solid #e2e8f0; border-radius:13px; padding:14px; margin-top:12px;">
+                    <div style="font-size:12px; font-weight:800;">Delivery</div>
+                    <div style="font-size:11.5px; color:#475569; line-height:1.65; margin-top:6px;">{{ deliveryNote }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══════ DESKTOP CART ══════ -->
+      <sc-if value="{{ isCart }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:22px 28px 34px;">
+          <div style="display:flex; align-items:baseline; gap:12px;">
+            <div style="font-size:24px; font-weight:800; letter-spacing:-0.02em;">Your cart</div>
+            <div style="font-size:12.5px; font-weight:500; color:#64748b;">{{ cartCountLabel }}</div>
+            <button onClick="{{ goCatalog }}" style="margin-left:auto; border:1.5px solid #e2e8f0; background:#ffffff; border-radius:11px; padding:9px 16px; font-size:12px; font-weight:700; color:#334155; cursor:pointer;">Continue shopping</button>
+          </div>
+
+          <sc-if value="{{ isGuest }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:14px; background:#fffbeb; border:1px solid #fef3c7; border-radius:13px; padding:13px 16px; display:flex; align-items:center; gap:14px;">
+              <div style="flex:1; min-width:0; font-size:12.5px; font-weight:700; color:#92400e;">Rates and order total are visible once you sign in. Quantities you set now are kept.</div>
+              <button onClick="{{ signInNow }}" style="flex-shrink:0; border:none; background:#dc2626; color:#ffffff; font-size:12.5px; font-weight:800; padding:10px 18px; border-radius:10px; cursor:pointer;">Sign in</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:70px 20px; text-align:center; border:1px dashed #e2e8f0; border-radius:16px; margin-top:18px;">
+              <div style="font-size:16px; font-weight:800;">Cart is empty</div>
+              <div style="font-size:13px; color:#64748b; margin-top:6px;">{{ emptyNote }}</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cartFilled }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid; grid-template-columns:1fr 340px; gap:20px; margin-top:18px; align-items:start;">
+              <div style="display:flex; flex-direction:column; gap:12px;">
+                <sc-for list="{{ lines }}" as="l" hint-placeholder-count="2">
+                  <div style="border:1px solid #e2e8f0; border-radius:14px; padding:16px; background:#ffffff;">
+                    <div style="display:flex; gap:16px;">
+                      <div style="width:96px; height:96px; border-radius:12px; overflow:hidden; background:#f1f5f9; flex-shrink:0;">
+                        <image-slot id="{{ l.slotD }}" src="{{ l.imgSrc }}" shape="rect" fit="cover" placeholder="{{ l.name }}"></image-slot>
+                      </div>
+                      <div style="flex:1; min-width:0;">
+                        <div style="font-size:9.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.08em;">{{ l.brand }}</div>
+                        <div style="font-size:15px; font-weight:700; line-height:1.32; margin-top:3px;">{{ l.name }}</div>
+                        <div style="height:20px; display:flex; align-items:baseline; gap:7px; margin-top:6px;">
+                          <sc-if value="{{ l.isTrade }}" hint-placeholder-val="{{ false }}">
+                            <span style="font-size:16px; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums;">{{ l.price }}</span>
+                          </sc-if>
+                          <sc-if value="{{ l.isTrade }}" hint-placeholder-val="{{ false }}">
+                            <span style="font-size:11px; font-weight:600; color:#64748b;">{{ l.rateUnit }}</span>
+                          </sc-if>
+                          <sc-if value="{{ l.isGuest }}" hint-placeholder-val="{{ true }}">
+                            <button onClick="{{ signInNow }}" style="border:none; background:none; padding:0; cursor:pointer; font-size:13px; font-weight:800; color:#dc2626;">Sign in for rates</button>
+                          </sc-if>
+                        </div>
+                        <div style="font-size:11px; font-weight:600; color:#64748b; margin-top:4px;">{{ l.packSpec }} · MOQ {{ l.moqLabel }} · {{ l.packsLabel }}</div>
+                      </div>
+                      <div style="text-align:right; flex-shrink:0;">
+                        <div style="font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.02em;">{{ l.total }}</div>
+                        <button onClick="{{ l.remove }}" style="border:none; background:none; cursor:pointer; color:#94a3b8; font-size:11px; font-weight:700; margin-top:8px;">Remove</button>
+                      </div>
+                    </div>
+
+                    <div style="display:flex; gap:14px; margin-top:14px; align-items:flex-end; flex-wrap:wrap;">
+                      <div style="flex:1; min-width:260px;">
+                        <div style="font-size:10.5px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:0.07em;">Order rule</div>
+                        <div style="font-size:11.5px; font-weight:600; color:#64748b; margin-top:8px; line-height:1.5;">{{ l.orderRule }}</div>
+                      </div>
+                      <div>
+                        <div style="font-size:10.5px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:0.07em;">Quantity</div>
+                        <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:11px; overflow:hidden; height:44px; margin-top:8px;">
+                          <button onClick="{{ l.dec }}" style="width:42px; height:100%; border:none; background:#f8fafc; color:#334155; font-size:17px; font-weight:800; cursor:pointer;">−</button>
+                          <div style="width:92px; text-align:center; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums;">{{ l.qtyLabel }}</div>
+                          <button onClick="{{ l.inc }}" style="width:42px; height:100%; border:none; background:#f8fafc; color:#334155; font-size:17px; font-weight:800; cursor:pointer;">+</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <sc-if value="{{ l.belowMoq }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:12px; background:#fef2f2; border:1px solid #fecaca; border-radius:11px; padding:10px 13px; display:flex; align-items:center; gap:12px;">
+                        <div style="flex:1; font-size:11.5px; font-weight:700; color:#b91c1c;">{{ l.moqWarning }}</div>
+                        <button onClick="{{ l.fix }}" style="border:none; background:#dc2626; color:#ffffff; font-size:11.5px; font-weight:800; padding:8px 14px; border-radius:9px; cursor:pointer;">Fix to MOQ</button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+
+              <!-- summary -->
+              <div style="border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; position:sticky; top:80px;">
+                <div style="background:#f8fafc; padding:13px 16px; font-size:13px; font-weight:800; border-bottom:1px solid #e2e8f0;">Order summary</div>
+                <div style="padding:14px 16px;">
+                  <sc-for list="{{ summary }}" as="s" hint-placeholder-count="2">
+                    <div style="display:flex; justify-content:space-between; gap:10px; padding:6px 0; font-size:12.5px;">
+                      <span style="font-weight:600; color:{{ s.kc }};">{{ s.k }}</span>
+                      <span style="font-weight:700; color:{{ s.vc }}; font-variant-numeric:tabular-nums; white-space:nowrap;">{{ s.v }}</span>
+                    </div>
+                  </sc-for>
+                  <div style="height:1px; background:#e2e8f0; margin:11px 0;"></div>
+                  <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                    <span style="font-size:14px; font-weight:800;">Total payable</span>
+                    <span style="font-size:24px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.025em;">{{ total }}</span>
+                  </div>
+                  <button style="width:100%; margin-top:13px; border:none; background:{{ checkoutBg }}; color:#ffffff; font-size:14px; font-weight:800; padding:14px; border-radius:12px; cursor:pointer;">{{ checkoutLabel }}</button>
+                  <button style="width:100%; margin-top:9px; border:1.5px solid #a7f3d0; background:#ecfdf5; color:#047857; font-size:12.5px; font-weight:800; padding:12px; border-radius:12px; cursor:pointer;">Send cart on WhatsApp</button>
+                  <div style="font-size:10.5px; font-weight:600; color:#94a3b8; margin-top:10px; line-height:1.5;">{{ checkoutNote }}</div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ══════ DESKTOP ACCOUNT ══════ -->
+      <sc-if value="{{ isAccount }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:22px 28px 34px;">
+          <div style="font-size:11.5px; font-weight:600; color:#94a3b8;">Home / My account</div>
+          <div style="display:grid; grid-template-columns:280px 1fr; gap:20px; margin-top:14px; align-items:start;">
+            <div>
+              <div style="border:1px solid #e2e8f0; border-radius:16px; padding:18px;">
+                <div style="display:flex; align-items:center; gap:13px;">
+                  <div style="width:54px; height:54px; border-radius:99px; background:#dc2626; display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800; color:#ffffff; flex-shrink:0;">{{ acct.initials }}</div>
+                  <div style="min-width:0;">
+                    <div style="font-size:16px; font-weight:800; letter-spacing:-0.01em;">{{ acct.name }}</div>
+                    <div style="font-size:11.5px; font-weight:600; color:#64748b; margin-top:2px;">{{ acct.sub }}</div>
+                  </div>
+                </div>
+                <sc-if value="{{ acct.isGuest }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ acct.signIn }}" style="width:100%; margin-top:14px; border:none; background:#dc2626; color:#ffffff; font-size:13px; font-weight:800; padding:12px; border-radius:11px; cursor:pointer;">Sign in to your account</button>
+                </sc-if>
+                <div style="display:flex; flex-direction:column; gap:3px; margin-top:14px;">
+                  <sc-for list="{{ acct.rows }}" as="r" hint-placeholder-count="5">
+                    <div style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px;" style-hover="background:#f8fafc;">
+                      <div style="width:26px; height:26px; border-radius:8px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:800; color:#475569;">{{ r.icon }}</div>
+                      <div style="flex:1; min-width:0;">
+                        <div style="font-size:12px; font-weight:700;">{{ r.label }}</div>
+                        <div style="font-size:10px; font-weight:500; color:#94a3b8;">{{ r.sub }}</div>
+                      </div>
+                      <span style="color:#cbd5e1; font-size:13px;">›</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
+                <sc-for list="{{ acct.stats }}" as="st" hint-placeholder-count="3">
+                  <div style="border:1px solid #e2e8f0; border-radius:14px; padding:15px;">
+                    <div style="font-size:22px; font-weight:800; color:#0f172a; font-variant-numeric:tabular-nums; letter-spacing:-0.025em;">{{ st.big }}</div>
+                    <div style="font-size:11px; font-weight:600; color:#64748b; margin-top:3px;">{{ st.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ acct.isGuest }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-top:14px; background:#fffbeb; border:1px solid #fef3c7; border-radius:14px; padding:15px;">
+                  <div style="font-size:13px; font-weight:800; color:#78350f;">You are browsing as a guest — rates are hidden</div>
+                  <div style="font-size:11.5px; font-weight:600; color:#92400e; margin-top:4px; line-height:1.55;">{{ guestPitch }}</div>
+                  <button onClick="{{ acct.signIn }}" style="margin-top:11px; border:none; background:#dc2626; color:#ffffff; font-size:12.5px; font-weight:800; padding:11px 18px; border-radius:10px; cursor:pointer;">Sign in</button>
+                </div>
+              </sc-if>
+
+              <div style="border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; margin-top:14px;">
+                <div style="background:#f8fafc; padding:13px 16px; display:flex; align-items:baseline; gap:10px; border-bottom:1px solid #e2e8f0;">
+                  <div style="font-size:13px; font-weight:800;">Order history</div>
+                  <div style="font-size:11px; font-weight:600; color:#64748b;">{{ historyNote }}</div>
+                </div>
+                <sc-for list="{{ acct.orders }}" as="o" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:14px; row-gap:10px; flex-wrap:wrap; padding:13px 16px; border-bottom:1px solid #f1f5f9;">
+                    <div style="width:100px; flex-shrink:0;">
+                      <div style="font-size:12px; font-weight:800; color:#0f172a; white-space:nowrap;">{{ o.id }}</div>
+                      <div style="font-size:10px; font-weight:600; color:#94a3b8; margin-top:2px; white-space:nowrap;">{{ o.date }}</div>
+                    </div>
+                    <div style="flex:1 1 220px; min-width:160px;">
+                      <div style="font-size:12px; font-weight:600; color:#334155; line-height:1.45; text-wrap:pretty;">{{ o.items }}</div>
+                      <div style="font-size:10px; font-weight:600; color:#94a3b8; margin-top:2px;">{{ o.pieces }}</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:14px; margin-left:auto; flex-shrink:0;">
+                      <span style="font-size:10px; font-weight:800; color:{{ o.statusFg }}; background:{{ o.statusBg }}; padding:4px 10px; border-radius:99px; white-space:nowrap;">{{ o.status }}</span>
+                      <div style="min-width:76px; text-align:right; font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; white-space:nowrap;">{{ o.total }}</div>
+                      <button onClick="{{ o.reorder }}" style="width:92px; border:1.5px solid #dc2626; background:#ffffff; color:#dc2626; font-size:11.5px; font-weight:800; padding:9px 0; border-radius:9px; cursor:pointer;" style-hover="background:#dc2626; color:#ffffff;">Reorder</button>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- footer -->
+      <div style="background:#0f172a; padding:22px 28px; display:flex; align-items:center; gap:22px; row-gap:10px; flex-wrap:wrap;">
+        <div style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:-0.02em;"><span style="color:#ef4444;">XL</span> TRADERS</div>
+        <sc-for list="{{ footerPoints }}" as="f" hint-placeholder-count="4">
+          <div style="font-size:11.5px; font-weight:600; color:#94a3b8;">{{ f.label }}</div>
+        </sc-for>
+        <div style="margin-left:auto; font-size:11.5px; font-weight:600; color:#64748b;">Surat, Gujarat · +91 97732 39442</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- back to top · desktop -->
+  <sc-if value="{{ showToTopDesktop }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ toTop }}" style="position:fixed; right:26px; bottom:26px; z-index:95; border:1px solid #e2e8f0; background:#ffffff; color:#0f172a; font-size:12px; font-weight:800; padding:11px 17px; border-radius:99px; cursor:pointer; box-shadow:0 10px 22px -8px rgba(15,23,42,0.45);">↑ Back to top</button>
+  </sc-if>
+
+  <!-- toast -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; bottom:26px; left:50%; transform:translateX(-50%); background:#0f172a; color:#ffffff; font-size:12.5px; font-weight:700; padding:12px 20px; border-radius:99px; box-shadow:0 12px 24px -8px rgba(15,23,42,0.5); z-index:100; max-width:90vw; text-align:center;">{{ toast }}</div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;signedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;startView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;mobile&quot;,&quot;desktop&quot;],&quot;default&quot;:&quot;mobile&quot;,&quot;tsType&quot;:&quot;'mobile' | 'desktop'&quot;,&quot;section&quot;:&quot;Preview&quot;},&quot;siteTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;diwali&quot;,&quot;holi&quot;,&quot;monsoon&quot;,&quot;independence&quot;],&quot;default&quot;:&quot;default&quot;,&quot;tsType&quot;:&quot;'default' | 'diwali' | 'holi' | 'monsoon' | 'independence'&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;topBannerOn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Banners&quot;},&quot;midBannerOn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Banners&quot;}}">
+const P = [
+  { id:'cupholder', name:'2 Paper Cup Holder', brand:'Packworld Ripple', cat:'ripple', catName:'Ripple Cup', sku:'PW-CH2', material:'Kraft board 300 GSM', piece:4.91, packSize:100, moq:700, photo:true, desc:'Practical paper cup holder designed to carry two cups securely. Sturdy and eco friendly, ensuring safe handling of beverages. Lightweight yet durable for everyday use — built for cafes, takeaway counters and catering services.' },
+  { id:'ripple100', name:'100ml Ripple Cup — Packworld', brand:'Packworld', cat:'ripple', catName:'Ripple Cup', sku:'PW-RC100', material:'3-ply ripple wall paper', piece:0.90, packSize:100, moq:3000, photo:true, desc:'Triple-wall ripple cup that stays cool to the touch without a sleeve. Ideal for tea, cutting chai and filter coffee at volume. Leak-resistant PE lining, microwave-safe up to 85°C.' },
+  { id:'napkin27', name:'Paper Napkin 27×27 — 2 Ply', brand:'XL Value', cat:'tissue', catName:'Tissue & Napkin', sku:'XL-NP27', material:'Virgin pulp tissue', piece:0.42, packSize:100, moq:3000, photo:false, desc:'Soft 2-ply napkin with embossed edge, sized for restaurant table dispensers. Lint-free and food-safe, packed 100 per sleeve to keep service counters tidy.' },
+  { id:'flask250', name:'250ml Tea Flask with Poly Coat', brand:'Packworld', cat:'container', catName:'Paper Container', sku:'PW-TF250', material:'Poly-coated kraft', piece:17.29, packSize:50, moq:300, photo:true, desc:'Poly-coated paper flask for hot beverages and gravies. Locks tight against spills in transit, stacks flat in storage, and prints cleanly for your brand.' },
+  { id:'kraft500', name:'500ml Kraft Food Container', brand:'EcoPack', cat:'container', catName:'Paper Container', sku:'EP-KC500', material:'Kraft paper + PE', piece:20.65, packSize:50, moq:500, photo:true, desc:'Leak-proof kraft container for curries, biryani and salads. Rigid rim takes a snap-on lid, and the natural kraft finish reads premium on delivery aggregators.' },
+  { id:'tray4cp', name:'Areca 4-CP Meal Tray', brand:'Areca Leaf Co.', cat:'plate', catName:'Plate & Bowl', sku:'AL-4CP', material:'Areca leaf', piece:11.40, packSize:25, moq:600, photo:true, desc:'Compostable areca leaf tray with four compartments, heat-pressed from fallen leaves. No coating, no bleaching — the default choice for temple and canteen catering.' },
+  { id:'pizza12', name:'Pizza Box 12" — 3 Ply', brand:'Packworld', cat:'pizza', catName:'Pizza Box', sku:'PW-PB12', material:'3-ply corrugated', piece:23.60, packSize:25, moq:200, photo:true, desc:'Ventilated 3-ply pizza box that keeps the crust crisp on longer runs. Locking flaps hold shape under stacking, and the plain top panel takes a single-colour logo print.' },
+  { id:'salad750', name:'Clear Salad Box 750ml', brand:'Falcon', cat:'container', catName:'Paper Container', sku:'FL-SB750', material:'RPET', piece:8.75, packSize:50, moq:1000, photo:true, desc:'Crystal-clear RPET box with hinged lid — the salad, fruit and dessert workhorse. Freezer-safe, recyclable, and merchandises the contents without a label.' },
+  { id:'spoon', name:'Reusable Spoon — Heavy Duty', brand:'XL Value', cat:'spoon', catName:'Reusable Spoon', sku:'XL-SP01', material:'Food-grade PP', piece:0.68, packSize:100, moq:5000, photo:true, desc:'Thick-gauge PP spoon that will not flex through thick curd or ice cream. Available in five colours; packed 100 per polybag for counter dispensing.' },
+  { id:'cling30', name:'Cling Film Roll 30cm × 300m', brand:'Freshwrap', cat:'film', catName:'Wrapping & Film', sku:'FW-CF30', material:'Food-grade PVC', piece:180, packSize:1, moq:24, photo:true, unit:'roll', rollSpec:'300 m', desc:'Self-clinging PVC film on a 300 m core with a cutter edge. Holds its seal in the chiller, the standard for kitchen prep and cold-counter display.' }
+];
+
+// Photography the owner supplied. Slots without a file stay drop-ready.
+const IMG = {
+  cups: 'uploads/paper-cups.png',
+  containers: 'uploads/food-containers.png',
+  trays: 'uploads/meal-trays.png',
+  boxes: 'uploads/corrugated-boxes.png',
+  films: 'uploads/packaging-films.png',
+  bags: 'uploads/carry-bags.png'
+};
+const PIMG = {
+  cupholder: IMG.cups, ripple100: IMG.cups, flask250: IMG.containers,
+  kraft500: IMG.containers, salad750: IMG.containers, tray4cp: IMG.trays,
+  pizza12: IMG.boxes, cling30: IMG.films
+};
+const CIMG = {
+  plate: IMG.trays, container: IMG.containers, ripple: IMG.cups,
+  pizza: IMG.boxes, film: IMG.films, bakery: IMG.bags, carry: IMG.bags
+};
+
+// Owner-controlled merchandising banners. Nothing here is hardcoded into the layout:
+// set on:false (or empty the slot) and the slot renders nothing at all.
+// Each banner must show goods the customer can buy — photo, headline, optional rate line, target.
+const BANNERS = [
+  { id:'b-cups', slot:'top', on:true, headline:'Paper cups — every size in stock', rate:'from ₹0.90/pc', target:{ cat:'ripple' }, img:IMG.cups, hint:'Stacked paper cups' },
+  { id:'b-clean', slot:'top', on:true, headline:'Cleaning range — new stock', rate:'', target:{ cat:'clean' }, img:null, hint:'Bottles, mops, dustbins' },
+  { id:'b-fest', slot:'mid', on:true, headline:'Festive packaging — order now', rate:'from ₹1.60/pc', target:{ cat:'bakery' }, img:IMG.bags, hint:'Festive boxes and carry bags' }
+];
+
+const ORDERS = [
+  { id:'XL-24118', date:'04 Aug 2026', short:'04 Aug', status:'In transit', items:'100ml Ripple Cup · Paper Napkin 27×27', pieces:'9,000 pcs · 2 lines', total:'₹11,340', lines:[['ripple100',6000],['napkin27',3000]] },
+  { id:'XL-24086', date:'21 Jul 2026', short:'21 Jul', status:'Delivered', items:'500ml Kraft Food Container · Pizza Box 12"', pieces:'700 pcs · 2 lines', total:'₹15,045', lines:[['kraft500',500],['pizza12',200]] },
+  { id:'XL-23974', date:'02 Jul 2026', short:'02 Jul', status:'Delivered', items:'2 Paper Cup Holder · Reusable Spoon', pieces:'5,700 pcs · 2 lines', total:'₹6,837', lines:[['cupholder',700],['spoon',5000]] },
+  { id:'XL-23902', date:'14 Jun 2026', short:'14 Jun', status:'Delivered', items:'Areca 4-CP Meal Tray', pieces:'600 pcs · 1 line', total:'₹6,840', lines:[['tray4cp',600]] }
+];
+
+// Bottom-tab icons (Lucide paths, inlined).
+const NAV_ICON = {
+  home: 'M3 10.5 12 3l9 7.5 M5 9.5V21h14V9.5',
+  grid: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M20 20l-4-4',
+  cart: 'M3 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 7H6 M10 20.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M18 20.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21c0-3.9 3.6-6 8-6s8 2.1 8 6'
+};
+
+// Soft tints behind category photography — no new hues, just low-alpha brand neighbours.
+const TILE_BG = ['#fef2f2', '#f0fdf4', '#fffbeb', '#eff6ff', '#f5f3ff', '#ecfeff'];
+
+// Categories whose selling unit reads as a box rather than a pack.
+const BOXED = { pizza: true, boxes: true };
+
+const CATS = [
+  { id:'plate', name:'Plate & Bowl', count:'3 categories' },
+  { id:'container', name:'Paper Container', count:'4 categories' },
+  { id:'ripple', name:'Ripple Cup', count:'2 categories' },
+  { id:'pizza', name:'Pizza Box', count:'3 categories' },
+  { id:'tissue', name:'Tissue & Napkin', count:'2 categories' },
+  { id:'spoon', name:'Reusable Spoon', count:'16 items' },
+  { id:'film', name:'Wrapping & Film', count:'9 items' },
+  { id:'bakery', name:'Bakery Packing', count:'6 categories', fromPiece:1.60 },
+  { id:'ppe', name:'Gloves & Caps', count:'8 items', fromPiece:0.95 },
+  { id:'clean', name:'Cleaning Supplies', count:'14 items', fromPiece:38 },
+  { id:'bins', name:'Dustbins', count:'7 items', fromPiece:210 },
+  { id:'carry', name:'Carry Bags', count:'11 items', fromPiece:1.10 }
+];
+
+// Placeholder tokens — nothing here is a verified claim.
+const tok = n => '{' + '{' + n + '}}';
+const T = { reorder: tok('REORDER_COUNT'), dispatch: tok('DISPATCH_PROMISE'), freight: tok('FREIGHT_RULE') };
+
+const rupee = n => '₹' + Number(n).toLocaleString('en-IN', Number(n) < 100
+  ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+  : { maximumFractionDigits: 2 });
+const money = n => '₹' + Math.round(n).toLocaleString('en-IN');
+const qty = n => Number(n).toLocaleString('en-IN');
+
+const LAST = {};
+ORDERS.forEach(o => o.lines.forEach(([id]) => { if (!LAST[id]) LAST[id] = o.short; }));
+
+// Festival themes: accent + hero gradient + optional corner motif only.
+// Red (#dc2626) stays the brand colour in every theme.
+const SCRIM_M = 'linear-gradient(90deg, rgba(15,23,42,0.86) 0%, rgba(15,23,42,0.52) 52%, rgba(15,23,42,0.06) 100%)';
+const SCRIM_D = 'linear-gradient(90deg, rgba(15,23,42,0.88) 0%, rgba(15,23,42,0.55) 45%, rgba(15,23,42,0.05) 85%)';
+// Lucide icon paths, inlined — no icon library ships to the browser.
+const ICON = {
+  flame: 'M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z',
+  sparkles: 'm12 3-1.9 5.8a2 2 0 0 1-1.29 1.29L3 12l5.8 1.9a2 2 0 0 1 1.29 1.29L12 21l1.9-5.8a2 2 0 0 1 1.29-1.29L21 12l-5.8-1.9a2 2 0 0 1-1.29-1.29z',
+  gift: 'M20 12v10H4V12 M2 7h20v5H2z M12 22V7 M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
+  droplet: 'M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z',
+  umbrella: 'M22 12a10.06 10.06 0 0 0-20 0z M12 12v8a2 2 0 0 0 4 0 M12 2v1',
+  flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z M4 22V15',
+  box: 'M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M3.3 7 12 12l8.7-5 M12 22V12'
+};
+let motifSeq = 0;
+const ic = (name, color, glow) => ({ d: ICON[name], color, glow, delay: (-1.2 * motifSeq++) + 's' });
+const THEMES = {
+  default:      { label: 'Default', accent: '#dc2626', swatch: '#dc2626', tint: null, motif: [] },
+  diwali:       { label: 'Diwali', accent: '#f59e0b', swatch: '#f59e0b',
+                  tint: 'linear-gradient(180deg, rgba(245,158,11,0.26) 0%, rgba(180,83,9,0.10) 45%, rgba(15,23,42,0) 70%)',
+                  motif: [ic('flame','#fbbf24','rgba(251,191,36,0.8)'), ic('sparkles','#fcd34d','rgba(252,211,77,0.75)'), ic('gift','#f59e0b','rgba(245,158,11,0.75)')] },
+  holi:         { label: 'Holi', accent: '#db2777', swatch: '#db2777',
+                  tint: 'linear-gradient(120deg, rgba(219,39,119,0.24) 0%, rgba(250,204,21,0.16) 42%, rgba(14,165,233,0.20) 76%, rgba(15,23,42,0) 100%)',
+                  motif: [ic('sparkles','#db2777','rgba(219,39,119,0.75)'), ic('droplet','#facc15','rgba(250,204,21,0.75)'), ic('sparkles','#0ea5e9','rgba(14,165,233,0.75)')] },
+  monsoon:      { label: 'Monsoon', accent: '#0d9488', swatch: '#0d9488',
+                  tint: 'linear-gradient(180deg, rgba(13,148,136,0.28) 0%, rgba(15,118,110,0.10) 50%, rgba(15,23,42,0) 75%)',
+                  motif: [ic('umbrella','#5eead4','rgba(94,234,212,0.7)'), ic('droplet','#2dd4bf','rgba(45,212,191,0.7)'), ic('box','#99f6e4','rgba(153,246,228,0.6)')] },
+  independence: { label: 'Independence', accent: '#16a34a', swatch: '#16a34a',
+                  tint: 'linear-gradient(90deg, rgba(15,23,42,0) 0%, rgba(255,153,51,0.18) 55%, rgba(22,163,74,0.24) 100%)',
+                  motif: [ic('flag','#ff9933','rgba(255,153,51,0.75)'), ic('sparkles','#ffffff','rgba(255,255,255,0.6)'), ic('box','#4ade80','rgba(74,222,128,0.7)')] }
+};
+// 4 hero slides, 16s cycle. Negative delays stagger them without a first-pass gap.
+const HERO = [
+  { key: 'clean', delay: '0s', hint: 'Cleaning supplies — bottles, mops, wipes', src: 'https://cdn.gamma.app/z70qqj44dztg0jw/design-anything/9NqD95Fkdyp0a8soSJ2HO/NiNGur57X91L9mbYHQ04q.png', srcD: 'https://cdn.gamma.app/z70qqj44dztg0jw/design-anything/4sgqYuoe9HByZsVO1b4Ip/okhpGW3iBB3XJ8vBaIuOC.png' },
+  { key: 'bins',  delay: '-12s', hint: 'Dustbins & waste bins' },
+  { key: 'cups',  delay: '-8s',  hint: 'Paper cups & food containers' },
+  { key: 'rolls', delay: '-4s',  hint: 'Packaging rolls & films' }
+];
+
+class Component extends DCLogic {
+  state = {
+    view: null, screen: 'home', pid: 'cupholder', prev: 'home',
+    cat: 'all', signedIn: null, toast: '', theme: null, heroReady: false,
+    cart: { cupholder: { qty: 700 } },
+    prodQty: 700,
+    bannerIx: { top: 0, mid: 0 },
+    deepScroll: false
+  };
+  bannerRefs = { top: React.createRef(), mid: React.createRef() };
+  scrollRef = React.createRef();
+
+  componentDidMount() {
+    // Slide 1 loads eagerly; slides 2-4 only after first paint settles (4G budget).
+    this._hero = setTimeout(() => this.setState({ heroReady: true }), 1400);
+    this._onWin = () => this.markScroll(window.scrollY);
+    window.addEventListener('scroll', this._onWin, { passive: true });
+  }
+  componentWillUnmount() {
+    clearTimeout(this._hero); clearTimeout(this._t);
+    window.removeEventListener('scroll', this._onWin);
+  }
+  markScroll(y) {
+    const deep = y > 1200;
+    if (deep !== this.state.deepScroll) this.setState({ deepScroll: deep });
+  }
+  toTop() {
+    const el = this.scrollRef.current;
+    if (el && el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  bannerList(slot) {
+    const off = slot === 'top' ? this.props.topBannerOn === false : this.props.midBannerOn === false;
+    return off ? [] : BANNERS.filter(b => b.slot === slot && b.on !== false);
+  }
+  goBanner(slot, ix) {
+    this.setState({ bannerIx: { ...this.state.bannerIx, [slot]: ix } });
+  }
+  bannerVals(slot, sizeKey) {
+    const list = this.bannerList(slot);
+    const ix = this.state.bannerIx[slot];
+    const trade = this.signed();
+    return {
+      show: list.length > 0,
+      multi: list.length > 1,
+      shift: 'translateX(-' + (Math.min(ix, Math.max(0, list.length - 1)) * 100) + '%)',
+      items: list.map(b => ({
+        slotId: 'bn-' + sizeKey + '-' + b.id, img: b.img, hint: b.hint,
+        headline: b.headline, rate: b.rate || '', showRate: trade && !!b.rate,
+        go: () => this.go('catalog', { cat: b.target.cat })
+      })),
+      dots: list.map((b, i) => ({
+        bg: i === ix ? '#0f172a' : 'rgba(15,23,42,0.22)',
+        go: () => this.goBanner(slot, i)
+      }))
+    };
+  }
+  theme() { const t = this.state.theme; return THEMES[t == null ? (this.props.siteTheme ?? 'default') : t] || THEMES.default; }
+
+  signed() { const s = this.state.signedIn; return s == null ? (this.props.signedIn ?? false) : s; }
+  mobile() { const v = this.state.view; return (v == null ? (this.props.startView ?? 'mobile') : v) === 'mobile'; }
+
+  ping(msg) {
+    clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2400);
+  }
+  go(screen, extra) { this.setState({ prev: this.state.screen, screen, ...(extra || {}) }); window.scrollTo(0, 0); }
+  openProduct(id) {
+    const p = P.find(x => x.id === id);
+    const line = this.state.cart[id];
+    this.go('product', { pid: id, prodQty: line ? line.qty : p.moq });
+  }
+
+  add(id) {
+    const p = P.find(x => x.id === id);
+    this.setState({ cart: { ...this.state.cart, [id]: { qty: p.moq } } });
+    this.ping('Added ' + qty(p.moq) + ' pcs — MOQ pre-filled');
+  }
+  step(id, dir) {
+    const p = P.find(x => x.id === id);
+    const line = this.state.cart[id];
+    if (!line) return;
+    const stepBy = p.packSize > 1 ? p.packSize : 1;
+    const next = Math.max(0, line.qty + dir * stepBy);
+    const cart = { ...this.state.cart };
+    if (next === 0) delete cart[id]; else cart[id] = { qty: next };
+    this.setState({ cart });
+  }
+  remove(id) { const cart = { ...this.state.cart }; delete cart[id]; this.setState({ cart }); }
+  fixMoq(id) {
+    const p = P.find(x => x.id === id);
+    this.setState({ cart: { ...this.state.cart, [id]: { qty: p.moq } } });
+    this.ping('Quantity raised to MOQ ' + qty(p.moq) + ' pcs');
+  }
+  signIn() { this.setState({ signedIn: true }); this.ping('Signed in — your rates are now visible'); }
+  share(p) { this.ping('WhatsApp share link ready — ' + p.name); }
+
+  orderRuleFor(p) {
+    return 'MOQ ' + qty(p.moq) + ' pcs (' + qty(Math.ceil(p.moq / p.packSize)) + (p.packSize > 1 ? ' packs' : ' rolls')
+      + ') · order in steps of ' + qty(p.packSize) + (p.packSize > 1 ? ' pcs' : ' roll');
+  }
+
+  card(p) {
+    const trade = this.signed();
+    const line = this.state.cart[p.id];
+    return {
+      id: p.id, name: p.name, brand: p.brand,
+      slot: 'ps-' + p.id, listSlot: 'pl-' + p.id, gridSlot: 'pg-' + p.id,
+      slotHint: p.name, imgSrc: PIMG[p.id],
+      hasPhoto: p.photo !== false, noPhoto: p.photo === false,
+      packSize: qty(p.packSize),
+      packChip: p.packSize > 1 ? (BOXED[p.cat] ? 'Box of ' : 'Pack of ') + qty(p.packSize) : (p.rollSpec ? 'Roll · ' + p.rollSpec : ''),
+      showPack: p.packSize > 1 || !!p.rollSpec,
+      dispatchLabel: 'Dispatch ' + T.dispatch,
+      packSpec: p.packSize > 1 ? qty(p.packSize) + ' pcs/pack' : 'Single roll',
+      moqLabel: qty(p.moq) + ' pcs',
+      stepLabel: qty(p.packSize) + (p.packSize > 1 ? ' pcs' : ' roll'),
+      isTrade: trade, isGuest: !trade,
+      rate: rupee(p.piece),
+      rateUnit: '/ 1 pcs',
+      packPriceLabel: p.packSize > 1 ? money(p.piece * p.packSize) + ' per pack of ' + qty(p.packSize) : 'Sold per roll',
+      showLast: trade && !!LAST[p.id],
+      lastOrdered: LAST[p.id] ? 'Last ordered ' + LAST[p.id] : '',
+      inCart: !!line, notInCart: !line,
+      cartQtyLabel: line ? qty(line.qty) + ' pcs' : '',
+      open: () => this.openProduct(p.id),
+      add: () => this.add(p.id),
+      inc: () => this.step(p.id, 1),
+      dec: () => this.step(p.id, -1),
+      share: () => this.share(p)
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const themeKey = s.theme == null ? (this.props.siteTheme ?? 'default') : s.theme;
+    const th = this.theme();
+    const isMobile = this.mobile();
+    const trade = this.signed();
+    const p = P.find(x => x.id === s.pid) || P[0];
+    const list = s.cat === 'all' ? P : P.filter(x => x.cat === s.cat);
+    const catObj = CATS.find(c => c.id === s.cat);
+
+    const lines = Object.keys(s.cart).map(id => {
+      const pr = P.find(x => x.id === id);
+      const line = s.cart[id];
+      const total = pr.piece * line.qty;
+      return {
+        id, name: pr.name, brand: pr.brand,
+        slot: 'ct-' + id, slotD: 'cd-' + id, imgSrc: PIMG[id],
+        isTrade: trade, isGuest: !trade,
+        price: rupee(pr.piece), rateUnit: '/ 1 pcs',
+        packSpec: pr.packSize > 1 ? qty(pr.packSize) + ' pcs/pack' : 'Single roll',
+        moqLabel: qty(pr.moq) + ' pcs',
+        qtyLabel: qty(line.qty) + ' pcs',
+        packsLabel: pr.packSize > 1 ? qty(Math.ceil(line.qty / pr.packSize)) + ' packs' : qty(line.qty) + ' rolls',
+        total: trade ? money(total) : '—',
+        orderRule: this.orderRuleFor(pr),
+        belowMoq: line.qty < pr.moq,
+        moqWarning: 'Below MOQ — minimum ' + qty(pr.moq) + ' pcs for this SKU',
+        inc: () => this.step(id, 1), dec: () => this.step(id, -1),
+        remove: () => this.remove(id), fix: () => this.fixMoq(id),
+        _total: total, _qty: line.qty, _below: line.qty < pr.moq
+      };
+    });
+    const sub = lines.reduce((a, l) => a + l._total, 0);
+    const pieces = lines.reduce((a, l) => a + l._qty, 0);
+    const anyBelow = lines.some(l => l._below);
+
+    const tabOn = on => on ? '#dc2626' : 'transparent';
+    const tabFg = on => on ? '#ffffff' : '#94a3b8';
+    const fromLabel = c => {
+      const inCat = P.filter(x => x.cat === c.id);
+      const min = inCat.length ? Math.min.apply(null, inCat.map(x => x.piece)) : c.fromPiece;
+      return trade ? 'From ' + rupee(min) + '/pc' : 'Sign in for rates';
+    };
+
+    return {
+      isMobile, isDesktop: !isMobile,
+      setMobile: () => this.setState({ view: 'mobile' }),
+      setDesktop: () => this.setState({ view: 'desktop' }),
+      mobileTabBg: tabOn(isMobile), mobileTabFg: tabFg(isMobile),
+      desktopTabBg: tabOn(!isMobile), desktopTabFg: tabFg(!isMobile),
+      setGuest: () => this.setState({ signedIn: false }),
+      setSignedIn: () => this.setState({ signedIn: true }),
+      guestTabBg: tabOn(!trade), guestTabFg: tabFg(!trade),
+      signedTabBg: tabOn(trade), signedTabFg: tabFg(trade),
+      reviewNote: trade ? 'Signed in: per-piece rates visible' : 'Guest: rates hidden until sign in',
+      isGuest: !trade, isTrade: trade,
+      signInNow: () => this.signIn(),
+
+      isHome: s.screen === 'home', isCatalog: s.screen === 'catalog',
+      isProduct: s.screen === 'product', isCart: s.screen === 'cart',
+      isAccount: s.screen === 'account',
+      goAccount: () => this.go('account'),
+      goHome: () => this.go('home'), goCatalog: () => this.go('catalog', { cat: 'all' }),
+      goCart: () => this.go('cart'), goBack: () => this.go(s.prev === s.screen ? 'home' : s.prev),
+      authLabel: trade ? 'Rajesh · Kadam Foods' : 'Login / Sign up',
+
+      dispatchLine: 'Freight ' + T.freight,
+      deliveryNote: 'Surat & Gujarat · dispatch ' + T.dispatch + '. Freight ' + T.freight + '. Dispatch confirmation shared on WhatsApp.',
+      searchPlaceholder: 'Search cups, containers, napkins, foil…',
+      gridNote: trade
+        ? 'Per-piece rate and MOQ on every card'
+        : 'Sign in to see per-piece rates · MOQ shown on every card',
+      priceBasisNote: trade ? 'Rate / 1 pcs' : 'Rates after sign in',
+      emptyNote: 'Add products — quantities are pre-filled to each SKU MOQ.',
+      historyNote: 'Quantity and rate saved on every line',
+      guestPitch: 'Signed-in business accounts see per-piece rates, order history and one-tap reorder.',
+      qtyHeadNote: trade ? 'MOQ ' + qty(p.moq) + ' pcs · steps of ' + qty(p.packSize) : 'Sign in to see rates and totals',
+
+      cats: CATS.map((c, i) => ({
+        ...c, countLabel: c.count, tileBg: TILE_BG[i % TILE_BG.length],
+        fromLabel: fromLabel(c), fromFg: trade ? '#15803d' : '#dc2626',
+        slot: 'cat-' + c.id, sideSlot: 'catsb-' + c.id, slotHint: c.name, imgSrc: CIMG[c.id],
+        open: () => this.go('catalog', { cat: c.id })
+      })),
+      railCats: [{ id: 'all', name: 'All', count: P.length + ' items' }].concat(CATS).map(c => {
+        const on = s.cat === c.id;
+        return {
+          ...c, railSlot: 'rail-' + c.id, imgSrc: CIMG[c.id],
+          railBg: on ? '#fef2f2' : 'transparent', railBar: on ? '#dc2626' : 'transparent',
+          railFg: on ? '#b91c1c' : '#475569',
+          open: () => this.go('catalog', { cat: c.id })
+        };
+      }),
+      catTitle: s.cat === 'all' ? 'All products' : (catObj ? catObj.name : 'Catalogue'),
+      resultLabel: list.length + ' SKUs · ' + (trade ? 'per-piece rates' : 'rates after sign in'),
+      listing: list.map(x => this.card(x)),
+      featured: P.slice(0, 4).map(x => this.card(x)),
+      gridProducts: P.slice(0, 12).map(x => this.card(x)),
+
+      bannerTop: this.bannerVals('top', isMobile ? 'm' : 'd'),
+      bannerMid: this.bannerVals('mid', isMobile ? 'm' : 'd'),
+      showToTop: isMobile && s.deepScroll && (s.screen === 'catalog' || s.screen === 'home'),
+      showToTopDesktop: !isMobile && s.deepScroll && (s.screen === 'catalog' || s.screen === 'home'),
+      toTop: () => this.toTop(),
+      onShellScroll: e => this.markScroll(e.currentTarget.scrollTop),
+      shellRef: this.scrollRef,
+      homeRows: [
+        { key: 'fast', title: 'Fast moving', items: P.slice(0, 6) },
+        { key: 'new', title: 'New in', items: P.slice(4, 10) }
+      ].concat(trade ? [{ key: 'again', title: 'You ordered before', items: Object.keys(LAST).map(id => P.find(x => x.id === id)).filter(Boolean) }] : [])
+       .map(r => ({ key: r.key, title: r.title, items: r.items.map(x => ({ ...this.card(x), rowSlot: 'row-' + r.key + '-' + x.id })) })),
+
+      accent: th.accent,
+      heroScrimM: th.tint ? th.tint + ', ' + SCRIM_M : SCRIM_M,
+      heroScrimD: th.tint ? th.tint + ', ' + SCRIM_D : SCRIM_D,
+      motif: th.motif,
+      themeBtns: Object.keys(THEMES).map(k => ({
+        label: THEMES[k].label, swatch: THEMES[k].swatch,
+        bg: k === themeKey ? '#ffffff' : 'transparent',
+        fg: k === themeKey ? '#0f172a' : '#94a3b8',
+        set: () => this.setState({ theme: k })
+      })),
+      heroSlidesM: HERO.map((h, i) => ({
+        slot: 'heroM-' + h.key, delay: h.delay, hint: h.hint,
+        src: i === 0 || this.state.heroReady ? h.src : undefined
+      })),
+      heroSlidesD: HERO.map((h, i) => ({
+        slot: 'heroD-' + h.key, delay: h.delay, hint: h.hint,
+        src: i === 0 || this.state.heroReady ? (h.srcD || h.src) : undefined
+      })),
+      stripItems: [0, 1].flatMap(copy => P.slice(0, 8).map(p => ({
+        slotM: 'stripM' + copy + '-' + p.id, slotD: 'stripD' + copy + '-' + p.id,
+        src: PIMG[p.id], hint: p.name, name: p.name,
+        open: () => this.openProduct(p.id)
+      }))),
+
+
+      prod: {
+        ...this.card(p),
+        mainSlot: 'pdp-' + p.id, mainSlotD: 'pdpd-' + p.id,
+        catName: p.catName, sku: p.sku, material: p.material, desc: p.desc,
+        lineTotal: trade ? money(p.piece * s.prodQty) : '—',
+        packsLabel: p.packSize > 1 ? qty(Math.ceil(s.prodQty / p.packSize)) + ' packs' : qty(s.prodQty) + ' rolls',
+        orderRule: this.orderRuleFor(p),
+        qtyFacts: [
+          { big: qty(p.moq) + ' pcs', label: 'Minimum order for this SKU' },
+          { big: qty(p.packSize) + (p.packSize > 1 ? ' pcs' : ' roll'), label: 'Order step (one pack)' },
+          { big: trade ? rupee(p.piece) : 'Sign in', label: trade ? 'Rate per piece' : 'Rate visible after sign in' }
+        ],
+        qtyLabel: qty(s.prodQty) + ' pcs',
+        inc: () => this.setState({ prodQty: s.prodQty + p.packSize }),
+        dec: () => this.setState({ prodQty: Math.max(p.packSize, s.prodQty - p.packSize) }),
+        addLabel: trade ? 'Add to cart · ' + money(p.piece * s.prodQty) : 'Add to cart',
+        addSelected: () => {
+          this.setState({ cart: { ...s.cart, [p.id]: { qty: s.prodQty } } });
+          this.ping('Added ' + qty(s.prodQty) + ' pcs to cart');
+        },
+        specs: [
+          { k: 'SKU', v: p.sku }, { k: 'Brand', v: p.brand }, { k: 'Material', v: p.material },
+          { k: 'Pack size', v: p.packSize > 1 ? qty(p.packSize) + ' pcs/pack' : '1 roll' },
+          { k: 'MOQ', v: qty(p.moq) + ' pcs' },
+          { k: 'Order step', v: qty(p.packSize) + (p.packSize > 1 ? ' pcs' : ' roll') }
+        ],
+        thumbs: ['Front', 'Stack', 'In use', 'Carton'].map((label, i) => ({
+          label, slot: 'th-' + p.id + '-' + i, bc: i === 0 ? '#dc2626' : '#e2e8f0',
+          imgSrc: i === 0 ? PIMG[p.id] : undefined
+        })),
+        thumbsD: ['Front', 'Stack', 'In use', 'Carton'].map((label, i) => ({
+          label, slot: 'thd-' + p.id + '-' + i, bc: i === 0 ? '#dc2626' : '#e2e8f0',
+          imgSrc: i === 0 ? PIMG[p.id] : undefined
+        }))
+      },
+
+      lines, cartEmpty: lines.length === 0, cartFilled: lines.length > 0,
+      cartCount: lines.length,
+      cartCountLabel: lines.length + (lines.length === 1 ? ' item · ' : ' items · ') + qty(pieces) + ' pcs',
+      cartBarLabel: lines.length + (lines.length === 1 ? ' item' : ' items') + ' · ' + qty(pieces) + ' pcs',
+      cartBarTotal: trade ? money(sub) : 'Sign in for rates',
+      cartBarCta: s.screen === 'cart' ? 'Checkout' : 'View cart',
+      showCartBar: lines.length > 0,
+      summary: [
+        { k: 'Subtotal (' + qty(pieces) + ' pcs)', v: trade ? money(sub) : '—', kc: '#64748b', vc: '#0f172a' },
+        { k: 'Freight', v: T.freight, kc: '#64748b', vc: '#0f172a' }
+      ],
+      total: trade ? money(sub) : '—',
+      checkoutBg: anyBelow ? '#cbd5e1' : '#dc2626',
+      checkoutLabel: anyBelow ? 'Fix MOQ to continue' : (trade ? 'Proceed to checkout' : 'Sign in to place order'),
+      checkoutNote: anyBelow
+        ? 'One or more lines are below their MOQ. Raise them to continue.'
+        : (trade ? 'Payment on delivery or advance UPI. Freight ' + T.freight + '.' : 'Sign in to see rates, totals and to place the order.'),
+
+      acct: {
+        isGuest: !trade,
+        initials: trade ? 'RK' : 'G',
+        name: trade ? 'Rajesh Kadam' : 'Guest user',
+        sub: trade ? 'Kadam Foods · Surat 395010' : 'Not signed in · rates hidden',
+        signIn: () => this.signIn(),
+        stats: trade
+          ? [{ big: '18', label: 'Orders placed' }, { big: '₹2.4L', label: 'Ordered this year' }, { big: T.reorder, label: 'Saved for reorder' }]
+          : [{ big: '—', label: 'Orders placed' }, { big: '—', label: 'Ordered this year' }, { big: '—', label: 'Saved for reorder' }],
+        orders: (trade ? ORDERS : ORDERS.slice(0, 1)).map(o => ({
+          ...o,
+          total: trade ? o.total : '—',
+          statusBg: o.status === 'Delivered' ? '#dcfce7' : o.status === 'In transit' ? '#fffbeb' : '#f1f5f9',
+          statusFg: o.status === 'Delivered' ? '#15803d' : o.status === 'In transit' ? '#b45309' : '#475569',
+          reorder: () => {
+            const cart = { ...s.cart };
+            o.lines.forEach(([id, q]) => { if (P.find(x => x.id === id)) cart[id] = { qty: q }; });
+            this.setState({ cart });
+            this.go('cart');
+            this.ping('Reordered ' + o.id);
+          }
+        })),
+        rows: [
+          { icon: 'BZ', label: 'Business details', sub: trade ? 'Kadam Foods · Restaurant' : 'Add after sign in' },
+          { icon: 'AD', label: 'Delivery addresses', sub: trade ? '2 saved · Surat, Kamrej' : 'None saved' },
+          { icon: 'PY', label: 'Payment preference', sub: 'Cash on delivery · advance UPI' },
+          { icon: 'WA', label: 'WhatsApp updates', sub: 'Order and dispatch alerts on' },
+          { icon: 'HP', label: 'Help & support', sub: '+91 97732 39442 · 9 AM–8 PM' }
+        ]
+      },
+      footerPoints: [{ label: 'Product catalogue' }, { label: 'Per-piece rates' }, { label: 'Quick reorder' }, { label: 'WhatsApp ordering' }],
+      topNav: [
+        { label: 'Home', go: () => this.go('home') },
+        { label: 'Best sellers', go: () => this.go('catalog', { cat: 'all' }) },
+        { label: 'New arrivals', go: () => this.go('catalog', { cat: 'container' }) },
+        { label: 'Offers zone', go: () => this.go('catalog', { cat: 'ripple' }) },
+        { label: 'My account', go: () => this.go('account') }
+      ],
+      filterGroups: [
+        { title: 'MOQ', opts: [{ label: '≤ 500 pcs' }, { label: '1,000 pcs' }, { label: '3,000 pcs' }, { label: '5,000+ pcs' }] },
+        { title: 'Per-piece rate', opts: [{ label: 'Under ₹1' }, { label: '₹1 – ₹5' }, { label: '₹5 – ₹20' }, { label: '₹20+' }] },
+        { title: 'Material', opts: [{ label: 'Kraft paper' }, { label: 'Areca leaf' }, { label: 'RPET' }, { label: 'PP' }] },
+        { title: 'Brand', opts: [{ label: 'Packworld' }, { label: 'XL Value' }, { label: 'EcoPack' }, { label: 'Falcon' }] }
+      ],
+      nav: [
+        { label: 'Home', key: 'home', screen: 'home', d: NAV_ICON.home },
+        { label: 'Categories', key: 'cats', screen: 'catalog', d: NAV_ICON.grid },
+        { label: 'Search', key: 'search', screen: 'search', d: NAV_ICON.search },
+        { label: 'Cart', key: 'cart', screen: 'cart', d: NAV_ICON.cart },
+        { label: 'Account', key: 'account', screen: 'account', d: NAV_ICON.user }
+      ].map(n => {
+        const on = s.screen === n.screen;
+        return {
+          ...n,
+          fg: on ? '#dc2626' : '#94a3b8',
+          showBadge: n.key === 'cart' && lines.length > 0,
+          badge: lines.length,
+          go: () => this.go(n.screen === 'search' ? 'catalog' : n.screen, n.key === 'cats' ? { cat: 'all' } : undefined)
+        };
+      }),
+      toast: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

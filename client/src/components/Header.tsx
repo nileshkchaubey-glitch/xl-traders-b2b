@@ -21,6 +21,7 @@ import { useCartStore } from "@/stores/cartStore";
 import MobileNav from "@/components/MobileNav";
 import CartBar from "@/components/cart/CartBar";
 import InstallPrompt from "@/components/InstallPrompt";
+import LocationBar from "@/components/storefront/LocationBar";
 import {
   categoryService,
   productService,
@@ -254,6 +255,12 @@ export default function Header() {
     <>
       {/* PWA install banner — dismissible, shown at most once (see InstallPrompt) */}
       <InstallPrompt />
+
+      {/* Mobile location bar. The prototype puts this at the very top of the
+          phone frame, above the search. It is the mobile counterpart of the
+          utility bar below, which is `hidden md:block` — so before this, a
+          phone visitor saw no dispatch promise, GST line or hours at all. */}
+      <LocationBar />
 
       {/* Utility bar */}
       <div className="bg-slate-900 text-slate-300 text-xs hidden md:block">
