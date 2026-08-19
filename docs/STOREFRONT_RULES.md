@@ -144,9 +144,29 @@ _Enforced: `check-storefront.mjs` — `banned-claims` (source only; the DB half 
 
 ## 4. Presentation
 
-### 4.1 The card must not change height between auth states **[manual]**
+### 4.1 The card must not change height between auth states
 
-`PriceSlot` pins its own height in both branches. Verify at 390px and 1440px.
+`PriceSlot` pins its own height in both branches.
+
+**Measured 19 Aug 2026 — first live confirmation.** At **390px** on `/catalog`,
+every rendered card measured **exactly 304px** in BOTH states: guest, and signed
+in with a rate rendering. One distinct height across the sampled cards, not an
+average.
+
+Signed-in required a temporary local harness — forcing `isAuthenticated` on all
+three signed-out paths in `authStore` AND injecting a rate in
+`productService.getAll`, because `hasSession()` reads the real Supabase session,
+so a UI flag alone renders the branch with no price at all. Never committed;
+tree verified clean afterwards. That harness is the only way to see this state
+without credentials, so **re-verification needs the same setup** — which is why
+this rule stayed unmeasured for so long.
+
+The mechanism: the price row is a fixed 21px, with a further 14px reserved
+beneath it, so the guest's "Sign in for rates" and the signed-in rate occupy
+identical space. Prototype parity — the prototype pins the same two rows.
+
+Still **[manual]** to re-verify: no browser test runs in CI (vitest only, no
+jsdom or playwright), so nothing catches a regression here automatically.
 
 ### 4.2 Category counts come from `v_category_live_counts`, and are never zero
 

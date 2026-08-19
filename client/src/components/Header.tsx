@@ -389,7 +389,7 @@ export default function Header() {
           <div className="flex items-center gap-1.5 md:gap-2 ml-auto md:ml-0 min-w-0">
             <a
               href={`tel:${phone1}`}
-              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition motion-reduce:transition-none"
+              className="hidden lg:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition motion-reduce:transition-none"
             >
               <Phone size={16} />
               Call
@@ -399,14 +399,14 @@ export default function Header() {
               href={`https://wa.me/${whatsappNumber}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-body-sm font-semibold hover:bg-emerald-100 transition motion-reduce:transition-none"
+              className="hidden lg:flex items-center gap-1.5 h-11 px-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-body-sm font-semibold hover:bg-emerald-100 transition motion-reduce:transition-none"
             >
               <MessageCircle size={16} />
               WhatsApp
             </a>
 
             {isAuthenticated ? (
-              <div className="hidden md:flex items-center gap-2">
+              <div className="hidden lg:flex items-center gap-2">
                 {isAdmin && (
                   <Link
                     href="/admin"
@@ -427,7 +427,7 @@ export default function Header() {
             ) : (
               <Link
                 href="/auth"
-                className="hidden md:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition"
+                className="hidden lg:flex items-center gap-1.5 h-11 px-3.5 bg-white text-slate-900 border border-slate-200 rounded-xl text-body-sm font-semibold hover:border-slate-400 transition"
               >
                 <User size={16} />
                 Sign In
@@ -438,7 +438,7 @@ export default function Header() {
                 new Call/WhatsApp icons without crowding or truncating (full text
                 still on the desktop utility bar). */}
             <span
-              className="md:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex-shrink-0"
+              className="lg:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex-shrink-0"
               title={announcement.mobilePill}
             >
               <Truck size={14} aria-hidden="true" />
@@ -450,7 +450,7 @@ export default function Header() {
             <a
               href={`tel:${phone1}`}
               aria-label="Call us"
-              className="md:hidden flex items-center justify-center w-8 h-8 bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition motion-reduce:transition-none flex-shrink-0"
+              className="lg:hidden flex items-center justify-center w-8 h-8 bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition motion-reduce:transition-none flex-shrink-0"
             >
               <Phone size={14} />
             </a>
@@ -459,7 +459,7 @@ export default function Header() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Chat on WhatsApp"
-              className="md:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 rounded-full hover:bg-emerald-100 transition motion-reduce:transition-none flex-shrink-0"
+              className="lg:hidden flex items-center justify-center w-8 h-8 bg-emerald-50 text-emerald-700 rounded-full hover:bg-emerald-100 transition motion-reduce:transition-none flex-shrink-0"
             >
               <MessageCircle size={14} />
             </a>
@@ -480,7 +480,7 @@ export default function Header() {
             {/* Mobile menu toggle */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 hover:bg-slate-100 rounded-lg transition"
+              className="lg:hidden p-2 hover:bg-slate-100 rounded-lg transition"
               aria-label="Menu"
             >
               {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -525,7 +525,7 @@ export default function Header() {
 
         {/* Mobile menu */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-slate-200 bg-slate-50">
+          <div className="lg:hidden border-t border-slate-200 bg-slate-50">
             <div className="px-4 py-4 space-y-1">
               <Link
                 href="/catalog"
