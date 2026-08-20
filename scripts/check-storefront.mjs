@@ -567,6 +567,89 @@ rule(
   }
 );
 
+rule(
+  "arbitrary-text-size",
+  "Storefront type comes from the role tokens, not text-[Npx] (DESIGN_SYSTEM §1.2)",
+  report => {
+    // A RATCHET, and it says so — a rule that cannot pass on the day it lands
+    // is a rule people disable.
+    //
+    // The prototype-derived role scale (#170) is what finally made this
+    // enforceable. Before it the token set was too small to express the design,
+    // so `text-[Npx]` was the only way to build the card — the migration
+    // stalled on an incomplete scale, not on carelessness.
+    //
+    // These files still carry legacy arbitrary sizes. Listed, not silently
+    // excluded, and the list may only ever SHRINK: a new file reaching for an
+    // arbitrary size fails immediately.
+    const LEGACY = new Set([
+      "components/cart/CartBar.tsx",
+      "components/home/HomeCategoryGrid.tsx",
+      "components/InstallPrompt.tsx",
+      "components/MobileNav.tsx",
+      "components/ProductCard.tsx",
+      "components/storefront/HeroSlideshow.tsx",
+      "components/storefront/LocationBar.tsx",
+      "pages/Cart.tsx",
+      "pages/Categories.tsx",
+      "pages/ProductDetail.tsx",
+      // Admin. The checker excludes components/admin/** but never pages/Admin*
+      // — a pre-existing scope gap this rule surfaced. Admin type was always
+      // out of scope for the storefront pass (DESIGN_SYSTEM §1.4), so it is
+      // listed here rather than widening the GLOBAL exclusion, which would
+      // quietly stop every other rule scanning these two files too.
+      "pages/AdminDashboard.tsx",
+      "pages/AdminProductEditor.tsx",
+    ]);
+    const ARB = /text-\[[0-9.]+px\]/;
+    for (const file of FILES) {
+      const rel = relative(SRC, file).split(sep).join("/");
+      if (LEGACY.has(rel)) continue;
+      const lines = stripComments(readFileSync(file, "utf8")).split("\n");
+      lines.forEach((text, i) => {
+        const m = text.match(ARB);
+        if (m) {
+          report(
+            file,
+            i + 1,
+            `${m[0]} — use a role token (text-price-card, text-chip, text-meta, …)`
+          );
+        }
+      });
+    }
+  }
+);
+
+rule(
+  "section-rhythm",
+  "Storefront sections use the documented step (DESIGN_SYSTEM §1.4)",
+  report => {
+    // The prototype's section rhythm is margin-top 14px mobile / 26px desktop —
+    // ONE gap between sections, not padding on both sides. `pt-3.5
+    // md:pt-[26px]` reproduces it.
+    //
+    // Before this, the code used `py-8 md:py-12`, which is not one of the three
+    // steps §1.4 itself documented: the doc and the code had drifted apart, and
+    // nothing noticed because nothing checked.
+    const SECTION = /<section className="xl-shell([^"]*)"/g;
+    const PAD = /\b(?:py|pt)-[^\s"]+/g;
+    for (const file of FILES) {
+      const code = stripComments(readFileSync(file, "utf8"));
+      for (const m of code.matchAll(SECTION)) {
+        const cls = m[1];
+        const pad = cls.match(PAD);
+        if (!pad) continue;
+        if (cls.includes("pt-3.5") && cls.includes("md:pt-[26px]")) continue;
+        report(
+          file,
+          code.slice(0, m.index).split("\n").length,
+          `section uses ${pad.join(" ")} — the documented step is pt-3.5 md:pt-[26px]`
+        );
+      }
+    }
+  }
+);
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 const RED = "\x1b[31m";
