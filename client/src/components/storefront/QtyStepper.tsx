@@ -53,7 +53,9 @@ export default function QtyStepper({
     e.stopPropagation();
     if (inPcs) {
       // Step in pieces, then convert once — never step packs and relabel.
-      onChange(packsFromPcs(stepPcs(pcsFromPacks(packs, spec), delta, spec), spec));
+      onChange(
+        packsFromPcs(stepPcs(pcsFromPacks(packs, spec), delta, spec), spec)
+      );
     } else {
       onChange(stepPacks(packs, delta, spec));
     }
@@ -73,10 +75,14 @@ export default function QtyStepper({
         <Minus size={lg ? 17 : 14} strokeWidth={3} />
       </button>
       <div className="flex-1 text-center leading-none">
-        <div className={`font-extrabold tabular-nums ${lg ? "text-[17px]" : "text-[13px]"}`}>
+        <div
+          className={`font-extrabold tabular-nums ${lg ? "text-price-detail" : "text-heading-sub"}`}
+        >
           {shown.toLocaleString("en-IN")}
         </div>
-        <div className={`font-bold uppercase tracking-wide opacity-80 ${lg ? "text-[10px]" : "text-[8.5px]"}`}>
+        <div
+          className={`font-bold uppercase tracking-wide opacity-80 ${lg ? "text-chip-lg" : "text-chip"}`}
+        >
           {inPcs ? "pcs" : spec.noun}
         </div>
       </div>

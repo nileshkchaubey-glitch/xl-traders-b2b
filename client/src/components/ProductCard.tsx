@@ -140,13 +140,13 @@ export default function ProductCard({
   const body = (
     <div className="flex flex-1 flex-col px-3 pb-3 pt-5">
       {brand && (
-        <div className="truncate text-caption font-semibold uppercase tracking-wide text-slate-400">
+        <div className="truncate text-brand lg:text-brand-lg font-bold uppercase tracking-wide text-slate-400">
           {brand}
         </div>
       )}
       <Link
         href={href}
-        className="text-body-sm font-bold leading-snug text-slate-900 line-clamp-2 hover:text-red-600 transition"
+        className="text-product-name lg:text-product-name-lg font-bold leading-snug text-slate-900 line-clamp-2 hover:text-red-600 transition"
       >
         {product.name}
       </Link>
@@ -154,7 +154,7 @@ export default function ProductCard({
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <MoqChip spec={spec} />
         {spec.unit === "pcs" && line && (
-          <span className="text-[10.5px] font-semibold text-slate-500 tabular-nums">
+          <span className="text-meta lg:text-meta-lg font-semibold text-slate-500 tabular-nums">
             {formatOrderQty(line.packs, spec).secondary}
           </span>
         )}
