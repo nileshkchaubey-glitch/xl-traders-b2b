@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import type { Product } from "@/lib/supabase";
-import {
-  productService,
-  type PublicProductSort,
-} from "@/lib/productService";
+import { productService, type PublicProductSort } from "@/lib/productService";
 import ProductCard from "@/components/ProductCard";
 import SectionEyebrow from "@/components/SectionEyebrow";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,7 +56,7 @@ export default function MerchandisedRow({
   if (!loading && products.length === 0) return null;
 
   return (
-    <section className="xl-shell py-8 md:py-12">
+    <section className="xl-shell pt-3.5 md:pt-[26px]">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <SectionEyebrow>{eyebrow}</SectionEyebrow>
@@ -79,7 +76,10 @@ export default function MerchandisedRow({
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="overflow-hidden rounded-2xl border border-slate-200">
+              <div
+                key={i}
+                className="overflow-hidden rounded-2xl border border-slate-200"
+              >
                 <Skeleton className="aspect-[4/3] w-full" />
                 <div className="space-y-2 p-3">
                   <Skeleton className="h-3 w-3/4" />

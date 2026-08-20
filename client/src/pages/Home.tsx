@@ -81,7 +81,7 @@ export default function Home() {
 
         {/* Sign-in hook — anonymous only. */}
         {!isAuthenticated && (
-          <section className="xl-shell py-8">
+          <section className="xl-shell pt-3.5 md:pt-[26px]">
             <div className="flex flex-col items-start gap-4 rounded-2xl bg-slate-900 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <Lock
@@ -109,7 +109,7 @@ export default function Home() {
         )}
 
         {/* Why XL Traders — the single place trust content appears. */}
-        <section className="xl-shell py-8 md:py-12">
+        <section className="xl-shell pt-3.5 md:pt-[26px]">
           <SectionEyebrow>Why XL Traders</SectionEyebrow>
           <h2 className="mb-5 text-xl font-extrabold tracking-tight md:text-2xl">
             Built for businesses that reorder
@@ -155,7 +155,7 @@ export default function Home() {
         </section>
 
         {/* Bulk quote */}
-        <section className="xl-shell pb-8 md:pb-12">
+        <section className="xl-shell pt-3.5 md:pt-[26px]">
           <div className="flex flex-col items-start gap-4 rounded-2xl bg-slate-900 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <SectionEyebrow tone="dark">{bulkBanner.eyebrow}</SectionEyebrow>
@@ -179,7 +179,7 @@ export default function Home() {
         </section>
 
         {/* Service areas + FAQ */}
-        <section className="xl-shell grid gap-6 pb-10 md:pb-16 lg:grid-cols-[320px_1fr]">
+        <section className="xl-shell grid gap-6 pt-3.5 pb-10 md:pt-[26px] md:pb-16 lg:grid-cols-[320px_1fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <SectionEyebrow>Where we deliver</SectionEyebrow>
             <div className="mt-2 flex flex-wrap gap-1.5">

@@ -153,14 +153,30 @@ the `--chart-*` and `--sidebar-*` ramps, etc.). Notable:
 
 - **Spacing rhythm (storefront sections):** a documented convention, not a new token layer —
   Tailwind's numeric spacing scale already covers every step needed:
-  - `py-8` — compact utility strips (kept distinct; not part of the 3-step "section" rhythm)
-  - `py-12 md:py-16` — standard content sections (category grid, featured/showcase, trust)
+
+  > **Replaced 19 Aug 2026 by the prototype's rhythm.** The three steps below were
+  > the pre-prototype convention, and the code had already drifted off them —
+  > `py-8 md:py-12` shipped in four places and is not one of the three. Nothing
+  > noticed because nothing checked.
+  >
+  > **The step is now `pt-3.5 md:pt-[26px]`** — one step, from the prototype's
+  > section wrappers (`margin-top: 14px` mobile / `26px` desktop). Note it is a
+  > TOP padding, not `py`: the prototype puts a single gap between sections, where
+  > `py` on both sides doubles at every boundary. Shipped `py-8 md:py-12` produced
+  > a 64/96px gap; measured after, adjacent sections sit at exactly **26px**.
+  >
+  > _Enforced: `check-storefront.mjs` — `section-rhythm`._
+
+  Superseded steps, kept for reading old code:
+  - `py-8` — compact utility strips
+  - `py-12 md:py-16` — standard content sections
   - `py-14 md:py-20` — hero only
     New full-width Home sections should pick the step matching their visual weight instead of
     a one-off `py-*` value. See `client/src/index.css`'s comment block above `@layer base` and
     `docs/STOREFRONT_DESIGN_PROPOSALS.md` §4 for the full rationale (including why the two
     slim utility strips — trust strip, marquee — are deliberately excluded from this rhythm
     rather than forced into it).
+
 - **Radii:** come from `--radius` (0.65rem) via `rounded-lg`/`rounded-xl`. Cards are
   typically `rounded-xl border border-slate-200`.
 - **Container:** `client/src/index.css`'s `.xl-shell` utility is the single mechanism for
