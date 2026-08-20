@@ -7,6 +7,7 @@ import HeroSlideshow from "@/components/storefront/HeroSlideshow";
 import PromoBanners from "@/components/storefront/PromoBanners";
 import BackToTop from "@/components/storefront/BackToTop";
 import HomeCategoryGrid from "@/components/home/HomeCategoryGrid";
+import HomeSpotlightStrip from "@/components/home/HomeSpotlightStrip";
 import MerchandisedRow from "@/components/home/MerchandisedRow";
 
 import { useAuthStore } from "@/lib/authStore";
@@ -27,22 +28,13 @@ export default function Home() {
   const { isAuthenticated } = useAuthStore();
 
   const [hero, setHero] = useState(FALLBACKS.hero);
-  const [trustPoints, setTrustPoints] = useState(FALLBACKS.trust_points);
-  const [trustStats, setTrustStats] = useState(FALLBACKS.trust_stats);
-  const [serviceAreas, setServiceAreas] = useState(FALLBACKS.service_areas);
-  const [faqs, setFaqs] = useState(FALLBACKS.faqs);
   const [bulkBanner, setBulkBanner] = useState(FALLBACKS.bulk_banner);
-  const [openFaq, setOpenFaq] = useState(-1);
 
   useEffect(() => {
     settingsService
       .getAllContent()
       .then(c => {
         setHero(c.hero);
-        setTrustPoints(c.trust_points);
-        setTrustStats(c.trust_stats);
-        setServiceAreas(c.service_areas);
-        setFaqs(c.faqs);
         setBulkBanner(c.bulk_banner);
       })
       .catch(() => {});
@@ -62,6 +54,8 @@ export default function Home() {
 
         <HomeCategoryGrid />
 
+        <HomeSpotlightStrip />
+
         <MerchandisedRow
           eyebrow="New arrivals"
           title="Just added to the catalogue"
@@ -77,6 +71,7 @@ export default function Home() {
           title="Popular with Surat kitchens"
           featured
           href="/catalog"
+          wide
         />
 
         {/* Sign-in hook — anonymous only. */}
@@ -108,52 +103,6 @@ export default function Home() {
           </section>
         )}
 
-        {/* Why XL Traders — the single place trust content appears. */}
-        <section className="xl-shell pt-3.5 md:pt-[26px]">
-          <SectionEyebrow>Why XL Traders</SectionEyebrow>
-          <h2 className="mb-5 text-xl font-extrabold tracking-tight md:text-2xl">
-            Built for businesses that reorder
-          </h2>
-
-          <div className="mb-5 grid divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-            {trustStats.map(s => (
-              <div key={s.label} className="p-5 text-center">
-                <div
-                  className="text-2xl font-extrabold tracking-tight"
-                  style={{ color: "var(--xl-accent)" }}
-                >
-                  {s.value}
-                </div>
-                <div className="mt-0.5 text-body-sm font-semibold">
-                  {s.label}
-                </div>
-                <div className="mt-0.5 text-xs text-slate-500">{s.sub}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            {trustPoints.map(p => (
-              <div
-                key={p.title}
-                className="rounded-2xl border border-slate-200 bg-white p-4"
-              >
-                <div
-                  className="mb-2 grid h-8 w-8 place-items-center rounded-lg text-body-sm font-extrabold"
-                  style={{
-                    background: "var(--xl-accent-soft)",
-                    color: "var(--xl-accent)",
-                  }}
-                >
-                  {p.glyph}
-                </div>
-                <div className="text-body-sm font-bold">{p.title}</div>
-                <div className="mt-1 text-body-sm text-slate-600">{p.body}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/* Bulk quote */}
         <section className="xl-shell pt-3.5 md:pt-[26px]">
           <div className="flex flex-col items-start gap-4 rounded-2xl bg-slate-900 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -175,52 +124,6 @@ export default function Home() {
               <MessageCircle size={15} />
               Get a quote
             </a>
-          </div>
-        </section>
-
-        {/* Service areas + FAQ */}
-        <section className="xl-shell grid gap-6 pt-3.5 pb-10 md:pt-[26px] md:pb-16 lg:grid-cols-[320px_1fr]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <SectionEyebrow>Where we deliver</SectionEyebrow>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {serviceAreas.map(a => (
-                <span
-                  key={a}
-                  className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-caption font-semibold text-slate-600"
-                >
-                  <MapPin size={10} />
-                  {a}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <SectionEyebrow>FAQ</SectionEyebrow>
-            <h2 className="mb-3 text-xl font-extrabold tracking-tight">
-              Questions we get asked
-            </h2>
-            <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              {faqs.map((f, i) => (
-                <div key={f.q}>
-                  <button
-                    onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
-                    aria-expanded={openFaq === i}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-body-sm font-bold"
-                  >
-                    {f.q}
-                    <span className="flex-shrink-0 text-slate-400">
-                      {openFaq === i ? "−" : "+"}
-                    </span>
-                  </button>
-                  {openFaq === i && (
-                    <p className="px-4 pb-3 text-body-sm text-slate-600">
-                      {f.a}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
           </div>
         </section>
       </main>
