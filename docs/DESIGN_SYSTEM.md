@@ -38,11 +38,77 @@ Named tokens added in the "Phase A" pass (`client/src/index.css`):
 | `--text-display`        | `2.875rem` (46px), line-height `1.08`    | Hero-scale headline (`text-display`)           |
 
 Added in the "Foundation" pass (`docs/STOREFRONT_DESIGN_PROPOSALS.md` §4, PR1): four named
-type-scale tokens filling the gaps in Tailwind's default scale (which already covers
-xs/sm/base/lg/xl/2xl/4xl natively — those keep being used as-is). Tailwind v4 only
-recognizes a `--text-*--line-height` companion on this namespace; font-weight stays a
-separate utility at the call site (`font-bold`/`font-extrabold`), same as Tailwind's own
-scale. See `docs/STOREFRONT_DESIGN_PROPOSALS.md` §4 for the full rationale.
+type-scale tokens filling gaps in Tailwind's default scale. Note `--text-display` currently
+has **zero** call sites — it was minted for a hero that no longer uses it.
+
+> **Correction.** This paragraph used to claim Tailwind v4 "only recognizes a
+> `--text-*--line-height` companion". It does not — it also recognizes
+> `--text-*--letter-spacing` and `--text-*--font-weight`, proved by adding both and
+> rebuilding. The same false claim was fixed in `index.css` in #168; this was a second
+> copy of it in a different file. Setting only line-height is a **choice** (a size token
+> that also forces a weight cannot be reused at another weight), not a platform limit.
+
+#### The prototype-derived role scale (19 Aug 2026)
+
+The four tokens above predate the prototype. `design-reference/xl-traders-storefront.source.dc.html`
+is now the design source of truth, so the scale is **derived from it** rather than defended
+against it — that is what makes literal fidelity and token discipline compatible.
+
+**27 distinct sizes collapse to 12 roles**, each with an `-lg` sibling (most of the 27 were
+one role at two breakpoints):
+
+| Role                   | mobile → desktop | what it is                        |
+| ---------------------- | ---------------- | --------------------------------- |
+| `text-price-card`      | 13.5 → 15        | the rate on a product card        |
+| `text-price-detail`    | 17 → 18          | the rate in the PDP buy box       |
+| `text-price-hero`      | 27 → 38          | cart total                        |
+| `text-price-unit`      | 9.5 → 10.5       | the `/ 1 pcs` suffix              |
+| `text-product-name`    | 11.5 → 12.5      | product name                      |
+| `text-brand`           | 8.5 → 9          | brand line                        |
+| `text-chip`            | 8.5 → 9          | pack and MOQ chips                |
+| `text-meta`            | 9 → 9.5          | dispatch line, sub-labels         |
+| `text-page-title`      | 15 → 22          | page title                        |
+| `text-heading-section` | 15 → 22          | section heading                   |
+| `text-heading-row`     | 15 → 18          | merchandised row title            |
+| `text-heading-sub`     | 13 → 14          | "Order quantity", "Total payable" |
+
+**Price is three roles, not one.** Card, detail and total are different jobs at 13.5 / 17 /
+27px on mobile; collapsing them would flatten a real hierarchy.
+
+**`page-title` and `heading-section` resolve to the same value, deliberately.** Do not merge
+them. They are different things in every design system; the prototype merely happens to size
+them alike (24px vs 22px, a delta nobody perceives). Two names means raising page titles later
+is one line, not a hunt across five screens.
+
+##### How this was derived — read before regenerating
+
+**Element-by-element, not by a line scan.** The prototype puts several elements on one line,
+so a per-line `font-size` scan merges them and invents disagreements that are not there. The
+first pass reported the MOQ chip as having two treatments (amber-700 and slate-600); unwrapping
+the markup showed line 354 is the chip and line 443 is an unrelated element. **Anything
+rederived with a line scan will reach the wrong answer.**
+
+Three genuine self-disagreements were found, all near-value accidents, each resolved to one
+token rather than two: `price-unit` mobile 9 vs 9.5 (took 9.5, the product-card instance),
+`chip` mobile 8 vs 8.5 (took 8.5, 6 of 9 uses), and the page-title/section 24 vs 22 above.
+
+##### Why not `clamp()`
+
+It would handle 768–1023px gracefully, which is our weakest breakpoint. Rejected anyway,
+deliberately: a clamped value is **uninspectable** — no checker can assert "13.5px at 390px"
+against it. Fidelity to a reference is the goal, so explicit and greppable wins. Do not
+relitigate without first solving the assertability problem.
+
+##### No colour tokens, no weight tokens, no line-height tokens
+
+- **Colours:** all ten of the prototype's colours are _already_ Tailwind palette entries
+  (`#dc2626` = `red-600`, `#94a3b8` = `slate-400`, `#b45309` = `amber-700`, …), and
+  `--xl-accent` already means "the brand accent". A `--color-brand` would be a second name
+  for a colour that already has one — the same defect as the two `.container` rules in #167.
+- **Weights:** the prototype uses 500/600/700/800 = `font-medium`/`semibold`/`bold`/`extrabold`.
+- **Line heights:** the prototype declares one only 42 times in 2000 lines, at values from 1.2
+  to 1.65 with no per-role pattern. Inventing one per token would be fabrication; call sites
+  set `leading-*` where the prototype actually specifies it.
 
 shadcn/ui theme variables live in `:root` as **OKLCH** values mapped through `@theme inline`
 (`--background`, `--foreground`, `--card`, `--primary`, `--border`, `--ring`, `--radius`,
@@ -74,9 +140,17 @@ the `--chart-*` and `--sidebar-*` ramps, etc.). Notable:
   Tailwind's scale doesn't cover. The storefront (`Home.tsx`, `Header.tsx`, `Footer.tsx`,
   `ProductCard.tsx`, `Catalog.tsx`, `ProductDetail.tsx`) has been migrated off one-off
   `text-[Npx]` arbitrary values onto this set — new storefront work should reach for a named
-  size first and only fall back to an arbitrary value for a genuinely one-off case. Admin
-  screens haven't been migrated yet (out of scope for the storefront pass); they still use
-  ad hoc Tailwind text utilities.
+  size first and only fall back to an arbitrary value for a genuinely one-off case.
+
+  > **Correction (19 Aug 2026).** "Has been migrated" was false. Measured on the live build,
+  > `10.5px` renders **72 times** on `/catalog` alone, `12.5px` 24 times, and **15 non-admin
+  > files** still carry `text-[Npx]`. The migration was incomplete, and it was incomplete
+  > because the **scale was too small to express the design** — not because anyone was
+  > careless. The role scale above is what makes finishing it possible, and what makes
+  > "no arbitrary `text-[Npx]`" an enforceable checker rule rather than an aspiration. Admin
+  > screens haven't been migrated yet (out of scope for the storefront pass); they still use
+  > ad hoc Tailwind text utilities.
+
 - **Spacing rhythm (storefront sections):** a documented convention, not a new token layer —
   Tailwind's numeric spacing scale already covers every step needed:
   - `py-8` — compact utility strips (kept distinct; not part of the 3-step "section" rhythm)
