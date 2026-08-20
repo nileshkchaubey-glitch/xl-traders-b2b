@@ -12,6 +12,9 @@ interface MerchandisedRowProps {
   sort?: PublicProductSort;
   featured?: boolean;
   href: string;
+  /** H2: render the prototype's 6-up desktop product grid instead of the
+   *  4-up row. Used for the last block on Home. */
+  wide?: boolean;
   /** First row on the page loads its images eagerly. */
   priority?: boolean;
 }
@@ -36,6 +39,7 @@ export default function MerchandisedRow({
   sort = "newest",
   featured,
   href,
+  wide = false,
   priority = false,
 }: MerchandisedRowProps) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -73,9 +77,13 @@ export default function MerchandisedRow({
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+      <div
+        className={`grid grid-cols-2 gap-2.5 md:gap-3.5 ${
+          wide ? "md:grid-cols-3 lg:grid-cols-6" : "md:grid-cols-4"
+        }`}
+      >
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: wide ? 6 : 4 }).map((_, i) => (
               <div
                 key={i}
                 className="overflow-hidden rounded-2xl border border-slate-200"

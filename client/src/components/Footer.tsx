@@ -167,9 +167,6 @@ export default function Footer() {
             Company
           </div>
           <div className="flex flex-col gap-2 text-body-sm">
-            <Link href="/" className="transition hover:text-white">
-              Why XL Traders
-            </Link>
             <Link href="/catalog" className="transition hover:text-white">
               Product Catalogue
             </Link>

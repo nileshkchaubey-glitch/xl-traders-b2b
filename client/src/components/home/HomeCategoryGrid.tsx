@@ -64,9 +64,13 @@ export default function HomeCategoryGrid() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 sm:gap-3 md:grid-cols-6 lg:grid-cols-8">
+      {/* H4/H5: the prototype's category grid geometry — 4 columns with a 9px
+          gap on mobile, 12 columns with a 12px gap on desktop. The shipped
+          4/6/8 ramp topped out at 8, so desktop tiles were ~1.5x too wide and
+          the row read as a feature strip rather than an index. */}
+      <div className="grid grid-cols-4 gap-[9px] pt-[11px] lg:grid-cols-12 lg:gap-3 lg:pt-0">
         {loading
-          ? Array.from({ length: 8 }).map((_, i) => (
+          ? Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="animate-pulse">
                 <div className="aspect-square rounded-xl bg-slate-100" />
                 <div className="mx-auto mt-1.5 h-2.5 w-3/4 rounded bg-slate-100" />
