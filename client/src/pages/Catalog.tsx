@@ -5,6 +5,7 @@ import { Loader2, MessageCircle, SlidersHorizontal } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import ActiveFilters from "@/components/catalog/ActiveFilters";
 import CatalogFilterSheet from "@/components/catalog/CatalogFilterSheet";
+import CatalogCategoryRail from "@/components/catalog/CatalogCategoryRail";
 import CatalogSidebar from "@/components/catalog/CatalogSidebar";
 import CatalogToolbar, {
   CatalogView,
@@ -237,6 +238,18 @@ export default function Catalog() {
                 {totalCount.toLocaleString()} products
               </p>
             </div>
+            <button
+              ref={filtersButtonRef}
+              onClick={() => setSheetOpen(true)}
+              className={`flex h-10 items-center gap-1.5 rounded-full border-[1.5px] px-3 text-chip font-bold transition lg:hidden ${
+                activeCount
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700"
+              }`}
+            >
+              <SlidersHorizontal size={14} />
+              Filters{activeCount ? ` · ${activeCount}` : ""}
+            </button>
             <CatalogToolbar
               className="hidden lg:flex"
               sort={selection.sort}
@@ -247,7 +260,7 @@ export default function Catalog() {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[250px_1fr] lg:items-start">
             <aside className="hidden lg:block">
               <CatalogSidebar
                 search={searchInput}
@@ -264,39 +277,12 @@ export default function Catalog() {
               />
             </aside>
 
-            <div className="lg:col-span-3">
-              {/* Mobile: Filters button + group chips. Sticky below the mobile
-                  header (logo row + search = ~116px); z-20 sits under the
-                  header (z-40) and above the cards. */}
-              <div className="scrollbar-hide sticky top-[116px] z-20 mb-4 flex gap-2 overflow-x-auto bg-slate-50 py-1 lg:hidden">
-                <button
-                  ref={filtersButtonRef}
-                  onClick={() => setSheetOpen(true)}
-                  className={`flex h-10 flex-shrink-0 items-center gap-1.5 rounded-full border-[1.5px] px-3.5 text-body-sm font-bold transition ${
-                    activeCount
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-white text-slate-900"
-                  }`}
-                >
-                  <SlidersHorizontal size={14} />
-                  Filters{activeCount ? ` · ${activeCount}` : ""}
-                </button>
-                <button
-                  onClick={() => setGroup(null)}
-                  className={chipClass(!selection.category && !selection.group)}
-                >
-                  All
-                </button>
-                {groups.map(group => (
-                  <button
-                    key={group.group_name}
-                    onClick={() => setGroup(group.group_name)}
-                    className={chipClass(selection.group === group.group_name)}
-                  >
-                    {group.group_name}
-                  </button>
-                ))}
-              </div>
+            <div className="min-w-0">
+              {/* C3: the horizontal group-chip row is GONE, replaced by the
+                  vertical CatalogCategoryRail beside the grid (below). The
+                  Filters button moves into the title row, where the prototype
+                  puts it. Keeping both a chip row and a rail would be two
+                  category pickers on one screen. */}
 
               <ActiveFilters
                 selection={selection}
@@ -308,72 +294,85 @@ export default function Catalog() {
                 onClearAll={clearAll}
               />
 
-              {isLoading ? (
-                <ProductGridSkeleton />
-              ) : products.length === 0 ? (
-                <div className="rounded-lg border border-slate-200 bg-white p-12 text-center">
-                  <p className="text-lg text-slate-500">
-                    {query.status === "unknown"
-                      ? "We could not find that category"
-                      : "No products found"}
-                  </p>
-                  <p className="mb-4 mt-2 text-sm text-slate-400">
-                    {activeCount > 1
-                      ? "Try removing one of the filters above — the catalogue is still being listed, so ask us if it is not here."
-                      : "Try adjusting your filters or search query — the catalogue is still being listed, so ask us if it is not here."}
-                  </p>
-                  <a
-                    href={waHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-body-sm font-semibold text-white transition hover:bg-emerald-700"
-                  >
-                    <MessageCircle size={14} />
-                    Ask on WhatsApp
-                  </a>
-                </div>
-              ) : (
-                <>
-                  <div
-                    className={
-                      view === "grid"
-                        ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-                        : "space-y-4"
-                    }
-                  >
-                    {products.map(product => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        view={view}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="mt-8 flex flex-col items-center gap-3">
-                    <p className="text-sm text-slate-500">
-                      Showing {products.length.toLocaleString()} of{" "}
-                      {totalCount.toLocaleString()}
-                    </p>
-                    {products.length < totalCount && (
-                      <button
-                        onClick={handleLoadMore}
-                        disabled={isLoadingMore}
-                        className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+              {/* Rail + grid, side by side on mobile exactly as the prototype
+                  lays them out. The negative margins let the rail meet the
+                  page edge (it is a full-bleed column in the prototype) while
+                  the page keeps its xl-shell padding. */}
+              <div className="-mx-4 flex sm:-mx-6 lg:mx-0 lg:block">
+                <CatalogCategoryRail
+                  categories={categories}
+                  selected={selection.category}
+                  onSelect={setCategory}
+                />
+                <div className="min-w-0 flex-1 px-3 pt-2.5 lg:p-0">
+                  {isLoading ? (
+                    <ProductGridSkeleton />
+                  ) : products.length === 0 ? (
+                    <div className="rounded-lg border border-slate-200 bg-white p-12 text-center">
+                      <p className="text-lg text-slate-500">
+                        {query.status === "unknown"
+                          ? "We could not find that category"
+                          : "No products found"}
+                      </p>
+                      <p className="mb-4 mt-2 text-sm text-slate-400">
+                        {activeCount > 1
+                          ? "Try removing one of the filters above — the catalogue is still being listed, so ask us if it is not here."
+                          : "Try adjusting your filters or search query — the catalogue is still being listed, so ask us if it is not here."}
+                      </p>
+                      <a
+                        href={waHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-body-sm font-semibold text-white transition hover:bg-emerald-700"
                       >
-                        {isLoadingMore ? (
-                          <>
-                            <Loader2 size={16} className="animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          "Load More"
+                        <MessageCircle size={14} />
+                        Ask on WhatsApp
+                      </a>
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        className={
+                          view === "grid"
+                            ? "grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-4 lg:gap-3.5"
+                            : "space-y-4"
+                        }
+                      >
+                        {products.map(product => (
+                          <ProductCard
+                            key={product.id}
+                            product={product}
+                            view={view}
+                          />
+                        ))}
+                      </div>
+
+                      <div className="mt-8 flex flex-col items-center gap-3">
+                        <p className="text-sm text-slate-500">
+                          Showing {products.length.toLocaleString()} of{" "}
+                          {totalCount.toLocaleString()}
+                        </p>
+                        {products.length < totalCount && (
+                          <button
+                            onClick={handleLoadMore}
+                            disabled={isLoadingMore}
+                            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                          >
+                            {isLoadingMore ? (
+                              <>
+                                <Loader2 size={16} className="animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              "Load More"
+                            )}
+                          </button>
                         )}
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
