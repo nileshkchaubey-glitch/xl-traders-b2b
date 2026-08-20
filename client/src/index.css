@@ -91,6 +91,80 @@
   --text-body-md--line-height: 1.4;
   --text-display: 2.875rem; /* 46px — hero-scale headline */
   --text-display--line-height: 1.08;
+
+  /* ── Prototype-derived role scale ────────────────────────────────────────
+     Derived FROM design-reference/xl-traders-storefront.source.dc.html, which
+     is the design source of truth. The four tokens above predate it.
+
+     HOW THIS WAS DERIVED — read before regenerating. Element-by-element, NOT
+     by a line scan. The prototype puts several elements on one line, so a
+     per-line `font-size` scan merges them and invents disagreements that do
+     not exist: it reported the MOQ chip as having two treatments (amber-700
+     and slate-600) when line 354 is the chip and line 443 is an unrelated
+     element. Anything rederived with a line scan will reach the wrong answer.
+
+     27 distinct sizes collapse to 12 ROLES. Most of the 27 were one role at
+     two breakpoints, which is why each token has an `-lg` sibling.
+
+     WHY NOT clamp(): it would handle the 768-1023 range gracefully, which is
+     our weakest breakpoint. Rejected anyway, deliberately — a clamped value is
+     uninspectable, and no checker can assert "13.5px at 390px" against it.
+     Fidelity to a reference is the whole goal here, so explicit and greppable
+     wins. Do not relitigate this without solving the assertability problem.
+
+     COLOURS: none are defined here. All ten of the prototype's colours are
+     already Tailwind palette entries (#dc2626 = red-600, #94a3b8 = slate-400,
+     #b45309 = amber-700, and so on), and `--xl-accent` below already means
+     "the brand accent". A `--color-brand` would be a second name for a colour
+     that already has one — the same defect as the two `.container` rules.
+
+     WEIGHTS: none either. The prototype uses 500/600/700/800, which are
+     font-medium / semibold / bold / extrabold.
+
+     LINE HEIGHTS: none either. The prototype declares line-height only 42
+     times across 2000 lines, at values from 1.2 to 1.65 with no per-role
+     pattern. Inventing one per token would be fabrication; call sites set
+     `leading-*` where the prototype actually specifies it. */
+
+  /* Price — three roles, not one. Card, detail panel and cart total are
+     genuinely different jobs at 13.5 / 17 / 27px on mobile. */
+  --text-price-card: 0.84375rem; /* 13.5px */
+  --text-price-card-lg: 0.9375rem; /* 15px */
+  --text-price-detail: 1.0625rem; /* 17px — PDP buy box */
+  --text-price-detail-lg: 1.125rem; /* 18px */
+  --text-price-hero: 1.6875rem; /* 27px — cart total */
+  --text-price-hero-lg: 2.375rem; /* 38px */
+  --text-price-unit: 0.59375rem; /* 9.5px — the "/ 1 pcs" suffix */
+  --text-price-unit-lg: 0.65625rem; /* 10.5px */
+
+  /* Product identity */
+  --text-product-name: 0.71875rem; /* 11.5px */
+  --text-product-name-lg: 0.78125rem; /* 12.5px */
+  --text-brand: 0.53125rem; /* 8.5px */
+  --text-brand-lg: 0.5625rem; /* 9px */
+
+  /* Chips (pack, MOQ) and secondary meta (dispatch, sub-labels) */
+  --text-chip: 0.53125rem; /* 8.5px */
+  --text-chip-lg: 0.5625rem; /* 9px */
+  --text-meta: 0.5625rem; /* 9px */
+  --text-meta-lg: 0.59375rem; /* 9.5px */
+
+  /* Headings.
+     `page-title` and `heading-section` resolve to the SAME value today, and
+     that equality is DELIBERATE — do not "tidy" them into one token. A page
+     title and a section heading are different things in every design system;
+     the prototype merely happens to size them alike right now (it used 24px
+     for catTitle against 22px for section headings, a 2px delta nobody
+     perceives). Keeping two names means raising page titles later is a
+     one-line change instead of a hunt across five screens. */
+  --text-page-title: 0.9375rem; /* 15px */
+  --text-page-title-lg: 1.375rem; /* 22px — equal to heading-section, on purpose */
+  --text-heading-section: 0.9375rem; /* 15px */
+  --text-heading-section-lg: 1.375rem; /* 22px */
+  --text-heading-row: 0.9375rem; /* 15px — merchandised row titles */
+  --text-heading-row-lg: 1.125rem; /* 18px */
+  --text-heading-sub: 0.8125rem; /* 13px — "Order quantity", "Total payable" */
+  --text-heading-sub-lg: 0.875rem; /* 14px */
 }
 
 /* ============================================================
