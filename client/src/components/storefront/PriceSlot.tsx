@@ -53,12 +53,17 @@ export default function PriceSlot({
   const shell = pdp
     ? "min-h-[68px] flex flex-col justify-center"
     : "h-[52px] flex flex-col justify-center";
+  // COLOUR: the rate is text-red-600, not slate. The prototype puts the rate in
+  // #dc2626 on every surface, and it was shipping slate-900 -- the single
+  // biggest visual loss found in the type/spacing sweep. red-600 IS #dc2626.
+  // SIZE: the prototype-derived role tokens (DESIGN_SYSTEM 1.2). Card and PDP
+  // are different roles at 13.5/15 and 17/18, not one size scaled.
   const rateCls = pdp
-    ? "text-3xl font-extrabold text-slate-900 tabular-nums leading-none"
-    : "text-lg font-extrabold text-slate-900 tabular-nums leading-none";
+    ? "text-price-detail lg:text-price-detail-lg font-extrabold text-red-600 tabular-nums leading-none"
+    : "text-price-card lg:text-price-card-lg font-extrabold text-red-600 tabular-nums leading-none";
   const subCls = pdp
-    ? "text-body-sm text-slate-500 tabular-nums"
-    : "text-caption text-slate-500 tabular-nums";
+    ? "text-meta lg:text-meta-lg text-slate-500 tabular-nums"
+    : "text-meta lg:text-meta-lg text-slate-500 tabular-nums";
 
   if (!isAuthenticated) {
     return (
@@ -72,7 +77,11 @@ export default function PriceSlot({
         >
           Sign in for rates
         </Link>
-        <span className={pdp ? "text-body-sm text-slate-500" : "text-caption text-slate-500"}>
+        <span
+          className={
+            pdp ? "text-body-sm text-slate-500" : "text-caption text-slate-500"
+          }
+        >
           Wholesale rates for businesses
         </span>
       </div>
@@ -83,10 +92,16 @@ export default function PriceSlot({
     return (
       <div className={shell}>
         {/* Amber is the documented On-Enquiry colour (DESIGN_SYSTEM §1.3). */}
-        <span className={`font-bold text-amber-700 ${pdp ? "text-xl" : "text-body-sm"}`}>
+        <span
+          className={`font-bold text-amber-700 ${pdp ? "text-xl" : "text-body-sm"}`}
+        >
           Price on enquiry
         </span>
-        <span className={pdp ? "text-body-sm text-slate-500" : "text-caption text-slate-500"}>
+        <span
+          className={
+            pdp ? "text-body-sm text-slate-500" : "text-caption text-slate-500"
+          }
+        >
           Ask us on WhatsApp
         </span>
       </div>
@@ -101,9 +116,7 @@ export default function PriceSlot({
         <>
           <span className="flex items-baseline gap-1">
             <span className={rateCls}>₹{formatPerPiecePrice(rate)}</span>
-            <span
-              className={`font-semibold text-slate-500 ${pdp ? "text-body-sm" : "text-caption"}`}
-            >
+            <span className="text-price-unit lg:text-price-unit-lg font-semibold text-slate-500">
               / piece
             </span>
           </span>

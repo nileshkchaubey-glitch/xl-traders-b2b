@@ -1,5 +1,9 @@
 import { Truck } from "lucide-react";
-import { type OrderSpec, packChipLabel, moqChipLabel } from "@/lib/orderingModel";
+import {
+  type OrderSpec,
+  packChipLabel,
+  moqChipLabel,
+} from "@/lib/orderingModel";
 
 /**
  * The pack chip — sits TOP-LEFT over the product image.
@@ -12,7 +16,7 @@ export function PackChip({ spec }: { spec: OrderSpec }) {
   const label = packChipLabel(spec);
   if (!label) return null;
   return (
-    <span className="absolute top-2.5 left-2.5 z-10 rounded-md bg-slate-900/85 px-2 py-1 text-[10.5px] font-bold text-white backdrop-blur-sm">
+    <span className="absolute top-2.5 left-2.5 z-10 rounded-md bg-slate-900/85 px-2 py-1 text-chip lg:text-chip-lg font-bold text-white backdrop-blur-sm">
       {label}
     </span>
   );
@@ -28,7 +32,7 @@ export function PackChip({ spec }: { spec: OrderSpec }) {
  */
 export function MoqChip({ spec }: { spec: OrderSpec }) {
   return (
-    <span className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10.5px] font-bold text-slate-600">
+    <span className="inline-flex items-center rounded border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-chip lg:text-chip-lg font-bold text-amber-700">
       {moqChipLabel(spec)}
     </span>
   );
@@ -46,7 +50,7 @@ export function MoqChip({ spec }: { spec: OrderSpec }) {
 export function DispatchLine({ line }: { line: string }) {
   if (!line) return null;
   return (
-    <span className="flex items-center gap-1 text-[10.5px] font-semibold text-emerald-700">
+    <span className="flex items-center gap-1 text-meta lg:text-meta-lg font-semibold text-slate-400">
       <Truck size={11} strokeWidth={2.5} className="flex-shrink-0" />
       <span className="truncate">{line}</span>
     </span>
