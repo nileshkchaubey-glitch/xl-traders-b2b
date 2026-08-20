@@ -215,13 +215,20 @@ export default function ProductDetail() {
               <PackChip spec={spec} />
             </div>
             {gallery.length > 1 && (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              /* S4: a FILLING 4-up grid, not a scrolling row of fixed squares.
+                 The prototype uses grid-template-columns:repeat(4,1fr) at both
+                 breakpoints -- aspect-square on mobile so the tiles fill the
+                 width (~94px on a 430px frame, vs the 64px squares that shipped),
+                 and a fixed 96px height on desktop. Gap 8 -> 10 and border
+                 1.5px per the prototype; `overflow-x-auto` is gone because a
+                 4-column grid cannot overflow. */
+              <div className="mt-3 grid grid-cols-4 gap-2 lg:mt-3 lg:gap-2.5">
                 {gallery.map((url, i) => (
                   <button
                     key={`${url}-${i}`}
                     onClick={() => setImageIndex(i)}
                     aria-label={`Image ${i + 1}`}
-                    className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition ${
+                    className={`aspect-square w-full overflow-hidden rounded-[10px] border-[1.5px] transition lg:aspect-auto lg:h-24 lg:rounded-[11px] ${
                       i === imageIndex ? "border-red-600" : "border-slate-200"
                     }`}
                   >
