@@ -130,7 +130,7 @@ export default function Cart() {
             </Link>
           </div>
         ) : (
-          <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
+          <div className="grid items-start gap-5 lg:grid-cols-[1fr_340px]">
             {/* ── Lines ── */}
             <div className="flex flex-col gap-3">
               {items.map(item => {
