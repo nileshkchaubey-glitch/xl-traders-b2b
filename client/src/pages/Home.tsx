@@ -56,6 +56,8 @@ export default function Home() {
 
         <HomeSpotlightStrip />
 
+        <PromoBanners position="home_mid" className="py-2" />
+
         <MerchandisedRow
           eyebrow="New arrivals"
           title="Just added to the catalogue"
@@ -63,8 +65,6 @@ export default function Home() {
           href="/catalog?sort=newest"
           priority
         />
-
-        <PromoBanners position="home_mid" className="py-2" />
 
         <MerchandisedRow
           eyebrow="Best sellers"

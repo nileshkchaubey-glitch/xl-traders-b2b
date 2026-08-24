@@ -21,6 +21,7 @@ import { useCartStore } from "@/stores/cartStore";
 import MobileNav from "@/components/MobileNav";
 import CartBar from "@/components/cart/CartBar";
 import InstallPrompt from "@/components/InstallPrompt";
+import DesktopCategoryNav from "@/components/storefront/DesktopCategoryNav";
 import LocationBar from "@/components/storefront/LocationBar";
 import {
   categoryService,
@@ -594,6 +595,9 @@ export default function Header() {
           </div>
         )}
       </header>
+
+      {/* The prototype's red category nav row, desktop only. */}
+      <DesktopCategoryNav />
 
       {/* Click-away backdrop for menus */}
       {overlayOpen && (

@@ -116,3 +116,4 @@ images and file/
 
 # Claude Code personal settings (project config lives in .claude/settings.json)
 .claude/settings.local.json
+client/public/__proto/
