@@ -286,6 +286,26 @@ hand on `CatalogFilterSheet`:
 _Enforced: `check-storefront.mjs` — `drawer-autofocus`. The other two are
 **[manual]**._
 
+### 4.7 There is no mobile footer. The Account screen carries that detail.
+
+**Measured 24 Aug 2026** against the rendered prototype:
+`{ mobileHasFooter: false, desktopHasFooter: true }`. The prototype's mobile
+shell ends at the bottom nav — there is no footer under it at any scroll
+position.
+
+`Footer.tsx` is therefore `hidden … lg:block`. What that removes from a phone
+— address, phone, email, hours, ordering terms, copyright — is not dropped;
+it moves to `/account`, which is where the prototype puts it and what the owner
+meant by _"all the details are in the account"_.
+
+**So the two are coupled, and the coupling is load-bearing.** Before hiding the
+footer on any breakpoint, check that Account still reaches every fact it
+carried. Before deleting a settings row from Account, check the footer is
+visible at that breakpoint. #165 built a reduced mobile footer stub to solve
+this; the prototype's answer is that the stub should not exist.
+
+_[manual] — no automated check pairs the two surfaces._
+
 ---
 
 ## 5. Architecture
@@ -318,3 +338,20 @@ For UI, `tsc` passing is not verification.
 
 > **Incident.** The "5 pcses" bug type-checked cleanly and was only found by
 > putting a real cart in a browser and reading what it said.
+
+### 6.1 Read the prototype by RENDERING it, not by reading its markup
+
+`XL Traders Storefront - standalone.html` is a working page (React inlined,
+~16.6 MB). Serve it and read computed styles off it; do not infer the design
+from `.dc.html` source.
+
+This is not a preference. Reading markup missed the desktop category nav bar
+**entirely** — a whole red row under the header — and shipped a white identity
+card on Account where the prototype's mobile identity block is a full-bleed
+dark panel. Both surfaced within minutes of rendering it side by side.
+
+**Trap:** do not park the file in `client/public/`. It is gitignored, so it
+looks harmless, but `vite build` copies `public/` verbatim and the PWA plugin
+then fails the build on a 16.7 MB precache candidate — `npm run ci` goes red on
+a file that is not in the repo. Keep it outside the project and copy it in only
+for the length of a comparison, or serve it from somewhere else entirely.

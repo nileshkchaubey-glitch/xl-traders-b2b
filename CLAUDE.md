@@ -972,6 +972,48 @@ resolved import graph rather than substring greps. No behaviour and effectively 
 change (they were already tree-shaken); the gain is clarity, plus 2 of the 9 MOQ call
 sites the ordering work must thread through.
 
+### Storefront A2.4 — no mobile footer; Account rebuilt (24 Aug 2026)
+
+**The prototype has no mobile footer at all** — measured by rendering it,
+`{ mobileHasFooter: false, desktopHasFooter: true }`. `Footer.tsx` is now
+`hidden … lg:block`, which retires the reduced mobile stub #165 built (on a
+phone it wrapped into a cramped four-line block that collided with the
+back-to-top button). Everything it carried moves to `/account`, which is where
+the prototype puts it.
+
+**`pages/Account.tsx` rebuilt from measured computed styles**, at both
+breakpoints, because the two are genuinely different layouts: mobile is a
+full-bleed dark panel (identity + three stat tiles, `#0f172a`) then rates card,
+order history, "Account", settings list; desktop is a breadcrumb over a 280px
+sidebar card (identity + Sign in + settings) beside a right column (three white
+stat cards, rates card, order history), with no dark panel anywhere. **One
+component tree** (STYLE_REFERENCE §5): the dark wrapper is `lg:contents`, so at
+desktop it stops painting and its two children become grid items in different
+columns — the stat row is rendered once, not per breakpoint. Sidebar measured
+242px inner, matching the prototype exactly.
+
+**Zero new type tokens**, and two mappings turned out exact rather than
+approximate: the stat number is 15→22, which IS `--text-page-title`, and the
+rates button is 11.5→12.5, which IS `--text-product-name`. The recorded
+near-misses are all ≤0.5px and all in the settings row (label 12→12.5, sub and
+code 10→9.5); the 16px identity name has no role token and uses stock
+`text-base`, which is exactly 16.
+
+**The stat row renders em dashes, and that is the prototype's own guest
+treatment** — not an invented placeholder. There is no order-history surface
+yet, so a dash is accurate. Real counts, order rows and Reorder are A3 / PR-5.
+The prototype's settings rows name features this site does not have (saved
+addresses, payment preference, WhatsApp alert settings); its row STRUCTURE is
+kept while the rows carry what is true today plus the footer detail, and a
+chevron renders only where there is somewhere to go.
+
+Recorded as [`docs/STOREFRONT_RULES.md`](docs/STOREFRONT_RULES.md) **§4.7**
+(footer and Account are coupled — check one before changing the other) and
+**§6.1** (read the prototype by RENDERING it; reading markup had missed the
+whole desktop category-nav row. Trap: the 16.6 MB standalone file must not sit
+in `client/public/`, because `vite build` copies it and the PWA plugin fails
+the build on it even though it is gitignored).
+
 ---
 
 ## 🗺️ Roadmap (next, in order)
