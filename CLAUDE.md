@@ -1014,6 +1014,50 @@ whole desktop category-nav row. Trap: the 16.6 MB standalone file must not sit
 in `client/public/`, because `vite build` copies it and the PWA plugin fails
 the build on it even though it is gitignored).
 
+### Storefront A2.1 — catalogue title bar + sidebar (24 Aug 2026)
+
+Presentation only; no service, schema or filter-behaviour change. Both
+breakpoints measured off the rendered prototype (§6.1), and they are laid out
+differently, so both are built from one tree:
+
+**Title bar.** Mobile is a full-bleed row under a hairline — `←` back · title
+(15/800) over sub (10/500) · a white "Filter" pill with a red dot when
+anything is active. Desktop drops the back arrow and puts the title (24/800)
+on the SAME baseline as the sub (12.5/500) with the sort/view toolbar pushed
+right. The breadcrumb is now desktop-only (the prototype's mobile catalogue
+has a back arrow instead of one) and restyled to 11.5/600 slate-400, matching
+`/account` so the two crumbs cannot drift. The count moved from a stacked
+`<p>` under the title to that inline slot, and gains `· rates after sign in`
+for guests — the prototype's own wording, and the earliest point on the page
+that explains the missing prices.
+
+**Sidebar.** Rebuilt to the measured card: 250px, padding 16, radius 14, a
+"Filters" heading (13/800), facet headings (11/800 slate-700, uppercase,
+0.77px tracking), brands as bordered pill chips above a `#f1f5f9`-separated
+Categories list, and rows at exactly the prototype's 28px (padding 7/9,
+radius 8, label 11.5/700, active red-700 on red-50). The row was 34px until
+`CategoryIcon` gained a `px` prop — its 20px glyph, not the padding, was the
+extra 6px; the mobile rail keeps 20 by default.
+
+**The search box is gone from the sidebar.** It was redundant, not a second
+capability: the header search writes the same `?search=` param this page reads
+(`Header.tsx` → `/catalog?search=…`) and `ActiveFilters` still shows and
+clears an active search. The prototype has no sidebar search either.
+
+**Four deviations, all recorded in the file:** no per-row counts (owner
+instruction, `STOREFRONT_RULES` §3.1 — and the grouped-count service PR-3 needs
+does not exist; `countPublished()` is per-category, so 25 rows would be 25
+queries); groups are kept (the prototype's list is flat, ours has real
+`group_name`s); the card stays sticky (the prototype's is `position: static`,
+but a 139-product page is several screens) with its cap moved from the LIST to
+the whole card, so the common case has no inner scrollbar and rows keep the
+full 218px; and the prototype's MOQ / per-piece-rate / material facets are NOT
+built — each needs a new query axis in `productService`, which is service work.
+
+Also removed: a `chipClass` import in `Catalog.tsx` that had been dead since
+C3 dropped the group-chip row. Nothing in the build or CI flags unused
+imports, which is why it survived.
+
 ---
 
 ## 🗺️ Roadmap (next, in order)
