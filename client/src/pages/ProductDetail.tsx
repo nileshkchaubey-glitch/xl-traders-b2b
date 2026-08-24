@@ -201,7 +201,7 @@ export default function ProductDetail() {
           </span>
         </nav>
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr] lg:gap-10">
+        <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
           {/* ── Gallery ── */}
           <div>
             <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
