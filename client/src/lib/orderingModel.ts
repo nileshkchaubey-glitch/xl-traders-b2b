@@ -73,7 +73,16 @@ export interface OrderSpec {
  * list in CLAUDE.md). When it is not a piece word, it is naming the selling
  * unit, which is exactly the noun the cart line needs (§8.1).
  */
-const PIECE_WORDS = new Set(["pcs", "pc", "piece", "pieces", "nos", "no", "unit", "units"]);
+const PIECE_WORDS = new Set([
+  "pcs",
+  "pc",
+  "piece",
+  "pieces",
+  "nos",
+  "no",
+  "unit",
+  "units",
+]);
 
 function sellingUnitNoun(unitOfMeasure?: string | null): string {
   const raw = unitOfMeasure?.trim() ?? "";
@@ -140,7 +149,9 @@ type OrderingFields = Pick<
  *   * quantity_in_unit NULL / 0 / 1  → packSize 1, and pcs mode downgrades to pack
  *   * order_step not a whole multiple of packSize → step falls back to packSize
  */
-export function resolveOrderSpec(p: OrderingFields | null | undefined): OrderSpec {
+export function resolveOrderSpec(
+  p: OrderingFields | null | undefined
+): OrderSpec {
   // packDivisor is the single already-tested answer to "is this a usable
   // pieces-per-pack divisor?" (NULL / blank / junk / <= 1 → null). Two
   // independent answers to that question is the pack_size mistake in function
@@ -317,6 +328,27 @@ export function moqChipLabel(spec: OrderSpec): string {
   return spec.unit === "pcs"
     ? `MOQ ${spec.minPcs.toLocaleString("en-IN")} pcs`
     : `MOQ ${spec.minPacks.toLocaleString("en-IN")} ${pluralNoun(spec.noun, spec.minPacks)}`;
+}
+
+/**
+ * The order-STEP chip, beside the MOQ chip on the PDP.
+ *
+ * MOQ says how little you may buy; the step says which quantities in between
+ * are legal at all. Without it a buyer facing a stepper has no way to know
+ * whether 610 pcs is orderable — they can only discover it by pressing the
+ * button. The prototype shows the pair together under the price for exactly
+ * that reason.
+ *
+ * Expressed in whatever unit the customer is counting in, like
+ * `moqChipLabel` — pieces in pcs mode, selling units in pack mode, where
+ * `step` is always a whole multiple of `packSize` (§2).
+ */
+export function stepChipLabel(spec: OrderSpec): string {
+  if (spec.unit === "pcs") {
+    return `Step ${spec.step.toLocaleString("en-IN")} pcs`;
+  }
+  const packs = Math.max(1, Math.round(spec.step / spec.packSize));
+  return `Step ${packs.toLocaleString("en-IN")} ${pluralNoun(spec.noun, packs)}`;
 }
 
 export interface OrderQtyLabel {

@@ -17,6 +17,7 @@ import VariantSelector from "@/components/storefront/VariantSelector";
 import {
   PackChip,
   MoqChip,
+  OrderPills,
   DispatchLine,
 } from "@/components/storefront/ProductMeta";
 
@@ -275,6 +276,15 @@ export default function ProductDetail() {
                 isAuthenticated={isAuthenticated}
                 size="pdp"
               />
+
+              {/* MOQ + Step, directly under the price as the prototype has
+                  them. The step pill is the new half: without it a buyer can
+                  only find out which quantities are legal by pressing the
+                  stepper. `OrderRule` below still spells the same rule out in
+                  a sentence — the pills are the at-a-glance version. */}
+              <div className="mt-3">
+                <OrderPills spec={spec} />
+              </div>
 
               <div className="mt-3">
                 <OrderRule spec={spec} />

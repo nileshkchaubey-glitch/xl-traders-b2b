@@ -3,6 +3,7 @@ import {
   type OrderSpec,
   packChipLabel,
   moqChipLabel,
+  stepChipLabel,
 } from "@/lib/orderingModel";
 
 /**
@@ -30,6 +31,39 @@ export function PackChip({ spec }: { spec: OrderSpec }) {
  * which on a catalogue of near-identical black containers is often the more
  * decision-relevant number.
  */
+/**
+ * The PDP's MOQ + Step pair, sitting directly under the price.
+ *
+ * Measured off the rendered prototype (STOREFRONT_RULES §6.1): both pills are
+ * 11.5px/700 — exactly `text-product-name` — padding 6/11, radius 99, 28px
+ * tall. MOQ is amber (`#fffbeb` on `#fef3c7`, text `#b45309`); Step is neutral
+ * (white on `#e2e8f0`, text `#334155`).
+ *
+ * WHY THE STEP PILL MATTERS: MOQ says how little you may buy, the step says
+ * which quantities in between are legal at all. We shipped neither on the PDP
+ * in this position, so a buyer facing the stepper could only discover that
+ * 610 pcs is unorderable by pressing the button.
+ *
+ * Deliberately NOT built on `MoqChip` below, even though the label is shared.
+ * That chip is sized for the product CARD, whose height is pinned across auth
+ * states (§4.1) — restyling it to PDP proportions would move every card in the
+ * catalogue. Two sizes, one label function.
+ */
+export function OrderPills({ spec }: { spec: OrderSpec }) {
+  const pill =
+    "inline-flex items-center rounded-full border px-[11px] py-1.5 text-product-name font-bold leading-[1.2]";
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className={`${pill} border-amber-100 bg-amber-50 text-amber-700`}>
+        {moqChipLabel(spec)}
+      </span>
+      <span className={`${pill} border-slate-200 bg-white text-slate-700`}>
+        {stepChipLabel(spec)}
+      </span>
+    </div>
+  );
+}
+
 export function MoqChip({ spec }: { spec: OrderSpec }) {
   return (
     <span className="inline-flex items-center rounded border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-chip lg:text-chip-lg font-bold text-amber-700">

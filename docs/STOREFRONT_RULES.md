@@ -215,6 +215,25 @@ The mechanism: the price row is a fixed 21px, with a further 14px reserved
 beneath it, so the guest's "Sign in for rates" and the signed-in rate occupy
 identical space. Prototype parity — the prototype pins the same two rows.
 
+**Re-measured 24 Aug 2026**, after the PDP order pills touched `ProductMeta`.
+Parity holds and is exact — at 390px on `/catalog`, the height distribution
+across 24 cards was `{270: 10, 273: 12, 286: 2}` as a guest and **the identical
+distribution** signed in with rates rendering. The card does not change height
+between auth states.
+
+Two corrections to the 19 Aug entry above, both from that re-measurement:
+
+- **The uniform 304px is gone**, and "one distinct height across the sampled
+  cards" no longer holds — cards now vary 270/273/286 because a product name
+  wraps to one or two lines. That variation is IDENTICAL in both auth states,
+  so it is not what this rule guards; the rule is auth-state parity, not a
+  fixed number. Recorded so the stale figure is not treated as the target.
+- **Measuring the baseline matters more than measuring the change.** The pills
+  are PDP-only and `MoqChip` was untouched, so card height could not have
+  moved — but that was confirmed by stashing the work and re-running the same
+  probe against `HEAD`, which returned the same distribution, rather than by
+  reasoning about it.
+
 Still **[manual]** to re-verify: no browser test runs in CI (vitest only, no
 jsdom or playwright), so nothing catches a regression here automatically.
 
