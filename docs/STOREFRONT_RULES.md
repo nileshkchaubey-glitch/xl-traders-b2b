@@ -234,6 +234,18 @@ Two corrections to the 19 Aug entry above, both from that re-measurement:
   probe against `HEAD`, which returned the same distribution, rather than by
   reasoning about it.
 
+**Every measurement in this rule carries its DATE and the commit it was taken
+at.** A recorded number with no date reads as verified forever; the 19 Aug
+entry above said 304px long after cards had stopped being 304px, which is the
+same species of defect as the five false comments corrected in #168 — text that
+looks checked and is not. A dated line can at least be recognised as stale.
+
+    | date       | commit  | guest                        | signed in |
+    | ---------- | ------- | ---------------------------- | --------- |
+    | 19 Aug     | —       | 304 uniform                  | identical |
+    | 24 Aug     | 2fa49ad | {270:10, 273:12, 286:2}      | identical |
+    | 24 Aug     | 69912dc | {270:10, 273:12, 286:2}      | identical |
+
 Still **[manual]** to re-verify: no browser test runs in CI (vitest only, no
 jsdom or playwright), so nothing catches a regression here automatically.
 
