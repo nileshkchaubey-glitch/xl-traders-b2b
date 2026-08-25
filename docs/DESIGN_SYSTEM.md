@@ -37,7 +37,7 @@ Named tokens added in the "Phase A" pass (`client/src/index.css`):
 | `--text-body-md`        | `0.9375rem` (15px), line-height `1.4`    | Emphasized inline text, CTAs (`text-body-md`)  |
 | `--text-display`        | `2.875rem` (46px), line-height `1.08`    | Hero-scale headline (`text-display`)           |
 
-Added in the "Foundation" pass (`docs/STOREFRONT_DESIGN_PROPOSALS.md` §4, PR1): four named
+Added in the "Foundation" pass (`docs/archive/2026-07-15-storefront-design-proposals.md` §4, PR1): four named
 type-scale tokens filling gaps in Tailwind's default scale. Note `--text-display` currently
 has **zero** call sites — it was minted for a hero that no longer uses it.
 
@@ -173,7 +173,7 @@ the `--chart-*` and `--sidebar-*` ramps, etc.). Notable:
   - `py-14 md:py-20` — hero only
     New full-width Home sections should pick the step matching their visual weight instead of
     a one-off `py-*` value. See `client/src/index.css`'s comment block above `@layer base` and
-    `docs/STOREFRONT_DESIGN_PROPOSALS.md` §4 for the full rationale (including why the two
+    `docs/archive/2026-07-15-storefront-design-proposals.md` §4 for the full rationale (including why the two
     slim utility strips — trust strip, marquee — are deliberately excluded from this rhythm
     rather than forced into it).
 

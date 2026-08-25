@@ -4,7 +4,6 @@ description: Implement the 2-level category UI and replace category emoji with i
 model: inherit
 ---
 
-
 Implement the 2-level category UI in this React (Vite + TS + Tailwind + Supabase) repo.
 Assume the DB migration in `sql/01-category-groups-migration.sql` has already been run, so
 the `categories` table has: `group_name` (text), `group_order` (int), `image_url` (text).
@@ -34,7 +33,13 @@ Make these changes, keeping the repo's existing style/colors:
 4. Product cards: ensure each card shows `product.image_url` (already there). If a product
    has no image, fall back to its category image.
 
-5. Admin — `client/src/pages/Admin.tsx`: in the Add/Edit form, add a **Group** dropdown that
-   filters the **Category** dropdown (dependent selects). Saving still sets `category_id`.
+5. Admin — `client/src/components/admin/AdminCategories.tsx` (the category manager, reached
+   from `/admin`): in the Add/Edit form, add a **Group** dropdown that filters the
+   **Category** dropdown (dependent selects). Saving still sets `category_id`.
+
+   > Corrected 25 Aug 2026. This step pointed at `client/src/pages/Admin.tsx`, which has not
+   > existed since the admin was reorganised — the page is `AdminDashboard.tsx` and category
+   > editing lives in the component above. A skill is a live instruction, so a stale path
+   > here sends whoever runs it looking for a file that is not there.
 
 After implementing, run the build/typecheck, fix any type errors, and summarize changed files.
