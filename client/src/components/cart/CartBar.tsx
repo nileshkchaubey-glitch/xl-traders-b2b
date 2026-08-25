@@ -30,7 +30,13 @@ export default function CartBar() {
 
   const t = cartTotals(items);
 
-  if (items.length === 0 || location === "/cart") return null;
+  // On /cart itself the bar becomes the CHECKOUT affordance rather than a
+  // link to a page you are already on. It used to render nothing here, which
+  // left a long mobile cart with no way to reach the order form except
+  // scrolling to the bottom — the prototype has a sticky checkout bar for
+  // exactly that reason.
+  const onCart = location === "/cart";
+  if (items.length === 0) return null;
 
   const totalLabel = t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`;
 
@@ -76,27 +82,61 @@ export default function CartBar() {
 
   const cta = (
     <span className="flex flex-shrink-0 items-center gap-1 rounded-lg bg-white px-3.5 py-2 text-[13px] font-bold text-red-600">
-      View cart
-      <ArrowRight size={14} />
+      {onCart ? "Checkout" : "View cart"}
+      {!onCart && <ArrowRight size={14} />}
     </span>
   );
+
+  // Scroll, not submit. The order form needs a name and a phone number before
+  // anything can be sent, so a second submit button here would either fail
+  // silently or duplicate the real one further down — the two-affordance
+  // duplication §2.3 rejects. This takes the customer TO the action.
+  //
+  // `behavior: "auto"`, deliberately. The first version used "smooth" and it
+  // did NOTHING — measured on the cart at 390px: `scrollIntoView` with
+  // behavior "auto" landed at scrollY 220 (the page maximum) while "smooth"
+  // from the same start position ended at 0, with `prefers-reduced-motion`
+  // false and `scroll-behavior: auto` on `<html>`. A control whose only job is
+  // to move the page must not depend on an animation that was watched failing.
+  // The instant jump also gets a customer to the form faster, so nothing is
+  // lost. `scroll-mt-24` on the target clears the sticky header.
+  const toSummary = () =>
+    document
+      .getElementById("order-summary")
+      ?.scrollIntoView({ behavior: "auto", block: "start" });
 
   return (
     <>
       {/* Mobile — docked above the bottom tab nav. */}
       <div className="fixed inset-x-0 bottom-[calc(60px+env(safe-area-inset-bottom))] z-40 shadow-[0_-4px_18px_rgba(0,0,0,0.08)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 md:hidden">
         {progress}
-        <Link
-          href="/cart"
-          className="flex items-center justify-between gap-3 bg-red-600 px-4 py-3 text-white"
-        >
-          {summary}
-          {cta}
-        </Link>
+        {onCart ? (
+          <button
+            type="button"
+            onClick={toSummary}
+            className="flex w-full items-center justify-between gap-3 bg-red-600 px-4 py-3 text-left text-white"
+          >
+            {summary}
+            {cta}
+          </button>
+        ) : (
+          <Link
+            href="/cart"
+            className="flex items-center justify-between gap-3 bg-red-600 px-4 py-3 text-white"
+          >
+            {summary}
+            {cta}
+          </Link>
+        )}
       </div>
 
-      {/* Desktop — bottom-right. */}
-      <div className="fixed bottom-6 right-6 z-40 hidden w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.18)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 md:block">
+      {/* Desktop — bottom-right. Not on /cart: the order summary is already a
+          sticky card in the right column there, so a floating duplicate would
+          cover the page for no gain. The prototype's checkout bar is
+          mobile-only for the same reason. */}
+      <div
+        className={`fixed bottom-6 right-6 z-40 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.18)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 ${onCart ? "hidden" : "hidden md:block"}`}
+      >
         {progress}
         <Link
           href="/cart"

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import {
   ArrowLeft,
   Loader2,
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import ProductCard from "@/components/ProductCard";
+import PageTitleBar from "@/components/storefront/PageTitleBar";
 import ActiveFilters from "@/components/catalog/ActiveFilters";
 import CatalogFilterSheet from "@/components/catalog/CatalogFilterSheet";
 import CatalogCategoryRail from "@/components/catalog/CatalogCategoryRail";
@@ -35,7 +36,6 @@ const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
 
 export default function Catalog() {
   const { isAuthenticated } = useAuthStore();
-  const [, setLocation] = useLocation();
   const {
     selection,
     // `searchInput`/`setSearchInput` are no longer destructured: the sidebar
@@ -219,14 +219,6 @@ export default function Catalog() {
     selection.search,
   ].filter(Boolean).length;
 
-  /** The prototype's mobile catalogue leads with a back arrow, not a
-   *  breadcrumb. Opened from a link or the bottom nav there is nothing to go
-   *  back to, so fall through to Home rather than leaving a dead control. */
-  const goBack = () => {
-    if (window.history.length > 1) window.history.back();
-    else setLocation("/");
-  };
-
   const waHref = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
     selection.search
       ? `Hi XL Traders, do you stock "${selection.search}"?`
@@ -250,70 +242,50 @@ export default function Catalog() {
             <span className="text-slate-500">{heading}</span>
           </nav>
 
-          {/* The title bar, measured off the prototype at BOTH breakpoints,
-              because they are laid out differently:
-
-                mobile   one full-bleed row under a hairline —
-                         ← back · title 15/800 over sub 10/500 · Filter pill
-                desktop  no back arrow; title 24/800 on the SAME baseline as
-                         the sub (12.5/500), toolbar pushed right
-
-              One tree: the title block is a column that becomes a baseline row
-              at lg, and the back arrow / hairline / full-bleed are lg:-reset.
-
-              Type: 15 is exactly `--text-page-title`. Its `-lg` companion is
-              22, but the catalogue's desktop title measures 24 — the "page
-              title" role carries two desktop values across screens, so rather
-              than mint a thirteenth token this uses stock `text-2xl`, which is
-              exactly 24. Recorded, not smoothed over. */}
-          <div className="-mx-4 mb-3.5 flex items-center gap-2.5 border-b border-slate-100 px-4 pb-2.5 sm:-mx-6 sm:px-6 lg:mx-0 lg:mb-5 lg:flex-wrap lg:items-end lg:justify-between lg:gap-4 lg:border-b-0 lg:px-0 lg:pb-0">
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label="Go back"
-              className="-ml-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-slate-900 transition-colors hover:bg-slate-100 lg:hidden"
-            >
-              <ArrowLeft size={19} />
-            </button>
-
-            <div className="min-w-0 flex-1 lg:flex-none lg:flex lg:flex-wrap lg:items-baseline lg:gap-x-3 lg:gap-y-1">
-              <h1 className="truncate text-page-title font-extrabold tracking-tight text-slate-900 lg:text-2xl">
-                {heading}
-              </h1>
-              <p className="truncate text-meta-lg font-medium text-slate-400 lg:text-product-name-lg lg:text-slate-500">
+          {/* Shared with /cart — see PageTitleBar for the measurements and
+              the type decisions. Kept here as a component rather than JSX so
+              the two pages cannot drift apart again. */}
+          <PageTitleBar
+            title={heading}
+            sub={
+              <>
                 {totalCount.toLocaleString()} products
                 {!isAuthenticated && " · rates after sign in"}
-              </p>
-            </div>
+              </>
+            }
+            actions={
+              <>
+                {/* Prototype: a white bordered pill reading "Filter", with a
+                    red dot when anything is active — not a count. The actual
+                    filters are spelled out in the ActiveFilters chips right
+                    below it, so a number here would say less than the chips
+                    already do. */}
+                <button
+                  ref={filtersButtonRef}
+                  onClick={() => setSheetOpen(true)}
+                  className="flex flex-shrink-0 items-center gap-[5px] rounded-full border border-slate-200 bg-white px-3 py-[7px] text-caption font-bold text-slate-700 transition-colors hover:border-slate-300 lg:hidden"
+                >
+                  <SlidersHorizontal size={13} />
+                  Filter
+                  {activeCount > 0 && (
+                    <span
+                      aria-label={`${activeCount} filters active`}
+                      className="h-[7px] w-[7px] rounded-full bg-red-600"
+                    />
+                  )}
+                </button>
 
-            {/* Prototype: a white bordered pill reading "Filter", with a red
-                dot when anything is active — not a count. The actual filters
-                are spelled out in the ActiveFilters chips right below it, so a
-                number here would say less than the chips already do. */}
-            <button
-              ref={filtersButtonRef}
-              onClick={() => setSheetOpen(true)}
-              className="flex flex-shrink-0 items-center gap-[5px] rounded-full border border-slate-200 bg-white px-3 py-[7px] text-caption font-bold text-slate-700 transition-colors hover:border-slate-300 lg:hidden"
-            >
-              <SlidersHorizontal size={13} />
-              Filter
-              {activeCount > 0 && (
-                <span
-                  aria-label={`${activeCount} filters active`}
-                  className="h-[7px] w-[7px] rounded-full bg-red-600"
+                <CatalogToolbar
+                  className="hidden lg:flex"
+                  sort={selection.sort}
+                  onSortChange={setSort}
+                  view={view}
+                  onViewChange={setView}
+                  canSortByPrice={isAuthenticated}
                 />
-              )}
-            </button>
-
-            <CatalogToolbar
-              className="hidden lg:flex"
-              sort={selection.sort}
-              onSortChange={setSort}
-              view={view}
-              onViewChange={setView}
-              canSortByPrice={isAuthenticated}
-            />
-          </div>
+              </>
+            }
+          />
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[250px_1fr] lg:items-start">
             <aside className="hidden lg:block">
