@@ -124,6 +124,29 @@ _Enforced: `check-storefront.mjs` — `local-cart-total`. Parity asserted by
 > **Incident.** `free delivery` sat in the **generated SEO meta description**
 > (`catalogHealth.ts`), so it reached search results, not just the page.
 
+**The prototype is the source of truth for LAYOUT. Never for a claim.**
+(Owner instruction, 24 Aug 2026, after this went wrong twice.)
+
+`design-reference/xl-traders-storefront.source.dc.html` is sample content
+written before these rules existed. Take its geometry, its type scale, its
+structure — never its promises. When a prototype element states a business
+fact, the fact comes from `site_content` or from the owner, and if neither has
+it the element does not ship.
+
+**The worked example is freight.** Every freight claim was ruled out because
+the rule is not settled, and `{{FREIGHT_RULE}}` was removed from five render
+sites — one of which was a **cart summary row**, not a banner
+(`STOREFRONT_V3_PLAN` §P1). It then came back as a proposal during
+prototype-parity work, because the prototype's order summary reads
+Subtotal / Freight / Total payable and "match the prototype" was being applied
+to the row LIST as well as to the layout. Take Subtotal and Total payable.
+Do not add a Freight row.
+
+_Enforced: `check-storefront.mjs` — `no-freight-line`. It is deliberately
+broader than `banned-claims`, matching the bare word in any shape, because the
+shape that got through was a one-word summary label (`<span>Freight</span>`) —
+prose-shaped rules skip it and literal-scanning rules never see it._
+
 **A count that advertises is banned. A count that answers is not.**
 (Owner decision, 24 Aug 2026 — settled, do not re-litigate.)
 
