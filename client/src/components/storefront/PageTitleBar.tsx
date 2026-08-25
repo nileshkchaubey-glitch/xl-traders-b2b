@@ -38,7 +38,15 @@ export default function PageTitleBar({
   actions,
   backLabel = "Go back",
 }: {
-  title: string;
+  /**
+   * Omit it and the bar renders no heading at all — just the back arrow and
+   * the actions row. The PDP needs exactly that: the prototype's mobile
+   * product page leads with a back arrow and NO title text, because the
+   * product name belongs below the image (and in the right column at desktop).
+   * Passing the name here instead would either duplicate it or give the page a
+   * second `<h1>`.
+   */
+  title?: string;
   /** Rendered as a sibling of the heading, never inside it. */
   sub?: ReactNode;
   /** Right-hand slot: a filter pill, a toolbar, a "Continue shopping" link. */
@@ -64,9 +72,11 @@ export default function PageTitleBar({
       </button>
 
       <div className="min-w-0 flex-1 lg:flex lg:flex-none lg:flex-wrap lg:items-baseline lg:gap-x-3 lg:gap-y-1">
-        <h1 className="truncate text-page-title font-extrabold tracking-tight text-slate-900 lg:text-2xl">
-          {title}
-        </h1>
+        {title && (
+          <h1 className="truncate text-page-title font-extrabold tracking-tight text-slate-900 lg:text-2xl">
+            {title}
+          </h1>
+        )}
         {sub && (
           <p className="truncate text-meta-lg font-medium text-slate-400 lg:text-product-name-lg lg:text-slate-500">
             {sub}

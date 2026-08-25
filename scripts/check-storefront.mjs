@@ -405,14 +405,25 @@ rule(
     for (const file of FILES) {
       if (ADMIN_ONLY_LIBS.includes(relative(SRC, file))) continue;
       const code = stripComments(readFileSync(file, "utf8"));
-      const re = />([^<>]{4,}?)</gs;
+      // {3,} not {4,}: `MRP` is exactly three characters, and it is a banned
+      // claim in its own right. The old floor let it through even once the
+      // whitespace requirement below was lifted — two independent gates, both
+      // of which had to move before a one-word label could be seen at all.
+      const re = />([^<>]{3,}?)</gs;
       let m;
       while ((m = re.exec(code))) {
         const raw = m[1];
-        // Prose, not code: needs letters and a space, and must not look like an
-        // expression. `{}` is deliberately allowed through so interpolated copy
-        // ("same-day {city} delivery") is still checked.
-        if (!/[A-Za-z]{3}/.test(raw) || !/\s/.test(raw)) continue;
+        // Needs letters and must not look like an expression. `{}` is
+        // deliberately allowed through so interpolated copy ("same-day {city}
+        // delivery") is still checked.
+        //
+        // It used to ALSO require a space, i.e. it only looked at prose. That
+        // is the gap the freight row walked through: `<span>Freight</span>` is
+        // one word, so this rule skipped it, and `banned-claims` never saw it
+        // because it only reads string literals. A one-word LABEL is exactly
+        // where a banned claim hides — `MRP`, a bare `Freight` — so the space
+        // requirement is gone. Swept rather than waiting for the next escape.
+        if (!/[A-Za-z]{3}/.test(raw)) continue;
         if (/[;=]|=>|&&|\|\||\breturn\b|\bimport\b/.test(raw)) continue;
         const flat = raw.replace(/\s+/g, " ").trim();
         const lineNo = code.slice(0, m.index).split("\n").length;

@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 
 import ProductCard from "@/components/ProductCard";
+import PageTitleBar from "@/components/storefront/PageTitleBar";
 import ProductImage from "@/components/storefront/ProductImage";
 import PriceSlot from "@/components/storefront/PriceSlot";
 import QtyStepper from "@/components/storefront/QtyStepper";
@@ -160,6 +161,21 @@ export default function ProductDetail() {
   const onEnquiry = isPriceOnEnquiry(current.price);
   const brand = brandLabel(current.brand);
   const qtyLabel = formatOrderQty(packs, spec);
+
+  /** SKU · pack size · material — each part dropped when it has no value, so
+   *  the join never leaves a dangling separator. */
+  const specLine = [
+    current?.sku,
+    spec.packSize > 1
+      ? `${spec.packSize.toLocaleString("en-IN")} pcs/pack`
+      : null,
+    typeof current?.specifications?.material === "string" &&
+    current.specifications.material.trim()
+      ? current.specifications.material.trim()
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const total = lineTotal(packs, current.price);
 
   const addToCart = () => {
@@ -188,7 +204,20 @@ export default function ProductDetail() {
   return (
     <Shell>
       <div className="xl-shell py-5">
-        <nav className="mb-4 flex items-center gap-1 text-caption text-slate-500">
+        {/* P-11 — the prototype's MOBILE product page leads with a back
+            arrow, not a breadcrumb; the breadcrumb is desktop-only. Reusing
+            PageTitleBar (with no title, so the page keeps its single `<h1>` in
+            the buy panel) means the back-arrow row on the third page cannot
+            drift from the catalogue's and the cart's.
+
+            The prototype also puts a "Share" control up here. Not built: this
+            site has no share affordance anywhere, and inventing one is beyond
+            a layout pass. Recorded, not silently dropped. */}
+        <div className="lg:hidden">
+          <PageTitleBar backLabel="Back to catalogue" />
+        </div>
+
+        <nav className="mb-4 hidden items-center gap-1 text-caption text-slate-500 lg:flex">
           <Link href="/" className="hover:text-red-600">
             Home
           </Link>
@@ -205,12 +234,19 @@ export default function ProductDetail() {
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
           {/* ── Gallery ── */}
           <div>
-            <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            {/* P-1 — the prototype's hero is a WIDE box on a grey ground with
+                no border: 653x430 at 1440 (1.52:1) and 425x290 at 390
+                (1.47:1). Ours was 1:1 white-on-white inside a hairline, which
+                made it 235px taller than the prototype at desktop and pushed
+                the buy panel down with it. One `aspect-[3/2]` sits within ~5%
+                of both measured ratios; two per-breakpoint aspects would be
+                precision the source does not actually have. */}
+            <div className="relative overflow-hidden rounded-2xl bg-slate-50">
               <ProductImage
                 url={heroImage}
                 alt={current.image_alt_text || current.name}
                 slotPx={900}
-                aspect="aspect-square"
+                aspect="aspect-[3/2]"
                 priority
               />
               <PackChip spec={spec} />
@@ -252,12 +288,20 @@ export default function ProductDetail() {
                 {brand}
               </div>
             )}
-            <h1 className="mt-1 text-2xl font-extrabold leading-tight tracking-tight text-slate-900">
+            <h1 className="mt-1 text-product-title font-extrabold leading-tight tracking-tight text-slate-900 lg:text-product-title-lg">
               {current.name}
             </h1>
-            {current.sku && (
-              <div className="mt-1 text-caption text-slate-500">
-                SKU {current.sku}
+            {/* P-4 — the prototype's spec line is SKU, pack size and material
+                on one row (12.5/600). Ours carried the SKU alone. Pack size is
+                adopted from the resolved order spec; MATERIAL is rendered only
+                where `specifications.material` actually holds a value — there
+                is no material column, `specifications` is documented as not yet
+                populated, and an invented value or a dangling separator would
+                both be worse than a shorter line. Built by filtering, so an
+                absent part leaves no empty ` · `. */}
+            {specLine && (
+              <div className="mt-1 text-product-name-lg font-semibold text-slate-500">
+                {specLine}
               </div>
             )}
 
@@ -314,13 +358,30 @@ export default function ProductDetail() {
                     )}
                   </div>
 
-                  <button
-                    onClick={addToCart}
-                    className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-red-600 text-body-md font-bold text-white shadow-[0_6px_20px_rgba(220,38,38,0.28)] transition hover:bg-red-700"
-                  >
-                    Add to Cart
-                    {!onEnquiry && ` · ₹${total.toLocaleString("en-IN")}`}
-                  </button>
+                  {/* P-6 — the prototype pairs a primary with an emerald
+                      secondary. Ours keeps its full-width label with the total
+                      (the prototype's own mobile pattern, and more useful than
+                      a bare "Add to cart"); Enquire joins it because a
+                      SIGNED-IN buyer previously had no route to ask a question
+                      from this panel at all. Not the P-13 duplication: those
+                      were two BUY affordances doing one job, these are buying
+                      versus asking. */}
+                  <div className="mt-4 flex items-stretch gap-2">
+                    <button
+                      onClick={addToCart}
+                      className="flex h-12 flex-1 items-center justify-center rounded-xl bg-red-600 text-body-md font-bold text-white shadow-[0_6px_20px_rgba(220,38,38,0.28)] transition hover:bg-red-700"
+                    >
+                      Add to Cart
+                      {!onEnquiry && ` · ₹${total.toLocaleString("en-IN")}`}
+                    </button>
+                    <button
+                      onClick={() => enquire(current)}
+                      className="flex h-12 flex-shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-heading-sub font-extrabold text-emerald-700 transition hover:bg-emerald-100"
+                    >
+                      <MessageCircle size={15} />
+                      Enquire
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button

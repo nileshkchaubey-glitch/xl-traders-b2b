@@ -14,6 +14,7 @@ import {
   specOfCartItem,
   type CartItem,
 } from "@/stores/cartStore";
+import { useAuthStore } from "@/lib/authStore";
 import { orderService } from "@/lib/orderService";
 import { buildWhatsAppMessage } from "@/lib/orderMessage";
 import { useMinOrder } from "@/hooks/useMinOrder";
@@ -33,6 +34,7 @@ const money = (n: number) =>
   });
 
 export default function Cart() {
+  const { isAuthenticated } = useAuthStore();
   const [, setLocation] = useLocation();
   const items = useCartStore(s => s.items);
   const customer = useCartStore(s => s.customer);
@@ -136,6 +138,25 @@ export default function Cart() {
           }
         />
 
+        {/* C-2 — the prototype's guest banner. The second sentence is the
+            load-bearing one: a guest filling a cart they cannot price needs to
+            know the quantities survive sign-in, or there is no reason to keep
+            going. Guest only, and only with something in the cart. */}
+        {!isAuthenticated && items.length > 0 && (
+          <div className="mb-3.5 rounded-2xl border border-amber-100 bg-amber-50 p-[13px] lg:p-4">
+            <p className="text-caption font-semibold leading-[1.55] text-amber-800 lg:text-product-name">
+              Rates and order total are visible once you sign in. Quantities you
+              set now are kept.
+            </p>
+            <Link
+              href="/auth"
+              className="mt-2.5 inline-block rounded-[10px] bg-red-600 px-[18px] py-[11px] text-product-name font-extrabold text-white transition-colors hover:bg-red-700 lg:text-product-name-lg"
+            >
+              Sign in
+            </Link>
+          </div>
+        )}
+
         {items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
             <ShoppingCart size={26} className="mx-auto mb-3 text-slate-400" />
@@ -189,8 +210,25 @@ export default function Cart() {
                         </div>
                       )}
 
+                      {/* C-3 — the prototype's line meta reads
+                          "100 pcs/pack · MOQ 700 pcs · 7 packs". Pack size is
+                          added here; it comes from the line's own snapshot, so
+                          it cannot drift from what was priced.
+
+                          The prototype also leads the line with a BRAND
+                          eyebrow. Not built: `CartItem` carries no brand, and
+                          adding one means snapshotting it at add-time and
+                          bumping the persisted store version — which discards
+                          every cart in progress. That is a store change, not a
+                          layout one. Recorded, not quietly skipped. */}
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         <MoqChip spec={spec} />
+                        {spec.packSize > 1 && (
+                          <span className="text-caption text-slate-500 tabular-nums">
+                            {spec.packSize.toLocaleString("en-IN")} pcs/
+                            {spec.noun}
+                          </span>
+                        )}
                         <span className="text-caption text-slate-500 tabular-nums">
                           {item.priceOnEnquiry
                             ? "Price on enquiry"
@@ -251,22 +289,30 @@ export default function Cart() {
               id="order-summary"
               className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-4 lg:sticky lg:top-24"
             >
-              <h2 className="mb-3 font-extrabold">Order summary</h2>
+              {/* C-5 — the prototype's summary heading is a band, not a bare
+                  heading: #f8fafc, 12/800, padding 10/13, bottom border. The
+                  card's own p-4 is cancelled with a negative margin so the
+                  band reaches the card edges. */}
+              <h2 className="-mx-4 -mt-4 mb-3 border-b border-slate-200 bg-slate-50 px-[13px] py-2.5 text-product-name-lg font-extrabold text-slate-900">
+                Order summary
+              </h2>
 
+              {/* C-4 — the prototype's rows are Subtotal / Freight / Total
+                  payable. Two of the three: there is NO freight row, because
+                  that rule is unsettled and the line was already removed from
+                  five places once (§3.1). The piece count rides in the
+                  Subtotal label, exactly as the prototype does it, so dropping
+                  the old Items / Quantities / Selling-units rows loses nothing
+                  a customer needed. */}
               <dl className="space-y-1.5 text-body-sm">
-                <Row k="Items" v={String(t.lines)} />
                 <Row
-                  k="Quantities"
-                  v={`${t.pieces.toLocaleString("en-IN")} pcs`}
-                />
-                <Row
-                  k="Selling units"
-                  v={`${t.packs.toLocaleString("en-IN")}`}
+                  k={`Subtotal (${t.pieces.toLocaleString("en-IN")} pcs)`}
+                  v={t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`}
                 />
               </dl>
 
               <div className="mt-3 flex items-baseline justify-between border-t border-slate-100 pt-3">
-                <span className="font-bold">Total</span>
+                <span className="font-bold">Total payable</span>
                 <span className="text-xl font-extrabold tabular-nums">
                   {t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`}
                 </span>

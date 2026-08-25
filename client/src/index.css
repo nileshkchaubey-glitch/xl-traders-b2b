@@ -157,6 +157,13 @@
      for catTitle against 22px for section headings, a 2px delta nobody
      perceives). Keeping two names means raising page titles later is a
      one-line change instead of a hunt across five screens. */
+  /* The PDP product title. A THIRTEENTH role, minted rather than folded into
+     page-title, because the prototype sizes it 19 → 28 while every other page
+     heading is 15 → 22, and nothing in the existing scale sits within 1px of
+     either end. That difference is intent, not accident: on a product page the
+     name IS the page, while a catalogue heading is secondary to the grid. */
+  --text-product-title: 1.1875rem; /* 19px */
+  --text-product-title-lg: 1.75rem; /* 28px */
   --text-page-title: 0.9375rem; /* 15px */
   --text-page-title-lg: 1.375rem; /* 22px — equal to heading-section, on purpose */
   --text-heading-section: 0.9375rem; /* 15px */
