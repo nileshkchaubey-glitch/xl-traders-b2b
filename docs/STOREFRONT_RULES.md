@@ -113,7 +113,7 @@ _Enforced: `check-storefront.mjs` — `local-cart-total`. Parity asserted by
 | Banned                                           | Why                                                                              |
 | ------------------------------------------------ | -------------------------------------------------------------------------------- |
 | Customer counts (`500+ businesses served`)       | Unverifiable; owner instruction                                                  |
-| SKU / product counts                             | Owner instruction                                                                |
+| SKU / product counts **as a boast**              | Owner instruction. A results count is not a boast — see below                    |
 | Ratings (`4.8`, `4.8★`)                          | Unverifiable                                                                     |
 | Years in business (`10+ years`)                  | Unverified                                                                       |
 | Any freight or free-delivery claim               | **The rule is unsettled — omit the line entirely rather than state a threshold** |
@@ -123,6 +123,56 @@ _Enforced: `check-storefront.mjs` — `local-cart-total`. Parity asserted by
 
 > **Incident.** `free delivery` sat in the **generated SEO meta description**
 > (`catalogHealth.ts`), so it reached search results, not just the page.
+
+**The prototype is the source of truth for LAYOUT. Never for a claim.**
+(Owner instruction, 24 Aug 2026, after this went wrong twice.)
+
+`design-reference/xl-traders-storefront.source.dc.html` is sample content
+written before these rules existed. Take its geometry, its type scale, its
+structure — never its promises. When a prototype element states a business
+fact, the fact comes from `site_content` or from the owner, and if neither has
+it the element does not ship.
+
+**The worked example is freight.** Every freight claim was ruled out because
+the rule is not settled, and `{{FREIGHT_RULE}}` was removed from five render
+sites — one of which was a **cart summary row**, not a banner
+(`STOREFRONT_V3_PLAN` §P1). It then came back as a proposal during
+prototype-parity work, because the prototype's order summary reads
+Subtotal / Freight / Total payable and "match the prototype" was being applied
+to the row LIST as well as to the layout. Take Subtotal and Total payable.
+Do not add a Freight row.
+
+_Enforced: `check-storefront.mjs` — `no-freight-line`. It is deliberately
+broader than `banned-claims`, matching the bare word in any shape, because the
+shape that got through was a one-word summary label (`<span>Freight</span>`) —
+prose-shaped rules skip it and literal-scanning rules never see it._
+
+**A count that advertises is banned. A count that answers is not.**
+(Owner decision, 24 Aug 2026 — settled, do not re-litigate.)
+
+The line is what the number is _for_, not whether a number appears:
+
+| Banned — a boast         | Allowed — a result                                    |
+| ------------------------ | ----------------------------------------------------- |
+| `2,400+ SKUs in stock`   | `139 products` under the catalogue heading            |
+| `500+ businesses served` | `Show 24 products` on the filter sheet's apply button |
+| `Over 50 categories`     | `7 products` after applying a category + brand filter |
+
+The test: **would the number change when the user changes a filter?** If yes it
+is answering "what did my filter return", which the user asked for and can
+verify on the same screen. If it stays put no matter what they do, it is
+marketing, and it is unverifiable in exactly the way the banned rows are.
+
+A results count is also **self-checking** — it sits directly above the grid it
+counts, so a wrong number is visible immediately. That is the property the ban
+exists to protect: `500+ businesses served` can drift for years because nothing
+on the page contradicts it.
+
+Note this rule governs the storefront's own count of what it is rendering. It
+does **not** license per-category counts on a category tile or sidebar row —
+those are a separate owner instruction (they describe a set the user is not
+currently looking at, so they can drift), and they are recorded as a deviation
+in `CatalogSidebar.tsx`.
 
 ### 3.2 Dispatch copy is per product, from one source
 
@@ -164,6 +214,25 @@ this rule stayed unmeasured for so long.
 The mechanism: the price row is a fixed 21px, with a further 14px reserved
 beneath it, so the guest's "Sign in for rates" and the signed-in rate occupy
 identical space. Prototype parity — the prototype pins the same two rows.
+
+**Re-measured 24 Aug 2026**, after the PDP order pills touched `ProductMeta`.
+Parity holds and is exact — at 390px on `/catalog`, the height distribution
+across 24 cards was `{270: 10, 273: 12, 286: 2}` as a guest and **the identical
+distribution** signed in with rates rendering. The card does not change height
+between auth states.
+
+Two corrections to the 19 Aug entry above, both from that re-measurement:
+
+- **The uniform 304px is gone**, and "one distinct height across the sampled
+  cards" no longer holds — cards now vary 270/273/286 because a product name
+  wraps to one or two lines. That variation is IDENTICAL in both auth states,
+  so it is not what this rule guards; the rule is auth-state parity, not a
+  fixed number. Recorded so the stale figure is not treated as the target.
+- **Measuring the baseline matters more than measuring the change.** The pills
+  are PDP-only and `MoqChip` was untouched, so card height could not have
+  moved — but that was confirmed by stashing the work and re-running the same
+  probe against `HEAD`, which returned the same distribution, rather than by
+  reasoning about it.
 
 Still **[manual]** to re-verify: no browser test runs in CI (vitest only, no
 jsdom or playwright), so nothing catches a regression here automatically.

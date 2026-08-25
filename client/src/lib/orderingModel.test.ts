@@ -12,6 +12,7 @@ import {
   formatOrderQty,
   packChipLabel,
   moqChipLabel,
+  stepChipLabel,
   perPiecePrice,
   formatPerPiecePrice,
   type OrderSpec,
@@ -59,7 +60,11 @@ describe("resolveOrderSpec", () => {
 
     it("never divides by an unknown pack size", () => {
       const s = resolveOrderSpec(
-        row({ order_unit: "pcs", quantity_in_unit: null as unknown as number, moq: 4 })
+        row({
+          order_unit: "pcs",
+          quantity_in_unit: null as unknown as number,
+          moq: 4,
+        })
       );
       expect(s.minPcs).toBe(4);
       expect(Number.isFinite(s.minPcs)).toBe(true);
@@ -115,8 +120,12 @@ describe("resolveOrderSpec", () => {
 
   describe("selling-unit noun (§8.1)", () => {
     it("uses unit_of_measure when it names the pack", () => {
-      expect(resolveOrderSpec(row({ unit_of_measure: "box" })).noun).toBe("box");
-      expect(resolveOrderSpec(row({ unit_of_measure: "roll" })).noun).toBe("roll");
+      expect(resolveOrderSpec(row({ unit_of_measure: "box" })).noun).toBe(
+        "box"
+      );
+      expect(resolveOrderSpec(row({ unit_of_measure: "roll" })).noun).toBe(
+        "roll"
+      );
     });
 
     it("falls back to 'pack' when unit_of_measure names the pieces", () => {
@@ -132,7 +141,12 @@ describe("resolveOrderSpec", () => {
 
   it("survives a null product", () => {
     const s = resolveOrderSpec(null);
-    expect(s).toMatchObject({ unit: "pack", packSize: 1, step: 1, minPacks: 1 });
+    expect(s).toMatchObject({
+      unit: "pack",
+      packSize: 1,
+      step: 1,
+      minPacks: 1,
+    });
   });
 });
 
@@ -195,7 +209,9 @@ describe("the ladder from the brief", () => {
 });
 
 describe("snapPcsToStep", () => {
-  const spec = resolveOrderSpec(row({ order_unit: "pcs", quantity_in_unit: 100, moq: 5 }));
+  const spec = resolveOrderSpec(
+    row({ order_unit: "pcs", quantity_in_unit: 100, moq: 5 })
+  );
 
   it("preserves 0 so the stepper can still reach 'remove'", () => {
     expect(snapPcsToStep(0, spec)).toBe(0);
@@ -235,7 +251,9 @@ describe("stepPacks", () => {
 describe("initialPacks", () => {
   it("seeds a new line at the MOQ", () => {
     expect(initialPacks(resolveOrderSpec(row({ moq: 5 })))).toBe(5);
-    expect(initialPacks(resolveOrderSpec(row({ moq: null as unknown as number })))).toBe(1);
+    expect(
+      initialPacks(resolveOrderSpec(row({ moq: null as unknown as number })))
+    ).toBe(1);
   });
 });
 
@@ -295,7 +313,9 @@ describe("variants resolve independently of their master", () => {
 // ── Copy ────────────────────────────────────────────────────────────────────
 describe("formatOrderQty", () => {
   it("pack mode keeps a bare selling-unit count with no secondary line", () => {
-    const spec = resolveOrderSpec(row({ order_unit: "pack", unit_of_measure: "box" }));
+    const spec = resolveOrderSpec(
+      row({ order_unit: "pack", unit_of_measure: "box" })
+    );
     expect(formatOrderQty(asPacks(2), spec)).toEqual({
       primary: "2 boxes",
       secondary: null,
@@ -304,7 +324,9 @@ describe("formatOrderQty", () => {
   });
 
   it("pcs mode leads with pieces and shows packs beneath (§8.4)", () => {
-    const spec = resolveOrderSpec(row({ order_unit: "pcs", unit_of_measure: "box" }));
+    const spec = resolveOrderSpec(
+      row({ order_unit: "pcs", unit_of_measure: "box" })
+    );
     const label = formatOrderQty(asPacks(2), spec);
     expect(label.primary).toBe("6,000 pcs");
     expect(label.secondary).toBe("2 boxes × 3,000 pcs");
@@ -314,26 +336,110 @@ describe("formatOrderQty", () => {
 // ── Card labels ─────────────────────────────────────────────────────────────
 describe("packChipLabel", () => {
   it("names the selling unit and its size", () => {
-    expect(packChipLabel(resolveOrderSpec(row({ unit_of_measure: "box", quantity_in_unit: 900 })))).toBe("Box of 900");
-    expect(packChipLabel(resolveOrderSpec(row({ unit_of_measure: "roll", quantity_in_unit: 72 })))).toBe("Roll of 72");
+    expect(
+      packChipLabel(
+        resolveOrderSpec(row({ unit_of_measure: "box", quantity_in_unit: 900 }))
+      )
+    ).toBe("Box of 900");
+    expect(
+      packChipLabel(
+        resolveOrderSpec(row({ unit_of_measure: "roll", quantity_in_unit: 72 }))
+      )
+    ).toBe("Roll of 72");
   });
 
   it("falls back to 'Pack' when unit_of_measure names the pieces", () => {
-    expect(packChipLabel(resolveOrderSpec(row({ unit_of_measure: "pcs", quantity_in_unit: 1500 })))).toBe("Pack of 1,500");
+    expect(
+      packChipLabel(
+        resolveOrderSpec(
+          row({ unit_of_measure: "pcs", quantity_in_unit: 1500 })
+        )
+      )
+    ).toBe("Pack of 1,500");
   });
 
   it("renders nothing when the pack size says nothing", () => {
     for (const qiu of [null, 0, 1]) {
-      expect(packChipLabel(resolveOrderSpec(row({ quantity_in_unit: qiu as number })))).toBeNull();
+      expect(
+        packChipLabel(
+          resolveOrderSpec(row({ quantity_in_unit: qiu as number }))
+        )
+      ).toBeNull();
     }
+  });
+});
+
+describe("stepChipLabel", () => {
+  it("counts in the unit the customer is counting in", () => {
+    // pcs mode: the step in pieces is the whole point — a buyer cannot infer
+    // it from anything else on the page.
+    expect(
+      stepChipLabel(
+        resolveOrderSpec(
+          row({ order_unit: "pcs", quantity_in_unit: 25, order_step: 25 })
+        )
+      )
+    ).toBe("Step 25 pcs");
+
+    // pack mode: the step is stored in PIECES but the customer counts packs,
+    // so it is divided back down. A null order_step is one pack.
+    expect(
+      stepChipLabel(
+        resolveOrderSpec(
+          row({ order_unit: "pack", unit_of_measure: "box", order_step: null })
+        )
+      )
+    ).toBe("Step 1 box");
+
+    expect(
+      stepChipLabel(
+        resolveOrderSpec(
+          row({
+            order_unit: "pack",
+            unit_of_measure: "box",
+            quantity_in_unit: 100,
+            order_step: 300,
+          })
+        )
+      )
+    ).toBe("Step 3 boxes");
+  });
+
+  it("never reports a step of zero", () => {
+    // packSize 1 with no step still has to say something orderable.
+    expect(
+      stepChipLabel(
+        resolveOrderSpec(
+          row({ order_unit: "pack", quantity_in_unit: 1, order_step: null })
+        )
+      )
+    ).toMatch(/^Step 1 /);
   });
 });
 
 describe("moqChipLabel", () => {
   it("counts in the unit the customer is counting in", () => {
-    expect(moqChipLabel(resolveOrderSpec(row({ order_unit: "pcs", quantity_in_unit: 3000, moq: 1 })))).toBe("MOQ 3,000 pcs");
-    expect(moqChipLabel(resolveOrderSpec(row({ order_unit: "pack", unit_of_measure: "box", moq: 2 })))).toBe("MOQ 2 boxes");
-    expect(moqChipLabel(resolveOrderSpec(row({ order_unit: "pack", unit_of_measure: "box", moq: 1 })))).toBe("MOQ 1 box");
+    expect(
+      moqChipLabel(
+        resolveOrderSpec(
+          row({ order_unit: "pcs", quantity_in_unit: 3000, moq: 1 })
+        )
+      )
+    ).toBe("MOQ 3,000 pcs");
+    expect(
+      moqChipLabel(
+        resolveOrderSpec(
+          row({ order_unit: "pack", unit_of_measure: "box", moq: 2 })
+        )
+      )
+    ).toBe("MOQ 2 boxes");
+    expect(
+      moqChipLabel(
+        resolveOrderSpec(
+          row({ order_unit: "pack", unit_of_measure: "box", moq: 1 })
+        )
+      )
+    ).toBe("MOQ 1 box");
   });
 });
 
@@ -345,7 +451,12 @@ describe("perPiecePrice", () => {
 
   it("returns null when there is no usable pack size — never a bogus rate", () => {
     for (const qiu of [null, 0, 1]) {
-      expect(perPiecePrice(100, resolveOrderSpec(row({ quantity_in_unit: qiu as number })))).toBeNull();
+      expect(
+        perPiecePrice(
+          100,
+          resolveOrderSpec(row({ quantity_in_unit: qiu as number }))
+        )
+      ).toBeNull();
     }
   });
 

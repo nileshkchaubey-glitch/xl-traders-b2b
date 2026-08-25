@@ -650,6 +650,48 @@ rule(
   }
 );
 
+rule(
+  "no-freight-line",
+  "No freight row, label or placeholder — the rule is unsettled (STOREFRONT_RULES §3.1)",
+  report => {
+    // THIS HAS NOW COME BACK TWICE.
+    //
+    // The owner ruled out every freight claim because the rule is not settled,
+    // and `{{FREIGHT_RULE}}` was removed from five render sites — one of which
+    // was a CART SUMMARY ROW, not a banner (STOREFRONT_V3_PLAN §P1). It then
+    // reappeared as a proposal during prototype-parity work, because the
+    // prototype's order summary reads Subtotal / Freight / Total payable and
+    // "match the prototype" was being applied to the row LIST as well as the
+    // layout.
+    //
+    // The prototype is the source of truth for LAYOUT. It is never the source
+    // of truth for a business claim: it is sample content written before the
+    // rule existed. Take its geometry, not its promises.
+    //
+    // Deliberately broader than `banned-claims`: it matches the bare word in
+    // any shape, because the shape that got through was a one-word summary
+    // label — `<span>Freight</span>` — which `banned-claims-jsx` skips (it
+    // requires whitespace, i.e. prose) and `banned-claims` misses (it only
+    // reads string literals). Comments are stripped, so the several existing
+    // comments EXPLAINING the removal do not trip it.
+    const RE = /\{\{\s*FREIGHT_RULE\s*\}\}|\bfreight\b/i;
+    for (const file of FILES) {
+      if (ADMIN_ONLY_LIBS.includes(relative(SRC, file))) continue;
+      const lines = stripComments(readFileSync(file, "utf8")).split("\n");
+      lines.forEach((text, i) => {
+        const m = text.match(RE);
+        if (m) {
+          report(
+            file,
+            i + 1,
+            `${m[0]} — omit the line entirely rather than state a threshold`
+          );
+        }
+      });
+    }
+  }
+);
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 const RED = "\x1b[31m";

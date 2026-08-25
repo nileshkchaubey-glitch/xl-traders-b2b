@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { ShoppingCart, MessageCircle, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import PageTitleBar from "@/components/storefront/PageTitleBar";
 import ProductImage from "@/components/storefront/ProductImage";
 import QtyStepper from "@/components/storefront/QtyStepper";
 import { MoqChip } from "@/components/storefront/ProductMeta";
@@ -111,15 +112,29 @@ export default function Cart() {
   return (
     <main className="flex-1 pb-28 md:pb-10">
       <div className="xl-shell py-6">
-        <h1 className="mb-5 text-2xl font-extrabold tracking-tight">
-          Your Cart
-          {t.lines > 0 && (
-            <span className="ml-2 text-sm font-semibold text-slate-500">
-              {t.lines} item{t.lines !== 1 ? "s" : ""} ·{" "}
-              {t.pieces.toLocaleString("en-IN")} quantities
-            </span>
-          )}
-        </h1>
+        {/* Shared with /catalog — see PageTitleBar. This replaces an `<h1>`
+            that CONTAINED the item count, so a screen reader announced
+            "Your Cart1 item · 3,360 quantities" as the page heading. The count
+            is a sibling `<p>` now. */}
+        <PageTitleBar
+          title="Your cart"
+          sub={
+            t.lines > 0
+              ? `${t.lines} item${t.lines !== 1 ? "s" : ""} · ${t.pieces.toLocaleString("en-IN")} pcs`
+              : undefined
+          }
+          backLabel="Back to shopping"
+          actions={
+            items.length > 0 && (
+              <Link
+                href="/catalog"
+                className="hidden flex-shrink-0 text-product-name-lg font-bold text-red-600 transition-colors hover:text-red-700 lg:block"
+              >
+                Continue shopping
+              </Link>
+            )
+          }
+        />
 
         {items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
@@ -232,7 +247,10 @@ export default function Cart() {
             </div>
 
             {/* ── Summary ── */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:sticky lg:top-24">
+            <div
+              id="order-summary"
+              className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-4 lg:sticky lg:top-24"
+            >
               <h2 className="mb-3 font-extrabold">Order summary</h2>
 
               <dl className="space-y-1.5 text-body-sm">

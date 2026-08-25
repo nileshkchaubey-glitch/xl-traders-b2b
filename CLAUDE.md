@@ -1264,7 +1264,19 @@ for renditions that do not. Scheduled as Phase 5. Do not revisit.
 6. **Auth store** — skip TOKEN_REFRESHED, deduplicate SIGNED_IN by user ID.
 7. **Google Drive images** — `thumbnail?id=FILE_ID&sz=w800` (not `uc?export=view`).
 8. **One agent, one branch at a time.**
-9. **All changes via PR** — never push to main directly.
+9. **All changes via PR** — never push to main directly. **Enforced by GitHub
+   branch protection since 24 Aug 2026, not by memory**: `main` requires a pull
+   request, requires the `Type-check & build` check to pass, and blocks force
+   pushes and deletion. `enforce_admins` is **true**, so the owner is bound by
+   it too — that is the point (a guardrail that depends on remembering is not a
+   guardrail). Settings → Branches → `main` to change it.
+   ⚠️ **`git push --dry-run` does NOT test this.** Dry-run skips the server-side
+   pre-receive stage, so it happily reports a direct push to `main` as
+   succeeding. Verify with
+   `gh api repos/OWNER/REPO/branches/main/protection` instead — and note the
+   shorter `/branches/main` endpoint returns a legacy `protection` object that
+   omits the PR-review block entirely, so it reads as `false` when protection is
+   on.
 10. **Uncategorized sentinel** (slug='uncategorized') — NEVER delete.
 11. **`v_product_health`** — only source of missing logic; never duplicate in TS.
 12. **All new products default to `draft`** — must be explicitly published.
