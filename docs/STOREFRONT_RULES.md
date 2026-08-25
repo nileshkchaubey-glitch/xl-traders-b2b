@@ -113,7 +113,7 @@ _Enforced: `check-storefront.mjs` — `local-cart-total`. Parity asserted by
 | Banned                                           | Why                                                                              |
 | ------------------------------------------------ | -------------------------------------------------------------------------------- |
 | Customer counts (`500+ businesses served`)       | Unverifiable; owner instruction                                                  |
-| SKU / product counts                             | Owner instruction                                                                |
+| SKU / product counts **as a boast**              | Owner instruction. A results count is not a boast — see below                    |
 | Ratings (`4.8`, `4.8★`)                          | Unverifiable                                                                     |
 | Years in business (`10+ years`)                  | Unverified                                                                       |
 | Any freight or free-delivery claim               | **The rule is unsettled — omit the line entirely rather than state a threshold** |
@@ -123,6 +123,33 @@ _Enforced: `check-storefront.mjs` — `local-cart-total`. Parity asserted by
 
 > **Incident.** `free delivery` sat in the **generated SEO meta description**
 > (`catalogHealth.ts`), so it reached search results, not just the page.
+
+**A count that advertises is banned. A count that answers is not.**
+(Owner decision, 24 Aug 2026 — settled, do not re-litigate.)
+
+The line is what the number is _for_, not whether a number appears:
+
+| Banned — a boast         | Allowed — a result                                    |
+| ------------------------ | ----------------------------------------------------- |
+| `2,400+ SKUs in stock`   | `139 products` under the catalogue heading            |
+| `500+ businesses served` | `Show 24 products` on the filter sheet's apply button |
+| `Over 50 categories`     | `7 products` after applying a category + brand filter |
+
+The test: **would the number change when the user changes a filter?** If yes it
+is answering "what did my filter return", which the user asked for and can
+verify on the same screen. If it stays put no matter what they do, it is
+marketing, and it is unverifiable in exactly the way the banned rows are.
+
+A results count is also **self-checking** — it sits directly above the grid it
+counts, so a wrong number is visible immediately. That is the property the ban
+exists to protect: `500+ businesses served` can drift for years because nothing
+on the page contradicts it.
+
+Note this rule governs the storefront's own count of what it is rendering. It
+does **not** license per-category counts on a category tile or sidebar row —
+those are a separate owner instruction (they describe a set the user is not
+currently looking at, so they can drift), and they are recorded as a deviation
+in `CatalogSidebar.tsx`.
 
 ### 3.2 Dispatch copy is per product, from one source
 
