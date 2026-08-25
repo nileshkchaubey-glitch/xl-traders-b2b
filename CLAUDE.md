@@ -190,7 +190,7 @@ inquiries, orders, order_items, import_logs, business_settings
     search shares the live-suggestion panel; catalog mobile = Filters chip + group quick chips +
     slide-up Filters & Sort bottom sheet ("Show N products"); PDP mobile = sticky WhatsApp +
     Add-to-Cart·₹total action bar above the nav (anon: "Sign in for wholesale price")
-  - **Storefront design system foundation (July 2026, PR1 of `docs/STOREFRONT_DESIGN_PROPOSALS.md`):**
+  - **Storefront design system foundation (July 2026, PR1 of `docs/archive/2026-07-15-storefront-design-proposals.md`):**
     presentation-only pass across Home/Header/Footer/ProductCard/Catalog/ProductDetail —
     4 new `@theme` type-scale tokens (`text-caption`/`text-body-sm`/`text-body-md`/
     `text-display`, `client/src/index.css`) replace ~90 one-off `text-[Npx]` arbitrary
@@ -206,7 +206,7 @@ inquiries, orders, order_items, import_logs, business_settings
     framer-motion entrance animation now skip translate/scale (opacity-only) under
     `prefers-reduced-motion`. See `docs/DESIGN_SYSTEM.md` §1.2/§1.4 for the token
     reference.
-  - **Interactive catalogue showcase (July 2026, PR2 of `docs/STOREFRONT_DESIGN_PROPOSALS.md`):**
+  - **Interactive catalogue showcase (July 2026, PR2 of `docs/archive/2026-07-15-storefront-design-proposals.md`):**
     `HomeFeaturedProducts` (fake Best-Sellers/Trending/New tabs — a client-side
     heuristic that fetched the ENTIRE catalogue unpaginated on every Home load)
     replaced by `HomeCatalogueShowcase`: category chips (group chips from
@@ -222,7 +222,7 @@ inquiries, orders, order_items, import_logs, business_settings
     ProductCard-footprint skeleton grid, and Catalog's mobile Filters/group-chip
     row is now sticky below the mobile header (`top-[116px]`, z-20) so filtering
     stays reachable while scrolling long lists.
-  - **Hero evolution + polish (July 2026, PR3 of `docs/STOREFRONT_DESIGN_PROPOSALS.md`,
+  - **Hero evolution + polish (July 2026, PR3 of `docs/archive/2026-07-15-storefront-design-proposals.md`,
     hero Concept C):** the ambient red/amber blob glows behind the hero (`bg-red-100/50`
     and `bg-amber-100/40` blurred circles) are removed — `HeroMotionTiles` is now the
     sole focal point against a quiet gradient wash. `HeroMotionTiles` gains a **wildcard
@@ -622,7 +622,7 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   the sticky bottom bar remains the one visible control) while touch panning, Shift+wheel,
   momentum, and deltaMode normalization stay native. The wheel handler is deleted.
 - **Inline-edit safety (July 2026, PR-A of the 25 Jul 2026 data-entry UX audit —
-  audit doc lives on branch `docs/data-entry-ux-audit`, not yet merged):**
+  audit doc archived at `docs/archive/2026-07-25-data-entry-ux-audit.md`):**
   data-integrity fixes to the Catalog Editor's inline table editing, ahead of the
   142-product catalogue cleanup. Component logic only — no service, schema, or storefront
   change. **A typo in the Price cell no longer wipes the price (DE-01):** the editor was
