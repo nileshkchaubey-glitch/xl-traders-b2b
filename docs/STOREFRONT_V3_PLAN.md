@@ -609,6 +609,10 @@ parse/execute on a mid-range Android — leaving essentially no headroom under a
 
 ### 8.2 Cause and fix
 
+**Historical diagnosis:** the framer-motion consumers named below were retired
+during V3. Block B PR-2 removes the now-unused dependency and orphaned Home
+animation CSS; current Home composition is documented in `CLAUDE.md`.
+
 Only the two admin routes are lazy **[code]** `App.tsx:19-20`. Home, Catalog,
 ProductDetail, Cart and Auth are all statically imported, so the entry chunk is
 every storefront page plus everything they touch — including `framer-motion`,

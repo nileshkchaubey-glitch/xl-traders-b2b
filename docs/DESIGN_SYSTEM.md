@@ -372,13 +372,13 @@ Toasts use **`sonner`**. Bottom sheets use the single **`drawer`** (vaul) primit
 | `AdminBrands`                                                                                                        | Brands manager tab (`/admin` → Catalogue → Brands). Self-loading via `brandsService` only — zero direct Supabase calls. Create/edit dialog with inline 23505 duplicate error; active switch = soft delete                                                                                                                                                                                     |
 | `HealthDot` / `catalogHealth.ts`                                                                                     | Health color/label only (logic stays in the view)                                                                                                                                                                                                                                                                                                                                             |
 | `SectionEyebrow` (`client/src/components/SectionEyebrow.tsx`)                                                        | Storefront-only: the small uppercase/tracked label above a section `<h2>` (`tone="light"` red-600 on white/slate-50, `tone="dark"` red-400 on a dark card). Standardizes a pattern that used to be re-typed per section — reuse it for any new section eyebrow rather than hand-rolling the classes again                                                                                     |
-| `HomeCatalogueShowcase` (`client/src/components/home/HomeCatalogueShowcase.tsx`)                                     | Home-page catalogue taster: category chips + chip-filtered `ProductCard` grid on the same paginated `productService.getAll` call `/catalog` uses (pageSize 10). Replaced `HomeFeaturedProducts` (removed — its tabs were a client-side heuristic over an unpaginated full-catalogue fetch; recover from git if needed). Not a second catalogue: capped per view, always links into `/catalog` |
+| `MerchandisedRow` (`client/src/components/home/MerchandisedRow.tsx`) | Current Home product rows: new arrivals and featured products, each fetching one page (`pageSize: 8`) through `productService.getAll`, reusing `ProductCard` and linking to `/catalog`. Replaces the retired `HomeCatalogueShowcase`. |
 
 > Removed in Phase 2b (recover from git if needed): `AdminProducts`, `ProductsTable`
 > (TanStack + `react-virtual` — the only virtualized grid), `ProductDrawer`,
 > `EditableCell`, `RapidEntryRow`, `ProductQuickEditSheet`, `MobileProductCard`,
-> `AdminImageGallery`. `@tanstack/react-virtual` is currently **unused** (kept as a
-> dependency for `<DataTable>`'s planned virtualization phase).
+> `AdminImageGallery`. Block B PR-2 removes the unused `@tanstack/react-virtual`
+> dependency; add it back only when implementing `<DataTable>` virtualization.
 
 ### 3.3 Shared `<DataTable>` — **Phase 1 built** (`client/src/components/ui/DataTable.tsx`)
 

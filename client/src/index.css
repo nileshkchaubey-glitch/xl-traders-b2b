@@ -1,16 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* ── Storefront motion (hero tiles, brand marquee) ── */
-@keyframes xl-kenburns {
-  0% {
-    transform: scale(1) translate(0, 0);
-  }
-  100% {
-    transform: scale(1.12) translate(-1.5%, -1.5%);
-  }
-}
-
+/* ── Storefront motion (spotlight marquee) ── */
 @keyframes xl-marquee {
   from {
     transform: translateX(0);
@@ -19,10 +10,6 @@
     /* Content is duplicated once, so -50% loops seamlessly */
     transform: translateX(-50%);
   }
-}
-
-.xl-kenburns {
-  animation: xl-kenburns 7s ease-out both;
 }
 
 .xl-marquee {
@@ -35,15 +22,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xl-kenburns,
   .xl-marquee {
     animation: none;
-  }
-  /* Hero tile images swap without a fade. Their hover *scale* is guarded at
-     the call site with Tailwind's motion-safe: variant (HeroMotionTiles), so
-     under reduced motion the image neither fades nor scales. */
-  .xl-hero-crossfade {
-    transition: none;
   }
 }
 
