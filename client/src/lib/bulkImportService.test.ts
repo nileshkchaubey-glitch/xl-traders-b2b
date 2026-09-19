@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseOptionalImportNumber } from "./bulkImportService";
+import { parseOptionalImportNumber } from "./importNumber";
 
 describe("parseOptionalImportNumber", () => {
   it("accepts correctly grouped prices without truncating them", () => {
