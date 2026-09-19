@@ -126,7 +126,7 @@ export default function Search() {
                 {categories.map(c => (
                   <Link
                     key={c.id}
-                    href={`/catalog?category=${c.id}`}
+                    href={`/catalog?category=${c.slug}`}
                     className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-body-sm font-semibold hover:border-red-300"
                   >
                     {c.name}
