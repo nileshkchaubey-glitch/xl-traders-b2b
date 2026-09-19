@@ -77,6 +77,11 @@ export default function Cart() {
   };
 
   const handlePlaceOrder = async () => {
+    if (!isAuthenticated) {
+      toast.error("Please sign in to place an order");
+      setLocation("/auth");
+      return;
+    }
     if (!items.length) return toast.error("Your cart is empty");
     if (t.anyBelowMoq)
       return toast.error("Some lines are below their minimum order quantity");
