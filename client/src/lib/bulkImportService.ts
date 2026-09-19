@@ -140,6 +140,12 @@ export async function parseExcel(file: File): Promise<ParsedFile> {
             `Excel Parse Error: ${error instanceof Error ? error.message : "Unknown error"}`,
           ],
         });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
   if (!row.name || typeof row.name !== "string" || !row.name.trim()) {
     throw new Error("Missing or invalid product name");
