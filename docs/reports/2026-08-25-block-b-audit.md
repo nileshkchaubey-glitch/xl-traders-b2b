@@ -1,4 +1,14 @@
-# Block B — repo audit. Lists only, nothing deleted.
+# Block B — repo audit (2026-08-25 snapshot)
+
+**PR-2 implementation (2026-09-18):** removed the eight direct runtime
+dependencies in §3 and the two dead Home CSS rules in §5, including the orphaned
+`xl-kenburns` keyframes and reduced-motion selectors. Updated the current Home
+and dependency documentation. The three owner-confirmation dev dependencies
+(`@tailwindcss/typography`, `autoprefixer`, `postcss`) remain unchanged.
+Validation: clean `npm ci` followed by `npm run ci` with Node 20.20.2 passed
+type-checking, storefront guardrails, all 113 tests (5 files), and the production
+build including PWA generation. Vite reported a non-blocking chunk-size warning.
+The original read-only findings below are preserved as the audit snapshot.
 
 Read-only. Every verdict below has a mechanical check behind it, named inline so
 it can be re-run. **No files, branches or dependencies were removed.**
@@ -116,7 +126,7 @@ and made the first run of this check report zero.
 | `streamdown` | not imported anywhere |
 | `tailwindcss-animate` | a Tailwind **v3** plugin in a v4 project with no config file |
 
-### ASK THE OWNER — 4 devDependencies
+### ASK THE OWNER — 3 devDependencies
 
 `@tailwindcss/typography`, `autoprefixer`, `postcss` — there is **no
 `postcss.config.*` or `tailwind.config.*` in the repo** and no `@plugin` in

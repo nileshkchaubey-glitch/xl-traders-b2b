@@ -157,6 +157,13 @@ inquiries, orders, order_items, import_logs, business_settings
 
 ### Customer Storefront
 
+- **Current Home composition (Block B PR-2):** `HeroSlideshow` → `PromoBanners`
+  (`home_top`) → `HomeCategoryGrid` → `HomeSpotlightStrip` → `PromoBanners`
+  (`home_mid`) → `MerchandisedRow` ×2 (new arrivals and featured products), plus
+  `BackToTop`. Motion uses CSS with reduced-motion support. `HeroMotionTiles`,
+  `HomeCatalogueShowcase` and the framer-motion entrances described in the July
+  history below have been retired. Block B PR-2 removes the unused framer-motion
+  dependency and the orphaned `.xl-kenburns` / `.xl-hero-crossfade` CSS.
 - Product catalog, category browsing, search & filters
 - B2B price gate (prices hidden from anonymous users)
 - **Null-price safety:** "Price on enquiry" shown everywhere (cards, detail, cart, WhatsApp) — never ₹0.
@@ -171,11 +178,9 @@ inquiries, orders, order_items, import_logs, business_settings
   - Header: dark utility bar (GST/delivery/hours/phone), Categories mega-menu from real
     category groups, live search suggestions (debounced `productService.search`) with
     recent/popular chips + WhatsApp "we probably stock it" fallback, red Cart button → `/cart`
-  - Home: hero with rating badge + **auto-rotating motion tiles** (`HeroMotionTiles` — local
-    `/images/hero/*.png`, crossfade + Ken Burns, progress dots, links to catalog search),
-    infinite marquee strip (brands from DB, value-prop fallback), scroll-reveal sections
-    (framer-motion), sign-in hook banner (anon only), bulk-quote banner, trust stats/points,
-    service areas + brands, FAQ accordion; `prefers-reduced-motion` disables animations
+  - Home (historical July layout, since replaced): motion tiles, brand marquee,
+    scroll-reveal sections, sign-in/bulk-quote banners, trust sections and FAQ.
+    See the current Home composition above for the active components.
   - Catalog: breadcrumb + title/controls row (sort + grid/list on desktop), restyled sidebar
   - ProductCard: brand line, ₹/pack + per-piece + MOQ line, outline Add-to-Cart → red stepper,
     MOQ pre-filled on first add; anon sees Enquire + "Sign in for exact price"
@@ -202,11 +207,13 @@ inquiries, orders, order_items, import_logs, business_settings
     trust badge (was rendered in both the hero and the trust strip directly below it —
     now only the trust strip). Catalog's "No products found" empty state gained the
     same WhatsApp-fallback CTA the header search empty state already had. Reduced-motion
-    audit: `HeroMotionTiles`' image crossfade and every Home/`HomeCategoryGrid`
-    framer-motion entrance animation now skip translate/scale (opacity-only) under
+    audit at the time: the now-retired `HeroMotionTiles` image crossfade and Home/
+    `HomeCategoryGrid` framer-motion entrances skipped translate/scale (opacity-only) under
     `prefers-reduced-motion`. See `docs/DESIGN_SYSTEM.md` §1.2/§1.4 for the token
     reference.
-  - **Interactive catalogue showcase (July 2026, PR2 of `docs/archive/2026-07-15-storefront-design-proposals.md`):**
+  - **Interactive catalogue showcase (historical July 2026, PR2 of
+    `docs/archive/2026-07-15-storefront-design-proposals.md`; showcase since replaced
+    by `MerchandisedRow`):**
     `HomeFeaturedProducts` (fake Best-Sellers/Trending/New tabs — a client-side
     heuristic that fetched the ENTIRE catalogue unpaginated on every Home load)
     replaced by `HomeCatalogueShowcase`: category chips (group chips from
@@ -222,7 +229,8 @@ inquiries, orders, order_items, import_logs, business_settings
     ProductCard-footprint skeleton grid, and Catalog's mobile Filters/group-chip
     row is now sticky below the mobile header (`top-[116px]`, z-20) so filtering
     stays reachable while scrolling long lists.
-  - **Hero evolution + polish (July 2026, PR3 of `docs/archive/2026-07-15-storefront-design-proposals.md`,
+  - **Hero evolution + polish (historical July 2026; motion tiles since replaced
+    by `HeroSlideshow`; PR3 of `docs/archive/2026-07-15-storefront-design-proposals.md`,
     hero Concept C):** the ambient red/amber blob glows behind the hero (`bg-red-100/50`
     and `bg-amber-100/40` blurred circles) are removed — `HeroMotionTiles` is now the
     sole focal point against a quiet gradient wash. `HeroMotionTiles` gains a **wildcard
@@ -298,8 +306,9 @@ categories` → links to `/catalog`), sourced from the same public
     **The promise is admin-editable** (`hero.promiseLead` / `promiseAccent` / `promiseTiers`) —
     the largest element on the site must not be hardcoded copy.
     **Mobile-first, one component tree** (§5): Tailwind breakpoints only, no `useIsMobile`
-    branch. `HeroMotionTiles` is `hidden lg:block` — at 390px it cost a full extra screen before
-    the first product. The **catalogue showcase moved above the category grid**: measured at
+    branch. At that time, the now-retired `HeroMotionTiles` was `hidden lg:block` —
+    at 390px it cost a full extra screen before the first product. The **catalogue
+    showcase moved above the category grid**: measured at
     390px the grid is 1092px on its own and pushed the first product card to **2.63 screens**;
     products now appear at **1.34** screens and the first real price at **1.34** (§5 density
     intent). The grid's own layout is untouched — that is PR-3.
