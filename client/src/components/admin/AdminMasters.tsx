@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useLocation, Link } from "wouter";
+import { useLocation, Link, Redirect } from "wouter";
 import { useAuthStore } from "@/lib/authStore";
 import {
   LogOut,
@@ -85,8 +85,28 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 export default function AdminMasters() {
+  const { isLoading, isAuthenticated, isAdmin } = useAuthStore();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <p role="status" className="text-sm text-slate-500">
+          Checking admin access…
+        </p>
+      </div>
+    );
+  }
+  if (!isAuthenticated) return <Redirect to="/auth" replace />;
+  if (!isAdmin) return <Redirect to="/" replace />;
+
+  // Mount the data-loading page only after authorization has resolved.
+  // Database grants and RLS remain the security boundary for every request.
+  return <AdminMastersContent />;
+}
+
+function AdminMastersContent() {
   const [, setLocation] = useLocation();
-  const { user, refreshProfile, signOut } = useAuthStore();
+  const { user, signOut } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Masters Data State
@@ -139,9 +159,8 @@ export default function AdminMasters() {
   }, []);
 
   useEffect(() => {
-    refreshProfile();
     refreshData();
-  }, [refreshProfile, refreshData]);
+  }, [refreshData]);
 
   const handleLogout = async () => {
     await signOut();
