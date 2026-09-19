@@ -79,7 +79,7 @@ export default function HomeCategoryGrid() {
           : categories.map(c => (
               <Link
                 key={c.id}
-                href={`/catalog?category=${c.id}`}
+                href={`/catalog?category=${c.slug}`}
                 className="group block"
               >
                 <div className="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
