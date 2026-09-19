@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select no_plan();
 
 -- Stable identities used only inside this rolled-back test transaction.
 insert into auth.users (
@@ -42,6 +42,11 @@ values ('20000000-0000-0000-0000-000000000001', 'authz_test_setting', 'original'
 insert into public.import_logs (id, source, rows_total)
 values ('30000000-0000-0000-0000-000000000001', 'authz-test', 1);
 
+insert into public.products (id, name, status, is_active, price) values
+  ('40000000-0000-0000-0000-000000000001', 'authz-test-live', 'published', true, 10),
+  ('40000000-0000-0000-0000-000000000002', 'authz-test-draft', 'draft', true, null),
+  ('40000000-0000-0000-0000-000000000003', 'authz-test-inactive', 'published', false, 20);
+
 -- Anonymous role.
 set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
@@ -63,6 +68,20 @@ select ok(
   'anon has no SELECT grant on v_product_health'
 );
 
+select is((select count(*) from public.user_profiles), 0::bigint,
+  'anonymous users cannot read profiles');
+select throws_ok(
+  $$ insert into public.user_profiles (id, email) values ('10000000-0000-0000-0000-000000000003', 'anon@example.invalid') $$,
+  '42501', null, 'anonymous users cannot create a profile');
+select results_eq(
+  $$ update public.business_settings set value = 'anon-write' where key = 'authz_test_setting' returning key $$,
+  $$ select null::text where false $$, 'anonymous settings updates affect no rows');
+select results_eq(
+  $$ delete from public.business_settings where key = 'authz_test_setting' returning key $$,
+  $$ select null::text where false $$, 'anonymous settings deletes affect no rows');
+select is((select count(*) from public.import_logs), 0::bigint,
+  'anonymous users cannot read import logs');
+
 reset role;
 
 -- Customer role: ordinary profile data remains self-service, while privileged
@@ -77,6 +96,9 @@ select throws_ok(
   $$ insert into public.user_profiles (id, email, is_admin, is_active) values ('10000000-0000-0000-0000-000000000003', 'new-customer-authz-test@example.invalid', true, true) $$,
   '42501', null, 'new customers cannot create an admin profile'
 );
+select lives_ok(
+  $$ insert into public.user_profiles (id, email, is_admin, is_active) values ('10000000-0000-0000-0000-000000000003', 'new-customer-authz-test@example.invalid', false, true) $$,
+  'ordinary signup profile creation remains allowed');
 
 select set_config(
   'request.jwt.claims',
@@ -106,6 +128,15 @@ select is(
   (select is_admin from public.user_profiles where id = '10000000-0000-0000-0000-000000000001'),
   false, 'the customer remains non-admin after the blocked update'
 );
+select throws_ok(
+  $$ insert into public.user_profiles (id, email, is_admin) values ('10000000-0000-0000-0000-000000000001', 'customer-authz-test@example.invalid', true) on conflict (id) do update set is_admin = excluded.is_admin $$,
+  '42501', null, 'upsert cannot bypass profile privilege protection');
+select results_eq(
+  $$ update public.user_profiles set company_name = 'spoofed' where id = '10000000-0000-0000-0000-000000000002' returning id $$,
+  $$ select null::uuid where false $$, 'customer cannot edit another profile');
+select throws_ok(
+  $$ update public.user_profiles set id = '10000000-0000-0000-0000-000000000099' where id = '10000000-0000-0000-0000-000000000001' $$,
+  '42501', null, 'customer cannot reassign profile ownership');
 select results_eq(
   $$ update public.business_settings set value = 'customer-write' where key = 'authz_test_setting' returning key $$,
   $$ select null::text where false $$,
@@ -116,6 +147,11 @@ select throws_ok(
   '42501', null, 'customers cannot insert business settings'
 );
 select results_eq(
+  $$ delete from public.business_settings where key = 'authz_test_setting' returning key $$,
+  $$ select null::text where false $$, 'customer cannot delete settings');
+select is((select count(*) from public.business_settings where key = 'authz_test_setting'),
+  1::bigint, 'public business settings remain readable');
+select results_eq(
   $$ delete from public.import_logs where id = '30000000-0000-0000-0000-000000000001' returning id $$,
   $$ select null::uuid where false $$,
   'customer deletes from import_logs affect no rows'
@@ -124,10 +160,19 @@ select throws_ok(
   $$ insert into public.import_logs (source, rows_total) values ('customer-write', 1) $$,
   '42501', null, 'customers cannot insert import logs'
 );
+select results_eq(
+  $$ update public.import_logs set rows_total = 99 where id = '30000000-0000-0000-0000-000000000001' returning id $$,
+  $$ select null::uuid where false $$, 'customer cannot update import logs');
+select is((select count(*) from public.import_logs), 0::bigint,
+  'customer cannot read administrative import logs');
 select lives_ok(
   $$ select count(*) from public.v_product_health $$,
   'authenticated users query v_product_health through underlying RLS'
 );
+select results_eq(
+  $$ select name from public.v_product_health where name like 'authz-test-%' order by name $$,
+  $$ values ('authz-test-live'::text) $$,
+  'customer health view excludes both drafts and inactive products');
 
 reset role;
 
@@ -143,6 +188,11 @@ select lives_ok(
   $$ update public.user_profiles set is_active = false where id = '10000000-0000-0000-0000-000000000001' $$,
   'admins can manage privileged user profile fields'
 );
+select is((select is_active from public.user_profiles where id = '10000000-0000-0000-0000-000000000001'),
+  false, 'admin activation changes actually persist');
+select results_eq(
+  $$ update public.user_profiles set is_admin = true where id = '10000000-0000-0000-0000-000000000003' returning is_admin $$,
+  $$ values (true) $$, 'existing admins can grant administrator access');
 select results_eq(
   $$ update public.business_settings set value = 'admin-write' where key = 'authz_test_setting' returning key $$,
   $$ values ('authz_test_setting'::text) $$,
@@ -157,6 +207,17 @@ select lives_ok(
   $$ select count(*) from public.v_product_health $$,
   'admins can read v_product_health'
 );
+select is((select count(*) from public.v_product_health where name like 'authz-test-%'),
+  3::bigint, 'admin health view includes published, draft and inactive products');
+select lives_ok(
+  $$ insert into public.business_settings (key, value) values ('authz_admin_created', 'value') $$,
+  'admin can insert settings');
+select lives_ok(
+  $$ insert into public.import_logs (source, rows_total) values ('authz_admin_created', 1) $$,
+  'admin can insert logs');
+select results_eq(
+  $$ delete from public.import_logs where source = 'authz_admin_created' returning source $$,
+  $$ values ('authz_admin_created'::text) $$, 'admin can delete logs');
 select ok(
   has_table_privilege('authenticated', 'public.v_product_health', 'select'),
   'authenticated keeps the health-view SELECT grant needed by admins'

@@ -45,5 +45,8 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Database authorization tests (ephemeral PostgreSQL)
+        run: npm run test:authorization
+
       - name: Build
         run: npm run build
