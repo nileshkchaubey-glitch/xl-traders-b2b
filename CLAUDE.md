@@ -414,6 +414,10 @@ e.preventDefault(); }` and its `Root` defaults **`autoFocus = false`** — so
 - **Image Library:** central media manager; drag-drop upload; "Select from Library"; Small/Medium/Large grid + Fit/Fill
 - **Right-click PIM menu:** Edit, Images, Duplicate, Delete, Toggle status, View Live, Copy info
 - **Masters:** `/admin/masters` — shared desc/images/SEO + variants (mobile=cards; desktop=table+expand)
+  - The route waits for auth initialization before mounting controls or fetching masters.
+    Guests go to `/auth`; signed-in non-admins go to `/`. Database RLS remains the
+    authorization boundary. Component tests cover loading, guest, customer, stale
+    admin flag, and authenticated-admin states.
 - **Missing-data smart filters:** 8-dimension "Missing…" dropdown (no-price/moq/brand/image/specs/desc/seo/category); composable with search+category+status
 - **Dashboard chips:** 8 missing-count chips on Overview → deep-link to filtered list
 - **Bulk update:** select-all-matching-filter; set brand/MOQ/unit/category; Publish/Unpublish/Activate/Delete; confirm dialog; N/A marking
