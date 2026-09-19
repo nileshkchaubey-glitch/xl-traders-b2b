@@ -11,7 +11,7 @@ export function parseOptionalImportNumber(
 
   const text = String(raw).trim();
   const valid =
-    /^(?:\d+|\d{1,3}(?:,\d{3})+|\d{1,3}(?:,\d{2})*,\d{3})(?:\.\d+)?$/.test(text);
+    /^(?:\d+|\d{1,3}(?:,\d{3})+|\d{1,2}(?:,\d{2})+,\d{3})(?:\.\d+)?$/.test(text);
   if (!valid) throw new Error(`Invalid ${field} — must be a valid number`);
 
   const value = Number(text.replace(/,/g, ""));
