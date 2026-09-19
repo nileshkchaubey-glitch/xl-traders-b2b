@@ -2,6 +2,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { supabase } from "./supabase";
 import { isPriceOnEnquiry } from "./priceUtils";
+import { parseOptionalImportNumber } from "./importNumber";
 
 export interface ImportRow {
   master_name?: string;
@@ -152,27 +153,18 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
   if (!row.unit || typeof row.unit !== "string" || !row.unit.trim()) {
     throw new Error("Missing or invalid unit");
   }
-  const parsedPrice =
-    row.price !== undefined &&
-    row.price !== null &&
-    String(row.price).trim() !== ""
-      ? parseFloat(row.price)
-      : null;
-  if (parsedPrice !== null && isNaN(parsedPrice)) {
-    throw new Error("Invalid price — must be a number or left blank");
-  }
-  // 0 / negative mean "price on enquiry" → store NULL, never a literal ₹0.
+  const parsedPrice = parseOptionalImportNumber(row.price, "price", {
+    nonNegative: true,
+  });
+  // A literal zero remains the existing, documented “price on enquiry” value.
   const rawPrice = isPriceOnEnquiry(parsedPrice) ? null : parsedPrice;
-  // quantity_in_unit is optional — blank defaults to 1 (matches the Google Sheets
-  // path and the documented template). Only reject a value that is present but invalid.
-  const hasQty =
-    row.quantity_in_unit !== undefined &&
-    row.quantity_in_unit !== null &&
-    String(row.quantity_in_unit).trim() !== "";
-  const quantity = hasQty ? parseFloat(row.quantity_in_unit) : 1;
-  if (hasQty && (isNaN(quantity) || quantity <= 0)) {
-    throw new Error("Invalid quantity_in_unit — must be a positive number");
-  }
+  // quantity_in_unit is optional — blank defaults to 1. Packs and piece counts
+  // must be positive whole numbers; fractional values corrupt order arithmetic.
+  const quantity =
+    parseOptionalImportNumber(row.quantity_in_unit, "quantity_in_unit", {
+      integer: true,
+      positive: true,
+    }) ?? 1;
   const category =
     row.category && typeof row.category === "string" && row.category.trim()
       ? row.category.trim()
@@ -187,10 +179,14 @@ function validateAndParseRow(row: any, _rowNumber: number): ImportRow | null {
     group: row.group ? row.group.trim() : undefined,
     sku: row.sku ? row.sku.trim() : undefined,
     barcode: row.barcode ? row.barcode.trim() : undefined,
-    moq: row.moq !== undefined && row.moq !== null && String(row.moq).trim() !== ''
-      ? parseInt(row.moq) : null,
+    moq: parseOptionalImportNumber(row.moq, "MOQ", {
+      integer: true,
+      positive: true,
+    }),
     price: rawPrice,
-    mrp: row.mrp ? parseFloat(row.mrp) : undefined,
+    mrp: parseOptionalImportNumber(row.mrp, "MRP", {
+      nonNegative: true,
+    }) ?? undefined,
     unit: row.unit.trim(),
     quantity_in_unit: quantity,
     description: row.description ? row.description.trim() : undefined,
@@ -245,13 +241,13 @@ async function saveProductImages(
     .eq("id", productId);
 }
 
-async function resolveUncategorizedId(): Promise<string | null> {
+async function resolveUncategorizedId(createIfMissing: boolean): Promise<string | null> {
   const { data } = await supabase
     .from("categories")
     .select("id")
     .eq("slug", "uncategorized")
     .maybeSingle();
-  if (data?.id) return data.id;
+  if (data?.id || !createIfMissing) return data?.id ?? null;
   const { data: created, error } = await supabase
     .from("categories")
     .insert({
@@ -270,7 +266,10 @@ async function resolveUncategorizedId(): Promise<string | null> {
   return created?.id ?? null;
 }
 
-async function buildCategoryMap(rows: ImportRow[]): Promise<{
+async function buildCategoryMap(
+  rows: ImportRow[],
+  options: { createUncategorized?: boolean } = {}
+): Promise<{
   map: Record<string, string>;
   unknowns: Array<{ category: string; rows: number[] }>;
 }> {
@@ -286,7 +285,9 @@ async function buildCategoryMap(rows: ImportRow[]): Promise<{
     catLookup.set(cat.name.toLowerCase(), cat.id);
   }
 
-  const uncatId = await resolveUncategorizedId();
+  const uncatId = await resolveUncategorizedId(
+    options.createUncategorized !== false
+  );
   const map: Record<string, string> = {};
   const unknownMap = new Map<string, number[]>();
 
@@ -374,7 +375,10 @@ export async function dryRunImport(rows: ImportRow[]): Promise<DryRunResult> {
   result.newSkus = allSkus.filter(s => !result.existingSkus.includes(s));
 
   // Check categories
-  const { unknowns } = await buildCategoryMap(rows);
+  // A dry run reports unknown categories but must never create one.
+  const { unknowns } = await buildCategoryMap(rows, {
+    createUncategorized: false,
+  });
   result.unknownCategories = unknowns;
 
   return result;
