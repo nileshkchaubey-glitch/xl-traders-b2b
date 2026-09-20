@@ -408,7 +408,7 @@ function applyPublicScalarFilters(
   if (filters?.search) {
     // Escaped + quoted: a comma in the term used to produce HTTP 400 and take
     // the whole catalogue down. See lib/searchFilter.ts.
-    const or = orIlike(filters.search, ["name", "description"]);
+    const or = orIlike(filters.search, ["name", "description", "sku"]);
     if (or) query = query.or(or);
   }
   return query;
@@ -460,11 +460,12 @@ function filterDemoProducts(filters?: PublicProductFilters): Product[] {
   if (filters?.featured) results = results.filter(p => p.is_featured);
   if (filters?.brand) results = results.filter(p => p.brand === filters.brand);
   if (filters?.search) {
-    const q = filters.search.toLowerCase();
+    const q = filters.search.trim().toLowerCase();
     results = results.filter(
       p =>
         p.name.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q)
+        p.description?.toLowerCase().includes(q) ||
+        p.sku?.toLowerCase().includes(q)
     );
   }
   return results;
@@ -782,12 +783,13 @@ export const productService = {
 
   async search(query: string, limit: number = 20) {
     if (isDemo) {
-      const q = query.toLowerCase();
+      const q = query.trim().toLowerCase();
       return demoProducts
         .filter(
           p =>
             p.name.toLowerCase().includes(q) ||
-            p.description?.toLowerCase().includes(q)
+            p.description?.toLowerCase().includes(q) ||
+            p.sku?.toLowerCase().includes(q)
         )
         .slice(0, limit);
     }
@@ -799,7 +801,7 @@ export const productService = {
         .select(cols)
         .eq("status", "published")
         .eq("is_active", true)
-        .or(orIlike(query, ["name", "description"]) ?? "")
+        .or(orIlike(query, ["name", "description", "sku"]) ?? "")
         .limit(limit);
 
       if (error) throw error;
