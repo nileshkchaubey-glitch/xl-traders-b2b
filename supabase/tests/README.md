@@ -21,3 +21,10 @@ SQL can be run against a disposable full-schema Supabase environment with
 `supabase test db supabase/tests/authorization_security_roles_test.sql --db-url <test-url>`.
 Never run the fixture against a hosted project. Production migrations require
 separate owner approval; adding this runner deploys no SQL.
+# Order minimum regression tests
+
+`npm run test:orders` runs the original and proposed minimum-order migrations
+against an ephemeral, minimal PostgreSQL fixture. It reproduces the old bypass
+and checks the fix after two applications, without connecting to Supabase.
+See [deployment and rollback review](../../docs/reports/2026-09-20-order-minimum-deployment.md)
+for scope, limitations, and the required owner approval before production SQL.
