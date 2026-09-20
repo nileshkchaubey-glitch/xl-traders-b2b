@@ -165,6 +165,9 @@ inquiries, orders, order_items, import_logs, business_settings
   history below have been retired. Block B PR-2 removes the unused framer-motion
   dependency and the orphaned `.xl-kenburns` / `.xl-hero-crossfade` CSS.
 - Product catalog, category browsing, search & filters
+  - Storefront suggestions, search results, and catalogue search/count match SKU
+    as well as name and description; publication filters and guest price-column
+    restrictions still apply.
 - B2B price gate (prices hidden from anonymous users)
 - **Null-price safety:** "Price on enquiry" shown everywhere (cards, detail, cart, WhatsApp) — never ₹0.
   The single rule lives in `lib/priceUtils.ts` — `isPriceOnEnquiry(price)` treats NULL **and 0/negative**
