@@ -34,7 +34,9 @@ const money = (n: number) =>
   });
 
 export default function Cart() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
+  // Persisted carts can still contain a prior session's price snapshot.
+  const canViewPrices = isAuthenticated && !isLoading;
   const [, setLocation] = useLocation();
   const items = useCartStore(s => s.items);
   const customer = useCartStore(s => s.customer);
@@ -50,6 +52,9 @@ export default function Cart() {
   // ONE source for every figure on this page — and the same one the WhatsApp
   // message uses, so the two can never disagree.
   const t = cartTotals(items);
+  const totalLabel = !canViewPrices
+    ? "Sign in for rates"
+    : t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`;
 
   const belowMinOrder =
     minOrder.enabled && !t.allEnquiry && t.total < minOrder.value;
@@ -235,7 +240,9 @@ export default function Cart() {
                           </span>
                         )}
                         <span className="text-caption text-slate-500 tabular-nums">
-                          {item.priceOnEnquiry
+                          {!canViewPrices
+                            ? "Sign in for rates"
+                            : item.priceOnEnquiry
                             ? "Price on enquiry"
                             : `₹${money(item.price)} / ${spec.noun}`}
                         </span>
@@ -259,7 +266,7 @@ export default function Cart() {
                         onChange={next => handleQty(item, next)}
                       />
                       <div className="text-body-md font-extrabold tabular-nums">
-                        {item.priceOnEnquiry
+                        {!canViewPrices || item.priceOnEnquiry
                           ? "—"
                           : `₹${money(lineTotal(item.packs, item.price))}`}
                       </div>
@@ -312,18 +319,18 @@ export default function Cart() {
               <dl className="space-y-1.5 text-body-sm">
                 <Row
                   k={`Subtotal (${t.pieces.toLocaleString("en-IN")} pcs)`}
-                  v={t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`}
+                  v={totalLabel}
                 />
               </dl>
 
               <div className="mt-3 flex items-baseline justify-between border-t border-slate-100 pt-3">
                 <span className="font-bold">Total payable</span>
                 <span className="text-xl font-extrabold tabular-nums">
-                  {t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`}
+                  {totalLabel}
                 </span>
               </div>
 
-              {belowMinOrder && (
+              {canViewPrices && belowMinOrder && (
                 <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-caption font-semibold text-amber-800">
                   Add ₹{money(minOrderShort)} more to meet the minimum order
                   value of ₹{money(minOrder.value)}.

@@ -169,6 +169,10 @@ inquiries, orders, order_items, import_logs, business_settings
     as well as name and description; publication filters and guest price-column
     restrictions still apply.
 - B2B price gate (prices hidden from anonymous users)
+  - Cart page and floating cart bar also hide persisted price snapshots, totals,
+    and monetary minimum-order progress after sign-out or while auth is loading.
+    Items and quantities remain in the cart; this is a display guard, not erasure
+    of prices a signed-in customer previously received.
 - **Null-price safety:** "Price on enquiry" shown everywhere (cards, detail, cart, WhatsApp) — never ₹0.
   The single rule lives in `lib/priceUtils.ts` — `isPriceOnEnquiry(price)` treats NULL **and 0/negative**
   as on-enquiry (0 is no longer "free"); every render/consume site funnels through it, and all price-save

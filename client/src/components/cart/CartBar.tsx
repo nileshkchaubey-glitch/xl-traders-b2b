@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { ShoppingCart, ArrowRight } from "lucide-react";
 import { useCartStore, cartTotals } from "@/stores/cartStore";
 import { useMinOrder } from "@/hooks/useMinOrder";
+import { useAuthStore } from "@/lib/authStore";
 
 const money = (n: number) =>
   n.toLocaleString("en-IN", {
@@ -26,6 +27,8 @@ const money = (n: number) =>
 export default function CartBar() {
   const [location] = useLocation();
   const items = useCartStore(s => s.items);
+  const { isAuthenticated, isLoading } = useAuthStore();
+  const canViewPrices = isAuthenticated && !isLoading;
   const minOrder = useMinOrder();
 
   const t = cartTotals(items);
@@ -38,9 +41,11 @@ export default function CartBar() {
   const onCart = location === "/cart";
   if (items.length === 0) return null;
 
-  const totalLabel = t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`;
+  const totalLabel = !canViewPrices
+    ? "Sign in for rates"
+    : t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`;
 
-  const showProgress = minOrder.enabled && minOrder.value > 0 && !t.allEnquiry;
+  const showProgress = canViewPrices && minOrder.enabled && minOrder.value > 0 && !t.allEnquiry;
   const met = !showProgress || t.total >= minOrder.value;
   const progressPct = showProgress
     ? Math.min(100, (t.total / minOrder.value) * 100)
