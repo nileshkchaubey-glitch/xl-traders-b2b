@@ -49,13 +49,23 @@ interface OrderRowProps {
   onStatusChange: (id: string, status: OrderStatus) => void;
 }
 
-function OrderRow({ order, onStatusChange }: OrderRowProps) {
+function customerWhatsAppNumber(phone: string | null): string | null {
+  // Checkout stores ten-digit Indian mobiles. Also accept already-qualified
+  // historical numbers, without guessing a country for other local formats.
+  const compact = (phone ?? "").trim().replace(/[\s()-]/g, "");
+  if (/^[6-9]\d{9}$/.test(compact)) return `91${compact}`;
+  if (/^91[6-9]\d{9}$/.test(compact)) return compact;
+  if (/^\+[1-9]\d{7,14}$/.test(compact)) return compact.slice(1);
+  return null;
+}
+
+export function OrderRow({ order, onStatusChange }: OrderRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  const wa = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
+  const wa = customerWhatsAppNumber(order.phone);
 
   const handleExpand = async () => {
     setExpanded(v => !v);
@@ -111,9 +121,9 @@ function OrderRow({ order, onStatusChange }: OrderRowProps) {
           </div>
 
           <div className="flex items-center gap-1">
-            {order.phone ? (
+            {wa ? (
               <a
-                href={`https://wa.me/${wa.replace("+", "")}?text=${encodeURIComponent(`Hi ${order.customer_name || ""}, your order has been received.`)}`}
+                href={`https://wa.me/${wa}?text=${encodeURIComponent(`Hi ${order.customer_name || ""}, your order has been received.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
@@ -123,7 +133,7 @@ function OrderRow({ order, onStatusChange }: OrderRowProps) {
                 {order.phone}
               </a>
             ) : (
-              <span className="text-slate-400 text-xs">—</span>
+              <span className="text-slate-400 text-xs break-all">{order.phone || "—"}</span>
             )}
           </div>
 
