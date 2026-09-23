@@ -408,6 +408,11 @@ e.preventDefault(); }` and its `Root` defaults **`autoFocus = false`** — so
 
 ### Admin Panel (PIM)
 
+- **Order customer contact:** each order's WhatsApp link uses its customer phone,
+  not the storefront's business contact number. Checkout's ten-digit Indian
+  mobiles gain `91`; qualified numbers retain their country code. Missing or
+  malformed numbers stay plain text. The existing message is only prefilled;
+  this action does not send it or change order status.
 - Shopify-style dark sidebar; CATALOGUE / SALES / CONTENT & IMPORT / SYSTEM
 - **Products list redesign (Phase 1)** — HISTORICAL, removed in Phase 2b: the old
   AdminProducts surface (`ProductsTable` + `ProductDrawer` + `EditableCell` +
