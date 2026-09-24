@@ -61,6 +61,7 @@ interface CartState {
    */
   setPcs: (productId: string, pcs: number) => void;
   setCustomer: (customer: CustomerInfo) => void;
+  updatePrices: (prices: { productId: string; price: number; priceOnEnquiry?: boolean }[]) => void;
   clearCart: () => void;
   getTotal: () => number;
   /** Selling units across the cart. */
@@ -165,6 +166,13 @@ export const useCartStore = create<CartState>()(
       },
 
       setCustomer: customer => set({ customer }),
+
+      updatePrices: prices => set(state => ({
+        items: state.items.map(item => {
+          const price = prices.find(p => p.productId === item.productId);
+          return price ? { ...item, price: price.price, priceOnEnquiry: price.priceOnEnquiry } : item;
+        }),
+      })),
 
       clearCart: () => set({ items: [], customer: { name: "", phone: "" } }),
 

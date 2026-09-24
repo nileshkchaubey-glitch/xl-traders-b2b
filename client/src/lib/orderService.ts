@@ -1,23 +1,32 @@
 import { supabase, Order, OrderItem, OrderStatus } from "./supabase";
 import { CartItem, CustomerInfo } from "@/stores/cartStore";
+import { reviewCartPrices } from "./cartPriceReview";
 // Re-exported so existing callers keep importing it from orderService; the
 // implementation lives in orderMessage.ts, which is free of Supabase and
 // therefore unit-testable.
 export { buildWhatsAppMessage } from "./orderMessage";
 
 export const orderService = {
+  async reviewPrices(items: CartItem[]) {
+    const { data, error } = await supabase.from("products")
+      .select("id,price").in("id", items.map(item => item.productId))
+      .eq("status", "published").eq("is_active", true);
+    if (error) throw error;
+    return reviewCartPrices(items, data ?? []);
+  },
   /**
    * The database is the authority for price, availability, MOQ and steps.
-   * The browser sends only immutable product IDs and whole selling-unit counts;
-   * one RPC inserts the order and every line atomically.
+   * The browser sends product IDs, whole selling-unit counts and the price the
+   * customer confirmed. The RPC rejects stale prices and inserts atomically.
    */
   async placeOrder(items: CartItem[], customer: CustomerInfo): Promise<string> {
-    const { data: orderId, error } = await supabase.rpc("place_order_from_cart", {
+    const { data: orderId, error } = await supabase.rpc("place_order_from_confirmed_cart", {
       p_customer_name: customer.name.trim(),
       p_phone: customer.phone.replace(/\s+/g, ""),
       p_items: items.map(item => ({
         product_id: item.productId,
         quantity: item.packs,
+        expected_price: item.price,
       })),
     });
 

@@ -15,7 +15,8 @@
     "check:storefront": "node scripts/check-storefront.mjs",
     "test:authorization": "node scripts/test-authorization.mjs",
     "test:orders": "node scripts/test-order-minimum.mjs",
-    "ci": "npm run check && npm run check:storefront && npm test && npm run test:authorization && npm run test:orders && npm run build"
+    "test:price-reconfirmation": "node scripts/test-price-reconfirmation.mjs",
+    "ci": "npm run check && npm run check:storefront && npm test && npm run test:authorization && npm run test:orders && npm run test:price-reconfirmation && npm run build"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
