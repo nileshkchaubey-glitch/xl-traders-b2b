@@ -9,14 +9,14 @@ with live metadata on 2 October before reviewed checkout migrations. It contains
 15 public tables, two public views, auth.users and required Auth helpers; no real
 customer/catalogue/order rows were copied to disposable staging.
 
-| Area | Objects / code |
-| --- | --- |
-| Catalogue | products, categories, brands, product_masters, product_images, product_master_images; product/master services |
-| Ordering | orders, order_items; orderService and confirmed-price RPC |
-| Identity | user_profiles; authStore and public.is_admin() |
-| Leads | enquiries and inquiries are intentionally separate |
-| Content/admin | site_content, promo_banners, business_settings, import_logs |
-| Views | v_category_live_counts (published+active counts), v_product_health (health flags under caller RLS) |
+| Area          | Objects / code                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------- |
+| Catalogue     | products, categories, brands, product_masters, product_images, product_master_images; product/master services |
+| Ordering      | orders, order_items; orderService and confirmed-price RPC                                                     |
+| Identity      | user_profiles; authStore and public.is_admin()                                                                |
+| Leads         | enquiries and inquiries are intentionally separate                                                            |
+| Content/admin | site_content, promo_banners, business_settings, import_logs                                                   |
+| Views         | v_category_live_counts (published+active counts), v_product_health (health flags under caller RLS)            |
 
 products.price is per selling unit; quantity_in_unit is pack size; moq counts
 packs. order_unit is pack/pcs; order_step is pieces and valid multiples resolve
@@ -27,7 +27,10 @@ uncategorized, and never rerun sql/02-public-read-policies.sql.
 business_settings is a key/value table (id, key, value, updated_at), not one wide
 row with phone/address columns. site_content also stores key/jsonb values.
 The current AdminSettings mismatch is tracked in launch status. pg_trgm name
-GIN index products_name_trgm already exists; do not duplicate it from the handoff.
+GIN index products_name_trgm is ready/valid and used by the sampled name-only
+query; current three-column OR search uses a small-table sequential scan. See
+[current plans and timings](docs/reports/2026-10-02-search-index-verification.md).
+No duplicate index/migration or before/after performance gain is claimed.
 
 Authorization is database-owned: protected profile flags, admin-only settings/
 import writes, anon denial on v_product_health, scoped orders and protected atomic
