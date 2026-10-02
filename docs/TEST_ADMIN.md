@@ -33,10 +33,16 @@ session and shows an email-confirmation instruction.
 
 ## Test limits and data preservation
 
-The available Auth admin credential returned Invalid API key on 2 October;
-no test account was created. Hosted authenticated pricing/checkout/admin smoke
-checks remain unverified. Unit/role tests and real Chrome with fully intercepted
-synthetic Auth/REST responses are separate evidence, not a hosted login claim.
+The available Auth admin API credential returned Invalid API key on 2 October;
+no test account was created. An existing authorized Chrome admin session later
+verified hosted pricing, draft catalogue save, settings reads, inactive banner
+create/edit and a same-value theme save. Exact disposable rows were removed and
+the original theme timestamp restored; see the
+[hosted-validation report](reports/2026-10-02-hosted-admin-validation.md).
+Customer checkout/positive history and hosted import/upload remain NOT TESTED:
+no customer test login is available, and Chrome file-URL access is disabled.
+Settings writes were not attempted against real contact values. Synthetic browser
+and local role checks are separate evidence, not hosted customer login claims.
 
 Historical account IDs, scratch SKU and July measurements are archived; they are
 not current credentials or proof a row is safe to delete. Never drop/truncate

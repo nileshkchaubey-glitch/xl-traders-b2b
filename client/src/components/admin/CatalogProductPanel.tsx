@@ -305,7 +305,7 @@ export default function CatalogProductPanel({
                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:text-amber-800"
                 >
                   <Sparkles className="w-3 h-3 fill-amber-400 text-amber-500" />
-                  AI Paste
+                  Smart Paste
                 </button>
               }
             >
