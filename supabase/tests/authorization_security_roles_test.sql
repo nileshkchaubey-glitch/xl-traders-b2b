@@ -42,10 +42,14 @@ values ('20000000-0000-0000-0000-000000000001', 'authz_test_setting', 'original'
 insert into public.import_logs (id, source, rows_total)
 values ('30000000-0000-0000-0000-000000000001', 'authz-test', 1);
 
-insert into public.products (id, name, status, is_active, price) values
-  ('40000000-0000-0000-0000-000000000001', 'authz-test-live', 'published', true, 10),
-  ('40000000-0000-0000-0000-000000000002', 'authz-test-draft', 'draft', true, null),
-  ('40000000-0000-0000-0000-000000000003', 'authz-test-inactive', 'published', false, 20);
+-- The live application schema requires every product to reference a category.
+-- Keep this fixture valid on both disposable full-schema and minimal CI databases.
+insert into public.categories (id, name, slug) values
+  ('40000000-0000-0000-0000-000000000004', 'Authorization test category', 'authorization-test-category');
+insert into public.products (id, category_id, name, status, is_active, price) values
+  ('40000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000004', 'authz-test-live', 'published', true, 10),
+  ('40000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000004', 'authz-test-draft', 'draft', true, null),
+  ('40000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000004', 'authz-test-inactive', 'published', false, 20);
 
 -- Anonymous role.
 set local role anon;

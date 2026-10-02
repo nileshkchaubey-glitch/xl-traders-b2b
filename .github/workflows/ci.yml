@@ -51,5 +51,8 @@ jobs:
       - name: Order minimum tests (ephemeral PostgreSQL)
         run: npm run test:orders
 
+      - name: Price reconfirmation tests (ephemeral PostgreSQL)
+        run: npm run test:price-reconfirmation
+
       - name: Build
         run: npm run build

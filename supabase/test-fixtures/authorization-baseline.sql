@@ -41,8 +41,12 @@ create table public.business_settings (
 create table public.import_logs (
   id uuid primary key default gen_random_uuid(), source text, rows_total integer
 );
+create table public.categories (
+  id uuid primary key, name text not null, slug text not null unique
+);
 create table public.products (
   id uuid primary key default gen_random_uuid(), name text not null,
+  category_id uuid not null references public.categories(id),
   status text default 'draft', is_active boolean default true, price numeric
 );
 

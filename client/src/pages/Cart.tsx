@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from "@/lib/authStore";
 import { orderService } from "@/lib/orderService";
 import { buildWhatsAppMessage } from "@/lib/orderMessage";
+import { isCartPriceChanged, type CartPriceChange } from "@/lib/cartPriceReview";
 import { useMinOrder } from "@/hooks/useMinOrder";
 import {
   type Packs,
@@ -44,9 +45,11 @@ export default function Cart() {
   const removeItem = useCartStore(s => s.removeItem);
   const setCustomer = useCartStore(s => s.setCustomer);
   const clearCart = useCartStore(s => s.clearCart);
+  const updatePrices = useCartStore(s => s.updatePrices);
 
   const [placing, setPlacing] = useState(false);
   const [notes, setNotes] = useState("");
+  const [priceChanges, setPriceChanges] = useState<CartPriceChange[]>([]);
   const minOrder = useMinOrder();
 
   // ONE source for every figure on this page — and the same one the WhatsApp
@@ -82,7 +85,8 @@ export default function Cart() {
   };
 
   const handlePlaceOrder = async () => {
-    if (!isAuthenticated) {
+    if (placing) return;
+    if (!canViewPrices) {
       toast.error("Please sign in to place an order");
       setLocation("/auth");
       return;
@@ -92,18 +96,25 @@ export default function Cart() {
       return toast.error("Some lines are below their minimum order quantity");
     if (minOrder.loading)
       return toast.error("Checking order settings — try again in a moment");
-    if (belowMinOrder)
-      return toast.error(
-        `Add ₹${money(minOrderShort)} more to meet the minimum order value`
-      );
     if (!customer.name.trim()) return toast.error("Please enter your name");
     if (!/^[6-9]\d{9}$/.test(customer.phone.replace(/\s+/g, "")))
       return toast.error("Please enter a valid 10-digit Indian mobile number");
 
     setPlacing(true);
     try {
-      await orderService.placeOrder(items, customer);
-      const message = buildWhatsAppMessage(items, customer, notes);
+      const review = await orderService.reviewPrices(items);
+      if (review.changes.length) {
+        updatePrices(review.items);
+        setPriceChanges(review.changes);
+        toast.info("Prices changed. Review the updated amounts and confirm again.");
+        return;
+      }
+      if (belowMinOrder) {
+        toast.error(`Add ₹${money(minOrderShort)} more to meet the minimum order value`);
+        return;
+      }
+      await orderService.placeOrder(review.items, customer);
+      const message = buildWhatsAppMessage(review.items, customer, notes);
       window.open(
         `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`,
         "_blank",
@@ -114,8 +125,22 @@ export default function Cart() {
       toast.success("Order placed — opening WhatsApp");
       setLocation("/");
     } catch (err) {
+      if (isCartPriceChanged(err)) {
+        // A price changed between the fresh read and the locked database check.
+        // Never retry the order automatically or clear the customer's cart.
+        try {
+          const review = await orderService.reviewPrices(items);
+          updatePrices(review.items);
+          setPriceChanges(review.changes);
+        } catch {
+          toast.error("Could not refresh prices. Your cart is saved; please try again.");
+          return;
+        }
+        toast.info("Prices changed before the order was saved. Review and confirm again.");
+        return;
+      }
       console.error(err);
-      toast.error("Failed to save order. Please try again.");
+      toast.error("Could not verify or save your order. Your cart is saved; please try again.");
     } finally {
       setPlacing(false);
     }
@@ -357,6 +382,20 @@ export default function Cart() {
                 />
               </div>
 
+              {canViewPrices && priceChanges.length > 0 && (
+                <div role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-body-sm">
+                  <p className="font-bold">Prices updated — please review</p>
+                  <ul className="mt-2 space-y-1">
+                    {priceChanges.map(change => (
+                      <li key={change.productId}>
+                        {change.name}: {change.before > 0 ? `₹${money(change.before)}` : "On enquiry"}
+                        {" → "}{change.after > 0 ? `₹${money(change.after)}` : "On enquiry"} per selling unit
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2">No order has been placed. Confirm below to use these prices.</p>
+                </div>
+              )}
               <button
                 onClick={handlePlaceOrder}
                 disabled={placing || t.anyBelowMoq}
@@ -367,7 +406,7 @@ export default function Cart() {
                 ) : (
                   <MessageCircle size={16} />
                 )}
-                Send order on WhatsApp
+                {priceChanges.length ? "Confirm updated prices and send order" : "Send order on WhatsApp"}
               </button>
 
               <p className="mt-2 text-center text-caption text-slate-500">
