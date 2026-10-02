@@ -674,6 +674,10 @@ sticky-right-many-cols,flex-cap-1920}.png`.
   affected row instead of `loadProducts()`, which used to discard every other edit in
   flight. `toggleAvailability` gets the same treatment; it had no success feedback at all.
 - **Bulk import:** Google Sheets + CSV; master_name + variant_label columns; price/moq/category optional; all imported → draft
+- **Excel parser security (September 2026):** `.xls`/`.xlsx` parsing and template
+  generation use SheetJS CE 0.20.3 from its official distribution, pinned with
+  lockfile integrity. See `docs/reports/2026-09-24-excel-parser-security.md` for
+  the two patched advisories, compatibility checks and remaining audit limits.
 - **SKU-respecting upsert import** (PR #60): re-import updates existing rows by SKU instead of duplicating; dry-run preview
 - Tab persistence, optimistic updates, auto-resize images to 800px
 - **Catalog Workbench (July 2026, PR-3):** an image-first _mode_ inside the Catalog
