@@ -10,6 +10,7 @@ import {
 import { demoProducts, demoCategories } from "./demoData";
 import { realBrands } from "./brandUtils";
 import { orIlike } from "./searchFilter";
+import { prepareImageSet, isDisplayImageObject } from "./imageUtils";
 
 // Demo mode is opt-in only (VITE_DEMO_MODE=true). The supabase client now
 // always has real credentials via built-in fallbacks, so we never fall into
@@ -79,7 +80,10 @@ export async function publicProductQueryShape(): Promise<{
   canSortByPrice: boolean;
 }> {
   const signedIn = await hasSession();
-  return { cols: signedIn ? "*" : GUEST_PRODUCT_COLS, canSortByPrice: signedIn };
+  return {
+    cols: signedIn ? "*" : GUEST_PRODUCT_COLS,
+    canSortByPrice: signedIn,
+  };
 }
 
 // ============================================================================
@@ -1101,6 +1105,59 @@ export const enquiryService = {
 // STORAGE
 // ============================================================================
 
+async function uploadImageSet(
+  file: File,
+  bucket: "product-images" | "category-images",
+  prefix: string
+): Promise<string> {
+  const { original, web, large } = await prepareImageSet(file);
+  const ext = original.name.split(".").pop()?.toLowerCase();
+  const originalExt = ext && /^[a-z0-9]{1,8}$/.test(ext) ? ext : "image";
+  // A fresh stem never overwrites an existing catalogue object. Widths are
+  // actual canvas results (including portrait/small sources), not guessed sizes.
+  const stem = `${prefix}-${crypto.randomUUID()}`;
+  const renditionStem = `${stem}.xl-web-${web.newDimensions.w}w-${large.newDimensions.w}w`;
+  const paths = [
+    `${stem}.xl-original.${originalExt}`,
+    `${renditionStem}-2x.webp`,
+    `${renditionStem}-1x.webp`,
+  ];
+  const files = [original, large.file, web.file];
+  const target = supabase.storage.from(bucket);
+  const uploaded: string[] = [];
+  try {
+    for (let index = 0; index < paths.length; index++) {
+      const { error } = await target.upload(paths[index], files[index], {
+        upsert: false,
+        contentType: files[index].type,
+      });
+      if (error) throw error;
+      uploaded.push(paths[index]);
+    }
+    return target.getPublicUrl(paths[2]).data.publicUrl;
+  } catch (error) {
+    // Only exact fresh keys successfully created by this attempt are removable.
+    if (uploaded.length) {
+      try {
+        const { error: cleanupError } = await target.remove(uploaded);
+        if (cleanupError)
+          console.warn(
+            "Incomplete image upload cleanup failed",
+            uploaded,
+            cleanupError
+          );
+      } catch (cleanupError) {
+        console.warn(
+          "Incomplete image upload cleanup failed",
+          uploaded,
+          cleanupError
+        );
+      }
+    }
+    throw error;
+  }
+}
+
 export const storageService = {
   async uploadProductImage(file: File, productId: string) {
     if (isDemo) {
@@ -1109,26 +1166,33 @@ export const storageService = {
     }
 
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${productId}-${Date.now()}.${fileExt}`;
-      const filePath = `products/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("product-images")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data } = supabase.storage
-        .from("product-images")
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
+      return await uploadImageSet(
+        file,
+        "product-images",
+        `products/${encodeURIComponent(productId)}`
+      );
     } catch (error) {
       console.error("Error uploading image:", error);
       throw error;
     }
+  },
+
+  async uploadCategoryImage(file: File, categoryId: string) {
+    if (isDemo) return "";
+    return uploadImageSet(
+      file,
+      "category-images",
+      `categories/${encodeURIComponent(categoryId)}`
+    );
+  },
+
+  async uploadMasterImage(file: File, masterId: string) {
+    if (isDemo) return "";
+    return uploadImageSet(
+      file,
+      "product-images",
+      `masters/${encodeURIComponent(masterId)}`
+    );
   },
 
   async deleteProductImage(filePath: string) {
@@ -1148,14 +1212,8 @@ export const storageService = {
   },
 
   // ── SKU-named uploads (Catalog Workbench) ──────────────────────────────────
-  // Files land at products/{SKU}/{SKU}.webp for the primary image and
-  // products/{SKU}/{SKU}-2.webp, -3.webp … for gallery slots, so a file is
-  // identifiable from its name alone AND cannot collide with another SKU's
-  // objects. The existing uploadGlobalImage() path (products/global-{ts}-{rand})
-  // stays for the Image Library, which uploads without a product context.
-
-  // One folder per SKU: products/{SKU}/{SKU}.webp for the primary image and
-  // products/{SKU}/{SKU}-2.webp, -3.webp … for gallery slots.
+  // One folder per SKU. This constructs a SKU/slot stem; new uploads append
+  // a fresh ID plus the original/rendition suffixes, preserving predecessors.
   //
   // The folder is what makes the keys collision-free. With a flat
   // products/{SKU}-{slot}.webp layout, skuObjectPath("XL0105", 2) and
@@ -1193,7 +1251,10 @@ export const storageService = {
     if (error) throw error;
 
     return (data ?? [])
-      .filter(f => f.name !== ".emptyFolderPlaceholder")
+      .filter(
+        f =>
+          f.name !== ".emptyFolderPlaceholder" && isDisplayImageObject(f.name)
+      )
       .sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { numeric: true })
       )
@@ -1203,22 +1264,17 @@ export const storageService = {
       }));
   },
 
-  // upsert:true so re-uploading a corrected photo for the same SKU replaces the
-  // object rather than accumulating duplicates under new random names.
+  // Retain predecessor objects for recovery; only the returned URL is assigned.
   async uploadBySku(file: File, sku: string, index = 1): Promise<string> {
     if (isDemo) {
       console.warn("Demo mode: Image not uploaded");
       return "";
     }
-    const filePath = this.skuObjectPath(sku, index);
-    const { error } = await supabase.storage
-      .from("product-images")
-      .upload(filePath, file, { upsert: true, contentType: file.type });
-    if (error) throw error;
-
-    // Cache-bust: with upsert the URL is stable, so a replaced image would
-    // otherwise keep rendering from cache.
-    return `${this.getPublicUrl(filePath)}?v=${Date.now()}`;
+    return uploadImageSet(
+      file,
+      "product-images",
+      this.skuObjectPath(sku, index).replace(/\.webp$/, "")
+    );
   },
 };
 
@@ -1248,7 +1304,12 @@ export const mediaService = {
 
         if (!storageError && storageFiles) {
           storageImages = storageFiles
-            .filter(f => f.name !== ".emptyFolderPlaceholder")
+            .filter(
+              f =>
+                f.id != null &&
+                f.name !== ".emptyFolderPlaceholder" &&
+                isDisplayImageObject(f.name)
+            )
             .map(f => {
               const filePath = `products/${f.name}`;
               const { data } = supabase.storage
@@ -1349,21 +1410,7 @@ export const mediaService = {
   async uploadGlobalImage(file: File): Promise<string> {
     if (isDemo) return "";
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `global-${Date.now()}-${Math.random().toString(36).substr(2, 6)}.${fileExt}`;
-      const filePath = `products/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("product-images")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from("product-images")
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
+      return await uploadImageSet(file, "product-images", "products/global");
     } catch (error) {
       console.error("Error uploading global image:", error);
       throw error;

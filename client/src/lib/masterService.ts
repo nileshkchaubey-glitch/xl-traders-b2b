@@ -1,4 +1,4 @@
-import { publicProductQueryShape } from "./productService";
+import { publicProductQueryShape, storageService } from "./productService";
 import { supabase, Product, Category } from "./supabase";
 
 export interface ProductMaster {
@@ -238,21 +238,7 @@ export const masterService = {
     }
 
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${masterId}-${Date.now()}.${fileExt}`;
-      const filePath = `masters/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("product-images")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from("product-images")
-        .getPublicUrl(filePath);
-
-      const publicUrl = data.publicUrl;
+      const publicUrl = await storageService.uploadMasterImage(file, masterId);
 
       // Insert database reference
       const { data: dbData, error: dbError } = await supabase

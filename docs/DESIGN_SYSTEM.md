@@ -40,6 +40,14 @@ branches; verify parity on rendered cards rather than asserting an old pixel
 height. PDP's mobile fixed buy bar, desktop sticky column, Similar products and
 notes are deliberate documented deviations, not arbitrary redesign targets.
 
+New image uploads preserve the selected original plus 800/1600 maximum-edge
+WebP renditions. The shared uploader records actual widths in managed filenames;
+ProductImage emits width-based srcSet only for those guaranteed siblings. Small
+sources are not enlarged and do not claim two distinct resolutions. Legacy
+Storage/external images retain one source; Drive retains its real thumbnails.
+No paid Supabase transformations or base64 product images are used. Originals
+and companion renditions are hidden from separate Image Library/SKU choices.
+
 Remaining UI primitives: alert-dialog, badge, button, card, checkbox, command,
 confirm-dialog, context-menu, dialog, drawer, dropdown-menu, input, label,
 popover, select, sheet, skeleton, sonner, switch, table, textarea, tooltip;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
-import { ChevronRight, Loader2, X, Zap, Sparkles, Images } from "lucide-react";
+import { ChevronRight, Loader2, X, Sparkles, Images } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,11 +20,7 @@ import { confirm } from "@/components/ui/confirm-dialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAuthStore } from "@/lib/authStore";
 import { generateDescription } from "@/lib/aiService";
-import {
-  batchAutoResize,
-  formatBytes,
-  normalizeImageUrl,
-} from "@/lib/imageUtils";
+import { formatBytes, normalizeImageUrl } from "@/lib/imageUtils";
 import {
   categoryService,
   productImageService,
@@ -73,8 +69,6 @@ export default function AdminProductEditor() {
   const [loadingProduct, setLoadingProduct] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [autoResize, setAutoResize] = useState(true);
   const [dropHighlight, setDropHighlight] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [smartPasteOpen, setSmartPasteOpen] = useState(false);
@@ -408,36 +402,15 @@ export default function AdminProductEditor() {
       toast.error("Maximum 5 images allowed");
       return;
     }
-    setIsResizing(autoResize);
-    try {
-      if (autoResize) {
-        const results = await batchAutoResize(files);
-        const savings = results.reduce(
-          (total, result) => total + result.originalSize - result.newSize,
-          0
-        );
-        if (savings > 1024)
-          toast.success(`Auto-resized, saved ${formatBytes(savings)}`);
-        const resized = results.map(result => result.file);
-        setImages(current => [...current, ...resized]);
-        setImagePreviews(current => [
-          ...current,
-          ...resized.map(file => URL.createObjectURL(file)),
-        ]);
-      } else {
-        setImages(current => [...current, ...files]);
-        setImagePreviews(current => [
-          ...current,
-          ...files.map(file => URL.createObjectURL(file)),
-        ]);
-      }
-      setImageMetadata(current => [
-        ...current,
-        ...files.map(() => ({ altText: "", description: "" })),
-      ]);
-    } finally {
-      setIsResizing(false);
-    }
+    setImages(current => [...current, ...files]);
+    setImagePreviews(current => [
+      ...current,
+      ...files.map(file => URL.createObjectURL(file)),
+    ]);
+    setImageMetadata(current => [
+      ...current,
+      ...files.map(() => ({ altText: "", description: "" })),
+    ]);
   };
 
   const removeImage = (index: number) => {
@@ -726,14 +699,9 @@ export default function AdminProductEditor() {
                 </Label>
                 <NaToggle field="image" />
               </div>
-              <button
-                type="button"
-                onClick={() => setAutoResize(value => !value)}
-                className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold ${autoResize ? "border-green-200 bg-green-50 text-green-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}
-              >
-                <Zap className="w-3 h-3" />
-                Auto-resize {autoResize ? "ON" : "OFF"}
-              </button>
+              <span className="text-xs text-muted-foreground">
+                Original + web-sized WebP on upload
+              </span>
             </div>
             {existingImageUrl && !images.length && (
               <div className="flex items-center gap-3 rounded-lg border bg-slate-50 p-2">
@@ -776,19 +744,12 @@ export default function AdminProductEditor() {
               type="file"
               multiple
               accept="image/*"
-              disabled={isResizing}
               onChange={async event => {
                 await handleImageFiles(Array.from(event.target.files || []));
                 event.target.value = "";
               }}
               className="block w-full text-sm text-slate-500 file:mr-4 file:rounded-md file:border-0 file:bg-red-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-red-600"
             />
-            {isResizing && (
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Resizing...
-              </div>
-            )}
             {images.map((image, index) => (
               <div
                 key={`${image.name}-${index}`}
