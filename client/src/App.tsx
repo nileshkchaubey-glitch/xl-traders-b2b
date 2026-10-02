@@ -2,32 +2,46 @@ import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { ConfirmDialogHost } from "@/components/ui/confirm-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import StorefrontLayout from "@/components/StorefrontLayout";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useAuthStore } from "./lib/authStore";
-import Home from "./pages/Home";
-import Catalog from "./pages/Catalog";
-import ProductDetail from "./pages/ProductDetail";
-import Cart from "./pages/Cart";
-import Search from "./pages/Search";
-import Categories from "./pages/Categories";
-import Account from "./pages/Account";
-import Auth from "./pages/Auth";
+const Home = lazy(() => import("./pages/Home"));
+const Catalog = lazy(() => import("./pages/Catalog"));
+const ProductDetail = lazy(() => import("./pages/ProductDetail"));
+const Cart = lazy(() => import("./pages/Cart"));
+const Search = lazy(() => import("./pages/Search"));
+const Categories = lazy(() => import("./pages/Categories"));
+const Account = lazy(() => import("./pages/Account"));
+const Auth = lazy(() => import("./pages/Auth"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
-// Admin panel is heavy (charts, xlsx/CSV import, image tools) and is only ever
-// opened by the owner. Code-split it so public catalog visitors never download
-// it — keeps the initial bundle lean for the customers who actually matter.
+// Load page code when that route renders. The unchanged production service
+// worker also precaches chunks in the background; splitting reduces the page's
+// initial execution graph, not the total offline-precache download.
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminProductEditor = lazy(() => import("./pages/AdminProductEditor"));
-import AdminMasters from "@/components/admin/AdminMasters";
+const AdminMasters = lazy(() => import("./components/admin/AdminMasters"));
+
+function StorefrontFallback() {
+  return (
+    <main className="flex-1 pb-24 md:pb-10">
+      <div className="xl-shell py-10" role="status" aria-live="polite">
+        Loading page…
+      </div>
+    </main>
+  );
+}
 
 function AdminFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="flex flex-col items-center gap-3 text-slate-500">
+      <div
+        className="flex flex-col items-center gap-3 text-slate-500"
+        role="status"
+        aria-live="polite"
+      >
         <div className="w-8 h-8 border-2 border-slate-300 border-t-red-600 rounded-full animate-spin" />
         <p className="text-sm font-medium">Loading admin…</p>
       </div>
@@ -61,7 +75,9 @@ function Router() {
       {STOREFRONT_ROUTES.map(([path, Page]) => (
         <Route key={path} path={path}>
           <StorefrontLayout>
-            <Page />
+            <Suspense fallback={<StorefrontFallback />}>
+              <Page />
+            </Suspense>
           </StorefrontLayout>
         </Route>
       ))}
@@ -75,23 +91,30 @@ function Router() {
           <AdminProductEditor />
         </Suspense>
       </Route>
-      <Route path={"/admin/masters"} component={AdminMasters} />
+      <Route path={"/admin/masters"}>
+        <Suspense fallback={<AdminFallback />}>
+          <AdminMasters />
+        </Suspense>
+      </Route>
       <Route path={"/admin"}>
         <Suspense fallback={<AdminFallback />}>
           <AdminDashboard />
         </Suspense>
       </Route>
-      <Route path={"/404"} component={NotFound} />
+      <Route path={"/404"}>
+        <Suspense fallback={<StorefrontFallback />}>
+          <NotFound />
+        </Suspense>
+      </Route>
       {/* Final fallback route */}
-      <Route component={NotFound} />
+      <Route>
+        <Suspense fallback={<StorefrontFallback />}>
+          <NotFound />
+        </Suspense>
+      </Route>
     </Switch>
   );
 }
-
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
   const { initialize } = useAuthStore();
