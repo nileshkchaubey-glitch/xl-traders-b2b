@@ -29,8 +29,8 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { categoryService } from "@/lib/productService";
-import { supabase, Category } from "@/lib/supabase";
+import { categoryService, storageService } from "@/lib/productService";
+import { Category } from "@/lib/supabase";
 import { useIsMobile } from "@/hooks/useMobile";
 import MobileCategorySheet from "@/components/admin/MobileCategorySheet";
 
@@ -42,22 +42,7 @@ const GROUP_PRESETS = [
   "Decoration & Party",
 ];
 
-async function uploadCategoryImage(
-  file: File,
-  categoryId: string
-): Promise<string> {
-  const fileExt = file.name.split(".").pop();
-  const fileName = `${categoryId}-${Date.now()}.${fileExt}`;
-  const filePath = `categories/${fileName}`;
-  const { error: uploadError } = await supabase.storage
-    .from("category-images")
-    .upload(filePath, file);
-  if (uploadError) throw uploadError;
-  const { data } = supabase.storage
-    .from("category-images")
-    .getPublicUrl(filePath);
-  return data.publicUrl;
-}
+const uploadCategoryImage = storageService.uploadCategoryImage;
 
 interface AdminCategoriesProps {
   // Categories state lives in AdminDashboard so the Products tab sees

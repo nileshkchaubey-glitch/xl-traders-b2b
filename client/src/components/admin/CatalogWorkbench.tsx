@@ -61,7 +61,7 @@ import {
   storageService,
   mediaService,
 } from "@/lib/productService";
-import { autoResizeImage, normalizeImageUrl } from "@/lib/imageUtils";
+import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import { type PriceEntryMode, formatPerPiece } from "@/lib/priceEntryMode";
 import { usePriceEntry } from "@/hooks/usePriceEntry";
@@ -768,25 +768,18 @@ export default function CatalogWorkbench({
       const sku = formData.sku.trim();
       setUploading(true);
       try {
-        const { file: resized } = await autoResizeImage(
-          file,
-          1600,
-          0.85,
-          "webp"
-        );
-        // With a SKU the file is named after it (XL0105.webp); without one we
-        // fall back to the Image Library's random-name path.
+        // The shared uploader keeps this original beside real WebP renditions.
+        // SKU folders and gallery slot labels remain distinct.
         const url = sku
-          ? await storageService.uploadBySku(resized, sku, slot)
-          : await mediaService.uploadGlobalImage(resized);
+          ? await storageService.uploadBySku(file, sku, slot)
+          : await mediaService.uploadGlobalImage(file);
         if (slot === 1) {
           await setPrimaryImage(url);
         } else if (replaceId) {
           const replaced = gallery.find(g => g.id === replaceId);
           await productImageService.update(replaceId, { image_url: url });
           setGallery(await productImageService.getByProductId(active.id));
-          // uploadBySku cache-busts the URL, so a replaced image that was also
-          // the primary would otherwise keep pointing at the stale one.
+          // A replacement gets a fresh URL; update a matching primary reference.
           if (
             replaced &&
             normalizeImageUrl(replaced.image_url) ===
@@ -844,11 +837,10 @@ export default function CatalogWorkbench({
 
   /**
    * Files dropped on the image pane (or on the Select-image dialog's dropzone).
-   * Same SKU naming as the Upload button — slot 1 is `{SKU}.webp`, gallery
-   * slots are `-2`, `-3`. The first file takes the primary spot only when the
+   * Same SKU folder/slot labels as the Upload button. The first file takes the primary spot only when the
    * product has none; anything after it appends to the gallery.
    *
-   * Sequential, not Promise.all: uploadBySku derives its key from the slot, and
+   * Sequential, not Promise.all: uploads assign gallery slots, and
    * two uploads racing for consecutive slots would both read the same gallery
    * length. Individual toasts are suppressed in favour of one summary.
    */

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { mediaService, MediaImage } from "@/lib/productService";
-import { autoResizeImage, formatBytes } from "@/lib/imageUtils";
+import { formatBytes } from "@/lib/imageUtils";
 import { useIsMobile } from "@/hooks/useMobile";
 import MobileImageLibrary from "@/components/admin/MobileImageLibrary";
 
@@ -100,22 +100,7 @@ export default function AdminImageLibrary({
       }
 
       try {
-        // Compress/resize if needed
-        let fileToUpload = file;
-        try {
-          const resized = await autoResizeImage(file);
-          fileToUpload = resized.file;
-          const saved = resized.originalSize - resized.newSize;
-          if (saved > 1024) {
-            console.log(
-              `Auto-resized ${file.name} · saved ${formatBytes(saved)}`
-            );
-          }
-        } catch (err) {
-          console.warn("Image compression failed, uploading original:", err);
-        }
-
-        const url = await mediaService.uploadGlobalImage(fileToUpload);
+        const url = await mediaService.uploadGlobalImage(file);
         if (url) {
           uploadedCount++;
         }

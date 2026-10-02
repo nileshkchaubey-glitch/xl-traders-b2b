@@ -12,8 +12,8 @@ work merges; historical HANDOFF/plan pending lists do not override current code.
 | Block B UI/dependencies/exports | #199/#200/#201 merged; 32 primitives and 24 package declarations removed after verification; live daily widget/TEMPLATE_COLUMNS retained. |
 | Block B branches | #202 records 126 proven deletions, recovery bundle, protected refs and 30 preserved branches. Unverified unmerged work is kept. |
 | Block C | #203 merged; inventory committed first, source/history archived, current docs and AGENTS replace stale instructions. |
-| 5.1 Ordering editor | Completed in this focused change: shared controls/save validation and customer quantities aligned with existing server MOQ/step rules. Unit and synthetic real-component browser checks are recorded in its report. Hosted admin write remains access-blocked. |
-| 5.2 Image upload | Partial: canvas resize/WebP paths exist, but original plus web rendition/category workflow needs completion and bucket verification. |
+| 5.1 Ordering editor | #204 merged; shared controls/save validation and quantities aligned with existing server MOQ/step rules. Main CI/Pages and immutable mobile/desktop guest checks passed. Hosted admin write remains access-blocked. |
+| 5.2 Image upload | Completed in this focused change: originals plus two generated WebP renditions, actual-width srcSet and shared product/category pipeline. Unit and real canvas/component fixture checks passed. Live bucket configuration/policies verified; hosted upload/list of newly uploaded files NOT TESTED because valid admin test access is unavailable. |
 | 5.3 Import | Partial: real XLS/XLSX tests pass; template ordering fields and unit samples need correction/end-to-end tests. |
 | 5.4 Banner/theme admin | Partial: schema and storefront consumers exist; editing controls pending. |
 | 5.5 Search index | Name pg_trgm GIN already exists in production; meaningful plan/latency measurement pending, no duplicate DDL. |

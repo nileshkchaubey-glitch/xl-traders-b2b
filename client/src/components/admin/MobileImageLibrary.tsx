@@ -26,7 +26,8 @@ interface MobileImageLibraryProps {
   onFilterSource: (source: FilterSource) => void;
   selectedUrl: string | null;
   onSelect: (url: string) => void;
-  // Reuses AdminImageLibrary.handleUpload → autoResizeImage → mediaService.uploadGlobalImage
+  // Reuses AdminImageLibrary.handleUpload → mediaService.uploadGlobalImage,
+  // which preserves originals beside generated WebP renditions.
   onUpload: (files: File[]) => void;
   onCopyUrl: (url: string) => void;
   isSelectionMode: boolean;

@@ -1,5 +1,5 @@
 import { Package } from "lucide-react";
-import { normalizeImageUrl } from "@/lib/imageUtils";
+import { imageSources } from "@/lib/imageUtils";
 
 interface ProductImageProps {
   url?: string | null;
@@ -24,21 +24,10 @@ interface ProductImageProps {
  *    missing URL reveals it with no React state and no re-render cascade on a
  *    page full of broken images.
  *
- * ── On image sizing, stated honestly ──────────────────────────────────────
- * The V3 target is sized WebP served from Supabase Storage. That is not yet
- * reachable for most of the catalogue and this component does not pretend
- * otherwise:
- *
- *  * ~89% of product imagery is still hosted on Google Drive. Drive's thumbnail
- *    endpoint DOES accept a width (`&sz=w400`), so for those URLs we request a
- *    slot-appropriate size and emit a real 1x/2x `srcSet`. That is a genuine
- *    transfer saving today.
- *  * Supabase-hosted images are served at their stored size. Supabase image
- *    transformations are a PAID-plan feature and this project is on the free
- *    plan, so there is no on-the-fly resize; multi-rendition WebP has to be
- *    generated at UPLOAD time, which is an admin-pipeline change and a separate
- *    PR. Emitting a `srcSet` for `-400`/`-800` files that do not exist yet
- *    would break every Supabase-hosted image.
+ * Drive uses real thumbnail widths. New managed Storage uploads have actual
+ * browser-generated WebP siblings with widths encoded in their names. Legacy
+ * Storage/external URLs keep a single source; no paid transformations or
+ * nonexistent siblings are requested.
  *
  * Nothing here is ever a base64 data URI — the bundle carries no image bytes.
  */
@@ -50,11 +39,7 @@ export default function ProductImage({
   priority = false,
   className = "",
 }: ProductImageProps) {
-  const src = normalizeImageUrl(url, slotPx);
-  const src2x = normalizeImageUrl(url, slotPx * 2);
-  // Only Drive URLs actually vary with the requested size; when they don't, a
-  // srcSet of two identical URLs would just confuse the browser's picker.
-  const hasRealSrcSet = !!src && !!src2x && src !== src2x;
+  const { src, srcSet, sizes } = imageSources(url, slotPx);
 
   return (
     <div className={`relative ${aspect} overflow-hidden bg-slate-50 ${className}`}>
@@ -65,7 +50,8 @@ export default function ProductImage({
       {src && (
         <img
           src={src}
-          srcSet={hasRealSrcSet ? `${src} 1x, ${src2x} 2x` : undefined}
+          srcSet={srcSet}
+          sizes={sizes}
           alt={alt}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "auto"}

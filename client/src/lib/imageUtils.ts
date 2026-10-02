@@ -60,6 +60,10 @@ export async function autoResizeImage(
       canvas.toBlob(
         blob => {
           if (!blob) return reject(new Error("Compression failed"));
+          if (blob.type !== mime)
+            return reject(
+              new Error("This browser cannot encode the requested image format")
+            );
           const outName = file.name.replace(/\.[^.]+$/, ext);
           const outFile = new File([blob], outName, {
             type: mime,
@@ -87,33 +91,51 @@ export async function autoResizeImage(
   });
 }
 
-export async function batchAutoResize(
-  files: File[],
-  maxSize = 800,
-  quality = 0.85
-): Promise<ResizeResult[]> {
-  const results: ResizeResult[] = [];
-  for (const file of files) {
-    try {
-      const result = await autoResizeImage(file, maxSize, quality);
-      results.push(result);
-    } catch {
-      results.push({
-        file,
-        originalSize: file.size,
-        newSize: file.size,
-        originalDimensions: { w: 0, h: 0 },
-        newDimensions: { w: 0, h: 0 },
-      });
-    }
-  }
-  return results;
-}
-
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Keep the caller's original bytes; generate both real renditions before upload. */
+export async function prepareImageSet(file: File) {
+  if (!file.type.startsWith("image/")) throw new Error("Choose an image file");
+  const [web, large] = await Promise.all([
+    autoResizeImage(file, 800, 0.85, "webp"),
+    autoResizeImage(file, 1600, 0.85, "webp"),
+  ]);
+  return { original: file, web, large };
+}
+
+/** Storage originals/2x files are companions, not separate library choices. */
+export function isDisplayImageObject(name: string): boolean {
+  return (
+    !name.includes(".xl-original.") &&
+    !/\.xl-web-\d+w-\d+w-2x\.webp$/.test(name)
+  );
+}
+
+/** Derive only the siblings guaranteed by the managed upload convention. */
+export function imageSources(url: string | null | undefined, slotPx: number) {
+  const src = normalizeImageUrl(url, slotPx);
+  const src2x = normalizeImageUrl(url, slotPx * 2);
+  if (src && src2x !== src)
+    return { src, srcSet: `${src} 1x, ${src2x} 2x`, sizes: undefined };
+  const managed = src.match(
+    /\/storage\/v1\/object\/public\/(?:product-images|category-images)\/.*\.xl-web-(\d+)w-(\d+)w-1x\.webp(?:\?.*)?$/
+  );
+  if (
+    managed &&
+    Number(managed[2]) > Number(managed[1]) &&
+    Number(managed[1]) > 0
+  ) {
+    return {
+      src,
+      srcSet: `${src} ${managed[1]}w, ${src.replace(/-1x\.webp(?=\?|$)/, "-2x.webp")} ${managed[2]}w`,
+      sizes: `${slotPx}px`,
+    };
+  }
+  return { src, srcSet: undefined, sizes: undefined };
 }
 
 /**
