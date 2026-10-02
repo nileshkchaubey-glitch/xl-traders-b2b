@@ -249,6 +249,25 @@ describe("stepPacks", () => {
 });
 
 describe("initialPacks", () => {
+  it.each(["pack", "pcs"] as const)(
+    "starts %s orders at a whole multi-pack step",
+    unit => {
+      const spec = resolveOrderSpec(
+        row({
+          order_unit: unit,
+          quantity_in_unit: 100,
+          order_step: 300,
+          moq: 2,
+        })
+      );
+      expect(initialPacks(spec)).toBe(3);
+      expect(stepPacks(asPacks(3), 1, spec)).toBe(6);
+      expect(stepPacks(asPacks(3), -1, spec)).toBe(0);
+      expect(moqChipLabel(spec)).toBe(
+        unit === "pcs" ? "MOQ 300 pcs" : "MOQ 3 boxes"
+      );
+    }
+  );
   it("seeds a new line at the MOQ", () => {
     expect(initialPacks(resolveOrderSpec(row({ moq: 5 })))).toBe(5);
     expect(

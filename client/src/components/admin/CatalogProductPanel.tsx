@@ -26,6 +26,7 @@ import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import BrandCombobox from "@/components/admin/BrandCombobox";
 import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
 import ProductMediaSection from "@/components/admin/products/ProductMediaSection";
+import OrderingFields from "@/components/admin/products/OrderingFields";
 import { confirm } from "@/components/ui/confirm-dialog";
 import { useProductForm } from "@/hooks/useProductForm";
 import { productToForm, EMPTY_PRODUCT_FORM } from "@/lib/productForm";
@@ -538,17 +539,6 @@ export default function CatalogProductPanel({
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">MOQ</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={formData.moq}
-                    onChange={e => updateForm("moq", e.target.value)}
-                    placeholder="Unknown"
-                    className="h-9"
-                  />
-                </div>
-                <div className="space-y-1.5">
                   <Label className="text-xs">Qty / pack</Label>
                   <Input
                     type="number"
@@ -561,6 +551,10 @@ export default function CatalogProductPanel({
                   />
                 </div>
               </div>
+            </Section>
+
+            <Section title="Customer quantities">
+              <OrderingFields form={formData} onChange={updateForm} />
             </Section>
 
             {/* Stock / availability */}

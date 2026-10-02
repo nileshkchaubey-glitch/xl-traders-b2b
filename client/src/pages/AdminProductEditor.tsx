@@ -41,36 +41,17 @@ import {
 } from "@/components/ui/dialog";
 import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
-import { saveProductForm } from "@/lib/productForm";
+import {
+  EMPTY_PRODUCT_FORM,
+  productToForm,
+  saveProductForm,
+  type ProductForm,
+} from "@/lib/productForm";
+import OrderingFields from "@/components/admin/products/OrderingFields";
 
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
 const RETAINED_VALUES_KEY = "admin-product-retained-values";
-const EMPTY_FORM = {
-  name: "",
-  category_id: "",
-  description: "",
-  price: "",
-  mrp: "",
-  unit_of_measure: "pcs",
-  quantity_in_unit: "",
-  discount_percent: "0",
-  brand: "",
-  // Kept in sync with lib/productForm's shape (saveProductForm requires it).
-  // This route editor still edits brand as free TEXT — its brand_id simply
-  // round-trips whatever the product already has. The picker lives in
-  // CatalogProductPanel; migrating this editor to BrandCombobox is follow-up.
-  brand_id: "",
-  is_active: true,
-  is_featured: false,
-  sku: "",
-  barcode: "",
-  moq: "",
-  image_url: "",
-  status: "draft" as ProductStatus,
-  na_fields: [] as string[],
-};
-
-type ProductForm = typeof EMPTY_FORM;
+const EMPTY_FORM = EMPTY_PRODUCT_FORM;
 
 export default function AdminProductEditor() {
   const params = useParams<{ id?: string }>();
@@ -368,26 +349,7 @@ export default function AdminProductEditor() {
           setLocation("/admin");
           return;
         }
-        base = {
-          name: product.name,
-          category_id: product.category_id,
-          description: product.description || "",
-          price: product.price != null ? product.price.toString() : "",
-          mrp: product.mrp?.toString() || "",
-          unit_of_measure: product.unit_of_measure || "pcs",
-          quantity_in_unit: product.quantity_in_unit?.toString() || "",
-          discount_percent: (product.discount_percent || 0).toString(),
-          brand: product.brand || "",
-          brand_id: product.brand_id || "",
-          is_active: product.is_active,
-          is_featured: product.is_featured || false,
-          sku: product.sku || "",
-          barcode: product.barcode || "",
-          moq: product.moq != null ? product.moq.toString() : "",
-          image_url: product.image_url || "",
-          status: (product.status ?? "draft") as ProductStatus,
-          na_fields: product.na_fields ?? [],
-        };
+        base = productToForm(product);
         if (!cancelled) setExistingImageUrl(product.image_url || null);
       }
 
@@ -642,7 +604,7 @@ export default function AdminProductEditor() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Pack Size</Label>
+                <Label>Qty / pack (pieces)</Label>
                 <Input
                   type="number"
                   min="1"
@@ -678,7 +640,7 @@ export default function AdminProductEditor() {
                 disabled={isNA("brand")}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>SKU</Label>
                 <Input
@@ -695,16 +657,8 @@ export default function AdminProductEditor() {
                   className="font-mono text-sm"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>Min. Order Qty</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.moq}
-                  onChange={event => updateForm("moq", event.target.value)}
-                />
-              </div>
             </div>
+            <OrderingFields form={formData} onChange={updateForm} />
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

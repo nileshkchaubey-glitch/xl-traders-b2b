@@ -17,13 +17,17 @@ import {
 import { useAuthStore } from "@/lib/authStore";
 import { orderService } from "@/lib/orderService";
 import { buildWhatsAppMessage } from "@/lib/orderMessage";
-import { isCartPriceChanged, type CartPriceChange } from "@/lib/cartPriceReview";
+import {
+  isCartPriceChanged,
+  type CartPriceChange,
+} from "@/lib/cartPriceReview";
 import { useMinOrder } from "@/hooks/useMinOrder";
 import {
   type Packs,
   formatOrderQty,
   lineTotal,
   pluralNoun,
+  isOrderQtyValid,
 } from "@/lib/orderingModel";
 
 const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
@@ -57,7 +61,9 @@ export default function Cart() {
   const t = cartTotals(items);
   const totalLabel = !canViewPrices
     ? "Sign in for rates"
-    : t.allEnquiry ? "On enquiry" : `₹${money(t.total)}`;
+    : t.allEnquiry
+      ? "On enquiry"
+      : `₹${money(t.total)}`;
 
   const belowMinOrder =
     minOrder.enabled && !t.allEnquiry && t.total < minOrder.value;
@@ -92,8 +98,10 @@ export default function Cart() {
       return;
     }
     if (!items.length) return toast.error("Your cart is empty");
-    if (t.anyBelowMoq)
-      return toast.error("Some lines are below their minimum order quantity");
+    if (t.anyInvalidQuantity)
+      return toast.error(
+        "Some quantities do not meet their minimum order quantity or order step"
+      );
     if (minOrder.loading)
       return toast.error("Checking order settings — try again in a moment");
     if (!customer.name.trim()) return toast.error("Please enter your name");
@@ -106,11 +114,15 @@ export default function Cart() {
       if (review.changes.length) {
         updatePrices(review.items);
         setPriceChanges(review.changes);
-        toast.info("Prices changed. Review the updated amounts and confirm again.");
+        toast.info(
+          "Prices changed. Review the updated amounts and confirm again."
+        );
         return;
       }
       if (belowMinOrder) {
-        toast.error(`Add ₹${money(minOrderShort)} more to meet the minimum order value`);
+        toast.error(
+          `Add ₹${money(minOrderShort)} more to meet the minimum order value`
+        );
         return;
       }
       await orderService.placeOrder(review.items, customer);
@@ -133,14 +145,20 @@ export default function Cart() {
           updatePrices(review.items);
           setPriceChanges(review.changes);
         } catch {
-          toast.error("Could not refresh prices. Your cart is saved; please try again.");
+          toast.error(
+            "Could not refresh prices. Your cart is saved; please try again."
+          );
           return;
         }
-        toast.info("Prices changed before the order was saved. Review and confirm again.");
+        toast.info(
+          "Prices changed before the order was saved. Review and confirm again."
+        );
         return;
       }
       console.error(err);
-      toast.error("Could not verify or save your order. Your cart is saved; please try again.");
+      toast.error(
+        "Could not verify or save your order. Your cart is saved; please try again."
+      );
     } finally {
       setPlacing(false);
     }
@@ -157,7 +175,9 @@ export default function Cart() {
       );
       // Keep quantities for sign-in. This action does not create a saved order.
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not prepare your cart");
+      toast.error(
+        error instanceof Error ? error.message : "Could not prepare your cart"
+      );
     }
   };
 
@@ -222,7 +242,7 @@ export default function Cart() {
               {items.map(item => {
                 const spec = specOfCartItem(item);
                 const label = formatOrderQty(item.packs, spec);
-                const below = item.packs < item.moq;
+                const below = !isOrderQtyValid(item.packs, spec);
                 return (
                   <div
                     key={item.productId}
@@ -283,18 +303,18 @@ export default function Cart() {
                           {!canViewPrices
                             ? "Sign in for rates"
                             : item.priceOnEnquiry
-                            ? "Price on enquiry"
-                            : `₹${money(item.price)} / ${spec.noun}`}
+                              ? "Price on enquiry"
+                              : `₹${money(item.price)} / ${spec.noun}`}
                         </span>
                       </div>
 
                       {below && (
                         <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[11.5px] font-bold text-red-700">
-                          Below minimum —{" "}
+                          Check quantity — minimum{" "}
                           {spec.unit === "pcs"
                             ? `${spec.minPcs.toLocaleString("en-IN")} pcs`
                             : `${spec.minPacks} ${pluralNoun(spec.noun, spec.minPacks)}`}{" "}
-                          required
+                          required; use the stepper to select a valid step.
                         </div>
                       )}
                     </div>
@@ -398,22 +418,38 @@ export default function Cart() {
               </div>
 
               {canViewPrices && priceChanges.length > 0 && (
-                <div role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-body-sm">
+                <div
+                  role="alert"
+                  className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-body-sm"
+                >
                   <p className="font-bold">Prices updated — please review</p>
                   <ul className="mt-2 space-y-1">
                     {priceChanges.map(change => (
                       <li key={change.productId}>
-                        {change.name}: {change.before > 0 ? `₹${money(change.before)}` : "On enquiry"}
-                        {" → "}{change.after > 0 ? `₹${money(change.after)}` : "On enquiry"} per selling unit
+                        {change.name}:{" "}
+                        {change.before > 0
+                          ? `₹${money(change.before)}`
+                          : "On enquiry"}
+                        {" → "}
+                        {change.after > 0
+                          ? `₹${money(change.after)}`
+                          : "On enquiry"}{" "}
+                        per selling unit
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-2">No order has been placed. Confirm below to use these prices.</p>
+                  <p className="mt-2">
+                    No order has been placed. Confirm below to use these prices.
+                  </p>
                 </div>
               )}
               <button
                 onClick={handlePlaceOrder}
-                disabled={placing || isLoading || (canViewPrices && t.anyBelowMoq)}
+                disabled={
+                  placing ||
+                  isLoading ||
+                  (canViewPrices && t.anyInvalidQuantity)
+                }
                 className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-red-600 text-body-md font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {placing ? (
@@ -421,13 +457,17 @@ export default function Cart() {
                 ) : (
                   <MessageCircle size={16} />
                 )}
-                {!canViewPrices ? "Sign in to place order" : priceChanges.length ? "Confirm updated prices and send order" : "Send order on WhatsApp"}
+                {!canViewPrices
+                  ? "Sign in to place order"
+                  : priceChanges.length
+                    ? "Confirm updated prices and send order"
+                    : "Send order on WhatsApp"}
               </button>
 
               {!canViewPrices && (
                 <button
                   onClick={handleGuestWhatsApp}
-                  disabled={isLoading || t.anyBelowMoq}
+                  disabled={isLoading || t.anyInvalidQuantity}
                   className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 text-body-md font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <MessageCircle size={16} />

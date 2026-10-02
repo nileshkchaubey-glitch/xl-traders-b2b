@@ -9,17 +9,29 @@ export { buildWhatsAppMessage } from "./orderMessage";
 
 export const orderService = {
   /** No catalogue/price query or order write: this is a guest enquiry only. */
-  prepareGuestCart(items: CartItem[], customer: CustomerInfo, notes?: string): string {
+  prepareGuestCart(
+    items: CartItem[],
+    customer: CustomerInfo,
+    notes?: string
+  ): string {
     if (!items.length) throw new Error("Your cart is empty");
-    if (cartTotals(items).anyBelowMoq) {
-      throw new Error("Some lines are below their minimum order quantity");
+    if (cartTotals(items).anyInvalidQuantity) {
+      throw new Error(
+        "Some quantities do not meet their minimum order quantity or order step"
+      );
     }
     return buildGuestCartMessage(items, customer, notes);
   },
   async reviewPrices(items: CartItem[]) {
-    const { data, error } = await supabase.from("products")
-      .select("id,price").in("id", items.map(item => item.productId))
-      .eq("status", "published").eq("is_active", true);
+    const { data, error } = await supabase
+      .from("products")
+      .select("id,price")
+      .in(
+        "id",
+        items.map(item => item.productId)
+      )
+      .eq("status", "published")
+      .eq("is_active", true);
     if (error) throw error;
     return reviewCartPrices(items, data ?? []);
   },
@@ -29,15 +41,18 @@ export const orderService = {
    * customer confirmed. The RPC rejects stale prices and inserts atomically.
    */
   async placeOrder(items: CartItem[], customer: CustomerInfo): Promise<string> {
-    const { data: orderId, error } = await supabase.rpc("place_order_from_confirmed_cart", {
-      p_customer_name: customer.name.trim(),
-      p_phone: customer.phone.replace(/\s+/g, ""),
-      p_items: items.map(item => ({
-        product_id: item.productId,
-        quantity: item.packs,
-        expected_price: item.price,
-      })),
-    });
+    const { data: orderId, error } = await supabase.rpc(
+      "place_order_from_confirmed_cart",
+      {
+        p_customer_name: customer.name.trim(),
+        p_phone: customer.phone.replace(/\s+/g, ""),
+        p_items: items.map(item => ({
+          product_id: item.productId,
+          quantity: item.packs,
+          expected_price: item.price,
+        })),
+      }
+    );
 
     if (error) throw error;
     if (typeof orderId !== "string" || !orderId) {

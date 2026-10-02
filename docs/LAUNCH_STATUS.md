@@ -11,8 +11,8 @@ work merges; historical HANDOFF/plan pending lists do not override current code.
 | Auth profile/admin conflict | #198: DB flag only, customer profile creation, confirmation handling, privilege-edit rejection; unit and synthetic browser tests passed. |
 | Block B UI/dependencies/exports | #199/#200/#201 merged; 32 primitives and 24 package declarations removed after verification; live daily widget/TEMPLATE_COLUMNS retained. |
 | Block B branches | #202 records 126 proven deletions, recovery bundle, protected refs and 30 preserved branches. Unverified unmerged work is kept. |
-| Block C | Inventory committed; exact source/history archived; focused current docs and AGENTS replace stale instructions in this PR. |
-| 5.1 Ordering editor | Pending: add shared controls; initial/pack stepper has a verified multi-pack-step mismatch with the server that must be aligned. |
+| Block C | #203 merged; inventory committed first, source/history archived, current docs and AGENTS replace stale instructions. |
+| 5.1 Ordering editor | Completed in this focused change: shared controls/save validation and customer quantities aligned with existing server MOQ/step rules. Unit and synthetic real-component browser checks are recorded in its report. Hosted admin write remains access-blocked. |
 | 5.2 Image upload | Partial: canvas resize/WebP paths exist, but original plus web rendition/category workflow needs completion and bucket verification. |
 | 5.3 Import | Partial: real XLS/XLSX tests pass; template ordering fields and unit samples need correction/end-to-end tests. |
 | 5.4 Banner/theme admin | Partial: schema and storefront consumers exist; editing controls pending. |

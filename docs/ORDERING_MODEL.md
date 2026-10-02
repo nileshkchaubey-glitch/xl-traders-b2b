@@ -30,9 +30,11 @@ snapPcsToStep rounds to the nearest step (positive ties up), then MOQ, preservin
 zero for line removal. Selling-unit piece words such as pcs fall back to pack;
 box pluralizes as boxes. Derived per-piece rates never become stored money.
 
-The current initialPacks/pack stepper still need multi-pack-step alignment before
-the new admin controls expose custom steps. This verified code/SQL mismatch is
-tracked in launch status; do not claim that every custom step is already valid.
+initialPacks uses the effective MOQ rounded up to a whole step. Both pack and
+piece steppers move by that step; an old off-step cart moves to the next valid
+quantity in the chosen direction. Cart add/set operations use the same helpers.
+Persisted invalid quantities are flagged and blocked before enquiry/checkout
+until the customer adjusts them; carts are not discarded or silently rewritten.
 
 ## Checkout and privacy
 
@@ -52,11 +54,14 @@ leakage. Auth state invalidates the service's session-sensitive column cache.
 
 ## Admin/import constraints
 
-The approved Ordering section must show order unit, the read-only pack-size
-mirror, MOQ and order step. Reject pcs without usable pack size; warn/reject
-invalid multiples. Do not confuse customer ordering with priceEntryMode.
-Template ordering fields and controls are still pending at this record; existing
-CSV/Excel importer mappings are not evidence of a complete template workflow.
+Both editors use the shared Customer Ordering section: order unit, a read-only
+pack-size mirror, MOQ in packs and order step in pieces. The existing Qty / pack
+field edits quantity_in_unit. Shared save validation rejects pcs without a usable
+pack size, fractional/nonpositive inputs and steps that are not whole pack-size
+multiples. Blank overrides persist as null; the selling-unit price is unchanged.
+The effective minimum is shown when MOQ needs rounding up to a step. Customer
+ordering is separate from priceEntryMode. Template ordering fields still need
+Phase 5.3 completion; mappings alone do not prove a complete import workflow.
 Never invent or automatically reconcile the 11 Hinged Box price conflicts.
 
 ## Verification
