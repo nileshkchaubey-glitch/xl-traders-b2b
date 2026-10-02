@@ -54,6 +54,14 @@ leakage. Auth state invalidates the service's session-sensitive column cache.
 
 ## Admin/import constraints
 
+Account history is scoped to the verified signed-in user and existing RLS.
+Reorder reads fresh published+active products and rounds saved selling-unit
+counts up to current MOQ/steps inside orderingModel. It merges fresh snapshots
+into the cart while retaining unrelated lines. Any unavailable item blocks the
+entire reorder without changing the cart. This is cart preparation only; current
+rate review and explicit protected checkout remain required. Historical unowned
+orders are not assigned automatically.
+
 Both editors use the shared Customer Ordering section: order unit, a read-only
 pack-size mirror, MOQ in packs and order step in pieces. The existing Qty / pack
 field edits quantity_in_unit. Shared save validation rejects pcs without a usable

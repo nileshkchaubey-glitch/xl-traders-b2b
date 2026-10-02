@@ -248,6 +248,33 @@ export function snapPacksToStep(packs: Packs, spec: OrderSpec): Packs {
   return packsFromPcs(snapPcsToStep(pcsFromPacks(packs, spec), spec), spec);
 }
 
+/** Reorder/merge whole selling units, rounding UP to current MOQ and steps. */
+export function reorderPacks(
+  previous: number,
+  spec: OrderSpec,
+  existing: number = 0
+): Packs {
+  if (
+    !Number.isSafeInteger(previous) ||
+    previous <= 0 ||
+    !Number.isSafeInteger(existing) ||
+    existing < 0 ||
+    !Number.isSafeInteger(previous + existing)
+  ) {
+    throw new Error("Invalid saved order quantity");
+  }
+  const pieces = pcsFromPacks(asPacks(previous + existing), spec);
+  if (!Number.isSafeInteger(pieces))
+    throw new Error("Order quantity is too large");
+  const packs = packsFromPcs(
+    Math.max(spec.minPcs, Math.ceil(pieces / spec.step) * spec.step),
+    spec
+  );
+  if (!isOrderQtyValid(packs, spec))
+    throw new Error("Order quantity is too large");
+  return packs;
+}
+
 /** Check persisted quantities before enquiry/checkout without silently changing them. */
 export function isOrderQtyValid(packs: number, spec: OrderSpec): boolean {
   return (

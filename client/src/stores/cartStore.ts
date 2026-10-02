@@ -13,6 +13,7 @@ import {
   snapPacksToStep,
   isBelowMoq,
   isOrderQtyValid,
+  reorderPacks,
 } from "@/lib/orderingModel";
 
 export interface CartItem {
@@ -70,6 +71,8 @@ interface CartState {
     prices: { productId: string; price: number; priceOnEnquiry?: boolean }[]
   ) => void;
   clearCart: () => void;
+  /** Preserve other lines; replace matching snapshots with fresh products/rates. */
+  mergeReorder: (items: CartItem[]) => void;
   getTotal: () => number;
   /** Selling units across the cart. */
   getPackCount: () => number;
@@ -203,6 +206,25 @@ export const useCartStore = create<CartState>()(
         })),
 
       clearCart: () => set({ items: [], customer: { name: "", phone: "" } }),
+
+      mergeReorder: fresh =>
+        set(state => {
+          // Compute the entire result before changing state: failure is atomic.
+          const items = [...state.items];
+          for (const line of fresh) {
+            const index = items.findIndex(
+              item => item.productId === line.productId
+            );
+            const existing = index < 0 ? 0 : items[index].packs;
+            const next = {
+              ...line,
+              packs: reorderPacks(line.packs, specOfCartItem(line), existing),
+            };
+            if (index < 0) items.push(next);
+            else items[index] = next;
+          }
+          return { items };
+        }),
 
       // All four delegate to cartTotals, so the store, the cart page and the
       // WhatsApp message are arithmetically the same code.
