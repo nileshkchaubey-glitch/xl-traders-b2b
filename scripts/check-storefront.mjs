@@ -8,7 +8,9 @@
  *
  * Design notes:
  *  * No dependencies. Run by plain node, like scripts/check-price-entry.ts.
- *  * `components/admin/**` is OUT OF SCOPE. The admin PIM predates these rules
+ *  * `components/admin/**` is outside storefront copy/arithmetic rules. The
+ *    browser-secret rule scans ALL client code, including admin/UI modules.
+ *    The admin PIM predates the storefront rules
  *    and is explicitly not being rewritten; scanning it would produce noise
  *    nobody will action.
  *  * A rule that cannot be checked without false positives is NOT included.
@@ -93,6 +95,27 @@ function scan(cb, files = FILES) {
     code.split("\n").forEach((text, i) => cb({ file, line: i + 1, text, raw }));
   }
 }
+
+rule(
+  "browser-private-credentials",
+  "Private AI/service credentials and direct Anthropic calls cannot ship in browser code",
+  report => {
+    // Admin bundles are also public assets. Only test fixtures are excluded.
+    scan(
+      ({ file, line, text }) => {
+        if (
+          /\bVITE_[A-Z0-9_]*(?:ANTHROPIC|OPENAI|PRIVATE|SECRET|SERVICE_ROLE)[A-Z0-9_]*\b|api\.anthropic\.com|sk-ant-[A-Za-z0-9_-]{15,}|sb_secret_[A-Za-z0-9_-]{15,}/.test(
+            text
+          )
+        ) {
+          // Never print a matched credential or entire source line.
+          report(file, line, "private browser credential/provider path");
+        }
+      },
+      walk(SRC).filter(file => !EXCLUDED_FILES.some(re => re.test(file)))
+    );
+  }
+);
 
 function readIfExists(p) {
   try {
@@ -358,7 +381,7 @@ const ADMIN_ONLY_LIBS = [
   // scanning was added.
   join("pages", "AdminProductEditor.tsx"),
   join("lib", "adminDailyImprovements.ts"),
-  join("lib", "aiService.ts"),
+  join("lib", "productTextParser.ts"),
   join("lib", "templateService.ts"),
   join("lib", "bulkImportService.ts"),
   join("lib", "googleSheetsService.ts"),

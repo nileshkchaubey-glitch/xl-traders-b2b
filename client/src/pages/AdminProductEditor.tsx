@@ -19,7 +19,6 @@ import KeyboardShortcutsDialog from "@/components/admin/KeyboardShortcutsDialog"
 import { confirm } from "@/components/ui/confirm-dialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAuthStore } from "@/lib/authStore";
-import { generateDescription } from "@/lib/aiService";
 import { formatBytes, normalizeImageUrl } from "@/lib/imageUtils";
 import {
   categoryService,
@@ -35,7 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
+import SmartPasteDialog from "@/components/admin/SmartPasteDialog";
 import AdminImageLibrary from "@/components/admin/AdminImageLibrary";
 import {
   EMPTY_PRODUCT_FORM,
@@ -68,7 +67,6 @@ export default function AdminProductEditor() {
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [loadingProduct, setLoadingProduct] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [dropHighlight, setDropHighlight] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [smartPasteOpen, setSmartPasteOpen] = useState(false);
@@ -485,7 +483,7 @@ export default function AdminProductEditor() {
             className="gap-1.5 text-sm border-amber-300 text-amber-700 hover:bg-amber-50 shrink-0"
           >
             <Sparkles className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-            AI Smart Paste
+            Smart Paste
           </Button>
         </div>
 
@@ -638,31 +636,6 @@ export default function AdminProductEditor() {
                   <Label>Description</Label>
                   <NaToggle field="description" />
                 </div>
-                <button
-                  type="button"
-                  disabled={isGenerating || !formData.name}
-                  onClick={async () => {
-                    setIsGenerating(true);
-                    try {
-                      const categoryName =
-                        categories.find(
-                          category => category.id === formData.category_id
-                        )?.name || "";
-                      updateForm(
-                        "description",
-                        await generateDescription(formData.name, categoryName)
-                      );
-                    } catch (error: any) {
-                      toast.error(error?.message || "Failed to generate");
-                    } finally {
-                      setIsGenerating(false);
-                    }
-                  }}
-                  className="flex items-center gap-1 text-xs font-semibold text-red-600 disabled:opacity-40"
-                >
-                  {isGenerating && <Loader2 className="w-3 h-3 animate-spin" />}{" "}
-                  AI Generate
-                </button>
               </div>
               <Textarea
                 value={formData.description}
@@ -880,8 +853,8 @@ export default function AdminProductEditor() {
         editor
       />
 
-      {/* AI Smart Paste Dialog */}
-      <AISmartPasteDialog
+      {/* Smart Paste Dialog */}
+      <SmartPasteDialog
         open={smartPasteOpen}
         onClose={() => setSmartPasteOpen(false)}
         categories={categories}

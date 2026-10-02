@@ -19,7 +19,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { parseProductDetailsWithAI, ParsedProduct } from "@/lib/aiService";
+import { parseProductText, ParsedProduct } from "@/lib/productTextParser";
 import { Category } from "@/lib/supabase";
 
 interface Props {
@@ -29,7 +29,7 @@ interface Props {
   onAutofill: (data: ParsedProduct) => void;
 }
 
-export default function AISmartPasteDialog({
+export default function SmartPasteDialog({
   open,
   onClose,
   categories,
@@ -52,7 +52,7 @@ export default function AISmartPasteDialog({
 
     try {
       const categoryNames = categories.map(c => c.name);
-      const parsedData = await parseProductDetailsWithAI(text, categoryNames);
+      const parsedData = await parseProductText(text, categoryNames);
 
       setResult(parsedData);
       setEditedResult(parsedData);
@@ -92,11 +92,12 @@ export default function AISmartPasteDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-slate-900">
             <Sparkles className="w-5 h-5 text-amber-500 fill-amber-500 animate-pulse" />
-            AI Smart Product Entry
+            Smart Product Entry
           </DialogTitle>
           <DialogDescription className="text-slate-500 text-xs">
             Paste product text copied from another website, catalog, PDF, or
-            WhatsApp below.
+            WhatsApp below. Extraction runs in this browser and sends no text to
+            an AI provider.
           </DialogDescription>
         </DialogHeader>
 
@@ -139,8 +140,8 @@ Ideal for food packing, microwavable containers."
                   all) and copy it.
                 </p>
                 <p>
-                  3. Paste it here. AI will clean up noise and extract the
-                  correct values automatically!
+                  3. Paste it here. Local text rules suggest fields. Review
+                  every value against your approved product information.
                 </p>
               </div>
             </div>
@@ -180,8 +181,8 @@ Ideal for food packing, microwavable containers."
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2 text-emerald-800 text-xs">
               <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
               <span>
-                AI has extracted the following details! Review and edit if
-                needed.
+                Local text rules extracted these fields. Check and edit every
+                value before applying.
               </span>
             </div>
 
@@ -297,7 +298,7 @@ Ideal for food packing, microwavable containers."
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-500">
-                    AI Category Suggestion
+                    Category match
                   </Label>
                   <Input
                     value={editedResult.category_name || ""}

@@ -9,7 +9,7 @@ Guests must never receive/show protected prices, MRP, bulk rates/thresholds,
 discounts or generated per-piece prices. GUEST_PRODUCT_COLS in productService
 includes MOQ/order metadata but excludes price fields. Public product services
 use the actual session for column shape and price sorting, invalidate that cache
-on auth events, and require published+active. Never use guest SELECT * or widen
+on auth events, and require published+active. Never use guest SELECT \* or widen
 anon grants. UI auth alone is not the database boundary.
 
 Use orderingModel.ts for pack/piece/spec conversion, step/MOQ and money. price
@@ -60,11 +60,14 @@ Protected profiles/admin writes stay behind RLS, triggers and is_admin().
 
 ## Automated and direct verification
 
-scripts/check-storefront.mjs implements these 17 named checks: guest-price-columns,
+scripts/check-storefront.mjs implements these 18 named checks: guest-price-columns,
 public-select-star, unguarded-price-order, arithmetic-outside-model, inline-orderspec,
 local-cart-total, banned-claims, banned-claims-jsx, no-freight-line, base64-image,
 raw-internal-anchor, theme-block-scope, supabase-in-component, revived-getitemcount,
-drawer-autofocus, arbitrary-text-size, section-rhythm. They are structural source
+drawer-autofocus, arbitrary-text-size, section-rhythm, browser-private-credentials.
+The credential rule includes admin/UI modules and reports paths, never secret
+values. Local Smart Paste sends no text to an AI provider; generation is disabled.
+They are structural source
 checks, not proof of stored content, live RLS, keyboard behavior or deployment.
 Do not weaken/exclude checks to pass. A planted freight violation was detected
 and removed on 2 October, and the legitimate source passed afterward.
