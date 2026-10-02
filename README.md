@@ -46,8 +46,7 @@ with at least:
 VITE_SUPABASE_URL=https://<your-project>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon-key>
 
-# Admin gating — comma-separated emails allowed into /admin
-VITE_ADMIN_EMAILS=owner@example.com
+# Admin access comes from user_profiles.is_admin, provisioned through trusted SQL.
 
 # Business / contact config (shown across the storefront)
 VITE_BUSINESS_NAME=XL Traders
@@ -110,7 +109,7 @@ scripts/          local maintenance/import helpers (need service-role key from r
 | `/` | Home (hero → category grid → featured products → use cases → brands) |
 | `/catalog` | Catalog with search, category filter, price gate |
 | `/product/:id` | Product detail (variant selector for masters) |
-| `/auth` | Login (Supabase Auth; admin gated by `VITE_ADMIN_EMAILS`) |
+| `/auth` | Login (Supabase Auth; admin gated by the database profile flag) |
 | `/admin` | AdminDashboard — tabbed PIM (lazy-loaded, code-split) |
 | `/admin/products/new`, `/admin/products/:id` | Route-based product editor |
 | `/admin/masters` | Masters & variants manager |

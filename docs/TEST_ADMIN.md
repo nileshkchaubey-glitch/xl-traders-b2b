@@ -4,7 +4,8 @@ Internal test-admin setup for local development against the live Supabase projec
 
 > **Read this first.** Dev and production are the **same database**. The 142-product
 > catalogue is real, hand-entered work. Destructive tests touch **`ZZ-TEST-PRODUCT` only**
-> (§4). There is no staging environment to fall back on.
+> (§4). Free disposable local PostgreSQL staging is available for schema/role tests;
+> it does not replicate hosted Auth, PostgREST or Storage.
 
 ---
 
@@ -37,30 +38,39 @@ $function$
 This function is what the RLS policies call — e.g. `brands`' "Admins can manage brands"
 (`FOR ALL … USING (is_admin())`).
 
-### The client has a *second*, independent admin check
+### Client profile loading (verified 2 October 2026)
 
-`client/src/lib/authStore.ts` does **not** call `is_admin()`. It resolves admin status
-client-side:
+`client/src/lib/authStore.ts` reads the caller's RLS-scoped profile. Only
+`profile.is_admin === true` enables admin screens. Email allowlists and
+user-editable Auth metadata never grant privileges. A missing profile is created
+with `is_admin=false`, `is_active=true`; a failed read does not trigger an insert.
+The live `protect_user_profile_privileges` trigger rejects customer privilege
+changes. RLS and `public.is_admin()` remain the authorization boundary.
 
-```ts
-function resolveIsAdmin(user, profile): boolean {
-  if (profile?.is_admin === true) return true;        // ← DB flag wins
-  const email = user?.email?.toLowerCase();
-  return !!email && ADMIN_EMAILS.has(email);          // ← VITE_ADMIN_EMAILS fallback
-}
-```
+Signup without an Auth session waits for email confirmation; it does not claim
+that an unconfirmed user is signed in. Company name is ordinary Auth metadata
+copied into a new customer profile after authentication. Async profile requests
+run outside the awaited Auth callback; stale responses cannot restore admin
+state after logout.
 
-`ADMIN_EMAILS` comes from `VITE_ADMIN_EMAILS` (default: `nileshk.chaubey@gmail.com`).
+### Controlled admin provisioning procedure
 
-**Two consequences worth knowing:**
-
-1. The client-side flag is **UX only** — it decides which admin screens render. The real
-   authorization boundary is RLS + `is_admin()` in Postgres. A user who fakes the client
-   flag still gets `42501` on every write.
-2. `authStore.buildAuthState()` **auto-creates a missing profile row** on first sign-in,
-   with `is_admin` set from the `ADMIN_EMAILS` allowlist. So if you sign in as a new admin
-   *before* inserting its profile row, the app will create one with **`is_admin = false`**
-   and you will have to fix it afterwards. **Insert the profile row first** (§2).
+1. Use the Supabase dashboard to create/confirm the intended Auth account with
+   the existing authentication method. Never put its password in the repo.
+2. Using a trusted SQL/admin session, inspect the exact `auth.users` UUID and
+   email, and the existing profile. Save its current flag values (or record that
+   the profile is absent) before changing it. Do not derive privileges from
+   client-provided metadata or an email allowlist.
+3. For an existing, verified profile, update only `is_admin=true` by the exact
+   UUID. If absent, insert its verified UUID/email as an admin using the trusted
+   process; the historical example below illustrates the shape, not a request
+   to rerun it. Do not change activation unless separately intended.
+4. Verify `public.is_admin()` under that UUID's simulated JWT in a rolled-back
+   transaction and sign in to check the UI. Log any applied SQL in
+   [CHANGELOG_SQL.md](CHANGELOG_SQL.md).
+5. Rollback restores the saved flags by exact UUID. Do not delete the Auth user
+   or profile to revoke access. Refresh the profile/sign out and back in after
+   changing access. This implementation did not provision a new production admin.
 
 ---
 
@@ -115,7 +125,7 @@ To revoke later: `UPDATE public.user_profiles SET is_admin = FALSE WHERE id = '8
 
 | Variable | Purpose |
 |---|---|
-| `VITE_ADMIN_EMAILS` | Client-side allowlist; includes the test account as a belt-and-braces fallback. Not required — the DB flag already wins. |
+| `VITE_ADMIN_EMAILS` | Obsolete and ignored; remove from deployment configuration when convenient. |
 | `TEST_ADMIN_EMAIL` | Convenience reference. |
 | `TEST_ADMIN_PASSWORD` | **Intentionally empty.** Nothing in the app reads it today — sign-in is a form. Fill it yourself only if you later add an automated login script. |
 
@@ -145,26 +155,16 @@ ON CONFLICT (sku) DO UPDATE SET status = 'draft', is_active = FALSE
 RETURNING id, name, sku, status, is_active, brand, brand_id, category_id;
 ```
 
-### Standing rule (revised 29 Jul 2026)
+### Current production safety rule
 
-`products` rows are **expendable** — the ~142 scraped rows are being fully rebuilt before
-launch, so `ZZ-TEST-PRODUCT` is a *convenience*, not a fence. Prefer it for throwaway tests
-because it keeps noise out of the rebuild, but testing against real rows is allowed.
-
-Two conditions, from `CLAUDE.md` Critical Rule #13:
-
-- **Announce destructive operations before running them** (announce, not ask), and log them
-  to [`CHANGELOG_SQL.md`](CHANGELOG_SQL.md).
-- **Carve-out:** the 11 `Hinged box` variants have prices conflicting with their standalone
-  duplicates. Do **not** script or auto-merge that reconciliation — the owner makes those
-  pricing calls by hand. A judgment rule, not data protection.
-
-Reset the scratch row with:
-
-```sql
-UPDATE public.products SET brand_id = NULL, brand = '', status='draft', is_active=FALSE
-WHERE sku='ZZ-TEST-PRODUCT';
-```
+The owner's October instructions supersede the old permission to treat catalogue
+rows as expendable. Never delete real customers, products, catalogue, orders or
+order items, destroy storage buckets, publish drafts automatically or delete the
+`uncategorized` sentinel. Never manipulate the 11 Hinged Box price conflicts.
+Use disposable synthetic staging first. Production fixture cleanup may touch
+only exact objects/data created by the current task after verifying the target
+and preserving rollback information. Historical IDs and counts below are dated
+observations, not current permission or proof that a row remains a safe target.
 
 ---
 
