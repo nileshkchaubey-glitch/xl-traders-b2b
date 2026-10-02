@@ -1,9 +1,18 @@
 # Customer price reconfirmation — validation and deployment
 
 The owner selected customer reconfirmation on 23 September. This change is
-prepared and validated. The owner's 2 October instructions explicitly authorize
+merged in #193, applied and verified on 2 October as
+`20261002045327_require_cart_price_reconfirmation`. The owner's instructions authorize
 reviewed production migrations and safe merges. Actual application status is
 recorded in `docs/CHANGELOG_SQL.md`; approval is not evidence of deployment.
+
+Post-deployment definitions, owners, search paths and execute grants matched the
+reviewed SQL. Six rolled-back production denial/validation assertions passed;
+no real data was written. Main CI and the immutable Cloudflare deployment
+`https://4866f65a.xl-traders-b2b.pages.dev` passed mobile/desktop guest catalogue/PDP
+checks. Hosted authenticated browser checkout was not tested because the available
+Auth admin credential failed; no account was created. Positive order behavior was
+validated on disposable staging and the isolated browser fixture described below.
 
 ## Behavior
 

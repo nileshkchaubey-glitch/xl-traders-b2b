@@ -18,31 +18,95 @@ statements are appended _after_ they run, not submitted for approval.
 
 ---
 
-## 2026-10-02 — reviewed checkout migrations: pre-deployment status
+## 2026-10-02 — reviewed checkout migrations applied and verified
 
-Live migration history was inspected: only `authorization_security_hardening`
-(`20260919111536`) and `atomic_order_creation` (`20260919112339`) are installed.
-Those applied timestamps differ from the repository filenames; compare names
-and definitions rather than assuming filename timestamps prove application.
+The owner authorized production SQL and safe merges on 2 October. Before either
+change, live schema, migration history, function definitions, owners and grants
+were captured and compared with the reviewed migrations and restored staging.
+The preceding installed migrations were `authorization_security_hardening`
+(`20260919111536`) and `atomic_order_creation` (`20260919112339`). Installed
+timestamps differ from repository filenames; compare names and definitions.
 
 | Repository migration | Prepared | Applied to production | Verified | Merged |
 | --- | --- | --- | --- | --- |
-| `supabase/migrations/20260920042455_enforce_minimum_order_value.sql` | Yes, PR #191 | No | Disposable restored-schema tests; live predecessor compared | No at this record |
-| `supabase/migrations/20260923165549_require_cart_price_reconfirmation.sql` | Yes, PR #193 | No | Disposable restored-schema tests; live predecessor compared | No at this record |
+| [20260920042455_enforce_minimum_order_value.sql](../supabase/migrations/20260920042455_enforce_minimum_order_value.sql) | Yes | Yes, installed `20261002045031_enforce_minimum_order_value` | Exact definition/owner/search path/grants; inherited checks below | [#191](https://github.com/nileshkchaubey-glitch/xl-traders-b2b/pull/191), `8a5d67c` |
+| [20260923165549_require_cart_price_reconfirmation.sql](../supabase/migrations/20260923165549_require_cart_price_reconfirmation.sql) | Yes | Yes, installed `20261002045327_require_cart_price_reconfirmation` | Exact definition/owner/search path/grants and runtime denials below | [#193](https://github.com/nileshkchaubey-glitch/xl-traders-b2b/pull/193), `ce9d6ef` |
+
+The full mutating SQL is in the two linked migration files. Both were executed
+unchanged using Supabase `apply_migration`, in the displayed order. Reason:
+enforce the existing minimum on the server and require explicit acceptance of
+current prices before atomic order creation. No catalogue, customer, order or
+configuration rows were modified by these migrations.
 
 47 staging checks passed, including actual concurrent updates, rollback and
 reapply; 41 authorization assertions passed before and after. The full public
 application schema and captured Auth dependencies match live metadata checked
 again on 2 October. Local PostgreSQL 17.11 differs from production 17.6 and does
 not include hosted Auth/PostgREST services. The enabled minimum remains ₹2,000.
-No production mutation has occurred for these two migrations yet. The owner's
-2 October instructions authorize applying them after validation. Apply #191
-before #193; do not reapply #191 afterward because it grants the legacy endpoint.
+After application the legacy function still matches #191, while the confirmed
+endpoint matches #193. Both are owned by `postgres` with `public, pg_temp` search
+paths. Anonymous callers cannot execute either endpoint or read `v_product_health`;
+authenticated callers can execute only the confirmed endpoint. Authenticated
+table INSERT grants remain for admins; RLS rejects customer direct inserts.
+The enabled minimum remains ₹2,000. Do not reapply #191 after #193 because its
+grant would reopen the legacy endpoint.
 
 Rollback definitions/grants are preserved locally in
 `tmp/launch-validation-20260924/rollback-order-functions.sql`; schema snapshots
-contain definitions only, without customer/product/order data. A subsequent
-entry must record actual application and post-migration verification.
+contain definitions only, without customer/product/order data. A separate
+`tmp/launch-20261002/rollback-reconfirmation-only.sql` preserves the #191 function
+and allows a coordinated frontend rollback while retaining minimum enforcement.
+Any rollback must be rehearsed and must not silently reopen either known bypass.
+
+### Production runtime checks — rolled back
+
+The following check was executed against the same verified project after both
+migrations. All six assertions passed. The synthetic UUID is not a real account;
+no user/product/order was created, no messages were sent, and no rows persisted.
+Positive customer/admin orders, exact totals, concurrency and rollback were
+tested only on disposable staging. Hosted authenticated browser checkout remains
+unverified: the available Auth admin credential returned `Invalid API key`, and
+no test account was created.
+
+```sql
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"60000000-0000-0000-0000-000000000099","role":"authenticated"}',true);
+do $check$ begin
+  begin
+    insert into public.orders(customer_name,phone,total_amount,item_count,source)
+    values ('Synthetic validation that must fail','9876543210',1,1,'cart');
+    raise exception 'Customer direct header insertion unexpectedly succeeded';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.order_items(order_id,product_name,quantity,unit_price,subtotal)
+    values ('60000000-0000-0000-0000-000000000099','Synthetic validation that must fail',1,1,1);
+    raise exception 'Customer direct line insertion unexpectedly succeeded';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.place_order_from_cart('Synthetic','9876543210','[]'::jsonb);
+    raise exception 'Legacy endpoint unexpectedly allowed customer';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.place_order_from_confirmed_cart('Synthetic','9876543210','[]'::jsonb);
+    raise exception 'Empty confirmed order unexpectedly accepted';
+  exception when invalid_parameter_value then null; end;
+end $check$;
+reset role;
+set local role anon;
+do $check$ begin
+  begin
+    perform public.place_order_from_confirmed_cart('Synthetic','9876543210','[]'::jsonb);
+    raise exception 'Anonymous confirmed endpoint unexpectedly allowed';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform * from public.v_product_health limit 1;
+    raise exception 'Anonymous health view unexpectedly readable';
+  exception when insufficient_privilege then null; end;
+end $check$;
+select 'PASS: customer direct inserts/legacy denied; empty confirmed request rejected; anonymous endpoint/health denied; no rows persisted' result;
+rollback;
+```
 
 ---
 
