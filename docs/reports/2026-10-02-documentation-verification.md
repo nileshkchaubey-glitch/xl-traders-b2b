@@ -40,7 +40,9 @@ are retained as original provenance, not active executable instructions.
 Historical measurements are not claimed to describe today's UI.
 
 42 relative links in the focused active guides resolved to existing files/folders.
-All ten archived sources matched the previous main. `git diff --check` passed.
+All ten archived sources matched the previous main. Active-guide whitespace checks
+passed. The complete diff reports one existing trailing blank line preserved in
+the CODEX archive; it is retained to keep the original source intact.
 Full Node 20.20.2 `npm run ci` passed: 179 application tests, 41 authorization,
 12 minimum-order and 13 reconfirmation assertions, TypeScript, storefront checks,
 production build and PWA generation. No physical-device or hosted-auth result
