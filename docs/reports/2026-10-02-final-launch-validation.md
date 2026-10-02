@@ -15,10 +15,16 @@ enabled actual hosted checks; see [the follow-up](2026-10-02-hosted-admin-valida
 The table below preserves the earlier checkpoint; its hosted NOT TESTED entries
 are superseded only by explicitly observed follow-up results.
 
+Later [hosted file validation](2026-10-02-hosted-file-validation.md) passed actual
+CSV/XLS/XLSX writes and image upload/byte/dimension checks. Database test rows/logs
+were cleaned; three exact disposable Storage objects still need removal through
+the existing target-project dashboard/API. Customer acceptance remains unverified.
+
 No verified code launch blocker remains from the approved list. Full launch
-sign-off remains PARTIAL: customer checkout/history and hosted import/upload
-remain untested, real mobile hardware is unavailable and actual catalogue
-content/pricing decisions belong to the owner. These are not passing tests.
+sign-off remains PARTIAL: customer checkout/history remain untested, three
+disposable Storage objects await cleanup access, real mobile hardware is
+unavailable and actual catalogue content/pricing decisions belong to the owner.
+These limits are not passing tests.
 
 ## Reconciliation and completed work
 
@@ -172,8 +178,10 @@ owner's operation, not an independently verified agent console operation.
 1. **Hosted release sign-off:** approved customer login is still needed for
    confirmed checkout and positive history/reorder. Existing admin Chrome session
    verified pricing, catalogue save, settings reads, inactive banner edits and
-   same-value theme save. Hosted import/upload blocked by file-URL permission;
-   settings writes not attempted against real contacts. Auth admin API still 401;
+   same-value theme save. Later hosted CSV/XLS/XLSX and image upload passed;
+   three exact test Storage objects await target-project cleanup access, and
+   temporary file-URL permission awaits manual restoration. Settings writes
+   not attempted against real contacts. Auth admin API still 401;
    no account/email or alternate authentication method was introduced.
 2. **Catalogue/business readiness:** raw products columns show 136 of 139 public
    rows with blank descriptions and 135 with some blank SEO metadata; these are

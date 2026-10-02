@@ -19,6 +19,78 @@ statements are appended _after_ they run, not submitted for approval.
 
 ---
 
+## 2026-10-02 — hosted CSV/XLS/XLSX and image validation
+
+Owner explicitly approved temporary Chrome file-URL permission and manually
+enabled it. Existing authorized admin session, exact new test SKU
+`ZZ-LAUNCH-20261002-VALIDATION` was absent before import.
+CSV application REST import inserted one draft `bfbebb5f-b1d2-4614-9a1b-61c79614a80e`
+with synthetic name/description, unit box, pack size 100, price 100, MOQ 2,
+order_unit pcs, order_step 300. Real XLS import updated only that SKU to price
+110 / MOQ 3 / step 400; XLSX updated it to 120 / MOQ 4 / step 500. Blank status
+in both Excel files preserved draft. Each dry run matched exactly one row;
+each import had zero skipped/errors. Three task import-log IDs are guarded below.
+
+Actual Workbench image upload created exactly three fresh Storage objects in
+`product-images/products/ZZ-LAUNCH-20261002-VALIDATION/`, stem
+`ZZ-LAUNCH-20261002-VALIDATION-96bfd10c-3a87-47ae-af07-f5ca00ae4b90`:
+`.xl-original.png` (11,144 bytes), `.xl-web-800w-1600w-1x.webp` (1,132),
+`.xl-web-800w-1600w-2x.webp` (2,840). Prefix was empty before upload; upsert false.
+UI updated only the synthetic product primary image URL to 1x. All three objects
+were downloaded/preserved, MIME/dimensions and original exact hash verified.
+Product stayed draft; public PDP returned Product not found.
+
+Full final synthetic row/import logs and binary rollback copies were saved in
+ignored `tmp/launch-20261002/` before cleanup. Foreign-key targets were inspected;
+order/image/enquiry dependents must be absent. This SQL ran successfully:
+
+```sql
+begin;
+do $cleanup$
+declare touched integer;
+begin
+ if exists(select 1 from public.order_items where product_id='bfbebb5f-b1d2-4614-9a1b-61c79614a80e') or exists(select 1 from public.product_images where product_id='bfbebb5f-b1d2-4614-9a1b-61c79614a80e') or exists(select 1 from public.enquiries where product_id='bfbebb5f-b1d2-4614-9a1b-61c79614a80e') then raise exception 'Disposable import product has dependents'; end if;
+ delete from public.products where id='bfbebb5f-b1d2-4614-9a1b-61c79614a80e' and sku='ZZ-LAUNCH-20261002-VALIDATION' and name='Launch validation fixture - do not publish' and status='draft' and price=120 and moq=4 and quantity_in_unit=100 and order_unit='pcs' and order_step=500 and created_at='2026-10-02T13:02:25.470306+00:00' and updated_at='2026-10-02T13:13:57.089556+00:00' and image_url='https://danoeaftaazhbldeeuxj.supabase.co/storage/v1/object/public/product-images/products/ZZ-LAUNCH-20261002-VALIDATION/ZZ-LAUNCH-20261002-VALIDATION-96bfd10c-3a87-47ae-af07-f5ca00ae4b90.xl-web-800w-1600w-1x.webp';
+ get diagnostics touched=row_count;
+ if touched<>1 then raise exception 'Disposable import product target changed'; end if;
+ delete from public.import_logs where rows_total=1 and skipped=0 and jsonb_array_length(to_jsonb(errors))=0 and (
+  (id='687705d8-896b-4ae2-919d-28eec303637d' and source='csv' and inserted=1 and updated=0 and created_at='2026-10-02T13:02:25.773577+00:00') or
+  (id='0a82b822-b46f-4b13-80e7-2a9c0f957fce' and source='excel' and inserted=0 and updated=1 and created_at='2026-10-02T13:06:12.932866+00:00') or
+  (id='467db118-f262-4461-a9da-3711da225767' and source='excel' and inserted=0 and updated=1 and created_at='2026-10-02T13:07:56.92106+00:00'));
+ get diagnostics touched=row_count;
+ if touched<>3 then raise exception 'Disposable import log targets changed'; end if;
+end;
+$cleanup$;
+commit;
+select (select count(*) from public.products) as products,(select count(*) from public.products where status='published' and is_active) as public_products,(select count(*) from public.orders) as orders,(select count(*) from public.order_items) as items,(select count(*) from public.categories where slug='uncategorized') as sentinel,(select array_agg(id) from public.import_logs) as import_logs,(select count(*) from public.products where sku='ZZ-LAUNCH-20261002-VALIDATION') as test_products,(select count(*) from storage.objects where bucket_id='product-images' and name like 'products/ZZ-LAUNCH-20261002-VALIDATION/%') as pending_test_storage_objects;
+```
+
+Post-check restores original catalogue 143/139, orders/items 2/2, sentinel 1 and
+original import log only. No real product, customer, order or original import
+log was deleted. No theme/contact/privilege change, new account or migration.
+
+**Storage cleanup still pending:** the three exact test objects remain. Current
+Chrome Supabase dashboard login cannot access XL Traders; no local CLI/backend
+credential provides removal. Do not delete Storage metadata directly in SQL:
+that would leave the underlying bytes. Owner was asked for existing target-project
+dashboard access. No paid service, temporary backend or authentication workaround
+was introduced. Remove only the exact three fresh keys above via Storage API/
+dashboard after checking IDs, timestamps and preserved bytes. Never delete a
+bucket or a prefix containing other objects. Cleanup completion must be verified
+before changing this pending state.
+
+Recovery information: `hosted-import-first.json`, `hosted-import-final.json`,
+`hosted-upload-product.json`, `hosted-image-objects.json`,
+`hosted-image-verification.json`, `hosted-image-downloads/` and exact
+`hosted-import-cleanup.sql` preserve complete disposable rows/binaries.
+Reinsert only an exact missing task-created row after absence checks if recovery
+is actually required; do not recreate fixtures routinely. Existing category was
+never deleted or changed. Owner was asked to disable file-URL permission again.
+
+See [actual file results and limits](reports/2026-10-02-hosted-file-validation.md).
+
+---
+
 ## 2026-10-02 — disposable hosted admin validation and exact cleanup
 
 Existing authorized Chrome admin session, no new account or privilege change.
