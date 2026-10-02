@@ -36,12 +36,14 @@ overflow. Exact merged deployment scans must still be observed after release.
 
 Removing code does NOT revoke an exposed credential. Historical immutable Pages
 assets and already installed service workers can retain predecessor JavaScript.
-The owner must revoke/rotate the exposed Anthropic key using its provider console
-and remove the private VITE variable from Cloudflare/Vercel build environments.
-Do not reuse it. Revocation and provider activity review are NOT VERIFIED here:
-provider-console access is unavailable and no paid/API call was made to test it.
-This remains a launch security blocker until revocation is confirmed. New code
-can be deployed immediately to stop including/using the credential.
+The owner confirmed on 2 October: "Already revoked and settings removed."
+This confirms revocation and removal of the private VITE hosting variable by the
+owner. Do not reuse the exposed key. Independent provider-console/activity review
+was NOT TESTED by this agent; no paid/live-key API call was made to test validity.
+The focused PR preview's 35 emitted JavaScript chunks contained no known private
+key format, privileged JWT or Anthropic endpoint. Old assets may retain the now
+revoked value; new code no longer includes or uses it. This incident is contained
+based on owner confirmation plus the deployment scan, not a provider activity audit.
 
 Deployment: code-only build with required CI green; verify every emitted Pages
 chunk via the exact merged service-worker precache manifest. No SQL/migration.
