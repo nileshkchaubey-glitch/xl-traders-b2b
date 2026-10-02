@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 
 import { useAuthStore } from "@/lib/authStore";
 import { settingsService, FALLBACKS } from "@/lib/settingsService";
+import AccountOrders from "@/components/storefront/AccountOrders";
 
 const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919773239442";
 const EMAIL = import.meta.env.VITE_EMAIL || "xltraders990@gmail.com";
@@ -59,10 +60,8 @@ const PHONE = import.meta.env.VITE_PHONE_1 || "9773239442";
  *    detail. A chevron renders only where there is somewhere to go — a chevron
  *    with no destination is the dead-link defect flagged on "Offers zone".
  *
- * THE STAT ROW RENDERS DASHES, and that is the prototype's own guest treatment,
- * not a placeholder invented here. There is no order-history surface yet, so a
- * dash is accurate: we do not have the number. Wiring real counts is A3 / PR-5,
- * which is also when the order card gets rows and Reorder gets a handler.
+ * Summary tiles remain unset rather than inventing saved-list/spend metrics.
+ * AccountOrders independently loads user-scoped history and current-rule reorders.
  */
 type Row = {
   code: string;
@@ -117,7 +116,7 @@ function SettingsRow({ code, label, sub, href, external }: Row) {
   );
 }
 
-/** The prototype's three, all rendering an em dash until A3 wires history. */
+/** No fabricated summary metrics; scoped history below shows its actual count. */
 const STATS = ["Orders placed", "Ordered this year", "Saved for reorder"];
 
 export default function Account() {
@@ -266,8 +265,7 @@ export default function Account() {
                   Sign in to see your rates
                 </div>
                 <p className="mt-1 text-caption font-semibold leading-[1.55] text-amber-800 lg:text-product-name">
-                  Signed-in business accounts see per-piece rates and can order
-                  on WhatsApp.
+                  Signed-in business accounts see rates and can place orders.
                 </p>
                 <Link
                   href="/auth"
@@ -278,15 +276,7 @@ export default function Account() {
               </div>
             )}
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-100 px-4 py-3 text-heading-sub-lg font-extrabold text-slate-900 lg:text-heading-sub">
-                Order history
-              </div>
-              <p className="px-4 py-6 text-center text-caption font-medium text-slate-500 lg:text-product-name">
-                Order history is coming soon. Past orders are confirmed on
-                WhatsApp in the meantime.
-              </p>
-            </div>
+            <AccountOrders />
           </div>
 
           {/* The detail. This is what "all the details are in the account"

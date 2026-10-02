@@ -40,6 +40,27 @@ beforeEach(() => {
   useCartStore.setState({ items: [], customer: { name: "", phone: "" } });
 });
 describe("shared cart step enforcement", () => {
+  it("merges reorder atomically with fresh snapshots, retaining unrelated lines and customer", () => {
+    const store = useCartStore.getState();
+    store.addItem({ ...item, price: 999 }, asPacks(3));
+    store.addItem({ ...item, productId: "unrelated" });
+    store.setCustomer({ name: "Keep", phone: "123" });
+    store.mergeReorder([{ ...item, price: 200, packs: asPacks(6) }]);
+    expect(useCartStore.getState().items[0]).toMatchObject({
+      price: 200,
+      packs: 9,
+    });
+    expect(useCartStore.getState().items[1].productId).toBe("unrelated");
+    expect(useCartStore.getState().customer.name).toBe("Keep");
+    const before = useCartStore.getState().items;
+    expect(() =>
+      store.mergeReorder([
+        { ...item, packs: asPacks(3) },
+        { ...item, productId: "bad", packs: asPacks(0) },
+      ])
+    ).toThrow();
+    expect(useCartStore.getState().items).toBe(before);
+  });
   it.each(["pack", "pcs"] as const)(
     "adds and repeats %s products only in valid whole steps",
     orderUnit => {
