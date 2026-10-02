@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Trash2, Plus, ExternalLink, Package } from "lucide-react";
 import {
   Drawer,
@@ -48,11 +49,16 @@ export default function MobileMasterSheet({
   onVariantAdded,
   onEditVariant,
 }: MobileMasterSheetProps) {
+  const returnFocus = useRef<HTMLElement | null>(null);
   if (!master) return null;
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[88vh]">
+    <Drawer open={open} onOpenChange={onOpenChange} autoFocus>
+      <DrawerContent
+        className="data-[vaul-drawer-direction=bottom]:max-h-[85vh]"
+        onOpenAutoFocus={() => { returnFocus.current = document.activeElement as HTMLElement | null; }}
+        onCloseAutoFocus={event => { event.preventDefault(); returnFocus.current?.focus(); }}
+      >
         <DrawerHeader className="text-left">
           <DrawerTitle className="truncate">{master.name}</DrawerTitle>
           <DrawerDescription>

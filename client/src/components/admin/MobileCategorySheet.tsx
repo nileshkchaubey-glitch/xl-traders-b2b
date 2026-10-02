@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Upload, Loader2, Trash2, Settings2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -47,6 +47,7 @@ export default function MobileCategorySheet({
   const [isActive, setIsActive] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const returnFocus = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (category) {
@@ -97,8 +98,12 @@ export default function MobileCategorySheet({
   };
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[88vh]">
+    <Drawer open={open} onOpenChange={onOpenChange} autoFocus>
+      <DrawerContent
+        className="data-[vaul-drawer-direction=bottom]:max-h-[85vh]"
+        onOpenAutoFocus={() => { returnFocus.current = document.activeElement as HTMLElement | null; }}
+        onCloseAutoFocus={event => { event.preventDefault(); returnFocus.current?.focus(); }}
+      >
         <DrawerHeader className="text-left">
           <DrawerTitle className="truncate">{category.name}</DrawerTitle>
           <DrawerDescription>
