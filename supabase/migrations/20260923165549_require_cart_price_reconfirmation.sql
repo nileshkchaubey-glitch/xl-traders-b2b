@@ -1,4 +1,4 @@
--- Requires the minimum-order migration. No production execution is authorized.
+-- Requires the minimum-order migration; see CHANGELOG_SQL for application status.
 -- The new endpoint fails closed until deployed; legacy clients cannot bypass
 -- price confirmation via the former endpoint after this migration is applied.
 begin;
