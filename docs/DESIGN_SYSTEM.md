@@ -352,14 +352,21 @@ Consolidated from `CLAUDE.md` "Critical Rules" and "Workflow":
 
 These already exist; **reuse them, don't hand-roll equivalents:**
 
-`accordion, alert, alert-dialog, aspect-ratio, avatar, badge, breadcrumb, button,
-button-group, calendar, card, carousel, chart, checkbox, collapsible, command, context-menu,
-dialog, drawer, dropdown-menu, empty, field, form, hover-card, input, input-group, input-otp,
-item, kbd, label, menubar, navigation-menu, pagination, popover, progress, radio-group,
-resizable, scroll-area, select, separator, sheet, sidebar, skeleton, slider, sonner, spinner,
-switch, table, tabs, textarea, toggle, toggle-group, tooltip`
+`alert-dialog, badge, button, card, checkbox, command, confirm-dialog, context-menu,
+dialog, drawer, dropdown-menu, input, label, popover, select, sheet, skeleton,
+sonner, switch, table, textarea, tooltip`
 
 Toasts use **`sonner`**. Bottom sheets use the single **`drawer`** (vaul) primitive.
+Admin category/master sheets enable `autoFocus` and use
+`data-[vaul-drawer-direction=bottom]:max-h-[85vh]` to override the primitive's
+matching 80vh variant. Opening must move focus inside; Tab/Shift+Tab must stay
+inside until Escape closes the sheet and returns focus to the opener. Verify
+this with keyboard input.
+
+Breadcrumbs are deliberately hand-written in the PDP desktop navigation and
+`AdminMasters`, using Wouter `Link`, `ChevronRight` and the current item label.
+Mobile PDP uses `PageTitleBar`'s back link. The unused shadcn breadcrumb primitive
+was removed; preserve these current patterns when extending navigation.
 
 ### 3.2 Shared app components & patterns
 
