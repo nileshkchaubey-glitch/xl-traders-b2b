@@ -34,6 +34,27 @@ export function lineQtyPhrase(item: CartItem): string {
     : packPhrase;
 }
 
+/** Guest enquiry: quantities only, even if a signed-out cart retains old rates. */
+export function buildGuestCartMessage(
+  items: CartItem[],
+  customer: CustomerInfo,
+  notes?: string
+): string {
+  const t = cartTotals(items);
+  const out = [
+    "🛒 *Cart enquiry — XL Traders*",
+    ...(customer.name.trim() ? [`Customer: ${customer.name.trim()}`] : []),
+    ...(customer.phone.trim() ? [`Phone: ${customer.phone.trim()}`] : []),
+    "──────────",
+    ...items.map(item => `• ${item.name} — ${lineQtyPhrase(item)}`),
+    "──────────",
+    `Items: ${t.lines} · Quantities: ${qty(t.pieces)} pcs`,
+    "Please share rates for this cart.",
+  ];
+  if (notes?.trim()) out.push("──────────", `Notes: ${notes.trim()}`);
+  return out.join("\n");
+}
+
 /**
  * The WhatsApp order message.
  *

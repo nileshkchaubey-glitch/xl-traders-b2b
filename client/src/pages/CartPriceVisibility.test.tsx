@@ -71,3 +71,14 @@ describe.each([
     expect(render()).not.toContain("₹0.00");
   });
 });
+
+it("offers both guest actions and preserves the signed-in checkout action", () => {
+  const render = () => renderToStaticMarkup(<Router ssrPath="/cart"><Cart /></Router>);
+  auth.isAuthenticated = false;
+  expect(render()).toContain("Sign in to place order");
+  expect(render()).toContain("Send cart on WhatsApp");
+  expect(render()).not.toContain("Order is saved and confirmed");
+  auth.isAuthenticated = true;
+  expect(render()).toContain("Send order on WhatsApp");
+  expect(render()).not.toContain("Send cart on WhatsApp");
+});

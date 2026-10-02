@@ -21,6 +21,23 @@ beforeEach(() => {
 });
 
 describe("confirmed order service", () => {
+  it("prepares a guest enquiry without querying prices or creating a database order", () => {
+    const message = orderService.prepareGuestCart([item], { name: "Guest", phone: "" });
+    expect(message).toContain("Test pack — 8 packs");
+    expect(message).toContain("Please share rates");
+    expect(message).not.toContain("₹");
+    expect(message).not.toContain("125");
+    expect(message).not.toContain("Total:");
+    expect(rpc).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+    expect(item.price).toBe(125);
+  });
+  it("rejects empty and below-MOQ guest carts without any database call", () => {
+    expect(() => orderService.prepareGuestCart([], { name: "", phone: "" })).toThrow("empty");
+    expect(() => orderService.prepareGuestCart([{ ...item, moq: 10 }], { name: "", phone: "" })).toThrow("minimum");
+    expect(rpc).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+  });
   it("reads fresh active/published prices without creating an order", async () => {
     expect((await orderService.reviewPrices([item])).changes[0].after).toBe(150);
     expect(query.eq.mock.calls).toEqual([["status", "published"], ["is_active", true]]);
