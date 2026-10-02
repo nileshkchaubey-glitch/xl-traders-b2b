@@ -1,6 +1,9 @@
 # Server minimum-order enforcement: deployment review
 
-Status: prepared and tested locally; **not applied to production**.
+Status: merged in #191 and **applied and verified in production on 2 October**.
+Installed migration: `20261002045031_enforce_minimum_order_value`. #193 was applied
+afterward and now restricts customers to the confirmed endpoint. See the actual
+operations and runtime verification in [SQL Changelog](../CHANGELOG_SQL.md).
 
 ## Verified defect and scope
 
@@ -36,7 +39,7 @@ compared with live production again and matched. No customer rows were copied.
 ## Deployment
 
 The owner's 2 October authorization permits reviewed migrations after validation.
-This file is **prepared**, not yet applied; the current status is recorded in
+This file was applied after validation; the current status is recorded in
 `docs/CHANGELOG_SQL.md`. The live minimum is enabled at ₹2,000.
 
 1. Compare the live function definition and schema against the original
@@ -51,10 +54,10 @@ This file is **prepared**, not yet applied; the current status is recorded in
    normal migration workflow. No frontend deployment or environment changes are
    needed to activate the server check.
 4. Verify the installed definition/grants and migration history. Any production
-   order test needs a separately approved test/cleanup plan; do not create real
-   orders merely to smoke-test this migration.
+   order test must roll back or use synthetic fixtures with safe cleanup; do not
+   create real orders merely to smoke-test this migration.
 
-## Rollback (owner approval required)
+## Rollback
 
 Restore the saved previous `place_order_from_cart(text,text,jsonb)` definition and
 its execute grants through a new rollback migration. If the preflight confirms
