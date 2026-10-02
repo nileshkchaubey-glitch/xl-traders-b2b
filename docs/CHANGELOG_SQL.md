@@ -13,8 +13,9 @@ statements are appended _after_ they run, not submitted for approval.
   established something that later work depends on.
 - Statements run inside `BEGIN … ROLLBACK` are logged and marked **rolled back**, because
   knowing a check ran matters even when it left no trace.
-- Dev and production are the **same database**. See `docs/TEST_ADMIN.md` for the
-  `ZZ-TEST-PRODUCT` rule.
+- Local development uses the **production database** unless explicitly configured
+  otherwise. Follow [safe test access](TEST_ADMIN.md); historical scratch names
+  do not prove a record is safe to modify or delete.
 
 ---
 
@@ -27,10 +28,10 @@ The preceding installed migrations were `authorization_security_hardening`
 (`20260919111536`) and `atomic_order_creation` (`20260919112339`). Installed
 timestamps differ from repository filenames; compare names and definitions.
 
-| Repository migration | Prepared | Applied to production | Verified | Merged |
-| --- | --- | --- | --- | --- |
-| [20260920042455_enforce_minimum_order_value.sql](../supabase/migrations/20260920042455_enforce_minimum_order_value.sql) | Yes | Yes, installed `20261002045031_enforce_minimum_order_value` | Exact definition/owner/search path/grants; inherited checks below | [#191](https://github.com/nileshkchaubey-glitch/xl-traders-b2b/pull/191), `8a5d67c` |
-| [20260923165549_require_cart_price_reconfirmation.sql](../supabase/migrations/20260923165549_require_cart_price_reconfirmation.sql) | Yes | Yes, installed `20261002045327_require_cart_price_reconfirmation` | Exact definition/owner/search path/grants and runtime denials below | [#193](https://github.com/nileshkchaubey-glitch/xl-traders-b2b/pull/193), `ce9d6ef` |
+| Repository migration                                                                                                                | Prepared | Applied to production                                             | Verified                                                            | Merged                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [20260920042455_enforce_minimum_order_value.sql](../supabase/migrations/20260920042455_enforce_minimum_order_value.sql)             | Yes      | Yes, installed `20261002045031_enforce_minimum_order_value`       | Exact definition/owner/search path/grants; inherited checks below   | [#191](https://github.com/nileshkchaubey-glitch/xl-traders-b2b/pull/191), `8a5d67c` |
+| [20260923165549_require_cart_price_reconfirmation.sql](../supabase/migrations/20260923165549_require_cart_price_reconfirmation.sql) | Yes      | Yes, installed `20261002045327_require_cart_price_reconfirmation` | Exact definition/owner/search path/grants and runtime denials below | [#193](https://github.com/nileshkchaubey-glitch/xl-traders-b2b/pull/193), `ce9d6ef` |
 
 The full mutating SQL is in the two linked migration files. Both were executed
 unchanged using Supabase `apply_migration`, in the displayed order. Reason:
@@ -48,7 +49,7 @@ endpoint matches #193. Both are owned by `postgres` with `public, pg_temp` searc
 paths. Anonymous callers cannot execute either endpoint or read `v_product_health`;
 authenticated callers can execute only the confirmed endpoint. Authenticated
 table INSERT grants remain for admins; RLS rejects customer direct inserts.
-The enabled minimum remains ₹2,000. Do not reapply #191 after #193 because its
+Do not reapply #191 after #193 because its
 grant would reopen the legacy endpoint.
 
 Rollback definitions/grants are preserved locally in
