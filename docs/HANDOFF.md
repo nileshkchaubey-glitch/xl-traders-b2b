@@ -1,3 +1,5 @@
+> **Historical handoff, reconciled 2 October.** Latest owner authorization supersedes old SQL/self-merge/deletion gates. Current work and verified results are in [launch status](LAUNCH_STATUS.md); preserve the original sequence below without treating old pending lists as code truth.
+
 # XL Traders B2B — Handoff for ChatGPT / Codex
 
 Written 2 Oct 2026 from a long planning-and-review chat with Claude. Read this whole file first. It replaces that chat history.

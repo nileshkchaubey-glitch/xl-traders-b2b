@@ -1,3 +1,5 @@
+> **Historical record.** Dated findings/plans below are not current implementation claims or permissions. Reconcile against code and [launch status](LAUNCH_STATUS.md) before acting.
+
 # XL Traders B2B Project Monitor Automation
 
 Review date: 2026-05-31  
