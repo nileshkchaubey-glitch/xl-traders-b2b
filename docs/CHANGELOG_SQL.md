@@ -18,6 +18,34 @@ statements are appended _after_ they run, not submitted for approval.
 
 ---
 
+## 2026-10-02 — reviewed checkout migrations: pre-deployment status
+
+Live migration history was inspected: only `authorization_security_hardening`
+(`20260919111536`) and `atomic_order_creation` (`20260919112339`) are installed.
+Those applied timestamps differ from the repository filenames; compare names
+and definitions rather than assuming filename timestamps prove application.
+
+| Repository migration | Prepared | Applied to production | Verified | Merged |
+| --- | --- | --- | --- | --- |
+| `supabase/migrations/20260920042455_enforce_minimum_order_value.sql` | Yes, PR #191 | No | Disposable restored-schema tests; live predecessor compared | No at this record |
+| `supabase/migrations/20260923165549_require_cart_price_reconfirmation.sql` | Yes, PR #193 | No | Disposable restored-schema tests; live predecessor compared | No at this record |
+
+47 staging checks passed, including actual concurrent updates, rollback and
+reapply; 41 authorization assertions passed before and after. The full public
+application schema and captured Auth dependencies match live metadata checked
+again on 2 October. Local PostgreSQL 17.11 differs from production 17.6 and does
+not include hosted Auth/PostgREST services. The enabled minimum remains ₹2,000.
+No production mutation has occurred for these two migrations yet. The owner's
+2 October instructions authorize applying them after validation. Apply #191
+before #193; do not reapply #191 afterward because it grants the legacy endpoint.
+
+Rollback definitions/grants are preserved locally in
+`tmp/launch-validation-20260924/rollback-order-functions.sql`; schema snapshots
+contain definitions only, without customer/product/order data. A subsequent
+entry must record actual application and post-migration verification.
+
+---
+
 ## 2026-08-17 — FAQ answer reworded from delivery to dispatch
 
 Row updated: `faqs` (one answer).

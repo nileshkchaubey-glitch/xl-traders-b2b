@@ -48,5 +48,8 @@ jobs:
       - name: Database authorization tests (ephemeral PostgreSQL)
         run: npm run test:authorization
 
+      - name: Order minimum tests (ephemeral PostgreSQL)
+        run: npm run test:orders
+
       - name: Build
         run: npm run build
