@@ -1,3 +1,5 @@
+> **Historical record.** Dated findings/plans below are not current implementation claims or permissions. Reconcile against code and [launch status](LAUNCH_STATUS.md) before acting.
+
 # Phase A — UI/UX Audit vs Design System
 
 Audit of the storefront + admin against `docs/design-system/colors_and_type.css`

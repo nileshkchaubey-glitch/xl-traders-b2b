@@ -1,3 +1,5 @@
+> Phase 0 snapshot before implementation, with the daily-widget consumer claim corrected after code recheck. Current completion is tracked in [launch status](../LAUNCH_STATUS.md).
+
 # Launch work reconciliation — 2 October 2026
 
 Baseline: fetched `origin/main` was `73f2ba516391d3ae12596da2e384f64f3004745b`
