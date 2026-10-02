@@ -64,6 +64,11 @@ utility loses to the primitive's matching variant. Real keyboard checks passed
 
 ## Architecture and verification
 
+Site Content reuses the existing service boundary for promo banners and the
+five colour themes. New banners start inactive; empty slots reserve no space.
+Scheduling inputs use local time/UTC storage. The shared category slot appears
+on category-filtered catalogue pages. See [controls and test limits](BANNERS_AND_THEMES.md).
+
 Components call existing services. useProductForm/productForm share the route
 and CatalogProductPanel save path; CatalogTreeEditor is the products surface.
 Reuse category/brand pickers and ProductMediaSection. Do not create Admin-v2.

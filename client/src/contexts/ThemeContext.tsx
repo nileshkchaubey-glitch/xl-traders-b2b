@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { settingsService } from "@/lib/settingsService";
+import { isSiteTheme, type SiteTheme } from "@/lib/siteTheme";
+export { SITE_THEMES, type SiteTheme } from "@/lib/siteTheme";
 
 /**
  * Festival theming.
@@ -16,22 +18,6 @@ import { settingsService } from "@/lib/settingsService";
  * Note this file previously provided a light/dark mode. That was a different
  * axis, unused by the storefront, and it is replaced rather than extended.
  */
-export const SITE_THEMES = [
-  "default",
-  "diwali",
-  "holi",
-  "monsoon",
-  "independence",
-] as const;
-
-export type SiteTheme = (typeof SITE_THEMES)[number];
-
-function isSiteTheme(v: unknown): v is SiteTheme {
-  return (
-    typeof v === "string" && (SITE_THEMES as readonly string[]).includes(v)
-  );
-}
-
 const ThemeContext = createContext<SiteTheme>("default");
 
 /** Read-only. Exposed for a future admin preview; the storefront never calls it. */
@@ -42,18 +28,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    settingsService
-      .getContent("site_theme")
-      .then(v => {
-        if (cancelled) return;
-        // Unknown values fall back to default rather than being written onto
-        // the document, so a typo in admin cannot produce an unstyled site.
-        const next = isSiteTheme(v?.theme) ? v.theme : "default";
-        setTheme(next);
-      })
-      .catch(() => {});
+    const refresh = () =>
+      settingsService
+        .getContent("site_theme")
+        .then(v => {
+          if (cancelled) return;
+          // Unknown values fall back to default rather than being written onto
+          // the document, so a typo in admin cannot produce an unstyled site.
+          const next = isSiteTheme(v?.theme) ? v.theme : "default";
+          setTheme(next);
+        })
+        .catch(() => {});
+    const unsubscribe = settingsService.subscribe(key => {
+      if (key === "site_theme") refresh();
+    });
+    refresh();
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 

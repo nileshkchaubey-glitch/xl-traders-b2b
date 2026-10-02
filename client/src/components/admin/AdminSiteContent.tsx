@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Save, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import AdminPromoBanners from "./AdminPromoBanners";
+import { SITE_THEMES, type SiteTheme } from "@/lib/siteTheme";
 import {
   settingsService,
   SiteContentMap,
@@ -272,6 +274,30 @@ export default function AdminSiteContent() {
           the built-in defaults.
         </p>
       </div>
+
+      <SectionCard
+        title="Site theme"
+        description="Changes accent and hero colours only. Save to apply; layout and ordering stay the same."
+        onSave={() => save("site_theme", "Site theme")}
+        saving={saving === "site_theme"}
+      >
+        <Label htmlFor="site-theme">Theme</Label>
+        <select
+          id="site-theme"
+          className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+          value={content.site_theme.theme}
+          onChange={event =>
+            patch("site_theme", { theme: event.target.value as SiteTheme })
+          }
+        >
+          {SITE_THEMES.map(theme => (
+            <option key={theme} value={theme}>
+              {theme.charAt(0).toUpperCase() + theme.slice(1)}
+            </option>
+          ))}
+        </select>
+      </SectionCard>
+      <AdminPromoBanners />
 
       {/* ── HERO ── */}
       <GroupHeading>Hero</GroupHeading>

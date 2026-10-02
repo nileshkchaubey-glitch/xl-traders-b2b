@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import ProductCard from "@/components/ProductCard";
+import PromoBanners from "@/components/storefront/PromoBanners";
 import PageTitleBar from "@/components/storefront/PageTitleBar";
 import ActiveFilters from "@/components/catalog/ActiveFilters";
 import CatalogFilterSheet from "@/components/catalog/CatalogFilterSheet";
@@ -228,6 +229,9 @@ export default function Catalog() {
   return (
     <>
       <main className="flex-1 pb-24 md:pb-0">
+        {selection.category && (
+          <PromoBanners position="category_top" className="pt-6" />
+        )}
         <div className="xl-shell py-6">
           {/* Prototype: 11.5px/600 #94a3b8 throughout, current page a shade
               darker. Same crumb as /account, so the two cannot drift. */}
