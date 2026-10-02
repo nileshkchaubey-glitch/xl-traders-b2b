@@ -21,37 +21,7 @@ export interface DailyAdminGroup {
   major: AdminSuggestion;
 }
 
-// Completed items are logged here and excluded from active rotation suggestions
-export const COMPLETED_SUGGESTIONS = [
-  {
-    id: 101,
-    title: "AI Smart Paste dialog for raw copy-paste autofill",
-    domain: "Product entry",
-  },
-  {
-    id: 102,
-    title: "Right-click context menu on product list rows",
-    domain: "Product entry",
-  },
-  {
-    id: 103,
-    title: "Image Library Sizing and Fit controls",
-    domain: "Image management",
-  },
-  {
-    id: 104,
-    title: "Standalone AdminProductEditor page integration",
-    domain: "Product entry",
-  },
-  {
-    id: 105,
-    title:
-      "Keyboard shortcuts for saving (Ctrl+S) and closing (Esc) in dialogs",
-    domain: "Product entry",
-  },
-];
-
-export const QUICK_WINS: AdminSuggestion[] = [
+const QUICK_WINS: AdminSuggestion[] = [
   {
     id: 1,
     domain: "Product entry",
@@ -170,7 +140,7 @@ export const QUICK_WINS: AdminSuggestion[] = [
   },
 ];
 
-export const MEDIUM_IMPROVEMENTS: AdminSuggestion[] = [
+const MEDIUM_IMPROVEMENTS: AdminSuggestion[] = [
   {
     id: 11,
     domain: "Product entry",
@@ -293,7 +263,7 @@ export const MEDIUM_IMPROVEMENTS: AdminSuggestion[] = [
   },
 ];
 
-export const MAJOR_IMPROVEMENTS: AdminSuggestion[] = [
+const MAJOR_IMPROVEMENTS: AdminSuggestion[] = [
   {
     id: 21,
     domain: "Image management",

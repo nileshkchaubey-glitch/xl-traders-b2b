@@ -15,7 +15,7 @@ export interface ParsedSheetRef {
   gid?: string;
 }
 
-export function parseSheetInput(input: string): ParsedSheetRef | null {
+function parseSheetInput(input: string): ParsedSheetRef | null {
   const trimmed = input.trim();
 
   // Raw spreadsheet ID (alphanumeric + dashes/underscores, 20+ chars, no slashes)
@@ -37,7 +37,7 @@ export function parseSheetInput(input: string): ParsedSheetRef | null {
   return { spreadsheetId, gid };
 }
 
-export function buildCsvExportUrl(ref: ParsedSheetRef): string {
+function buildCsvExportUrl(ref: ParsedSheetRef): string {
   const base = `https://docs.google.com/spreadsheets/d/${ref.spreadsheetId}/export?format=csv`;
   return ref.gid ? `${base}&gid=${ref.gid}` : base;
 }

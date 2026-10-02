@@ -43,27 +43,13 @@ export function slugify(name: string): string {
     .slice(0, 60);
 }
 
-// Same templates Catalog Studio used for auto-generated SEO fields.
+// Default title suggestion used by the admin editor.
 export function metaTitleFor(name: string, categoryName?: string): string {
   return (
     name +
     (categoryName ? " — " + categoryName : "") +
     " | XL Traders"
   ).slice(0, 60);
-}
-
-export function metaDescriptionFor(
-  name: string,
-  categoryName?: string,
-  description?: string | null
-): string {
-  const base = description?.trim()
-    ? description.trim().slice(0, 140)
-    // "free delivery" was here and reached SEARCH RESULTS, not just the page.
-    // There is no freight rule settled, so no freight claim is made at all
-    // (docs/STOREFRONT_V3_PLAN.md §12 C1).
-    : `Buy ${name}${categoryName ? " (" + categoryName + ")" : ""} wholesale at XL Traders, Surat. Bulk rates for businesses.`;
-  return base.slice(0, 155);
 }
 
 // "Missing…" quick filters for the Products tab. The truth for what counts as

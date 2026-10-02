@@ -41,7 +41,7 @@ Code, current PR state and live implementation were checked before scheduling wo
 | B PR-3 eight runtime candidates | DONE | #182 removed framer-motion, resolvers, zod, react-virtual, axios, nanoid, streamdown and tailwindcss-animate |
 | B PR-3 post-primitive dependency analysis | NOT STARTED | Re-run after deleting verified primitives; evaluate all remaining package/config consumers |
 | B PR-3 three dev candidates | NEEDS VERIFICATION | postcss/autoprefixer/typography still declared; previous owner-confirmation hold is superseded by current approved analysis/removal task |
-| B PR-4 daily-improvements feature | NOT STARTED | No consumers of module or its four data sets; verify scripts/docs before whole-feature removal |
+| B PR-4 daily-improvements feature | SUPERSEDED | Correction after full code recheck: AdminDashboard renders AdminOverview → AdminDailyImprovementsWidget → getTodaysAdminSuggestions. Preserve the live feature and its three internal rotation arrays; remove only unused exports/completed constant. |
 | B PR-4 chatAssist / CSV generator / metaDescriptionFor | NOT STARTED | No current code consumers found; independently verify before removal |
 | B PR-4 Sheets/Drive helper exports | PARTLY DONE | Functions are used inside their own modules; preserve implementations, consider removing unused export only |
 | B PR-4 TEMPLATE_COLUMNS removal | SUPERSEDED | Used by real template generation and #194 `excelCompatibility.test.ts`; keep export |
