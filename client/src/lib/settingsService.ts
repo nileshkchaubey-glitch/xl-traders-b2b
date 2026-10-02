@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { isSiteTheme } from "./siteTheme";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Site content service (Phase B)
@@ -132,6 +133,7 @@ export interface SiteContentMap {
 }
 
 export type SiteContentKey = keyof SiteContentMap;
+const listeners = new Set<(key: SiteContentKey) => void>();
 
 // ── FALLBACKS — the current hardcoded values (single source of truth) ─────────
 // These are exactly what the storefront rendered before Phase B, so an empty
@@ -384,6 +386,11 @@ export const settingsService = {
     key: K,
     value: SiteContentMap[K]
   ): Promise<void> {
+    if (
+      key === "site_theme" &&
+      !isSiteTheme((value as SiteThemeContent)?.theme)
+    )
+      throw new Error("Choose a supported site theme.");
     const { error } = await supabase
       .from("site_content")
       .upsert(
@@ -393,6 +400,15 @@ export const settingsService = {
     if (error) throw error;
     if (allCache) allCache[key] = value;
     else allCache = { [key]: value } as Partial<SiteContentMap>;
+    for (const listener of listeners) listener(key);
+  },
+
+  /** Reflect a successful editor save in the mounted theme provider. */
+  subscribe(listener: (key: SiteContentKey) => void) {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
   },
 
   /** Drop the cache so the next read re-fetches (e.g. after external changes). */

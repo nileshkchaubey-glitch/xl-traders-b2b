@@ -4,6 +4,7 @@ import {
   promoBannerService,
   type BannerPosition,
   type PromoBanner,
+  safeBannerUrl,
 } from "@/lib/promoBannerService";
 
 /**
@@ -15,8 +16,8 @@ import {
  * created, so an unused slot leaves no trace in the DOM. A storefront with no
  * banners configured must look deliberate, not broken.
  *
- * Scheduling (`is_active` / `starts_at` / `ends_at`) is enforced by RLS, so an
- * expired or unpublished banner never reaches this component.
+ * RLS gates customer reads; service filters also keep inactive/expired banners
+ * out of the storefront for admins, whose management policy sees all records.
  *
  * `rate_line` is free text by contract — never a computed price. Banners are
  * visible to signed-out visitors, so a derived rate here would bypass the B2B
@@ -59,14 +60,15 @@ export default function PromoBanners({
 }
 
 function BannerCard({ banner }: { banner: PromoBanner }) {
+  const image = safeBannerUrl(banner.image_url);
   const body = (
     <div
       className="relative flex min-h-[128px] items-center overflow-hidden rounded-2xl border border-slate-200"
       style={{ background: "var(--xl-accent-soft)" }}
     >
-      {banner.image_url && (
+      {image && (
         <img
-          src={banner.image_url}
+          src={image}
           alt=""
           aria-hidden
           loading="lazy"
@@ -90,14 +92,15 @@ function BannerCard({ banner }: { banner: PromoBanner }) {
     </div>
   );
 
-  if (!banner.link_target) return body;
+  const target = safeBannerUrl(banner.link_target);
+  if (!target) return body;
 
   // Internal targets use wouter (Critical Rule #5 — never <a href> for
   // internal nav); anything absolute is external and opens in a new tab.
-  return banner.link_target.startsWith("/") ? (
-    <Link href={banner.link_target}>{body}</Link>
+  return target.startsWith("/") ? (
+    <Link href={target}>{body}</Link>
   ) : (
-    <a href={banner.link_target} target="_blank" rel="noopener noreferrer">
+    <a href={target} target="_blank" rel="noopener noreferrer">
       {body}
     </a>
   );
