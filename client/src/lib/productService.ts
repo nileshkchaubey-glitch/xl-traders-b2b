@@ -734,7 +734,7 @@ export const productService = {
     }
   },
 
-  // Public callers (ProductDetail) get published products only. Admin callers
+  // Public callers (ProductDetail) get published+active products only. Admin callers
   // pass { includeUnpublished: true } so the editor can load drafts.
   async getById(id: string, opts?: { includeUnpublished?: boolean }) {
     if (isDemo) {
@@ -744,7 +744,9 @@ export const productService = {
     try {
       const cols = await productSelectCols();
       let query = supabase.from("products").select(cols).eq("id", id);
-      if (!opts?.includeUnpublished) query = query.eq("status", "published");
+      if (!opts?.includeUnpublished) {
+        query = query.eq("status", "published").eq("is_active", true);
+      }
       const { data, error } = await query.single();
 
       if (error) throw error;
