@@ -8,6 +8,7 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -22,12 +23,14 @@ export default function Auth() {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setError(null);
+    setNotice(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setNotice(null);
 
     try {
       if (isSignUp) {
@@ -37,7 +40,7 @@ export default function Auth() {
           return;
         }
 
-        const { error } = await signUp(
+        const { error, needsEmailConfirmation } = await signUp(
           formData.email,
           formData.password,
           formData.company
@@ -45,6 +48,8 @@ export default function Auth() {
 
         if (error) {
           setError(error.message || "Sign up failed");
+        } else if (needsEmailConfirmation) {
+          setNotice("Check your email to confirm your account, then sign in.");
         } else {
           setLocation("/");
         }
@@ -84,6 +89,7 @@ export default function Auth() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-8 space-y-4">
+            {notice && <p role="status" className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{notice}</p>}
             {/* Error Message */}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
