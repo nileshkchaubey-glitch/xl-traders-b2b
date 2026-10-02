@@ -39,8 +39,11 @@ verified hosted pricing, draft catalogue save, settings reads, inactive banner
 create/edit and a same-value theme save. Exact disposable rows were removed and
 the original theme timestamp restored; see the
 [hosted-validation report](reports/2026-10-02-hosted-admin-validation.md).
-Customer checkout/positive history and hosted import/upload remain NOT TESTED:
-no customer test login is available, and Chrome file-URL access is disabled.
+Customer checkout/positive history remain NOT TESTED: no customer test login is
+available. Later actual [hosted file tests](reports/2026-10-02-hosted-file-validation.md)
+passed CSV/XLS/XLSX writes and image upload after owner-enabled file access.
+Exact DB fixture cleanup completed; three disposable Storage objects remain
+pending target-project dashboard access. File-access restoration not yet confirmed.
 Settings writes were not attempted against real contact values. Synthetic browser
 and local role checks are separate evidence, not hosted customer login claims.
 

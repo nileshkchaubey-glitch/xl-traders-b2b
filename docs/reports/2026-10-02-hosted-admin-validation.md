@@ -1,5 +1,10 @@
 # Hosted admin validation follow-up — 2 October 2026
 
+Later actual [hosted file validation](2026-10-02-hosted-file-validation.md)
+passed CSV/XLS/XLSX and image upload. The earlier file-access blocker below is
+superseded for those explicitly observed checks; exact Storage cleanup remains
+pending target-project console access.
+
 Validated current production UI following main `ac8f16149629191d6b6e240bbda5604a24315cba`
 (#214). Its GitHub CI [36994836552](https://github.com/nileshkchaubey-glitch/xl-traders-b2b/actions/runs/36994836552)
 and exact [Pages deployment](https://12be5c57.xl-traders-b2b.pages.dev) passed.
