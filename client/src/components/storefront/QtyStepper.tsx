@@ -6,6 +6,7 @@ import {
   stepPacks,
   stepPcs,
   packsFromPcs,
+  stepChipLabel,
 } from "@/lib/orderingModel";
 
 interface QtyStepperProps {
@@ -70,7 +71,7 @@ export default function QtyStepper({
       <button
         onClick={bump(-1)}
         className={`${lg ? "w-12" : "w-9"} h-full grid place-items-center hover:bg-red-700 transition`}
-        aria-label={inPcs ? `Decrease by ${spec.step} pcs` : "Decrease by 1"}
+        aria-label={`Decrease by ${stepChipLabel(spec).replace(/^Step /, "")}`}
       >
         <Minus size={lg ? 17 : 14} strokeWidth={3} />
       </button>
@@ -89,7 +90,7 @@ export default function QtyStepper({
       <button
         onClick={bump(1)}
         className={`${lg ? "w-12" : "w-9"} h-full grid place-items-center hover:bg-red-700 transition`}
-        aria-label={inPcs ? `Increase by ${spec.step} pcs` : "Increase by 1"}
+        aria-label={`Increase by ${stepChipLabel(spec).replace(/^Step /, "")}`}
       >
         <Plus size={lg ? 17 : 14} strokeWidth={3} />
       </button>

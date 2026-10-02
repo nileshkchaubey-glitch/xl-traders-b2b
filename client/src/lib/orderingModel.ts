@@ -59,7 +59,7 @@ export interface OrderSpec {
   packSize: number;
   /** Pieces per stepper click. Always a whole multiple of packSize. */
   step: number;
-  /** MOQ in packs. Always >= 1. */
+  /** Effective MOQ in packs, rounded up to a whole step. Always >= 1. */
   minPacks: number;
   /** The pieces floor, snapped UP to a whole step (§6.2). */
   minPcs: number;
@@ -120,18 +120,13 @@ export function specFromSnapshot(snap: {
   moq: number;
   unit: string;
 }): OrderSpec {
-  const packSize = snap.packSize > 0 ? snap.packSize : 1;
-  const step = snap.orderStep > 0 ? snap.orderStep : packSize;
-  const minPacks = snap.moq >= 1 ? Math.floor(snap.moq) : 1;
-  return {
-    unit: snap.orderUnit,
-    packSize,
-    step,
-    minPacks,
-    minPcs: Math.ceil((minPacks * packSize) / step) * step,
-    // The SAME derivation resolveOrderSpec uses — not the raw column.
-    noun: sellingUnitNoun(snap.unit),
-  };
+  return resolveOrderSpec({
+    order_unit: snap.orderUnit,
+    quantity_in_unit: snap.packSize,
+    order_step: snap.orderStep,
+    moq: snap.moq,
+    unit_of_measure: snap.unit,
+  });
 }
 
 type OrderingFields = Pick<
@@ -171,14 +166,15 @@ export function resolveOrderSpec(
   const step = stepIsUsable ? rawStep : packSize;
 
   const rawMoq = p?.moq;
-  const minPacks =
+  const moqPacks =
     typeof rawMoq === "number" && Number.isFinite(rawMoq) && rawMoq >= 1
       ? Math.floor(rawMoq)
       : 1;
 
   // Snap the MOQ floor UP to a whole step, or an MOQ of 1 pack against a 2-pack
   // step would leave the floor unreachable by the stepper (§6.2).
-  const minPcs = Math.ceil((minPacks * packSize) / step) * step;
+  const minPcs = Math.ceil((moqPacks * packSize) / step) * step;
+  const minPacks = minPcs / packSize;
 
   return {
     unit,
@@ -228,21 +224,90 @@ export function snapPcsToStep(pcs: number, spec: OrderSpec): number {
 
 /** One stepper click in pcs mode. Going below the MOQ floor yields 0 (remove the line). */
 export function stepPcs(pcs: number, delta: 1 | -1, spec: OrderSpec): number {
-  const next = pcs + delta * spec.step;
-  if (next < spec.minPcs) return 0;
-  return next;
+  const current = Number.isFinite(pcs) && pcs > 0 ? pcs : 0;
+  // Repair an old off-step snapshot in the chosen direction, not to another
+  // invalid quantity. Valid quantities still move by exactly one whole step.
+  const next =
+    (delta === 1
+      ? Math.floor(current / spec.step) + 1
+      : Math.ceil(current / spec.step) - 1) * spec.step;
+  return delta === 1
+    ? Math.max(next, spec.minPcs)
+    : next < spec.minPcs
+      ? 0
+      : next;
 }
 
 /** One stepper click in pack mode. Going below the MOQ floor yields 0 (remove the line). */
 export function stepPacks(packs: Packs, delta: 1 | -1, spec: OrderSpec): Packs {
-  const next = packs + delta;
-  if (next < spec.minPacks) return asPacks(0);
-  return asPacks(next);
+  return packsFromPcs(stepPcs(pcsFromPacks(packs, spec), delta, spec), spec);
+}
+
+/** Typed/set pack quantities use the same nearest-step rule as piece inputs. */
+export function snapPacksToStep(packs: Packs, spec: OrderSpec): Packs {
+  return packsFromPcs(snapPcsToStep(pcsFromPacks(packs, spec), spec), spec);
+}
+
+/** Check persisted quantities before enquiry/checkout without silently changing them. */
+export function isOrderQtyValid(packs: number, spec: OrderSpec): boolean {
+  return (
+    Number.isSafeInteger(packs) &&
+    packs >= spec.minPacks &&
+    pcsFromPacks(asPacks(packs), spec) % spec.step === 0
+  );
+}
+
+export function isBelowMoq(packs: number, spec: OrderSpec): boolean {
+  return packs < spec.minPacks;
 }
 
 /** The starting quantity when a product is first added — its MOQ, in packs. */
 export function initialPacks(spec: OrderSpec): Packs {
-  return asPacks(spec.minPacks);
+  return packsFromPcs(spec.minPcs, spec);
+}
+
+/** Admin validation shares the exact resolved rules used by customer controls. */
+export function orderingSettings(input: {
+  quantity_in_unit: string;
+  moq: string;
+  order_unit: string;
+  order_step: string;
+}) {
+  const numberOrNull = (value: string) =>
+    value.trim() === "" ? null : Number(value);
+  const quantity_in_unit = numberOrNull(input.quantity_in_unit);
+  const moq = numberOrNull(input.moq);
+  const order_step = numberOrNull(input.order_step);
+  const positiveInteger = (value: number | null) =>
+    value == null || (Number.isSafeInteger(value) && value > 0);
+  let error: string | null = null;
+  if (!positiveInteger(quantity_in_unit))
+    error = "Pack size must be a positive whole number or blank.";
+  else if (!positiveInteger(moq))
+    error = "MOQ must be a positive whole number of packs or blank.";
+  else if (input.order_unit !== "pack" && input.order_unit !== "pcs")
+    error = "Choose pack or pcs for customer ordering.";
+  else if (input.order_unit === "pcs" && packDivisor(quantity_in_unit) == null)
+    error = "Pieces ordering needs a pack size greater than one.";
+  else if (!positiveInteger(order_step))
+    error = "Order step must be a positive whole number of pieces or blank.";
+  else if (order_step != null && order_step % (quantity_in_unit ?? 1) !== 0)
+    error = "Order step must be a whole multiple of the pack size.";
+  const order_unit: OrderUnit = input.order_unit === "pcs" ? "pcs" : "pack";
+  return {
+    error,
+    quantity_in_unit,
+    moq,
+    order_unit,
+    order_step,
+    spec: resolveOrderSpec({
+      quantity_in_unit: quantity_in_unit ?? undefined,
+      moq: moq ?? undefined,
+      order_unit,
+      order_step,
+      unit_of_measure: "pack",
+    }),
+  };
 }
 
 // ── Money ───────────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { categoryService, productService } from "@/lib/productService";
 import { normalizeImageUrl } from "@/lib/imageUtils";
 import { isPriceOnEnquiry } from "@/lib/priceUtils";
 import { Product, ProductStatus } from "@/lib/supabase";
+import { orderingSettings, type OrderUnit } from "@/lib/orderingModel";
 
 // The editor form shape, shared by the route editor (AdminProductEditor) and the
 // detail drawer (ProductDrawer) so the two never drift. Kept identical to the
@@ -14,6 +15,8 @@ export const EMPTY_PRODUCT_FORM = {
   mrp: "",
   unit_of_measure: "pcs",
   quantity_in_unit: "",
+  order_unit: "pack" as OrderUnit,
+  order_step: "",
   discount_percent: "0",
   brand: "",
   // Canonical brand link ("" = no brand — form fields are strings). The panel's
@@ -41,6 +44,8 @@ export function productToForm(product: Product): ProductForm {
     mrp: product.mrp?.toString() || "",
     unit_of_measure: product.unit_of_measure || "pcs",
     quantity_in_unit: product.quantity_in_unit?.toString() || "",
+    order_unit: product.order_unit ?? "pack",
+    order_step: product.order_step?.toString() ?? "",
     discount_percent: (product.discount_percent || 0).toString(),
     brand: product.brand || "",
     brand_id: product.brand_id || "",
@@ -73,6 +78,8 @@ export async function saveProductForm(
   { productId, statusOverride, imageMeta, extra }: SaveProductOptions = {}
 ): Promise<Product> {
   const isEditing = !!productId;
+  const ordering = orderingSettings(formData);
+  if (ordering.error) throw new Error(ordering.error);
 
   // Resolve category — fall back to the 'Uncategorized' sentinel if none chosen.
   let categoryId = formData.category_id;
@@ -94,9 +101,9 @@ export async function saveProductForm(
     })(),
     mrp: formData.mrp ? parseFloat(formData.mrp) : undefined,
     unit_of_measure: formData.unit_of_measure,
-    quantity_in_unit: formData.quantity_in_unit
-      ? parseInt(formData.quantity_in_unit)
-      : undefined,
+    quantity_in_unit: ordering.quantity_in_unit,
+    order_unit: ordering.order_unit,
+    order_step: ordering.order_step,
     discount_percent: parseInt(formData.discount_percent) || 0,
     // PIM P1 dual-write: brand_id is canonical; the legacy text column is
     // written in the same save so health/storefront/getBrands stay consistent
@@ -109,7 +116,7 @@ export async function saveProductForm(
     is_featured: formData.is_featured,
     sku: formData.sku.trim() || undefined,
     barcode: formData.barcode.trim() || undefined,
-    moq: formData.moq ? parseInt(formData.moq) : null,
+    moq: ordering.moq,
     status: statusOverride ?? formData.status,
     na_fields: formData.na_fields,
     image_alt_text: imageMeta?.altText || formData.name.trim(),

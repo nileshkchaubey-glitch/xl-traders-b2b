@@ -3,11 +3,16 @@ import { persist } from "zustand/middleware";
 import {
   type OrderSpec,
   type Packs,
-  asPacks,
   lineTotal,
   packsFromPcs,
   snapPcsToStep,
   specFromSnapshot,
+  pcsFromPacks,
+  initialPacks,
+  stepPacks,
+  snapPacksToStep,
+  isBelowMoq,
+  isOrderQtyValid,
 } from "@/lib/orderingModel";
 
 export interface CartItem {
@@ -61,7 +66,9 @@ interface CartState {
    */
   setPcs: (productId: string, pcs: number) => void;
   setCustomer: (customer: CustomerInfo) => void;
-  updatePrices: (prices: { productId: string; price: number; priceOnEnquiry?: boolean }[]) => void;
+  updatePrices: (
+    prices: { productId: string; price: number; priceOnEnquiry?: boolean }[]
+  ) => void;
   clearCart: () => void;
   getTotal: () => number;
   /** Selling units across the cart. */
@@ -100,13 +107,19 @@ export function cartTotals(items: CartItem[]) {
     /** Selling units across the cart. */
     packs: items.reduce((n, i) => n + i.packs, 0),
     /** Pieces across the cart — the "quantities" figure on the cart bar. */
-    pieces: items.reduce((n, i) => n + i.packs * i.packSize, 0),
+    pieces: items.reduce(
+      (n, i) => n + pcsFromPacks(i.packs, specOfCartItem(i)),
+      0
+    ),
     /** Distinct products — the "Items" figure. */
     lines: items.length,
     /** True when there is nothing to total, so "Rs 0" is never shown. */
     allEnquiry: items.length > 0 && items.every(i => i.priceOnEnquiry),
     /** Any line below its own MOQ. Checkout is blocked on this. */
-    anyBelowMoq: items.some(i => i.packs < i.moq),
+    anyBelowMoq: items.some(i => isBelowMoq(i.packs, specOfCartItem(i))),
+    anyInvalidQuantity: items.some(
+      i => !isOrderQtyValid(i.packs, specOfCartItem(i))
+    ),
   };
 }
 
@@ -125,7 +138,7 @@ export const useCartStore = create<CartState>()(
             return {
               items: state.items.map(i =>
                 i.productId === newItem.productId
-                  ? { ...i, packs: asPacks(i.packs + 1) }
+                  ? { ...i, packs: stepPacks(i.packs, 1, specOfCartItem(i)) }
                   : i
               ),
             };
@@ -133,7 +146,13 @@ export const useCartStore = create<CartState>()(
           return {
             items: [
               ...state.items,
-              { ...newItem, packs: packs ?? asPacks(1) },
+              {
+                ...newItem,
+                packs:
+                  packs == null || packs <= 0
+                    ? initialPacks(specFromSnapshot(newItem))
+                    : snapPacksToStep(packs, specFromSnapshot(newItem)),
+              },
             ],
           };
         });
@@ -152,7 +171,9 @@ export const useCartStore = create<CartState>()(
         }
         set(state => ({
           items: state.items.map(i =>
-            i.productId === productId ? { ...i, packs } : i
+            i.productId === productId
+              ? { ...i, packs: snapPacksToStep(packs, specOfCartItem(i)) }
+              : i
           ),
         }));
       },
@@ -167,12 +188,19 @@ export const useCartStore = create<CartState>()(
 
       setCustomer: customer => set({ customer }),
 
-      updatePrices: prices => set(state => ({
-        items: state.items.map(item => {
-          const price = prices.find(p => p.productId === item.productId);
-          return price ? { ...item, price: price.price, priceOnEnquiry: price.priceOnEnquiry } : item;
-        }),
-      })),
+      updatePrices: prices =>
+        set(state => ({
+          items: state.items.map(item => {
+            const price = prices.find(p => p.productId === item.productId);
+            return price
+              ? {
+                  ...item,
+                  price: price.price,
+                  priceOnEnquiry: price.priceOnEnquiry,
+                }
+              : item;
+          }),
+        })),
 
       clearCart: () => set({ items: [], customer: { name: "", phone: "" } }),
 
