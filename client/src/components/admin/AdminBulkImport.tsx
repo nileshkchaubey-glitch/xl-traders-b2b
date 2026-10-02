@@ -37,6 +37,8 @@ const COLUMN_CHIPS: { label: string; kind: ChipKind }[] = [
   { label: "moq", kind: "optional" },
   { label: "mrp", kind: "optional" },
   { label: "quantity_in_unit", kind: "optional" },
+  { label: "order_unit", kind: "optional" },
+  { label: "order_step", kind: "optional" },
   { label: "brand", kind: "optional" },
   { label: "description", kind: "optional" },
   { label: "is_featured", kind: "optional" },
@@ -110,9 +112,13 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
     setStep("importing");
     setProgress(0);
     try {
-      const result = await bulkImportProducts(parsedRows, 'csv', (done, total) => {
-        setProgress(Math.round((done / total) * 100));
-      });
+      const result = await bulkImportProducts(
+        parsedRows,
+        file?.name.toLowerCase().endsWith(".csv") ? "csv" : "excel",
+        (done, total) => {
+          setProgress(Math.round((done / total) * 100));
+        }
+      );
       setImportResult(result);
       setStep("complete");
       toast.success(result.summary);
@@ -126,6 +132,7 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
   };
 
   const handleReset = () => {
+    setDryRunResult(null);
     setStep("upload");
     setFile(null);
     setParsedRows([]);
@@ -152,8 +159,7 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">CSV Import</h1>
           <p className="text-slate-400 text-xs mt-0.5">
-            Import or update products in bulk · matched by SKU first, then by
-            name
+            Import or update products in bulk · matched by SKU
           </p>
         </div>
         {/* Secondary action — exports the EXISTING catalogue as CSV. Deliberately
@@ -349,6 +355,8 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
                       "MRP (₹)",
                       "Unit",
                       "Qty",
+                      "Customer counts",
+                      "Step (pcs)",
                     ].map(h => (
                       <th
                         key={h}
@@ -385,7 +393,15 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
                       </td>
                       <td className="px-4 py-2 text-slate-600">{row.unit}</td>
                       <td className="px-4 py-2 text-slate-600">
-                        {row.quantity_in_unit}
+                        {row.quantity_in_unit_provided === false
+                          ? "Preserve / new: 1"
+                          : row.quantity_in_unit}
+                      </td>
+                      <td className="px-4 py-2 text-slate-600">
+                        {row.order_unit ?? "Preserve / new: pack"}
+                      </td>
+                      <td className="px-4 py-2 text-slate-600">
+                        {row.order_step ?? "Preserve / pack size"}
                       </td>
                     </tr>
                   ))}
@@ -403,26 +419,61 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
             <Card className="p-4 space-y-3 border-blue-200 bg-blue-50">
               <p className="font-semibold text-blue-900">Dry-Run Results</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                <div><span className="text-blue-600 font-bold">{dryRunResult.totalRows}</span> total rows</div>
-                <div><span className="text-green-600 font-bold">{dryRunResult.withSku}</span> with SKU</div>
-                <div><span className="text-yellow-600 font-bold">{dryRunResult.withoutSku}</span> auto-SKU</div>
-                <div><span className="text-blue-600 font-bold">{dryRunResult.existingSkus.length}</span> will update</div>
+                <div>
+                  <span className="text-blue-600 font-bold">
+                    {dryRunResult.totalRows}
+                  </span>{" "}
+                  total rows
+                </div>
+                <div>
+                  <span className="text-green-600 font-bold">
+                    {dryRunResult.withSku}
+                  </span>{" "}
+                  with SKU
+                </div>
+                <div>
+                  <span className="text-yellow-600 font-bold">
+                    {dryRunResult.withoutSku}
+                  </span>{" "}
+                  auto-SKU
+                </div>
+                <div>
+                  <span className="text-blue-600 font-bold">
+                    {dryRunResult.existingSkus.length}
+                  </span>{" "}
+                  will update
+                </div>
               </div>
               {dryRunResult.duplicateSkus.length > 0 && (
                 <div className="text-sm text-red-700">
-                  <strong>Duplicate SKUs in file:</strong>{' '}
-                  {dryRunResult.duplicateSkus.map(d => `${d.sku} (rows ${d.rows.join(',')})`).join('; ')}
+                  <strong>Duplicate SKUs in file:</strong>{" "}
+                  {dryRunResult.duplicateSkus
+                    .map(d => `${d.sku} (rows ${d.rows.join(",")})`)
+                    .join("; ")}
                 </div>
               )}
               {dryRunResult.unknownCategories.length > 0 && (
                 <div className="text-sm text-yellow-700">
-                  <strong>Unknown categories (→ Uncategorized):</strong>{' '}
-                  {dryRunResult.unknownCategories.map(u => `"${u.category}" (${u.rows.length} rows)`).join(', ')}
+                  <strong>Unknown categories (→ Uncategorized):</strong>{" "}
+                  {dryRunResult.unknownCategories
+                    .map(u => `"${u.category}" (${u.rows.length} rows)`)
+                    .join(", ")}
                 </div>
               )}
-              {dryRunResult.ready && dryRunResult.duplicateSkus.length === 0 && (
-                <p className="text-green-700 font-semibold text-sm">All checks passed — ready to import.</p>
+              {dryRunResult.validationErrors.length > 0 && (
+                <div className="text-sm text-red-700" role="alert">
+                  <strong>Invalid ordering settings:</strong>{" "}
+                  {dryRunResult.validationErrors
+                    .map(e => `Row ${e.row}: ${e.error}`)
+                    .join("; ")}
+                </div>
               )}
+              {dryRunResult.ready &&
+                dryRunResult.duplicateSkus.length === 0 && (
+                  <p className="text-green-700 font-semibold text-sm">
+                    All checks passed — ready to import.
+                  </p>
+                )}
             </Card>
           )}
 
@@ -454,7 +505,7 @@ export default function AdminBulkImport({ onGoToProducts }: Props) {
             </Button>
             <Button
               onClick={handleImport}
-              disabled={isLoading}
+              disabled={isLoading || dryRunResult?.ready === false}
               className="flex-1"
             >
               Import {parsedRows.length} Products
