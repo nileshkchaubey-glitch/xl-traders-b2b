@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import BrandCombobox from "@/components/admin/BrandCombobox";
-import AISmartPasteDialog from "@/components/admin/AISmartPasteDialog";
+import SmartPasteDialog from "@/components/admin/SmartPasteDialog";
 import ProductMediaSection from "@/components/admin/products/ProductMediaSection";
 import OrderingFields from "@/components/admin/products/OrderingFields";
 import { confirm } from "@/components/ui/confirm-dialog";
@@ -41,7 +41,7 @@ import {
 import { usePriceEntry } from "@/hooks/usePriceEntry";
 import { Brand, Category, Product } from "@/lib/supabase";
 import { brandsService } from "@/lib/brandsService";
-import { ParsedProduct } from "@/lib/aiService";
+import { ParsedProduct } from "@/lib/productTextParser";
 
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
 
@@ -99,7 +99,7 @@ function Section({
  * Catalog Editor's right-side editor panel. Reuses the shared `useProductForm`
  * (so create/update logic never forks from the route editor or the products
  * drawer) and adds the Catalog-Editor extras: SKU, an On-Enquiry price toggle,
- * a key/value specifications editor, SEO, AI Smart Paste, a dirty-state close
+ * a key/value specifications editor, SEO, Smart Paste, a dirty-state close
  * guard, and a link to the full route editor for deep edits.
  */
 export default function CatalogProductPanel({
@@ -729,7 +729,7 @@ export default function CatalogProductPanel({
         </SheetContent>
       </Sheet>
 
-      <AISmartPasteDialog
+      <SmartPasteDialog
         open={aiOpen}
         onClose={() => setAiOpen(false)}
         categories={categories}

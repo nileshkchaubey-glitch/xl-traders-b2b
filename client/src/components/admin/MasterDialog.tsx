@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Sparkles, Loader2, Star, Upload, Trash2 } from "lucide-react";
+import { X, Loader2, Star, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -15,7 +15,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import { masterService } from "@/lib/masterService";
-import { generateDescription } from "@/lib/aiService";
 import { Category } from "@/lib/supabase";
 
 interface MasterDialogProps {
@@ -47,7 +46,6 @@ export default function MasterDialog({
   const [primaryIndex, setPrimaryIndex] = useState(0);
   const [dragOver, setDragOver] = useState(false);
 
-  const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,26 +118,6 @@ export default function MasterDialog({
       setPrimaryIndex(0);
     } else if (primaryIndex > index) {
       setPrimaryIndex(prev => prev - 1);
-    }
-  };
-
-  const handleAIGenerate = async () => {
-    if (!name.trim()) {
-      toast.error("Product Master Name is required for AI generation");
-      return;
-    }
-    setGenerating(true);
-    try {
-      const selectedCategory = categories.find(c => c.id === categoryId);
-      const categoryName = selectedCategory ? selectedCategory.name : "";
-      const desc = await generateDescription(name.trim(), categoryName);
-      setDescription(desc);
-      toast.success("Description generated ✓");
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Failed to generate description");
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -324,21 +302,6 @@ export default function MasterDialog({
                 >
                   Description
                 </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAIGenerate}
-                  disabled={generating || submitting}
-                  className="h-7 px-2 text-[10px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50/50 flex items-center gap-1 border-indigo-200"
-                >
-                  {generating ? (
-                    <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
-                  ) : (
-                    <Sparkles className="w-3 h-3 text-indigo-500" />
-                  )}
-                  AI Generate Description
-                </Button>
               </div>
               <Textarea
                 id="master-desc"

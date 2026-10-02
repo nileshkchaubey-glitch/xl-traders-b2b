@@ -21,6 +21,13 @@ Client build configuration requires the public Supabase URL/key. Never configure
 private AI or service-role keys as VITE variables. Admin flags come from trusted
 database provisioning, not browser deployment emails. See TEST_ADMIN.
 
+Smart Paste is local text extraction only; browser AI generation is disabled.
+An Anthropic secret-format value was verified in the predecessor #210 deployment.
+The owner confirmed key revocation and private VITE hosting-variable removal on
+2 October. Removing code alone cannot invalidate historical assets or installed
+SWs. Independent provider-console/activity review was not performed by this agent.
+See the dated browser-AI report; never restore the exposed browser-AI predecessor.
+
 `client/public/_redirects` provides the SPA fallback. `_headers` sets frame,
 content-type/referrer headers and immutable asset caching. They are copied into
 the build output. Do not assert a CSP exists: the current file does not set one.
