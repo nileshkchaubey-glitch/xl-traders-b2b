@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildWhatsAppMessage, lineQtyPhrase } from "./orderMessage";
+import { buildGuestCartMessage, buildWhatsAppMessage, lineQtyPhrase } from "./orderMessage";
 import { cartTotals, type CartItem } from "@/stores/cartStore";
 import { asPacks, lineTotal } from "./orderingModel";
 
@@ -18,6 +18,23 @@ const item = (o: Partial<CartItem> = {}): CartItem => ({
 });
 
 const customer = { name: "Rajesh", phone: "9876543210" };
+
+describe("guest cart message privacy", () => {
+  it("shares the same quantity model without rates, totals or enquiry classification", () => {
+    const priced = buildGuestCartMessage([item()], customer, "Gate 3");
+    const enquiry = buildGuestCartMessage([item({ price: 0, priceOnEnquiry: true })], customer, "Gate 3");
+    expect(priced).toBe(enquiry);
+    expect(priced).toContain("Wooden Spoon — 6,000 pcs (2 boxes)");
+    expect(priced).toContain("Items: 1 · Quantities: 6,000 pcs");
+    expect(priced).toContain("Notes: Gate 3");
+    expect(priced).not.toMatch(/₹|4,?897|9,?794|Total:|price on enquiry/);
+  });
+  it("allows an anonymous cart enquiry without requiring customer details", () => {
+    const message = buildGuestCartMessage([item()], { name: "", phone: "" });
+    expect(message).not.toMatch(/Customer:|Phone:/);
+    expect(message).toContain("Please share rates for this cart");
+  });
+});
 
 describe("lineQtyPhrase", () => {
   it("never pluralises a piece word as the selling unit (regression)", () => {

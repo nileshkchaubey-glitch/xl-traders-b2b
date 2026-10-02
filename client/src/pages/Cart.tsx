@@ -146,6 +146,21 @@ export default function Cart() {
     }
   };
 
+  const handleGuestWhatsApp = () => {
+    if (isLoading || isAuthenticated) return;
+    try {
+      const message = orderService.prepareGuestCart(items, customer, notes);
+      window.open(
+        `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+      // Keep quantities for sign-in. This action does not create a saved order.
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not prepare your cart");
+    }
+  };
+
   return (
     <main className="flex-1 pb-28 md:pb-10">
       <div className="xl-shell py-6">
@@ -398,7 +413,7 @@ export default function Cart() {
               )}
               <button
                 onClick={handlePlaceOrder}
-                disabled={placing || t.anyBelowMoq}
+                disabled={placing || isLoading || (canViewPrices && t.anyBelowMoq)}
                 className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-red-600 text-body-md font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {placing ? (
@@ -406,11 +421,24 @@ export default function Cart() {
                 ) : (
                   <MessageCircle size={16} />
                 )}
-                {priceChanges.length ? "Confirm updated prices and send order" : "Send order on WhatsApp"}
+                {!canViewPrices ? "Sign in to place order" : priceChanges.length ? "Confirm updated prices and send order" : "Send order on WhatsApp"}
               </button>
 
+              {!canViewPrices && (
+                <button
+                  onClick={handleGuestWhatsApp}
+                  disabled={isLoading || t.anyBelowMoq}
+                  className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 text-body-md font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <MessageCircle size={16} />
+                  Send cart on WhatsApp
+                </button>
+              )}
+
               <p className="mt-2 text-center text-caption text-slate-500">
-                Order is saved and confirmed on WhatsApp · GST invoice included
+                {canViewPrices
+                  ? "Order is saved and confirmed on WhatsApp · GST invoice included"
+                  : "Share quantities to ask for rates. Your cart stays saved."}
               </p>
             </div>
           </div>

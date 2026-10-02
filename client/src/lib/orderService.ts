@@ -1,12 +1,21 @@
 import { supabase, Order, OrderItem, OrderStatus } from "./supabase";
-import { CartItem, CustomerInfo } from "@/stores/cartStore";
+import { CartItem, CustomerInfo, cartTotals } from "@/stores/cartStore";
 import { reviewCartPrices } from "./cartPriceReview";
+import { buildGuestCartMessage } from "./orderMessage";
 // Re-exported so existing callers keep importing it from orderService; the
 // implementation lives in orderMessage.ts, which is free of Supabase and
 // therefore unit-testable.
 export { buildWhatsAppMessage } from "./orderMessage";
 
 export const orderService = {
+  /** No catalogue/price query or order write: this is a guest enquiry only. */
+  prepareGuestCart(items: CartItem[], customer: CustomerInfo, notes?: string): string {
+    if (!items.length) throw new Error("Your cart is empty");
+    if (cartTotals(items).anyBelowMoq) {
+      throw new Error("Some lines are below their minimum order quantity");
+    }
+    return buildGuestCartMessage(items, customer, notes);
+  },
   async reviewPrices(items: CartItem[]) {
     const { data, error } = await supabase.from("products")
       .select("id,price").in("id", items.map(item => item.productId))
