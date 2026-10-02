@@ -25,11 +25,19 @@ is then applied twice. Checks cover rejection without orphan rows, spoofed price
 mixed/enquiry carts, threshold boundaries, disabled/zero/missing settings, and
 anonymous RPC denial. Accepted headers and line totals are compared.
 
-This fixture does not prove compatibility with every production trigger, policy,
-or migration. Full-schema staging verification remains a deployment prerequisite.
-No real order has been submitted for this test.
+Additional validation completed on a disposable native PostgreSQL 17.11 restore:
+47 checks passed, including the complete captured public application schema,
+Auth dependencies, 41 role assertions before and after, actual concurrent price
+updates, atomic writes, idempotence and exact predecessor rollback. Production
+runs PostgreSQL 17.6; hosted Auth/PostgREST services are outside that local test.
+On 2 October, all captured relations/functions/ACLs/default privileges were
+compared with live production again and matched. No customer rows were copied.
 
-## Deployment (owner approval required)
+## Deployment
+
+The owner's 2 October authorization permits reviewed migrations after validation.
+This file is **prepared**, not yet applied; the current status is recorded in
+`docs/CHANGELOG_SQL.md`. The live minimum is enabled at ₹2,000.
 
 1. Compare the live function definition and schema against the original
    `20260919123000_atomic_order_creation.sql`. Save the current function definition
@@ -38,7 +46,7 @@ No real order has been submitted for this test.
    migrations and representative role/order tests. Verify `site_content.key` is
    unique and the enabled/value settings are JSON boolean/number as written by
    `AdminSiteContent`. Record the effective minimum without changing it.
-3. After explicit owner approval, apply only
+3. After validation, apply only
    `supabase/migrations/20260920042455_enforce_minimum_order_value.sql` using the
    normal migration workflow. No frontend deployment or environment changes are
    needed to activate the server check.
@@ -57,12 +65,10 @@ on staging first. Rollback reopens the known minimum-order bypass and must be an
 explicit operational decision. Reverting the Git commit alone does not undo SQL
 already deployed.
 
-## Separate unresolved checkout issues
+## Dependent checkout protection
 
-This focused migration does not decide how customers should confirm changed
-prices. The RPC uses current database prices, while `Cart.handlePlaceOrder` builds
-the WhatsApp message from stored cart prices. Customer confirmation versus
-automatic repricing remains an owner decision. The existing RPC also reads
-products more than once; concurrent product updates are not covered by this
-single-connection fixture. These limits prevent a claim of complete checkout
-readiness.
+The owner selected customer reconfirmation. PR #193 adds the reviewed-price
+endpoint and holds product locks through validation and writes. Apply this
+minimum migration before that migration. Never reapply it after #193: its grant
+would reopen the legacy customer endpoint. See the reconfirmation validation
+report for coordinated deployment and rollback.
