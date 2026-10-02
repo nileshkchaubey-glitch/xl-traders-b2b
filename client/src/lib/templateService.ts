@@ -25,6 +25,8 @@ export const TEMPLATE_COLUMNS = [
     required: false,
     width: 18,
   },
+  { key: "order_unit", label: "order_unit", required: false, width: 14 },
+  { key: "order_step", label: "order_step", required: false, width: 14 },
   { key: "brand", label: "brand", required: false, width: 20 },
   { key: "sku", label: "sku", required: false, width: 14 },
   { key: "barcode", label: "barcode", required: false, width: 18 },
@@ -46,22 +48,25 @@ export const TEMPLATE_COLUMNS = [
 // Three illustrative rows covering the common cases:
 //  1. a size VARIANT (master_name + variant_label) with price left blank,
 //  2. a STANDALONE product with an unknown price (blank = "Price on enquiry"),
-//  3. a STANDALONE product with a known price + MRP.
+//  3. a STANDALONE product with a custom two-pack step.
 const SAMPLE_ROWS = [
   {
-    master_name: "Hinged Box",
+    master_name: "EXAMPLE ONLY — replace parent",
     variant_label: "250ml",
-    name: "Hinged Box 250ml",
-    category: "Hinged Container",
-    unit: "pcs",
+    name: "EXAMPLE ONLY — replace variant",
+    category: "",
+    unit: "box",
     price: "",
     mrp: "",
     moq: "",
     quantity_in_unit: 100,
+    order_unit: "pcs",
+    order_step: 300,
     brand: "",
     sku: "",
     barcode: "",
-    description: "Hinged clamshell box — fill price later, blank = Price on enquiry.",
+    description:
+      "Example only: customer counts pieces; price is per box. Replace all examples before importing.",
     image_url_1: "",
     image_url_2: "",
     image_url_3: "",
@@ -75,17 +80,20 @@ const SAMPLE_ROWS = [
   {
     master_name: "",
     variant_label: "",
-    name: "Paper Cup 150ml",
-    category: "Paper Cup",
-    unit: "pcs",
+    name: "EXAMPLE ONLY — replace pack product",
+    category: "",
+    unit: "pack",
     price: "",
     mrp: "",
     moq: "",
     quantity_in_unit: "",
+    order_unit: "pack",
+    order_step: "",
     brand: "",
     sku: "",
     barcode: "",
-    description: 'Standalone product, price unknown — leave price blank for "Price on enquiry".',
+    description:
+      'Standalone product, price unknown — leave price blank for "Price on enquiry".',
     image_url_1: "",
     image_url_2: "",
     image_url_3: "",
@@ -99,17 +107,20 @@ const SAMPLE_ROWS = [
   {
     master_name: "",
     variant_label: "",
-    name: "News Paper Box",
-    category: "Paper Box",
-    unit: "pcs",
-    price: 35,
-    mrp: 40,
+    name: "EXAMPLE ONLY — replace box product",
+    category: "",
+    unit: "box",
+    price: "",
+    mrp: "",
     moq: "",
-    quantity_in_unit: "",
+    quantity_in_unit: 100,
+    order_unit: "pack",
+    order_step: 200,
     brand: "",
     sku: "",
     barcode: "",
-    description: "Standalone product with a known wholesale price and MRP.",
+    description:
+      "Example only: customer counts boxes in whole configured steps. Replace before importing.",
     image_url_1: "",
     image_url_2: "",
     image_url_3: "",
@@ -125,27 +136,54 @@ const SAMPLE_ROWS = [
 // ── Instructions sheet data ─────────────────────────────────────────────────
 const INSTRUCTIONS_ROWS = [
   ["Column", "Required?", "Valid Values / Format", "Example"],
-  ["name", "YES ✱", "Any text. Keep concise but descriptive.", "Hinged Box 250ml"],
+  [
+    "name",
+    "YES ✱",
+    "Any text. Keep concise but descriptive.",
+    "Hinged Box 250ml",
+  ],
   [
     "category",
     "No",
-    "Match an existing category name (or a new one is created automatically). Blank = Uncategorized.",
+    "Match an existing category name. Blank or unknown = Uncategorized; unknown names are reported, not created.",
     "Hinged Container",
   ],
-  ["unit", "YES ✱", "One of: pcs  box  pack  roll  kg  litre  set", "pcs"],
+  [
+    "unit",
+    "YES ✱",
+    "Selling unit: box, pack, roll, kg, litre, set. unit_of_measure is also accepted. Customer counting uses order_unit.",
+    "box",
+  ],
   [
     "price",
     "No",
-    'Wholesale price per unit (₹). Numbers only, no ₹ symbol. BLANK = "Price on enquiry" on the website.',
+    'Wholesale price per SELLING unit (₹), never per piece inside a pack. BLANK = "Price on enquiry".',
     "35",
   ],
   ["mrp", "No", "Maximum Retail Price (₹). Numbers only.", "40"],
-  ["moq", "No", "Minimum Order Quantity. Whole number. Blank = unknown.", "50"],
+  [
+    "moq",
+    "No",
+    "Minimum whole PACKS, even with pcs ordering. Shared ordering rules round up to a whole step. Blank = unknown.",
+    "2",
+  ],
   [
     "quantity_in_unit",
     "No",
-    "Number of individual pieces in one unit/box. Blank defaults to 1.",
+    "Positive whole pieces per selling unit. Blank = 1 for new rows; existing SKU pack size is preserved.",
     "100",
+  ],
+  [
+    "order_unit",
+    "No",
+    "pack or pcs. pcs needs pack size > 1. Blank preserves existing SKU setting; new rows use pack.",
+    "pcs",
+  ],
+  [
+    "order_step",
+    "No",
+    "Positive whole PIECES, a multiple of pack size. Blank preserves existing SKU setting; new rows use pack size. Clear a custom step in the Ordering editor.",
+    "300",
   ],
   ["brand", "No", "Brand or manufacturer name.", "Oshine"],
   [
@@ -181,13 +219,13 @@ const INSTRUCTIONS_ROWS = [
   [
     "status",
     "No",
-    "draft  or  published  (lowercase). Defaults to draft — drafts stay hidden from the website until you publish them.",
+    "draft or published for existing SKUs; blank preserves their status. NEW products always start as draft; publish verified products separately.",
     "draft",
   ],
   [
     "tags",
     "No",
-    "Comma-separated business types this product suits.",
+    "Parsed for compatibility; currently NOT persisted by the importer.",
     "restaurant,cloud-kitchen,caterer",
   ],
   [
@@ -223,12 +261,14 @@ const INSTRUCTIONS_ROWS = [
     "• If a SKU already exists in the database the product will be UPDATED, not duplicated.",
   ],
   [
-    "• If no SKU is provided, the system matches by product name (case-insensitive).",
+    "• Without SKU, standalone rows get a new generated SKU. Variant SKUs are derived from parent/label. No product-name matching.",
   ],
   [
-    "• Maximum 2000 rows per import. For larger catalogues split into multiple sheets.",
+    "• Delete/replace all EXAMPLE ONLY rows before importing. New products default to draft. Only publish verified catalogue information.",
   ],
-  ["• Import results are logged under Admin → CSV Import → Import Log."],
+  [
+    "• Import results appear after processing; the importer also attempts an import_logs database record. No separate Import Log screen is implemented.",
+  ],
 ];
 
 // ── Main export function ────────────────────────────────────────────────────
@@ -238,14 +278,8 @@ export function downloadProductTemplate() {
   // ── Sheet 1: Products template ─────────────────────────────────
   const headers = TEMPLATE_COLUMNS.map(c => c.label);
 
-  // Mark required columns with an asterisk in a separate "legend" row
-  const legend = TEMPLATE_COLUMNS.map(c =>
-    c.required ? "* REQUIRED" : "(optional)"
-  );
-
   const productData = [
     headers,
-    legend,
     ...SAMPLE_ROWS.map(r => TEMPLATE_COLUMNS.map(c => (r as any)[c.key] ?? "")),
   ];
   const wsProducts = XLSX.utils.aoa_to_sheet(productData);
@@ -254,7 +288,7 @@ export function downloadProductTemplate() {
   wsProducts["!cols"] = TEMPLATE_COLUMNS.map(c => ({ wch: c.width }));
 
   // Data-validation dropdown for the `status` column (draft / published).
-  // Header + legend occupy rows 1–2, so validate from the first data row down.
+  // Validate from the first data row; requirements live in Instructions.
   // NOTE: best-effort — the community `xlsx` build does not always emit data
   // validations, so the Instructions sheet + sample row are the real guardrail.
   const statusIdx = TEMPLATE_COLUMNS.findIndex(c => c.key === "status");
@@ -262,7 +296,7 @@ export function downloadProductTemplate() {
     const statusCol = XLSX.utils.encode_col(statusIdx);
     (wsProducts as any)["!dataValidation"] = [
       {
-        sqref: `${statusCol}3:${statusCol}1000`,
+        sqref: `${statusCol}2:${statusCol}1000`,
         type: "list",
         formula1: '"draft,published"',
         allowBlank: true,
@@ -271,8 +305,8 @@ export function downloadProductTemplate() {
     ];
   }
 
-  // Freeze first two rows (header + legend)
-  wsProducts["!freeze"] = { xSplit: 0, ySplit: 2 };
+  // Best effort in the community codec; the first row is always the header.
+  wsProducts["!freeze"] = { xSplit: 0, ySplit: 1 };
 
   XLSX.utils.book_append_sheet(wb, wsProducts, "Products");
 

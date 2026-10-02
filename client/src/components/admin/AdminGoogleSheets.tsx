@@ -17,8 +17,7 @@ import { fetchGoogleSheetAsCsv } from "@/lib/googleSheetsService";
 import {
   bulkImportProducts,
   ImportRow,
-  normalizeStatus,
-  parseNaFields,
+  parseMappedImportRows,
 } from "@/lib/bulkImportService";
 import { downloadProductTemplate } from "@/lib/templateService";
 
@@ -33,6 +32,8 @@ interface ColMap {
   mrp: string;
   unit: string;
   quantity_in_unit: string;
+  order_unit: string;
+  order_step: string;
   description: string;
   brand: string;
   is_featured: string;
@@ -53,6 +54,8 @@ const DEFAULT_MAP: ColMap = {
   mrp: "mrp",
   unit: "unit",
   quantity_in_unit: "quantity_in_unit",
+  order_unit: "order_unit",
+  order_step: "order_step",
   description: "description",
   brand: "brand",
   is_featured: "is_featured",
@@ -63,49 +66,6 @@ const DEFAULT_MAP: ColMap = {
   tags: "tags",
   na_fields: "na_fields",
 };
-
-function mapRow(raw: Record<string, string>, map: ColMap): ImportRow | null {
-  const name = raw[map.name]?.trim();
-  const category = map.category ? raw[map.category]?.trim() : "";
-  const unit = raw[map.unit]?.trim() || "pcs";
-  // Price is optional now (PR #46) — blank imports as null = "Price on enquiry".
-  const rawPrice = map.price ? raw[map.price] : "";
-  const hasPrice =
-    rawPrice !== undefined &&
-    rawPrice !== null &&
-    String(rawPrice).trim() !== "";
-  const price = hasPrice ? parseFloat(rawPrice) : null;
-  const qty = parseFloat(raw[map.quantity_in_unit] || "1");
-
-  // Only name is truly required. Blank category falls back to Uncategorized at
-  // import time; blank/invalid price is dropped to null rather than rejecting the row.
-  if (!name) return null;
-  if (price !== null && (isNaN(price) || price < 0)) return null;
-
-  return {
-    master_name: map.master_name ? raw[map.master_name]?.trim() : undefined,
-    variant_label: map.variant_label
-      ? raw[map.variant_label]?.trim()
-      : undefined,
-    name,
-    category: category || "uncategorized",
-    sku: map.sku ? raw[map.sku]?.trim() : undefined,
-    barcode: map.barcode ? raw[map.barcode]?.trim() : undefined,
-    moq: map.moq && raw[map.moq] ? parseInt(raw[map.moq]) : undefined,
-    price,
-    mrp: map.mrp ? parseFloat(raw[map.mrp]) || undefined : undefined,
-    unit: unit || "pcs",
-    quantity_in_unit: isNaN(qty) ? 1 : qty,
-    description: map.description ? raw[map.description]?.trim() : undefined,
-    brand: map.brand ? raw[map.brand]?.trim() : undefined,
-    is_featured:
-      raw[map.is_featured]?.toLowerCase() === "true" ||
-      raw[map.is_featured] === "1",
-    status: map.status ? normalizeStatus(raw[map.status]) : undefined,
-    na_fields: map.na_fields ? parseNaFields(raw[map.na_fields]) : undefined,
-    tags: map.tags ? raw[map.tags]?.trim() : undefined,
-  };
-}
 
 // Column chips shown in the template banner — required (green ✱),
 // optional (white), and new/advanced (blue outline).
@@ -120,6 +80,8 @@ const COLUMN_CHIPS: { label: string; kind: ChipKind }[] = [
   { label: "moq", kind: "optional" },
   { label: "mrp", kind: "optional" },
   { label: "quantity_in_unit", kind: "optional" },
+  { label: "order_unit", kind: "optional" },
+  { label: "order_step", kind: "optional" },
   { label: "brand", kind: "optional" },
   { label: "description", kind: "optional" },
   { label: "is_featured", kind: "optional" },
@@ -144,6 +106,7 @@ export default function AdminGoogleSheets() {
   const [rawRows, setRawRows] = useState<Record<string, string>[]>([]);
   const [colMap, setColMap] = useState<ColMap>({ ...DEFAULT_MAP });
   const [preview, setPreview] = useState<ImportRow[]>([]);
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{
     added: number;
@@ -182,8 +145,12 @@ export default function AdminGoogleSheets() {
       const fields = parsed.meta.fields ?? [];
       const autoMap: ColMap = { ...DEFAULT_MAP };
       for (const key of Object.keys(autoMap) as (keyof ColMap)[]) {
-        const match = fields.find(f => f.includes(key) || key.includes(f));
-        if (match) autoMap[key] = match;
+        const match =
+          fields.find(f => f === key) ??
+          (key === "unit"
+            ? fields.find(f => f === "unit_of_measure")
+            : undefined);
+        autoMap[key] = match ?? "";
       }
       setColMap(autoMap);
       setStep("mapping");
@@ -196,9 +163,9 @@ export default function AdminGoogleSheets() {
   };
 
   const handlePreview = () => {
-    const mapped = rawRows
-      .map(r => mapRow(r, colMap))
-      .filter(Boolean) as ImportRow[];
+    const parsed = parseMappedImportRows(rawRows, { ...colMap });
+    setParseErrors(parsed.errors);
+    const mapped = parsed.rows;
     if (!mapped.length) {
       toast.error(
         "No valid rows after mapping. Check your column assignments."
@@ -238,6 +205,7 @@ export default function AdminGoogleSheets() {
     setHeaders([]);
     setRawRows([]);
     setPreview([]);
+    setParseErrors([]);
     setProgress(0);
     setResult(null);
     setColMap({ ...DEFAULT_MAP });
@@ -254,6 +222,8 @@ export default function AdminGoogleSheets() {
     "moq",
     "mrp",
     "quantity_in_unit",
+    "order_unit",
+    "order_step",
     "brand",
     "description",
     "is_featured",
@@ -393,11 +363,15 @@ export default function AdminGoogleSheets() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {REQUIRED_FIELDS.map(field => (
                   <div key={field}>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 capitalize">
+                    <label
+                      htmlFor={`sheet-map-${field}`}
+                      className="block text-xs font-semibold text-slate-700 mb-1 capitalize"
+                    >
                       {field.replace(/_/g, " ")}{" "}
                       <span className="text-red-500">*</span>
                     </label>
                     <select
+                      id={`sheet-map-${field}`}
                       className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white"
                       value={colMap[field]}
                       onChange={e =>
@@ -423,10 +397,14 @@ export default function AdminGoogleSheets() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {OPTIONAL_FIELDS.map(field => (
                   <div key={field}>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 capitalize">
+                    <label
+                      htmlFor={`sheet-map-${field}`}
+                      className="block text-xs font-semibold text-slate-700 mb-1 capitalize"
+                    >
                       {field.replace(/_/g, " ")}
                     </label>
                     <select
+                      id={`sheet-map-${field}`}
                       className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white"
                       value={colMap[field]}
                       onChange={e =>
@@ -455,6 +433,14 @@ export default function AdminGoogleSheets() {
         </div>
       )}
 
+      {parseErrors.length > 0 && (
+        <Card className="p-4 text-red-700" role="alert">
+          {parseErrors.map(error => (
+            <p key={error}>{error}</p>
+          ))}
+        </Card>
+      )}
+
       {/* Step: Preview */}
       {step === "preview" && (
         <div className="space-y-4">
@@ -476,6 +462,8 @@ export default function AdminGoogleSheets() {
                       "Price (₹)",
                       "Unit",
                       "Qty",
+                      "Customer counts",
+                      "Step (pcs)",
                       "Brand",
                     ].map(h => (
                       <th
@@ -513,7 +501,15 @@ export default function AdminGoogleSheets() {
                       </td>
                       <td className="px-4 py-2 text-slate-600">{row.unit}</td>
                       <td className="px-4 py-2 text-slate-600">
-                        {row.quantity_in_unit}
+                        {row.quantity_in_unit_provided === false
+                          ? "Preserve / new: 1"
+                          : row.quantity_in_unit}
+                      </td>
+                      <td className="px-4 py-2">
+                        {row.order_unit ?? "Preserve / new: pack"}
+                      </td>
+                      <td className="px-4 py-2">
+                        {row.order_step ?? "Preserve / pack size"}
                       </td>
                       <td className="px-4 py-2 text-slate-600">
                         {row.brand || "—"}

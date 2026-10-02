@@ -60,8 +60,14 @@ field edits quantity_in_unit. Shared save validation rejects pcs without a usabl
 pack size, fractional/nonpositive inputs and steps that are not whole pack-size
 multiples. Blank overrides persist as null; the selling-unit price is unchanged.
 The effective minimum is shown when MOQ needs rounding up to a step. Customer
-ordering is separate from priceEntryMode. Template ordering fields still need
-Phase 5.3 completion; mappings alone do not prove a complete import workflow.
+ordering is separate from priceEntryMode. CSV, XLS, XLSX and Google Sheets use
+the same numeric/ordering validator. The template includes order_unit and
+order_step; unit (or unit_of_measure) names the selling unit. MOQ counts packs
+and order_step counts pieces. Existing SKU blank ordering fields/pack size are
+preserved; new rows use pack/size-step defaults. Invalid combined settings are
+reported in dry-run and rejected before product writes. Clear a custom step in
+the Ordering editor. New imported products remain drafts; existing blank status
+preserves publication. The template examples must be replaced before import.
 Never invent or automatically reconcile the 11 Hinged Box price conflicts.
 
 ## Verification
