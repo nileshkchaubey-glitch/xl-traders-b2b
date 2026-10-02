@@ -144,7 +144,7 @@ export function normalizeImageUrl(url?: string | null, size = 1000): string {
 }
 
 /** Pull the Drive file id out of any common Drive link shape. */
-export function extractDriveFileId(url: string): string | null {
+function extractDriveFileId(url: string): string | null {
   const patterns = [
     /\/file\/d\/([a-zA-Z0-9_-]+)/, // /file/d/ID/view
     /[?&]id=([a-zA-Z0-9_-]+)/, // ?id=ID  /  uc?export=view&id=ID  /  thumbnail?id=ID
