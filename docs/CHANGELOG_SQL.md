@@ -19,6 +19,67 @@ statements are appended _after_ they run, not submitted for approval.
 
 ---
 
+## 2026-10-02 — disposable hosted admin validation and exact cleanup
+
+Existing authorized Chrome admin session, no new account or privilege change.
+Actual UI REST writes created only draft product `79f43be9-eb18-4e73-9ba3-9637012c6f91`
+(SKU `SKU-1790939870624-0yqw4c`, name `Launch validation fixture 20261002 - do not publish`,
+uncategorized category retained), then saved price 100, pack size 100, MOQ 2,
+order unit pcs, step 300 and synthetic description. Product stayed draft and
+its public PDP returned Product not found. No real product was edited.
+
+UI created inactive banner `7ea067be-6774-4913-b375-99b417ab2b7c` with headline
+`Launch validation inactive banner 20261002`, home_top position and synthetic
+validation text, then edited rate_line to
+`Synthetic validation edited successfully - never activate.`. Never activated.
+Default theme was saved with unchanged value `{"theme":"default"}`; only its
+updated_at changed. These were application REST writes, not SQL migrations.
+
+Before cleanup: exact complete product/banner rows and original/current theme
+were preserved in ignored local JSON evidence under `tmp/launch-20261002/`.
+Target IDs/names/SKU/status/timestamps and zero order/image dependents were
+verified. site_content has no noninternal trigger. This guarded transaction
+executed successfully; an unexpected target would abort the entire transaction:
+
+```sql
+begin;
+do $cleanup$
+declare touched integer;
+begin
+ if exists(select 1 from public.order_items where product_id='79f43be9-eb18-4e73-9ba3-9637012c6f91') or exists(select 1 from public.product_images where product_id='79f43be9-eb18-4e73-9ba3-9637012c6f91') then raise exception 'Disposable product has dependents'; end if;
+ delete from public.products where id='79f43be9-eb18-4e73-9ba3-9637012c6f91' and sku='SKU-1790939870624-0yqw4c' and name='Launch validation fixture 20261002 - do not publish' and status='draft' and master_id is null and created_at='2026-10-02T11:17:51.14228+00:00' and updated_at='2026-10-02T11:22:06.092653+00:00';
+ get diagnostics touched=row_count;
+ if touched<>1 then raise exception 'Disposable product target changed'; end if;
+ delete from public.promo_banners where id='7ea067be-6774-4913-b375-99b417ab2b7c' and headline='Launch validation inactive banner 20261002' and is_active=false and rate_line='Synthetic validation edited successfully - never activate.' and created_at='2026-10-02T12:26:39.173649+00:00' and updated_at='2026-10-02T12:28:00.919+00:00';
+ get diagnostics touched=row_count;
+ if touched<>1 then raise exception 'Disposable banner target changed'; end if;
+ update public.site_content set updated_at='2026-08-15T06:47:21.665835+00:00' where key='site_theme' and value='{"theme":"default"}'::jsonb and updated_at='2026-10-02T12:28:30.455+00:00';
+ get diagnostics touched=row_count;
+ if touched<>1 then raise exception 'Theme changed since same-value save'; end if;
+end;
+$cleanup$;
+commit;
+select (select count(*) from public.products) as products, (select count(*) from public.products where status='published' and is_active) as public_products, (select count(*) from public.orders) as orders, (select count(*) from public.order_items) as order_items, (select count(*) from public.categories where slug='uncategorized') as sentinel, (select count(*) from public.promo_banners) as banners, (select array_agg(id) from public.import_logs) as import_logs, (select row_to_json(s) from public.site_content s where key='site_theme') as theme, (select count(*) from public.products where id='79f43be9-eb18-4e73-9ba3-9637012c6f91' or sku='ZZ-LAUNCH-20261002-VALIDATION') as remaining_test_products;
+```
+
+Post-check: products/public 143/139, orders/items 2/2, sentinel 1, banners 0,
+only original import log `7a9d0ee4-ecd6-485c-b512-55f35c15876d`, no test product,
+original Default theme value and timestamp restored. No upload/import/customer
+order occurred. No Auth account, real customer/catalogue/order row or bucket was
+deleted. No DDL, grants or policy changes were involved.
+
+Rollback information: full disposable row JSON is preserved as
+`hosted-draft-before-cleanup.json` / `hosted-banner-before-cleanup.json` alongside
+`hosted-baseline.json` and exact `hosted-cleanup.sql`. If recovery is required,
+reinsert only the exact missing disposable row using its saved column values
+after checking ID/SKU absence; do not recreate it routinely or touch real rows.
+Theme predecessor and post-save timestamps are explicit in the guarded SQL.
+These validation operations are not additional applied migrations.
+
+See [hosted results and limits](reports/2026-10-02-hosted-admin-validation.md).
+
+---
+
 ## 2026-10-02 — reviewed checkout migrations applied and verified
 
 The owner authorized production SQL and safe merges on 2 October. Before either

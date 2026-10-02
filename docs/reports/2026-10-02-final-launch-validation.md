@@ -8,9 +8,16 @@ passed mobile/desktop public checks. This final documentation PR records results
 and corrects surviving stale claims; it changes no runtime, SQL or dependencies.
 The eventual documentation merge SHA/checks must also be verified before sign-off.
 
+Follow-up: #214 merged at `ac8f16149629191d6b6e240bbda5604a24315cba`, main CI
+36994836552 and exact Pages 12be5c57 passed; public, guest, SW and all-chunk scans
+also passed on that deployment. An existing authorized Chrome admin session then
+enabled actual hosted checks; see [the follow-up](2026-10-02-hosted-admin-validation.md).
+The table below preserves the earlier checkpoint; its hosted NOT TESTED entries
+are superseded only by explicitly observed follow-up results.
+
 No verified code launch blocker remains from the approved list. Full launch
-sign-off remains PARTIAL: positive hosted authenticated/admin smoke tests lack
-valid test access, real mobile hardware is unavailable and actual catalogue
+sign-off remains PARTIAL: customer checkout/history and hosted import/upload
+remain untested, real mobile hardware is unavailable and actual catalogue
 content/pricing decisions belong to the owner. These are not passing tests.
 
 ## Reconciliation and completed work
@@ -152,20 +159,26 @@ without changes; corrected actual `meta_title`/`meta_description` query passed.
 
 Other production operations: enabled required main PR/CI protection; deleted only
 126 prelisted proven stale/merged remote branch refs with recovery information.
-No core/customer/product/order data or buckets were deleted, no new Auth account
-was created, no theme/banner/settings/catalogue records were changed, and no
-duplicate search DDL was applied. Provider revocation/settings removal was the
+No real customer/catalogue/order data or buckets were deleted, no new Auth account
+was created and no duplicate search DDL was applied. Later hosted validation
+created/saved only a disposable draft and inactive banner and saved an unchanged
+Default theme. Exact test rows were removed and original theme timestamp restored
+with rollback snapshots and guards; full operations are logged in CHANGELOG_SQL.
+Real settings/contact values were unchanged. Provider revocation/settings removal was the
 owner's operation, not an independently verified agent console operation.
 
 ## Remaining limits and owner work, in recommended order
 
-1. **Hosted release sign-off:** use an approved customer/admin test login to verify
-   actual pricing/confirmed checkout/history and admin catalogue/import/upload/
-   settings/banner saves. Available Auth admin credential failed; documented
-   read-only admin access retry also returned HTTP 401. No account/email was
-   created and no alternate authentication method or managed Auth-table hack used.
-2. **Catalogue/business readiness:** 136 of 139 public products lack descriptions;
-   135 lack some SEO metadata. Existing image URLs do not prove correct real
+1. **Hosted release sign-off:** approved customer login is still needed for
+   confirmed checkout and positive history/reorder. Existing admin Chrome session
+   verified pricing, catalogue save, settings reads, inactive banner edits and
+   same-value theme save. Hosted import/upload blocked by file-URL permission;
+   settings writes not attempted against real contacts. Auth admin API still 401;
+   no account/email or alternate authentication method was introduced.
+2. **Catalogue/business readiness:** raw products columns show 136 of 139 public
+   rows with blank descriptions and 135 with some blank SEO metadata; these are
+   not effective PDP/health counts, which may incorporate master data.
+   Existing image URLs do not prove correct real
    photos. Owner must supply/approve actual information/photos and resolve the
    11 Hinged Box pricing conflicts. Nothing was invented or autopublished.
 3. **Physical mobile acceptance:** real-device clear-storage/offline check is NOT
