@@ -23,7 +23,8 @@ Admin palette tokens and Tailwind colors/weights remain; no redesign is implied.
 ThemeContext reads site_content.site_theme, validates default/diwali/holi/monsoon/
 independence, and writes data-xl-theme. Theme selectors change only --xl-accent,
 --xl-accent-soft and --xl-hero-grad. They must not affect layout, pricing or
-ordering. Admin theme editing remains pending at this record.
+ordering. Admin Site Content edits these five themes through the existing service;
+read and save failures remain visible.
 
 ## Current components and composition
 

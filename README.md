@@ -35,19 +35,19 @@ belong in existing `client/src/lib/*Service.ts`, `authStore.ts` and the Supabase
 client, not new component queries. Some legacy admin components still query
 directly; the checker grandfather list is debt, not permission to add more.
 
-| Route | Implementation |
-| --- | --- |
-| / | HeroSlideshow, top promo slot, HomeCategoryGrid, HomeSpotlightStrip, middle promo slot, two MerchandisedRow sections |
-| /catalog | URL-driven catalogue filters and shared ProductCard |
-| /product/:id | ProductDetail, variants and shared ordering controls |
-| /cart | Shared totals/messages, guest quantity enquiry or authenticated confirmed-price checkout |
-| /search, /categories, /account, /auth | Storefront pages in App.tsx |
-| /admin | AdminDashboard, CatalogTreeEditor and supporting tabs |
-| /admin/products/new, /admin/products/:id | Shared route product editor |
-| /admin/masters | AdminMasters |
+| Route                                    | Implementation                                                                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| /                                        | HeroSlideshow, top promo slot, HomeCategoryGrid, HomeSpotlightStrip, middle promo slot, two MerchandisedRow sections |
+| /catalog                                 | URL-driven catalogue filters and shared ProductCard                                                                  |
+| /product/:id                             | ProductDetail, variants and shared ordering controls                                                                 |
+| /cart                                    | Shared totals/messages, guest quantity enquiry or authenticated confirmed-price checkout                             |
+| /search, /categories, /account, /auth    | Storefront pages in App.tsx                                                                                          |
+| /admin                                   | AdminDashboard, CatalogTreeEditor and supporting tabs                                                                |
+| /admin/products/new, /admin/products/:id | Shared route product editor                                                                                          |
+| /admin/masters                           | AdminMasters                                                                                                         |
 
-`App.tsx` currently lazy-loads Dashboard and ProductEditor; other routes still
-need the planned splitting work. One StorefrontLayout owns Header/Footer;
+`App.tsx` lazy-loads all page routes, including admin pages and NotFound.
+One StorefrontLayout owns Header/Footer;
 Header renders MobileNav once. Footer is desktop-only. No Admin-v2 exists.
 
 Ordering uses `orderingModel.ts`, `cartStore.ts` and `orderMessage.ts`.
@@ -60,7 +60,8 @@ CSV/Excel and Google Sheets share `bulkImportService.ts` and the XLSX template
 in `templateService.ts`. SheetJS CE 0.20.3 is pinned by tarball after security
 work; XLS and XLSX compatibility tests exercise real workbook parsing. Import
 preview and SKU upsert behavior are not permission to invent catalogue data.
-Template ordering columns still need Phase 5.3 verification/completion.
+The template includes ordering fields and shared validation; CSV, XLS, XLSX and
+Sheets browser fixtures pass. Hosted admin import still needs valid test access.
 
 ## Security and deployment
 
@@ -73,9 +74,12 @@ See [DEPLOYMENT](DEPLOYMENT.md), [SQL_SCHEMA](SQL_SCHEMA.md),
 [SQL changelog](docs/CHANGELOG_SQL.md), [ordering rules](docs/ORDERING_MODEL.md),
 [design](docs/DESIGN_SYSTEM.md) and [launch status](docs/LAUNCH_STATUS.md).
 Production build output is `dist/public`; npm/package-lock only, no pnpm lock.
-Private browser AI credential support is a verified pending launch blocker.
-The business-settings editor's schema mismatch is pending; its missing-row
-query already uses maybeSingle. Hosted authenticated testing needs valid access.
+Smart Paste parses locally; private provider keys and browser generation were
+removed. The owner confirmed revocation of the previously exposed key and removal
+of hosting variables. Business settings use verified key/value records with
+changed-key saves and visible failures. Account history is user-scoped; reorder
+uses current rates and rules before protected checkout. Hosted authenticated
+testing still needs valid access; fixture passes do not establish hosted access.
 
 Historical feature lists and measurements are [archived](docs/archive/README.md).
 The package currently declares MIT; no licensing change is made by this work.
