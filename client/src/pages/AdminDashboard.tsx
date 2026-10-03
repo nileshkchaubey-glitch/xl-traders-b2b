@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation, Link, useSearch } from "wouter";
 import { useAuthStore } from "@/lib/authStore";
 import { LogOut, Menu, X, ChevronRight, ExternalLink } from "lucide-react";
@@ -22,11 +22,15 @@ import { Category } from "@/lib/supabase";
 import { useIsMobile } from "@/hooks/useMobile";
 import MobileAdminShell from "@/components/admin/MobileAdminShell";
 import { NAV_GROUPS, BREADCRUMB } from "@/components/admin/adminNav";
+import AdminAccess from "@/components/admin/AdminAccess";
 
 export default function AdminDashboard() {
+  return <AdminAccess><AdminDashboardContent /></AdminAccess>;
+}
+
+function AdminDashboardContent() {
   const [, setLocation] = useLocation();
-  const { user, isAuthenticated, isAdmin, isLoading, refreshProfile, signOut } =
-    useAuthStore();
+  const { user, signOut } = useAuthStore();
   // Legacy tab ids from before Phase 2b (AdminProducts removal) map onto the
   // Catalog Editor so stale sessionStorage / bookmarks / deep-links keep working.
   const normalizeTab = (tab: string) =>
@@ -34,9 +38,6 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState(() =>
     normalizeTab(sessionStorage.getItem("admin-active-tab") || "overview")
   );
-  const [accessChecked, setAccessChecked] = useState(false);
-  const redirectingRef = useRef(false);
-  const hasVerified = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   useEffect(() => {
     sessionStorage.setItem("admin-active-tab", activeTab);
@@ -84,55 +85,6 @@ export default function AdminDashboard() {
     setActiveTab(tab);
     sessionStorage.setItem("admin-active-tab", tab);
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function verifyAccess() {
-      if (hasVerified.current) return;
-      if (isLoading) return;
-      if (!isAuthenticated) {
-        if (!redirectingRef.current) {
-          redirectingRef.current = true;
-          setLocation("/auth");
-        }
-        return;
-      }
-      if (isAdmin) {
-        hasVerified.current = true;
-        setAccessChecked(true);
-        return;
-      }
-      const admin = await refreshProfile();
-      if (cancelled) return;
-      if (admin) {
-        hasVerified.current = true;
-        setAccessChecked(true);
-        return;
-      }
-      if (!redirectingRef.current) {
-        redirectingRef.current = true;
-        toast.error("Admin access required");
-        setLocation("/");
-      }
-    }
-    verifyAccess();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoading, isAuthenticated, isAdmin, setLocation, refreshProfile]);
-
-  if (isLoading || (isAuthenticated && !accessChecked && !isAdmin)) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-500 text-sm">Loading admin panel…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !isAdmin) return null;
 
   const handleLogout = async () => {
     await signOut();
