@@ -19,6 +19,98 @@ statements are appended _after_ they run, not submitted for approval.
 
 ---
 
+## 2026-10-03 — customer validation, approved banner hide and Storage cleanup
+
+Existing approved active/non-admin customer; no account, credential or privilege
+change. Application confirmed-price checkout path created one disposable header/item.
+Positive history and mobile reorder passed, with no additional order or WhatsApp send.
+
+**Applied:** strict cleanup of only the task-created header/item. Full predecessor rows
+saved before deletion; live FK inspection found only order_items.order_id → orders.id
+(ON DELETE CASCADE). Guards abort changed targets/status/amount or unexpected dependents.
+The two original orders/items and all 143 products (139 public) remain.
+
+```sql
+BEGIN;
+DO $cleanup$
+DECLARE affected integer;
+BEGIN
+  PERFORM 1 FROM public.orders WHERE id='c03ee632-b836-4917-931f-a4e4b8ccb1b5' FOR UPDATE;
+  IF NOT EXISTS (SELECT 1 FROM public.orders WHERE id='c03ee632-b836-4917-931f-a4e4b8ccb1b5'
+    AND customer_name='Launch validation 20261003 - DO NOT FULFIL' AND phone='9999999999'
+    AND user_id='d005aa84-9d3d-4110-9f63-1b7c50fa4798' AND status='new' AND source='cart'
+    AND created_at='2026-10-03T07:40:24.144525+00:00'::timestamptz
+    AND item_count=1 AND total_amount=2662 AND notes IS NULL)
+    THEN RAISE EXCEPTION 'Disposable order identity/state mismatch'; END IF;
+  IF (SELECT count(*) FROM public.order_items WHERE order_id='c03ee632-b836-4917-931f-a4e4b8ccb1b5')<>1
+    THEN RAISE EXCEPTION 'Unexpected dependent items'; END IF;
+  DELETE FROM public.order_items WHERE id='a5dd7955-90c2-47d2-aab4-7a1d142f722e'
+    AND order_id='c03ee632-b836-4917-931f-a4e4b8ccb1b5' AND product_id='605dd6a4-6521-417b-b4c7-1053dd360753'
+    AND sku='XL0006' AND quantity=1 AND unit_price=2662 AND subtotal=2662
+    AND product_name='150ml Round Container Trans. ( 1000 pcs )' AND unit_of_measure='pcs';
+  GET DIAGNOSTICS affected=ROW_COUNT;
+  IF affected<>1 THEN RAISE EXCEPTION 'Disposable item mismatch'; END IF;
+  DELETE FROM public.orders WHERE id='c03ee632-b836-4917-931f-a4e4b8ccb1b5';
+  GET DIAGNOSTICS affected=ROW_COUNT;
+  IF affected<>1 THEN RAISE EXCEPTION 'Disposable header mismatch'; END IF;
+END
+$cleanup$;
+COMMIT;
+SELECT jsonb_build_object('orders',(SELECT count(*) FROM public.orders),'items',(SELECT count(*) FROM public.order_items),'customer_orders',(SELECT count(*) FROM public.orders WHERE user_id='d005aa84-9d3d-4110-9f63-1b7c50fa4798'),'products',(SELECT count(*) FROM public.products)) AS post_cleanup;
+```
+
+Recovery: saved complete rows in ignored tmp/launch-20261003/customer-order-before-cleanup.json.
+Inspect live state and restore only absent exact IDs from those saved columns,
+header first then item; never duplicate/overwrite real orders. Cart test line removed
+and synthetic customer inputs restored to blank through UI.
+
+**Applied with explicit owner content approval:** hide newly created synthetic banner
+d5a032db-5c75-4338-86f5-fb95968d9489, distinct from yesterday's removed fixture.
+Full predecessor row saved outside Git. Only is_active changed; image/content/timestamps
+retained. SQL and refreshed Home verified the hidden result.
+
+```sql
+BEGIN;
+DO $hide$
+DECLARE affected integer;
+BEGIN
+  UPDATE public.promo_banners SET is_active=false
+  WHERE id='d5a032db-5c75-4338-86f5-fb95968d9489'
+    AND headline='Launch validation inactive banner 20261002'
+    AND rate_line='Synthetic validation only - never activate.'
+    AND is_active=true
+    AND created_at='2026-10-03T06:55:51.802838+00:00'::timestamptz
+    AND updated_at='2026-10-03T06:56:48.206+00:00'::timestamptz;
+  GET DIAGNOSTICS affected=ROW_COUNT;
+  IF affected<>1 THEN RAISE EXCEPTION 'Banner target changed; rollback'; END IF;
+END $hide$;
+COMMIT;
+SELECT id,is_active,headline,created_at,updated_at FROM public.promo_banners
+WHERE id='d5a032db-5c75-4338-86f5-fb95968d9489';
+```
+
+Rollback predecessor: is_active=true, updated_at=2026-10-03T06:56:48.206+00:00;
+other columns preserved in ignored banner-before-hide.json. Restore only if the
+owner wants synthetic public content back and exact live row has not changed.
+
+**Normal Storage API/dashboard operations, not SQL:** owner confirmed permanent deletion
+of the two exact remaining test WebPs at action time. Removed
+203344a5-acf3-4836-b54e-83fc478985af (.xl-web-800w-1600w-1x.webp) and
+3353ed23-80f2-4291-a79e-711fda6febef (.xl-web-800w-1600w-2x.webp), under
+product-images/products/ZZ-LAUNCH-20261002-VALIDATION/, common stem
+ZZ-LAUNCH-20261002-VALIDATION-96bfd10c-3a87-47ae-af07-f5ca00ae4b90.
+Original PNG was observed absent outside agent deletion. Exact three records gone;
+all three public URLs return HTTP 400, Object not found / statusCode 404 / NoSuchKey.
+Dashboard retained an automatic zero-byte .emptyFolderPlaceholder; preserved.
+All original recovery bytes pass saved SHA-256 checks; bucket and real/global images
+retained. First deletion UI wait timed out after success; SQL proved removal before
+proceeding, so it was not repeated. No SQL Storage metadata deletion performed.
+
+Read-only checks: customer active/non-admin; anon price and health-view SELECT false.
+Owner confirmed Chrome file-URL permission OFF. No new migration/DDL applied.
+
+---
+
 ## 2026-10-02 — hosted CSV/XLS/XLSX and image validation
 
 Owner explicitly approved temporary Chrome file-URL permission and manually
