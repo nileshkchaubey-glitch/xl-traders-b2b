@@ -1,18 +1,18 @@
 # Launch work status — current reconciliation
 
-Status checked on 2 October 2026. Update evidence when the remaining focused
-work merges; historical HANDOFF/plan pending lists do not override current code.
+Checked on 3 October 2026. Current code/PRs/live state override historical pending lists.
+Runtime main 4a9c1903c5797c599742cbbd55ef972644018eb6 (#217), main CI 37108527699
+and exact Pages 7bc1f42a passed. Customer admin loading loop is fixed; deployed
+desktop dashboard/mobile editor customer redirects pass.
 
-Validated runtime checkpoint: `8d8104e4456791279622036869b0d0312aa6ebbf` (#215).
-See [final evidence, commands and remaining limits](reports/2026-10-02-final-launch-validation.md).
-Approved functional code work is merged; hosted/business acceptance remains partial.
-See [actual hosted follow-up](reports/2026-10-02-hosted-admin-validation.md):
-existing admin pricing/catalogue/banner/theme checks passed. Actual
-[hosted file checks](reports/2026-10-02-hosted-file-validation.md) now pass
-CSV/XLS/XLSX writes and image upload/bytes/dimensions. Database fixtures cleaned;
-three exact test Storage objects await cleanup access. Customer checkout remains
-untested. Smart Paste label corrected/merged in #215. File-URL permission still
-awaits owner restoration after the completed tests.
+See [current customer evidence](reports/2026-10-03-hosted-customer-validation.md),
+[earlier implementation/commands](reports/2026-10-02-final-launch-validation.md),
+[hosted admin checks](reports/2026-10-02-hosted-admin-validation.md) and
+[hosted file checks](reports/2026-10-02-hosted-file-validation.md).
+Actual customer pricing, checkout, positive own-history and reorder passed.
+Exact order/item and all three image fixtures are gone; original orders preserved.
+Owner confirmed file-URL permission OFF. A new public synthetic banner was hidden
+with explicit owner approval, retaining content. No verified code blocker remains.
 
 | Item                            | State / evidence                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -24,32 +24,34 @@ awaits owner restoration after the completed tests.
 | Block B branches                | #202 records 126 proven deletions, recovery bundle, protected refs and 30 preserved branches. Unverified unmerged work is kept.                                                                                                                                                                                                                                                                                                                       |
 | Block C                         | #203 merged; inventory committed first, source/history archived, current docs and AGENTS replace stale instructions.                                                                                                                                                                                                                                                                                                                                  |
 | 5.1 Ordering editor             | #204 merged; shared controls/save validation and quantities aligned with existing server MOQ/step rules. Main CI/Pages and immutable mobile/desktop guest checks passed. Hosted synthetic draft ordering save/reopen passed; exact disposable row removed.                                                                                                                                                                                            |
-| 5.2 Image upload                | #205 merged: originals plus two generated WebP renditions, actual-width srcSet and shared product/category pipeline. Main CI/Pages and public mobile/desktop checks passed. Unit and real canvas/component fixture checks passed. Live bucket configuration/policies verified; actual hosted SKU upload/list passed: original byte hash plus decoded 800/1600 WebPs, desktop/mobile rendering. Three exact test Storage objects await cleanup access. |
+| 5.2 Image upload                | #205 merged: originals plus two generated WebP renditions, actual-width srcSet and shared product/category pipeline. Main CI/Pages and public mobile/desktop checks passed. Unit and real canvas/component fixture checks passed. Live bucket configuration/policies verified; actual hosted SKU upload/list passed: original byte hash plus decoded 800/1600 WebPs, desktop/mobile rendering. All three exact test images are gone; recovery copies retained. Automatic zero-byte folder marker preserved. |
 | 5.3 Import                      | #206 merged; main CI/Pages and public mobile/desktop checks passed. Shared CSV/XLS/XLSX/Sheets validator, ordering mappings/preview/export, template round-trip and SKU preservation/draft protections. Real Chrome file/mapping UI passed mobile/desktop with synthetic responses; actual hosted CSV added one draft; XLS/XLSX updated that SKU with distinct MOQ/steps, zero errors and no publish. Exact DB fixture/log cleanup completed.         |
 | 5.4 Banner/theme admin          | #207 merged; main CI/Pages and public mobile/desktop checks passed, including actual HTTP 200 reads for all three banner slots. Service, disposable role-policy and actual form/theme fixture checks passed. Hosted inactive banner create/edit and same-value Default save passed; exact fixture cleanup/original timestamp restoration logged. No public appearance/schema change.                                                                  |
 | 5.5 Search index                | Verified DONE: existing products_name_trgm GIN is ready/valid and used by name-only search. Current three-column search sampled at 0.558–0.565 ms DB execution on 143 rows; real anonymous mobile/desktop searches passed. No duplicate DDL or unobserved before/after gain claimed; see the search-index report.                                                                                                                                     |
 | 5.6 Splitting                   | #209 merged and main/Pages verified: all page routes lazy; same-environment Home foreground JavaScript 827,330 → 636,544 bytes. Route/fallback/mobile/desktop checks pass; precache policy retained.                                                                                                                                                                                                                                                  |
-| 5.7 History/reorder             | #210 merged and main/Pages verified: own-user pagination, atomic current-rule reorder, explicit price reconfirmation. Mobile/desktop real component fixtures pass; Hosted admin own-history empty result passed; positive customer history/reorder NOT TESTED. Legacy unowned orders preserved.                                                                                                                                                       |
+| 5.7 History/reorder             | #210 merged and main/Pages verified: own-user pagination, atomic current-rule reorder, explicit price reconfirmation. Mobile/desktop real component fixtures pass; Hosted customer checkout, positive own-history and mobile reorder passed on 3 October; exact test order/item cleaned. Legacy unowned orders preserved.                                                                                                                                                       |
 | Browser AI secret path          | Provider/key path and generation removed; local-only Smart Paste and guardrails validated. Actual predecessor Pages chunk exposed an Anthropic secret-format value: owner confirmed revocation and hosting-variable removal. Merged #211 exact production all-chunk scan passed; independent provider activity review NOT TESTED.                                                                                                                     |
 | Business settings               | #212 merged and main/Pages verified: schema-correct changed-key saves, returned-value verification, visible errors and no local fallback. Mobile/desktop fixtures pass; hosted seven-field reads/mobile Tab passed, save NOT TESTED to preserve real contacts.                                                                                                                                                                                        |
 | Service worker                  | Exact #213 production Chrome mobile/desktop control, deep links, offline privacy, manifest/icons and clear-storage/reinstall passed. Physical-device check NOT TESTED.                                                                                                                                                                                                                                                                                |
 | Public PDP activation           | #213 merged and main/Pages verified: both public gates apply even with admin read permissions; explicit editor draft access and guest privacy retained. Before-fix regression failed; four tests/browser fixtures/full CI pass.                                                                                                                                                                                                                       |
 
-Full CI passes on merged work; inspect exact current main SHA/checks rather than
-treating a dated pass as future approval. Positive/concurrent/rollback order tests
-passed free restored-schema staging (47 checks, 41 role assertions before/after).
-Six live denial/validation assertions passed in a rolled-back transaction with
-no persisted rows. Hosted Auth/PostgREST/Storage is not part of local staging.
+Full CI on #217 passed 297 application tests, 41 authorization assertions,
+12 minimum-order and 13 reconfirmation checks, guardrails, TypeScript and build.
+Earlier free restored-schema staging passed 47 checks plus concurrency/rollback;
+actual hosted Auth/checkout/Storage evidence is separate.
 
-Existing authorized Chrome admin session verified actual pricing, draft save,
-settings reads, inactive banner editing and same-value theme save. Only exact
-task-created rows were removed; original theme timestamp restored. Customer
-checkout/positive history still need an approved customer login. Hosted imports/
-upload passed after owner-enabled file access; three exact Storage test objects
-await target-project cleanup access, file permission awaits manual restoration.
-Settings writes not attempted against real contacts. Auth admin API remains invalid. No private credentials
-are stored in reports. Physical mobile hardware is unavailable for SW testing.
+Security: DB-only admin truth, profile protections and RLS retained. Customer remains
+active/non-admin; anon price and health-view SELECT grants are false. Primary and
+exact #217 Pages match all 34 JS hashes; known-format credential/service-role JWT,
+Anthropic endpoint and private-VITE scans are negative. Provider revocation/settings
+removal is owner-confirmed; independent activity review NOT TESTED.
 
-Owner work: actual catalogue information/photos/descriptions/SEO, the 11 Hinged
-Box price conflicts and any new business claim. Never invent these or publish
-drafts automatically. No paid service or infrastructure is introduced.
+Not tested: physical-device SW checks (no hardware), real contact settings writes
+and live price changes (preserve business data), actual WhatsApp send/fulfilment/payment
+(outside scope). Earlier guest cart fixtures/current regressions pass; today's hosted
+guest WhatsApp check used PDP enquiry. Automatic zero-byte Storage folder marker
+retained; it contains no image data.
+
+Owner work: real catalogue photos/descriptions/SEO and the 11 Hinged Box conflicts.
+Never invent these or publish drafts automatically. Final evidence-only PR/main
+checks/deployment must be observed before sign-off.

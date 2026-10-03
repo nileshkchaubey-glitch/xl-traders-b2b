@@ -1,5 +1,10 @@
 # Hosted admin validation follow-up — 2 October 2026
 
+3 October update: [hosted customer validation](2026-10-03-hosted-customer-validation.md)
+supersedes customer-login, Storage-access and file-permission limits below.
+Customer checkout/history/reorder passed; exact test images are gone and the
+owner confirmed file access OFF. The following dated evidence remains historical.
+
 Later actual [hosted file validation](2026-10-02-hosted-file-validation.md)
 passed CSV/XLS/XLSX and image upload. The earlier file-access blocker below is
 superseded for those explicitly observed checks; exact Storage cleanup remains

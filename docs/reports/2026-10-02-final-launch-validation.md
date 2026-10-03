@@ -1,5 +1,10 @@
 # Final launch implementation and validation — 2 October 2026
 
+3 October update: [hosted customer validation](2026-10-03-hosted-customer-validation.md)
+supersedes customer-login, Storage-access and file-permission limits below.
+Customer checkout/history/reorder passed; exact test images are gone and the
+owner confirmed file access OFF. The following dated evidence remains historical.
+
 All authorized code work is merged through runtime main
 `8050f1845a5c8e14afe13b56b300329861040cac` (#213). Main CI
 [36993399268](https://github.com/nileshkchaubey-glitch/xl-traders-b2b/actions/runs/36993399268)
