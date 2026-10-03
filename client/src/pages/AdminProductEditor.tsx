@@ -18,7 +18,6 @@ import CategoryCombobox from "@/components/admin/CategoryCombobox";
 import KeyboardShortcutsDialog from "@/components/admin/KeyboardShortcutsDialog";
 import { confirm } from "@/components/ui/confirm-dialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useAuthStore } from "@/lib/authStore";
 import { formatBytes, normalizeImageUrl } from "@/lib/imageUtils";
 import {
   categoryService,
@@ -43,19 +42,21 @@ import {
   type ProductForm,
 } from "@/lib/productForm";
 import OrderingFields from "@/components/admin/products/OrderingFields";
+import AdminAccess from "@/components/admin/AdminAccess";
 
 const UNITS = ["pcs", "box", "pack", "roll", "kg", "litre", "set"];
 const RETAINED_VALUES_KEY = "admin-product-retained-values";
 const EMPTY_FORM = EMPTY_PRODUCT_FORM;
 
 export default function AdminProductEditor() {
+  return <AdminAccess><AdminProductEditorContent /></AdminAccess>;
+}
+
+function AdminProductEditorContent() {
   const params = useParams<{ id?: string }>();
   const productId = params.id;
   const isEditing = !!productId;
   const [, setLocation] = useLocation();
-  const { isAuthenticated, isAdmin, isLoading, refreshProfile } =
-    useAuthStore();
-  const [accessChecked, setAccessChecked] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState<ProductForm>(EMPTY_FORM);
   const [initialForm, setInitialForm] = useState<ProductForm>(EMPTY_FORM);
@@ -290,31 +291,6 @@ export default function AdminProductEditor() {
 
   useEffect(() => {
     let cancelled = false;
-    async function verifyAccess() {
-      if (isLoading) return;
-      if (!isAuthenticated) {
-        setLocation("/auth");
-        return;
-      }
-      if (isAdmin) {
-        setAccessChecked(true);
-        return;
-      }
-      const admin = await refreshProfile();
-      if (!cancelled) {
-        if (admin) setAccessChecked(true);
-        else setLocation("/");
-      }
-    }
-    verifyAccess();
-    return () => {
-      cancelled = true;
-    };
-  }, [isAdmin, isAuthenticated, isLoading, refreshProfile, setLocation]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !accessChecked) return;
-    let cancelled = false;
     async function load() {
       const loadedCategories = await categoryService.getAll();
       if (!cancelled) setCategories(loadedCategories);
@@ -366,7 +342,7 @@ export default function AdminProductEditor() {
     return () => {
       cancelled = true;
     };
-  }, [accessChecked, draftKey, isAuthenticated, productId, setLocation]);
+  }, [draftKey, productId, setLocation]);
 
   useEffect(() => {
     if (!loadingProduct && dirty)
@@ -422,7 +398,7 @@ export default function AdminProductEditor() {
     );
   };
 
-  if (isLoading || loadingProduct || !isAuthenticated || !accessChecked) {
+  if (loadingProduct) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-red-600" />
